@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   pathForFile: (file) => webUtils.getPathForFile(file)
 }));
 contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
+  addTags:(ids,tags)=>ipcRenderer.invoke('favorites-add-tags',ids,tags),
+  acknowledgeTags:ids=>ipcRenderer.invoke('favorites-tags-ack',ids),
   list:()=>ipcRenderer.invoke('favorites-list'),
   add:(paths,tags=[])=>ipcRenderer.invoke('favorites-add',paths,tags),
   choose:kind=>ipcRenderer.invoke('favorites-choose',kind),
@@ -39,4 +41,10 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
     ipcRenderer.on('favorites-changed',listener);
     return ()=>ipcRenderer.removeListener('favorites-changed',listener);
   }
+}));
+
+contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ get:()=>ipcRenderer.invoke('desktop-settings-get'),configure:patch=>ipcRenderer.invoke('desktop-settings-set',patch),
+ resetWindow:()=>ipcRenderer.invoke('desktop-reset-window'),showFloating:()=>ipcRenderer.invoke('floating-show'),hideFloating:()=>ipcRenderer.invoke('floating-hide'),showMain:tag=>ipcRenderer.invoke('floating-main',tag),
+ onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));

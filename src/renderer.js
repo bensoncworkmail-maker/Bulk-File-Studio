@@ -537,6 +537,7 @@ async function init() {
     if(changed.includes('recursiveDefault')){$('recursive').checked=settings.recursiveDefault;$('favorite-recursive').checked=settings.recursiveDefault;}
     defaults.sortBy=settings.defaultSortBy;defaults.sortDirection=settings.defaultSortDirection;
     if(changed.includes('pageSize')){sourcePage=0;previewPage=0;window.favoritesUI.resetPage();}
+    if(changed.some(key=>key==='favoriteSort'||key==='favoriteDirection'))window.favoritesUI.resetPage();
     if(changed.includes('rememberRules')&&settings.rememberRules)saveRulePreferences();
     render();window.favoritesUI.render();
   }});

@@ -38,7 +38,7 @@ class WindowsContextMenu {
     if(enabled) {
       try {
         for(const root of ROOTS) {
-          for(const [name,value] of [['MUIVerb','收藏到 Bulk File Studio'],['Icon',`"${this.executable}",0`],['MultiSelectModel','Document']])this.invoke(['add',root,'/v',name,'/t','REG_SZ','/d',value,'/f']);
+          for(const [name,value] of [['MUIVerb','收藏到 Bulk File Studio (&B)'],['Icon',`"${this.executable}",0`],['MultiSelectModel','Document']])this.invoke(['add',root,'/v',name,'/t','REG_SZ','/d',value,'/f']);
           this.invoke(['add',root+'\\command','/ve','/t','REG_SZ','/d',this.command(),'/f']);
         }
       } catch(error) { for(const root of ROOTS)this.invoke(['delete',root,'/f'],true);throw error; }

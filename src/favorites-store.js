@@ -13,7 +13,7 @@ function inspectPath(filepath) {
   assertLocalPath(filepath);
   const stat=fs.lstatSync(filepath,{bigint:true});
   if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) throw new Error('只支援一般檔案及資料夾，不包含符號連結');
-  return {type:stat.isDirectory()?'folder':'file',identity:identity(stat)};
+  return {type:stat.isDirectory()?'folder':'file',identity:identity(stat),size:stat.isFile()?Number(stat.size):null,modifiedMs:Number(stat.mtimeMs)};
 }
 function cleanTags(tags) {
   if (!Array.isArray(tags) || tags.some(tag=>typeof tag!=='string')) throw new Error('標籤必須是文字清單');
@@ -57,10 +57,10 @@ class FavoritesStore {
   state(item) {
     try {
       const actual=inspectPath(item.path);
-      return actual.type===item.type && sameIdentity(item.identity,actual.identity) ? {status:'ready',reason:''} :
-        {status:'replaced',reason:'這個位置的項目可能已被替換，請編輯收藏並重新連結後再使用'};
+      return actual.type===item.type && sameIdentity(item.identity,actual.identity) ? {status:'ready',reason:'',size:actual.size,modifiedMs:actual.modifiedMs} :
+        {status:'replaced',size:null,modifiedMs:null,reason:'這個位置的項目可能已被替換，請編輯收藏並重新連結後再使用'};
     } catch(e) {
-      return {status:e.code==='ENOENT'||e.code==='ENOTDIR'?'missing':'unavailable',reason:e.code==='ENOENT'||e.code==='ENOTDIR'?'找不到位置；請重新連結或稍後接回磁碟':e.message};
+      return {size:null,modifiedMs:null,status:e.code==='ENOENT'||e.code==='ENOTDIR'?'missing':'unavailable',reason:e.code==='ENOENT'||e.code==='ENOTDIR'?'找不到位置；請重新連結或稍後接回磁碟':e.message};
     }
   }
   list() { return this.read().items.map(item=>({...item,...this.state(item)})); }
@@ -76,7 +76,7 @@ class FavoritesStore {
     const data=this.read(),normalizedTags=cleanTags(tags),issues=[];
     const known=new Map();
     for(const item of data.items){const key=pathKey(item.path);if(!known.has(key))known.set(key,[]);known.get(key).push(item);}
-    let added=0,existing=0,changed=false;
+    let added=0,existing=0,changed=false;const ids=new Set();
     for(const input of inputs) {
       try {
         const checked=inspectPath(input),filepath=path.resolve(input);
@@ -86,16 +86,16 @@ class FavoritesStore {
           if(!sameIdentity(prior.identity,checked.identity)||prior.type!==checked.type)throw new Error('此位置已收藏，但檔案可能被替換；請使用重新連結');
           const merged=cleanTags([...prior.tags,...normalizedTags]);
           if(JSON.stringify(merged)!==JSON.stringify(prior.tags)){prior.tags=merged;prior.updatedAt=new Date().toISOString();changed=true;}
-          existing++;continue;
+          ids.add(prior.id);existing++;continue;
         }
         if(data.items.length>=MAX_FAVORITES)throw new Error(`最多保留 ${MAX_FAVORITES} 個收藏`);
         const now=new Date().toISOString();
         const item={id:crypto.randomUUID(),path:filepath,...checked,label:'',tags:[...normalizedTags],createdAt:now,updatedAt:now};
-        data.items.push(item);candidates.push(item);known.set(pathKey(filepath),candidates);added++;changed=true;
+        ids.add(item.id);data.items.push(item);candidates.push(item);known.set(pathKey(filepath),candidates);added++;changed=true;
       } catch(e) { issues.push(`${String(input)}：${e.message}`); }
     }
     if(changed)this.write(data);
-    return {added,existing,issues};
+    return {added,existing,issues,ids:[...ids]};
   }
   selection(data,ids) {
     if(!Array.isArray(ids)||!ids.length||ids.length>MAX_FAVORITES||ids.some(id=>typeof id!=='string'))throw new Error('請先選取收藏項目');
@@ -121,6 +121,12 @@ class FavoritesStore {
       if(linked){item.path=path.resolve(changes.path);item.identity=linked.identity;}
       item.updatedAt=new Date().toISOString();
     }
+    this.write(data);return {updated:items.length};
+  }
+  addTags(ids,tags) {
+    const data=this.read(),items=this.selection(data,ids),normalized=cleanTags(tags);
+    const updates=items.map(item=>({item,tags:cleanTags([...item.tags,...normalized])}));
+    for(const update of updates){update.item.tags=update.tags;update.item.updatedAt=new Date().toISOString();}
     this.write(data);return {updated:items.length};
   }
   remove(ids) {

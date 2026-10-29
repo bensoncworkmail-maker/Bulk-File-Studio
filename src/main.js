@@ -1,7 +1,8 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
 const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
+const {DesktopState}=require('./desktop-state');
 const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -13,19 +14,25 @@ const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('.
 if(app.isPackaged){const profile=path.join(app.getPath('appData'),'Bulk Rename Studio');fs.mkdirSync(profile,{recursive:true});app.setPath('userData',profile);}
 for(const flag of ['disable-background-networking','disable-component-update','disable-domain-reliability','dns-prefetch-disable'])app.commandLine.appendSwitch(flag);
 
-let win;
+let win, floating, desktop, shortcutWarning='';
+const pendingTagIds=new Set();
+let queuedFilter=null;
+const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
+const floatingDefaults={width:390,height:560,minWidth:300,minHeight:280};
 let favorites;
 let contextMenu;
 let queuedFavorites = favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
 let favoriteNotice = null;
-function notifyFavorites(payload = {}) { win?.webContents.send('favorites-changed', payload); }
+function send(window,channel,payload){if(window&&!window.isDestroyed())window.webContents.send(channel,payload);}
+function notifyFavorites(payload = {}) {send(win,'favorites-changed',payload);send(floating,'favorites-changed',{});}
 function receiveFavorites(argv, transferredPaths) {
   queuedFavorites.push(...(transferredPaths===undefined?favoriteArguments(argv):validFavoritePaths(transferredPaths)));
   if (queuedFavorites.length && favorites) {
     favoriteActivation = true;
     try {
       const result = favorites.addPaths(queuedFavorites);
+      if(desktop.settings.explorerTagPrompt)for(const id of result.ids)pendingTagIds.add(id);
       queuedFavorites = [];
       favoriteNotice = {message:`已收藏 ${result.added} 項，${result.existing} 項已在收藏中。`,issues:result.issues};
     } catch (e) { favoriteNotice = {message:'右鍵收藏未完成',issues:[e.message]}; }
@@ -56,7 +63,7 @@ const saveHistory = (history) => {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1520, height: 930, minWidth: 920, minHeight: 650,
+    ...desktop.bounds('main',screen.getAllDisplays(),mainDefaults),
     backgroundColor: '#0b1020',
     title: 'Bulk File Studio',
     autoHideMenuBar: true,
@@ -66,25 +73,72 @@ function createWindow() {
       devTools: !app.isPackaged
     }
   });
-  installOfflinePolicy(win.webContents.session,__dirname);
-  win.webContents.on('will-navigate',event=>event.preventDefault());
-  win.webContents.on('will-attach-webview',event=>event.preventDefault());
-  win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+  secureWindow(win);
+  desktop.attach('main',win,error=>send(win,'desktop-settings-changed',{error:error.message}));
+  if(desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized)win.maximize();
+  win.on('close',()=>{if(floating&&!floating.isDestroyed()){try{desktop.record('floating',floating);}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
+  win.on('closed',()=>{win=null;});
   win.loadFile(path.join(__dirname, 'index.html'));
+}
+
+function secureWindow(window){
+  installOfflinePolicy(window.webContents.session,__dirname);
+  window.webContents.on('will-navigate',event=>event.preventDefault());
+  window.webContents.on('will-attach-webview',event=>event.preventDefault());
+  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+}
+function showFloating(toggle=false){
+  if(floating&&!floating.isDestroyed()){
+    if(toggle&&floating.isVisible()){floating.hide();return;}
+    floating.show();floating.focus();return;
+  }
+  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),floatingDefaults),frame:false,title:'Bulk File Studio · 浮動收藏',autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
+  secureWindow(floating);desktop.attach('floating',floating);
+  floating.on('closed',()=>{floating=null;});floating.loadFile(path.join(__dirname,'floating.html'));
+}
+function registerShortcut(){
+  globalShortcut.unregisterAll();const accelerator=desktop.settings.floatingShortcut;
+  if(!accelerator)return '';
+  try{return globalShortcut.register(accelerator,()=>showFloating(true))?'':'浮動工具快捷鍵已被其他程式使用，請在設定選擇另一組。';}
+  catch(e){return '無法註冊浮動工具快捷鍵：'+e.message;}
 }
 
 if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites})) {
 app.on('second-instance', (_, argv, workingDirectory, additionalData) => receiveFavorites(argv,additionalData?.favoritePaths));
 app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
-    if(event?.sender!==win?.webContents||event?.senderFrame?.url!==pathToFileURL(path.join(__dirname,'index.html')).href)throw new Error('不受信任的操作來源');
+    const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
+    const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
+    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main'];
+    if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
+  desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
-  handle('favorites-list', () => {
-    const result={items:favorites.list(),activate:favoriteActivation,notice:favoriteNotice};
-    favoriteActivation=false;favoriteNotice=null;return result;
+  handle('favorites-list', event => {
+    if(event.sender===floating?.webContents)return {items:favorites.list()};
+    const result={items:favorites.list(),activate:favoriteActivation,notice:favoriteNotice,promptIds:desktop.settings.explorerTagPrompt?[...pendingTagIds]:[],filterTag:queuedFilter};
+    favoriteActivation=false;favoriteNotice=null;queuedFilter=null;return result;
+  });
+  handle('favorites-add-tags',(_,ids,tags)=>{const result=favorites.addTags(ids,tags);notifyFavorites();return result;});
+  handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
+  handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning}));
+  handle('desktop-settings-set',(_,patch)=>{
+    const previous=desktop.settings;const settings=desktop.update(patch);
+    if(previous.floatingShortcut!==settings.floatingShortcut)shortcutWarning=registerShortcut();
+    if(!settings.explorerTagPrompt)pendingTagIds.clear();
+    const warning=shortcutWarning;
+    if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);
+    const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+  });
+  handle('desktop-reset-window',()=>{win.unmaximize();win.setBounds(desktop.bounds('reset',screen.getAllDisplays(),mainDefaults));});
+  handle('floating-show',()=>showFloating());
+  handle('floating-hide',()=>floating?.hide());
+  handle('floating-main',(_,tag)=>{
+    if(tag!==null&&(typeof tag!=='string'||tag.length>32))throw new Error('標籤無效');
+    if(!win||win.isDestroyed())createWindow();if(win.isMinimized())win.restore();win.show();win.focus();
+    favoriteActivation=true;queuedFilter={tag};notifyFavorites({activate:true});
   });
   handle('favorites-add', (_, paths, tags) => {
     const result=favorites.addPaths(paths,tags);notifyFavorites();return result;
@@ -212,8 +266,11 @@ app.whenReady().then(() => {
   });
   createWindow();
   receiveFavorites([]);
+  shortcutWarning=registerShortcut();if(shortcutWarning)send(win,'desktop-settings-changed',{warning:shortcutWarning});
+  if(desktop.settings.floatingStartup)showFloating();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
+app.on('will-quit',()=>globalShortcut.unregisterAll());
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();
