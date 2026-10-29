@@ -8,9 +8,10 @@
     if(!input||typeof input!=='object')input={};
     const out={...DEFAULTS};
     const choices={theme:['light','dark'],fontSize:['12','13','15','17','19'],density:['compact','comfortable'],
-      tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],rulesWidth:['360','420','500'],pageSize:[100,250,500],startPage:['rename','favorites'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
+      tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],pageSize:[100,250,500],startPage:['rename','favorites'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
     for(const [key,value] of Object.entries(DEFAULTS)) {
-      if(key==='tagPanelWidth'){if(typeof input[key]==='number'&&Number.isFinite(input[key]))out[key]=Math.round(Math.max(140,Math.min(480,input[key])));}
+      if(key==='rulesWidth'){const width=typeof input[key]==='number'?input[key]:typeof input[key]==='string'&&/^\d+$/.test(input[key])?Number(input[key]):NaN;if(Number.isFinite(width))out[key]=String(Math.round(Math.max(280,Math.min(720,width))));}
+      else if(key==='tagPanelWidth'){if(typeof input[key]==='number'&&Number.isFinite(input[key]))out[key]=Math.round(Math.max(140,Math.min(480,input[key])));}
       else if(key==='favoriteColumns'){out[key]=globalThis.favoritesModel?globalThis.favoritesModel.columns(input[key]):require('./favorites-model').columns(input[key]);}
       else if(typeof value==='boolean'){if(typeof input[key]==='boolean')out[key]=input[key];}
       else if(choices[key].includes(input[key]))out[key]=input[key];
@@ -25,6 +26,7 @@
     } catch {return {...DEFAULTS};}
   }
   function applyRoot(root,settings) {
+    root.style.setProperty('--rules-width',settings.rulesWidth+'px');
     root.style.setProperty('--tag-panel-width',settings.tagPanelWidth+'px');
     root.dataset.showTips=String(settings.showTips);
     root.dataset.rulesWidth=settings.rulesWidth;

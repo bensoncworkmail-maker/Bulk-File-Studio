@@ -3,6 +3,7 @@ const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, scre
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
 const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
+const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
 const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
@@ -110,7 +111,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-collect','floating-import'];
+    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-collect','floating-import'];
     if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
@@ -126,6 +127,12 @@ app.whenReady().then(() => {
   handle('favorites-import-paths',(_,text,tags,token)=>{const result=importPathList(favorites,text,tags,token);notifyFavorites();return result;});
   handle('favorites-add-tags',(_,ids,tags)=>{const result=favorites.addTags(ids,tags);notifyFavorites();return result;});
   handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
+  handle('export-settings',async(_,input)=>{
+    const data=createSettingsExport(input,desktop.settings,app.getVersion());
+    const result=await dialog.showSaveDialog(win,{title:'匯出設定 JSON',defaultPath:`BulkFileStudio-settings-${app.getVersion()}.json`,filters:[{name:'JSON 設定檔',extensions:['json']}]});
+    if(result.canceled||!result.filePath)return {canceled:true};
+    writeSettingsExport(result.filePath,data);return {canceled:false,path:result.filePath};
+  });
   handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning}));
   handle('desktop-settings-set',(_,patch)=>{
     const previous=desktop.settings;const settings=desktop.update(patch);
@@ -149,6 +156,10 @@ app.whenReady().then(() => {
     const known=favorites.read().items.flatMap(item=>item.tags).find(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase());
     if(!known)throw new Error('標籤已不存在，請重新整理後再試');return [known];
   };
+  handle('floating-view',(_,mode)=>{
+    if(!['list','icons'].includes(mode))throw new Error('不支援的浮動檢視模式');
+    const settings=desktop.update({floatingView:mode}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+  });
   handle('floating-pin',()=>{
     const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);
     const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;

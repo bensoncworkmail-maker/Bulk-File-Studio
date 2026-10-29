@@ -531,7 +531,7 @@ async function init() {
   try { const saved=initialSettings.rememberRules?JSON.parse(localStorage.getItem('brs-rules-v1') || 'null'):null;applyRules(saved && typeof saved==='object' ? {...defaults,...saved}:defaults); }
   catch {applyRules(defaults);}
   $('recursive').checked=initialSettings.recursiveDefault;$('favorite-recursive').checked=initialSettings.recursiveDefault;
-  window.settingsUI.init({isBusy:()=>busy,showFailure,onChange:(settings,changed)=>{
+  window.settingsUI.init({isBusy:()=>busy,showFailure,getConfiguration:()=>({rules:getRules(),presets:savedPresets}),onChange:(settings,changed)=>{
     if(changed.includes('theme'))applyTheme(settings.theme);
     if(changed.includes('fontSize'))applyFontSize(settings.fontSize);
     if(changed.includes('recursiveDefault')){$('recursive').checked=settings.recursiveDefault;$('favorite-recursive').checked=settings.recursiveDefault;}
@@ -546,6 +546,7 @@ async function init() {
     const destinations=new Map(result.moves.map(move=>[norm(move.source),move.destination]));
     files=files.map(file=>destinations.get(norm(file))||file);selected.clear();history=await api.history().catch(()=>null);await updatePreview();await window.favoritesUI.refresh();showToast(`已搬移 ${result.changed} 個檔案`,'success');
   }});
+  window.sidebarResize.initRules({getWidth:()=>Number(window.settingsUI.get().rulesWidth),save:value=>window.settingsUI.update({rulesWidth:String(value)}),isBusy:()=>busy});
   $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}

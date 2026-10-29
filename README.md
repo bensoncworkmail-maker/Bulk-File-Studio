@@ -6,6 +6,39 @@
 
 使用 **Electron + Node.js** 開發的繁體中文 Windows 桌面工具：收藏檔案／資料夾位置、使用標籤分類，需要時批次重新命名或搬移，先預覽及檢查衝突。**程式本身離線運作，沒有上傳、遙測或自動更新。**
 
+## v1.8.0：浮動檢視、命名規則寬度與設定匯出
+
+### 浮動工具清單／圖示模式
+
+在浮動工具上方按「清單」或「圖示」，亦可在「設定 → 浮動收藏工具 → 檢視模式」選擇。模式會記住至下次啟動，主視窗設定與浮動工具同步。
+
+- 清單模式顯示名稱、完整位置及操作按鈕。
+- 圖示模式以檔案／資料夾圖示排列卡片，保留開啟、定位、複製路徑；滑鼠停在名稱可查看完整路徑。
+- 兩種模式使用相同標籤篩選、搜尋及每頁 100 筆分頁。切換檢視保留目前標籤、搜尋及頁次。
+
+### 命名規則面板可拖曳調寬
+
+拖曳命名規則面板的**左邊界**調整寬度；往左拖會加寬，往右拖會縮窄。放開後保留，雙擊還原 **420 px**。分隔線可用 Tab 聚焦，再以方向鍵每次調整 10 px、Shift+方向鍵調整 50 px；Home／End 選擇最小／最大值。
+
+「設定 → 工作區與清單」亦提供 **280–720 px** 的連續寬度。舊版 360／420／500 px 偏好會沿用。窄視窗會限制規則區的實際寬度，為預覽清單保留空間；收合規則或使用專注清單時，也會隱藏分隔線。
+
+### 匯出設定 JSON
+
+在「設定 → 資料與設定」按「匯出設定 JSON」，選擇本機儲存位置。匯出當下的設定，包含：
+
+| JSON 欄位 | 內容 |
+|---|---|
+| `application`／`exportedAt` | 程式版本及 UTC 匯出時間 |
+| `settings` | 主題、字體、密度、面板寬度、欄位、排序、點擊模式及一般偏好 |
+| `desktop` | 視窗記憶開關、浮動檢視、置頂、啟動顯示、全域快捷鍵及右鍵後選標籤偏好 |
+| `shortcuts` | 目前自訂的收藏快捷鍵 |
+| `naming.activeRules` | 工作台目前的命名規則，即使沒有設定重開後保留，仍可匯出 |
+| `naming.presets` | 已儲存的自訂命名範本 |
+
+檔案使用 UTF-8、可閱讀的 JSON，附 `format` 與 `schemaVersion`。不包含收藏清單、檔案內容、復原紀錄、螢幕座標或 Windows 右鍵註冊命令。既有儲存檔會經使用者選取／覆寫確認後，以暫存檔置換；儲存失敗時保留原檔案。匯出也受本機路徑及頁面來源驗證保護，浮動視窗不能直接執行設定匯出。
+
+目前提供匯出，尚未提供設定 JSON 匯入介面。
+
 ## v1.7.0：路徑清單匯入、標籤面板調寬與浮動快捷操作
 
 ### 從多行完整路徑匯入收藏
@@ -97,8 +130,8 @@ Windows 右鍵項目加入快捷字母 **B**。在檔案總管選取項目，以
 
 一般使用者請閱讀 [首次安裝及離線使用](INSTALL.md)。取得建置完成的 **Setup 安裝版** 或 **Portable 可攜版** 後，即可在沒有 Node.js／npm、未連網的 Windows 電腦安裝或執行。
 
-- 安裝版：`BulkFileStudio-Setup-1.7.0-x64.exe`。
-- 可攜版：`BulkFileStudio-Portable-1.7.0-x64.exe`。
+- 安裝版：`BulkFileStudio-Setup-1.8.0-x64.exe`。
+- 可攜版：`BulkFileStudio-Portable-1.8.0-x64.exe`。
 - 兩種目標分別設定檔名，避免同版本、同架構的 EXE 互相覆蓋。以上為 x64 檔名範例，架構依建置參數決定。
 - Node.js／npm 及依賴下載屬於開發、建置環境；正式程式不安裝執行環境、不下載元件、不自行檢查更新。
 - 發行時交付建置完成的 EXE；GitHub 的「Source code ZIP」只包含原始碼。此原始碼更新本身不代表已產生或驗證 Windows EXE。
@@ -323,8 +356,8 @@ npm run dist:win
 
 | 目標 | x64 範例輸出 | 用途 |
 |---|---|---|
-| `nsis` | `BulkFileStudio-Setup-1.7.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
-| `portable` | `BulkFileStudio-Portable-1.7.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
+| `nsis` | `BulkFileStudio-Setup-1.8.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
+| `portable` | `BulkFileStudio-Portable-1.8.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
 
 只產生安裝版可執行 `npm run dist:setup`；只產生可攜版可執行 `npm run dist:portable`。要指定 x64 架構，執行 `npm run dist:win -- --x64`。
 
@@ -416,3 +449,5 @@ npm start
 1.6 新增 `src/desktop-state.js`（視窗與原生偏好）、`src/favorites-model.js`（標籤／檔案排序、資訊欄與大小格式）、`src/floating.html`／`floating.js`／`floating.css`（浮動工具）。`tests/desktop-favorites.test.js` 覆蓋多螢幕還原、偏好保留、排序、即時中繼資料及批次標籤合併；Main IPC 測試另驗證浮動視窗權限及 Explorer 待處理標籤請求。實際 Windows 視窗、全域快捷鍵、右鍵字母及 CSS 版面仍需實機驗證。
 
 1.7 新增 `src/path-import-core.js`（每行路徑解析、驗證預覽及匯入）、`src/path-import.js`（確認流程）與 `src/sidebar-resize.js`（拖曳／鍵盤寬度控制）。`tests/path-import.test.js` 驗證解析、重複、標籤合併、過期預覽及離線路徑限制；IPC 測試涵蓋浮動專用 API 與主視窗匯入轉交。
+
+1.8 新增 `src/settings-export.js`（設定格式白名單與原子寫入）、`tests/settings-export.test.js`（快照內容、Unicode、寫入失敗與資料排除），並把 `src/sidebar-resize.js` 共用於標籤及規則面板。Windows 實際圖示版面、分隔線拖曳及儲存對話框仍需實機驗證。

@@ -239,3 +239,14 @@ html,body { height:100%; overflow:hidden; }
 .path-import-row.error strong { color:var(--bad); }
 .path-import-row.new strong { color:var(--good); }
 #path-import-status { color:var(--accent); font-size:calc(var(--font-scale)*12px); line-height:1.7; margin-top:9px; }
+/* 1.8: drag the rules panel without reducing the preview to a fixed width. */
+#rename-workspace { grid-template-columns:minmax(0,1fr) 8px min(var(--rules-width,420px),46vw); grid-template-areas:"preview rules-resize rules"; column-gap:4px; }
+:root[data-source-open="true"] #rename-workspace { grid-template-columns:190px minmax(0,1fr) 8px min(var(--rules-width,420px),42vw); grid-template-areas:"source preview rules-resize rules"; }
+#rules-panel-resizer { grid-area:rules-resize; }
+:root[data-rules-open="false"] #rename-workspace { grid-template-columns:minmax(0,1fr); grid-template-areas:"preview"; }
+:root[data-source-open="true"][data-rules-open="false"] #rename-workspace { grid-template-columns:190px minmax(0,1fr); grid-template-areas:"source preview"; }
+:root[data-rules-open="false"] #rules-panel-resizer { display:none; }
+.resizing-rules,.resizing-rules * { cursor:col-resize!important; user-select:none!important; }
+.resizing-rules #rules-panel-resizer::after { background:var(--accent); }
+#settings-rules-width-value { color:var(--accent); margin-left:6px; }
+#settings-export-status { color:var(--good); overflow-wrap:anywhere; }

@@ -36,7 +36,7 @@ function harness(t, overrides = {}) {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
     __dirname:path.dirname(main), process
   }, { filename:main });
-  return { dir, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
+  return { dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
 test('IPC persists verified history, blocks edited files, and allows retry', t => {
@@ -179,3 +179,6 @@ test('floating quick actions pin, collect with an existing tag and route path im
  rawHandlers.get('floating-import')(event,'work');assert.equal(mini.visible,false);rawHandlers.get('favorites-list')(event);assert.deepEqual(Array.from(handlers.get('favorites-list')().importRequest.tags),['Work']);assert.equal(handlers.get('favorites-list')().importRequest,null);
  assert.throws(()=>rawHandlers.get('favorites-import-preview')(event,b,[]),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{theme:'light'}),/不受信任/);
 });
+
+test('floating list/icon mode is validated, persisted and cannot export settings',t=>{const {handlers,rawHandlers,windows,dir}=harness(t);handlers.get('floating-show')();const mini=windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};assert.equal(rawHandlers.get('floating-view')(event,'icons').settings.floatingView,'icons');assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'desktop-state.json'),'utf8')).settings.floatingView,'icons');assert.throws(()=>rawHandlers.get('floating-view')(event,'other'),/不支援/);assert.throws(()=>rawHandlers.get('export-settings')(event,{}),/不受信任/);assert.equal(handlers.get('desktop-settings-get')().floatingView,'icons');});
+test('settings export IPC supports cancel and writes only a normalized configuration snapshot',async t=>{const {dir,handlers,dialog}=harness(t);dialog.showSaveDialog=async()=>({canceled:true});assert.equal((await handlers.get('export-settings')(null,{})).canceled,true);const filename=path.join(dir,'chosen.json');dialog.showSaveDialog=async()=>({canceled:false,filePath:filename});const result=await handlers.get('export-settings')(null,{settings:{rulesWidth:'630'},rules:{prefix:'new_'},favorites:['/private/file']});assert.equal(result.path,filename);const saved=JSON.parse(fs.readFileSync(filename,'utf8'));assert.equal(saved.settings.rulesWidth,'630');assert.equal(saved.naming.activeRules.prefix,'new_');assert.equal(saved.application.version,require('../package.json').version);assert.equal(JSON.stringify(saved).includes('/private/file'),false);});

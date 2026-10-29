@@ -1,6 +1,7 @@
 'use strict';
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
+  exportSettings:input=>ipcRenderer.invoke('export-settings',input),
   appInfo:()=>ipcRenderer.invoke('app-info'),
   chooseMoveFolder:()=>ipcRenderer.invoke('choose-move-folder'),
   movePreview:(paths,folder)=>ipcRenderer.invoke('move-preview',paths,folder),
@@ -47,6 +48,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ setFloatingView:mode=>ipcRenderer.invoke('floating-view',mode),
  importPaths:tag=>ipcRenderer.invoke('floating-import',tag),togglePin:()=>ipcRenderer.invoke('floating-pin'),
  get:()=>ipcRenderer.invoke('desktop-settings-get'),configure:patch=>ipcRenderer.invoke('desktop-settings-set',patch),
  resetWindow:()=>ipcRenderer.invoke('desktop-reset-window'),showFloating:()=>ipcRenderer.invoke('floating-show'),hideFloating:()=>ipcRenderer.invoke('floating-hide'),showMain:tag=>ipcRenderer.invoke('floating-main',tag),

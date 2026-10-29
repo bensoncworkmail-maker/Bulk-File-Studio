@@ -9,6 +9,7 @@
     defaultSortBy:'settings-sort-by',defaultSortDirection:'settings-sort-direction'};
   function syncControls() {
     applyRoot(document.documentElement,settings);
+    $('settings-rules-width-value').textContent=settings.rulesWidth+' px';
     $('settings-tag-width-value').textContent=settings.tagPanelWidth+' px';
     for(const [key,id] of Object.entries(controls)){
       const el=$(id);if(typeof settings[key]==='boolean')el.checked=settings[key];else el.value=settings[key];
@@ -33,7 +34,7 @@
   }
   function init(options) {
     callbacks=options;syncControls();window.studioShortcuts.init();
-    const nativeControls={rememberWindow:'settings-remember-window',explorerTagPrompt:'settings-explorer-tag',floatingOnTop:'settings-floating-top',floatingStartup:'settings-floating-startup',floatingShortcut:'settings-floating-shortcut'};
+    const nativeControls={rememberWindow:'settings-remember-window',explorerTagPrompt:'settings-explorer-tag',floatingView:'settings-floating-view',floatingOnTop:'settings-floating-top',floatingStartup:'settings-floating-startup',floatingShortcut:'settings-floating-shortcut'};
     const syncNative=values=>{for(const [key,id] of Object.entries(nativeControls)){if(typeof values[key]==='boolean')$(id).checked=values[key];else $(id).value=values[key];}if(values.shortcutWarning)$('desktop-settings-status').textContent=values.shortcutWarning;};
     window.desktopAPI.get().then(syncNative).catch(e=>{$('desktop-settings-status').textContent=String(e.message||e);});
     window.desktopAPI.onChanged(result=>{if(result.settings)syncNative(result.settings);$('desktop-settings-status').textContent=result.error||result.warning||'視窗與浮動工具設定已儲存';});
@@ -42,6 +43,7 @@
     for(const id of ['btn-floating','btn-settings-floating'])$(id).addEventListener('click',()=>window.desktopAPI.showFloating().catch(e=>callbacks.showFailure('無法開啟浮動收藏',e)));
     $('btn-window-reset').addEventListener('click',()=>window.desktopAPI.resetWindow().catch(e=>callbacks.showFailure('無法還原視窗',e)));
     $('btn-settings-columns').addEventListener('click',()=>window.favoritesUI.openColumns());
+    $('settings-rules-width').addEventListener('input',event=>{$('settings-rules-width-value').textContent=event.target.value+' px';});
     $('settings-tag-panel-width').addEventListener('input',event=>{$('settings-tag-width-value').textContent=event.target.value+' px';});
     $('btn-shortcuts-reset').addEventListener('click',()=>window.studioShortcuts.reset());
     window.renameAPI.appInfo().then(info=>{$('info-version').textContent='v'+info.version;}).catch(()=>{});
@@ -50,7 +52,13 @@
     });
     $('btn-settings-reset').addEventListener('click',()=>$('settings-reset-dialog').showModal());
     $('btn-settings-reset-cancel').addEventListener('click',()=>$('settings-reset-dialog').close());
-    $('btn-settings-reset-confirm').addEventListener('click',()=>{$('settings-reset-dialog').close();update({...DEFAULTS});window.desktopAPI.configure({rememberWindow:true,explorerTagPrompt:true,floatingOnTop:true,floatingStartup:false,floatingShortcut:'CommandOrControl+Alt+B'}).catch(e=>callbacks.showFailure('無法還原視窗設定',e));});
+    $('btn-settings-reset-confirm').addEventListener('click',()=>{$('settings-reset-dialog').close();update({...DEFAULTS});window.desktopAPI.configure({rememberWindow:true,explorerTagPrompt:true,floatingView:'list',floatingOnTop:true,floatingStartup:false,floatingShortcut:'CommandOrControl+Alt+B'}).catch(e=>callbacks.showFailure('無法還原視窗設定',e));});
+    $('btn-settings-export').addEventListener('click',async()=>{
+      if(callbacks.isBusy())return;const button=$('btn-settings-export');button.disabled=true;
+      try{const configuration=callbacks.getConfiguration();const result=await window.renameAPI.exportSettings({settings:{...settings},shortcuts:window.studioShortcuts.getBindings(),rules:configuration.rules,presets:configuration.presets});
+        $('settings-export-status').textContent=result.canceled?'已取消匯出':'已匯出：'+result.path;
+      }catch(e){callbacks.showFailure('無法匯出設定',e);}finally{button.disabled=false;}
+    });
     $('btn-settings-open-data').addEventListener('click',async()=>{
       try {await window.renameAPI.openDataLocation();}catch(e){callbacks.showFailure('無法開啟資料位置',e);}
     });
