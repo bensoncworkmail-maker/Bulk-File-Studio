@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Bulk Rename Studio</title>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="themes.css">
 </head>
 <body>
   <div class="app-shell">
@@ -13,9 +15,10 @@
       <div class="brand-wrap">
         <div class="brand-icon">↗</div>
         <div><div class="brand-name">Bulk Rename <span>Studio</span></div><div class="brand-sub">批次檔案重新命名工作台</div></div>
-        <span class="version">v1.0</span>
+        <span class="version">v1.1</span>
       </div>
       <div class="header-right">
+        <label class="theme-picker"><span>外觀</span><select id="theme-select" aria-label="外觀主題"><option value="light">☀ 淺色</option><option value="dark">☾ 深色</option></select></label>
         <span class="local-state"><span class="state-dot"></span>完全離線 · 僅處理本機檔案</span>
         <button class="btn btn-ghost" id="btn-undo" title="復原上一批重新命名" disabled>↶ <span>復原上一批</span></button>
         <button class="btn btn-ghost" id="btn-export" title="匯出預覽為 CSV" disabled>↓ 匯出 CSV</button>
@@ -107,7 +110,8 @@
     </footer>
   </div>
   <div id="drop-overlay" class="drop-overlay hidden"><div class="drop-overlay-inner"><div>⇧</div><strong>放開以加入檔案</strong><span>支援多個檔案及資料夾</span></div></div>
-  <div class="modal-backdrop hidden" id="confirm-modal"><div class="modal"><div class="modal-icon">✦</div><h2>確認重新命名？</h2><p id="modal-description">即將更改所選檔案名稱。</p><div class="modal-note">所有衝突必須先解決；成功後可使用「復原上一批」。</div><div class="modal-buttons"><button class="btn btn-secondary" id="btn-cancel">取消</button><button class="btn btn-primary" id="btn-confirm">確認並執行</button></div></div></div>
+  <dialog id="confirm-modal" class="modal" aria-labelledby="modal-title" aria-describedby="modal-description modal-note"><div class="modal-icon">✦</div><h2 id="modal-title">確認重新命名？</h2><p id="modal-description">即將更改所選檔案名稱。</p><div id="modal-note" class="modal-note">所有衝突必須先解決；成功後可使用「復原上一批」。</div><div class="modal-buttons"><button class="btn btn-secondary" id="btn-cancel" autofocus>取消</button><button class="btn btn-primary" id="btn-confirm">確認並執行</button></div></dialog>
+  <dialog id="error-dialog" class="modal error-dialog" aria-labelledby="error-title"><h2 id="error-title">操作未完成</h2><p>請核對以下原因後再處理。程式不會強制覆蓋其他檔案；復原紀錄會保留。</p><pre id="error-details"></pre><button id="btn-error-close" class="btn btn-secondary" autofocus>關閉</button></dialog>
   <div id="toast-container" aria-live="polite"></div>
   <script src="renderer.js" defer></script>
 </body>

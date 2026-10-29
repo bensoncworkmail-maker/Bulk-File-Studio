@@ -32,6 +32,7 @@ let busy = false;
 let debounceTimer = null;
 let revision = 0;
 let noticeTimeout;
+let pendingAction = 'rename';
 
 const norm = (s) => s.normalize('NFC').toLocaleLowerCase('en-US');
 const basename = (p) => p.split(/[\\/]/).pop();
@@ -66,6 +67,18 @@ function showToast(message, type = '') {
   node.textContent = message;
   $('toast-container').appendChild(node);
   setTimeout(() => node.remove(), 5300);
+}
+function showFailure(title, error) {
+  $('error-title').textContent = title;
+  $('error-details').textContent = withoutPrefix(error);
+  if (!$('error-dialog').open) $('error-dialog').showModal();
+}
+function applyTheme(theme) {
+  const value = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = value;
+  $('theme-select').value = value;
+  try { localStorage.setItem('brs-theme', value); } catch { /* Session-only choice. */ }
+  api.setTheme(value).catch(e => showToast('原生視窗主題未能更新：' + withoutPrefix(e), 'error'));
 }
 function saveRulePreferences() {
   try { localStorage.setItem('brs-rules-v1', JSON.stringify(rules)); } catch {} 
@@ -262,14 +275,17 @@ function selectFiltered(all) {
   enqueuePreview();render();
 }
 function confirmRename() {
-  if (busy || !latest.counts.ready || latest.counts.error) return;
+  if (busy || $('confirm-modal').open || $('error-dialog').open || !latest.counts.ready || latest.counts.error) return;
+  pendingAction = 'rename';
   const ready = latest.counts.ready;
+  $('modal-title').textContent = '確認重新命名？';
   $('modal-description').textContent = `即將對 ${ready} 個檔案重新命名。操作只會更改檔案名稱，不會改動檔案內容。`;
-  $('confirm-modal').classList.remove('hidden');
-  $('btn-confirm').focus();
+  $('modal-note').textContent = '會先讀取檔案並建立校驗紀錄；大型檔案可能需要較長時間。成功後可使用「復原上一批」。';
+  $('btn-confirm').textContent = '確認並執行';
+  $('confirm-modal').showModal();
 }
 async function executeRename() {
-  $('confirm-modal').classList.add('hidden');
+  $('confirm-modal').close();
   if (busy) return;
   setBusy(true);
   try {
@@ -281,14 +297,23 @@ async function executeRename() {
       applyRules(defaults);saveRulePreferences();
       history = result.history ? { count: result.changed } : null;
       showToast(`成功重新命名 ${result.changed} 個檔案`, 'success');
-      if (result.warning) showToast(result.warning,'error');
+      if (result.warning) showFailure('重新命名完成，但需要注意', result.warning);
     } else showToast('沒有需要重新命名的檔案');
-  } catch(e) { showToast(withoutPrefix(e),'error'); }
-  finally { busy = false; await updatePreview(); }
+  } catch(e) { showFailure('重新命名未完成', e); }
+  finally { busy = false; history = await api.history().catch(() => null); await updatePreview(); }
 }
-async function undo() {
+function undo() {
+  if (busy || !history || $('confirm-modal').open || $('error-dialog').open) return;
+  pendingAction = 'undo';
+  $('modal-title').textContent = '復原上一批命名？';
+  $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的名稱。復原只會更改名稱，不會還原檔案內容。`;
+  $('modal-note').textContent = '若任何檔案已被修改、替換、移走，或原名稱已被佔用，整批復原會停止。紀錄會保留，修正問題後可再試。舊版未校驗紀錄不支援自動復原。';
+  $('btn-confirm').textContent = '檢查並復原';
+  $('confirm-modal').showModal();
+}
+async function executeUndo() {
+  $('confirm-modal').close();
   if (busy || !history) return;
-  if (!window.confirm(`確定復原上一批 ${history.count} 個檔案的命名嗎？\n若檔案已被移動或佔用原本名稱，復原會停止。`)) return;
   setBusy(true);
   try {
     const result = await api.undo();
@@ -297,9 +322,9 @@ async function undo() {
     selected.clear(); history = null;
     applyRules(defaults);saveRulePreferences();
     showToast(`已復原 ${result.changed} 個檔案`, 'success');
-    if (result.warning) showToast(result.warning,'error');
-  } catch(e) {showToast(withoutPrefix(e),'error');}
-  finally {busy=false;await updatePreview();}
+    if (result.warning) showFailure('復原完成，但需要注意', result.warning);
+  } catch(e) {showFailure('無法安全復原', e);}
+  finally {busy=false;history=await api.history().catch(()=>null);await updatePreview();}
 }
 async function exportCSV() {
   if (busy || !selected.size) return;
@@ -307,6 +332,8 @@ async function exportCSV() {
   catch(e) {showToast(withoutPrefix(e),'error');}
 }
 function wireEvents() {
+  $('theme-select').addEventListener('change', e => applyTheme(e.target.value));
+  $('btn-error-close').addEventListener('click', () => $('error-dialog').close());
   $('btn-add-files').addEventListener('click',chooseFiles);
   $('btn-empty-add').addEventListener('click',chooseFiles);
   $('dropzone').addEventListener('click',chooseFiles);
@@ -326,9 +353,8 @@ function wireEvents() {
     applyRules(presets[btn.dataset.preset]); saveRulePreferences(); enqueuePreview();
   }));
   $('btn-run').addEventListener('click',confirmRename);
-  $('btn-confirm').addEventListener('click',executeRename);
-  $('btn-cancel').addEventListener('click',()=>$('confirm-modal').classList.add('hidden'));
-  $('confirm-modal').addEventListener('click',e=>{if(e.target===$('confirm-modal'))$('confirm-modal').classList.add('hidden');});
+  $('btn-confirm').addEventListener('click',()=>pendingAction === 'undo' ? executeUndo() : executeRename());
+  $('btn-cancel').addEventListener('click',()=>$('confirm-modal').close());
   $('btn-undo').addEventListener('click',undo);
   $('btn-export').addEventListener('click',exportCSV);
   $('search').addEventListener('input',render);
@@ -337,7 +363,7 @@ function wireEvents() {
     el.addEventListener(el.type === 'checkbox' || el.tagName==='SELECT' ? 'change':'input',enqueuePreview);
   }
   document.addEventListener('keydown',e=>{
-    if(e.key==='Escape')$('confirm-modal').classList.add('hidden');
+    if ($('confirm-modal').open || $('error-dialog').open) return;
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='o') {e.preventDefault();e.shiftKey?chooseFolder():chooseFiles();}
     if((e.ctrlKey||e.metaKey) && e.key==='Enter') {e.preventDefault();confirmRename();}
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && document.activeElement?.tagName!=='INPUT') {e.preventDefault();undo();}
@@ -360,6 +386,7 @@ function wireEvents() {
   });
 }
 async function init() {
+  applyTheme(document.documentElement.dataset.theme);
   try { const saved=JSON.parse(localStorage.getItem('brs-rules-v1') || 'null');applyRules(saved && typeof saved==='object' ? {...defaults,...saved}:defaults); }
   catch {applyRules(defaults);}
   wireEvents();render();

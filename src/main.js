@@ -1,8 +1,8 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createPreview, executeMoves, listPaths } = require('./rename-core');
+const { createPreview, executeMoves, listPaths, snapshotMoves, prepareUndo } = require('./rename-core');
 
 let win;
 const historyFile = () => path.join(app.getPath('userData'), 'last-rename.json');
@@ -42,6 +42,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('set-theme', (_, theme) => {
+    if (!['light', 'dark'].includes(theme)) throw new Error('不支援的主題');
+    nativeTheme.themeSource = theme;
+    win?.setBackgroundColor(theme === 'light' ? '#f4f6fb' : '#090e1b');
+  });
   ipcMain.handle('choose-files', async () => {
     const d = await dialog.showOpenDialog(win, { title: '選擇檔案（可多選）', properties: ['openFile', 'multiSelections'] });
     return d.canceled ? { paths: [], ignored: 0 } : listPaths(d.filePaths);
@@ -55,20 +60,26 @@ app.whenReady().then(() => {
   ipcMain.handle('rename', (_, paths, rules) => {
     const preview = createPreview(paths, rules);
     if (preview.counts.error) throw new Error(`${preview.counts.error} 個檔案存在衝突或名稱錯誤。請先修正，再重新執行。`);
-    const moves = preview.rows.filter(x => x.status === 'ready').map(x => ({ source: x.source, destination: x.destination }));
+    let moves = preview.rows.filter(x => x.status === 'ready').map(x => ({ source: x.source, destination: x.destination }));
     if (!moves.length) return { changed: 0, moves: [], history: Boolean(readHistory()) };
+    moves = snapshotMoves(moves);
+    const record = { version: 2, state: 'pending', createdAt: new Date().toISOString(), moves };
+    // Persist evidence before changing any names; incomplete operations fail closed.
+    saveHistory(record);
     executeMoves(moves);
-    try { saveHistory({ createdAt: new Date().toISOString(), moves }); }
+    try { saveHistory({ ...record, state: 'completed' }); }
     catch (e) {
       // Files were renamed; report success but make undo unavailability explicit.
-      return { changed: moves.length, moves, history: false, warning: `重新命名成功，但無法儲存復原紀錄：${e.message}` };
+      return { changed: moves.length, moves, history: false, warning: `重新命名成功，但無法完成復原紀錄；自動復原已停用。請手動核對檔案：${e.message}` };
     }
     return { changed: moves.length, moves, history: true };
   });
   ipcMain.handle('undo', () => {
     const h = readHistory();
     if (!h) throw new Error('沒有可復原的上一批操作紀錄');
-    const reversed = h.moves.map(m => ({ source: m.destination, destination: m.source }));
+    const reversed = prepareUndo(h);
+    // Keep interrupted undo from being replayed against a partially restored batch.
+    saveHistory({ ...h, state: 'undoing' });
     executeMoves(reversed);
     try { saveHistory(null); }
     catch (e) { return { changed: reversed.length, moves: reversed, warning: `檔案已還原，但清除復原紀錄時發生錯誤：${e.message}` }; }
@@ -76,7 +87,7 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('history', () => {
     const h = readHistory();
-    return h ? { count: h.moves.length, createdAt: h.createdAt } : null;
+    return h ? { count: h.moves.length, createdAt: h.createdAt, state: h.state } : null;
   });
   ipcMain.handle('export-csv', async (_, paths, rules) => {
     const preview = createPreview(paths, rules);

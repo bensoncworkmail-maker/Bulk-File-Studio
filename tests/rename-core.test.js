@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { renameOne, createPreview, executeMoves, filenameProblem, listPaths } = require('../src/rename-core');
+const { renameOne, createPreview, executeMoves, filenameProblem, listPaths, snapshotMoves, prepareUndo } = require('../src/rename-core');
 
 function fixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bulk-rename-test-'));
@@ -106,4 +106,120 @@ test('scans folders recursively if requested, without following symlinks', t => 
   fs.writeFileSync(path.join(dir,'nested','two.txt'),'two');
   assert.equal(listPaths([dir],false).paths.length,1);
   assert.equal(listPaths([dir],true).paths.length,2);
+});
+
+function renamedFixture(t) {
+  const { dir, make } = fixture(t);
+  const a = make('original-a.txt', 'AAAA'), b = make('original-b.txt', 'BBBB');
+  // Exactly representable seconds let a test preserve mtime after an edit.
+  for (const p of [a, b]) fs.utimesSync(p, 1700000000, 1700000000);
+  const moves = snapshotMoves([
+    { source: a, destination: path.join(dir, 'renamed-a.txt') },
+    { source: b, destination: path.join(dir, 'renamed-b.txt') }
+  ]);
+  executeMoves(moves);
+  return { dir, a, b, moves, history: JSON.parse(JSON.stringify({ version: 2, state: 'completed', moves })) };
+}
+
+test('verified undo works after history is serialized and reloaded', t => {
+  const { a, b, history } = renamedFixture(t);
+  assert.equal(executeMoves(prepareUndo(history)), 2);
+  assert.equal(fs.readFileSync(a, 'utf8'), 'AAAA');
+  assert.equal(fs.readFileSync(b, 'utf8'), 'BBBB');
+});
+
+test('same-size modification with restored mtime blocks the whole undo batch', t => {
+  const { a, b, moves, history } = renamedFixture(t);
+  fs.writeFileSync(moves[1].destination, 'CCCC');
+  fs.utimesSync(moves[1].destination, 1700000000, 1700000000);
+  assert.throws(() => executeMoves(prepareUndo(history)), /修改或替換/);
+  assert.equal(fs.existsSync(a), false);
+  assert.equal(fs.existsSync(b), false);
+  assert.equal(fs.readFileSync(moves[0].destination, 'utf8'), 'AAAA');
+  assert.equal(fs.readFileSync(moves[1].destination, 'utf8'), 'CCCC');
+  // Repairing the contents and metadata permits a retry using the same record.
+  fs.writeFileSync(moves[1].destination, 'BBBB');
+  fs.utimesSync(moves[1].destination, 1700000000, 1700000000);
+  assert.equal(executeMoves(prepareUndo(history)), 2);
+});
+
+test('a different file with identical contents and mtime cannot be undone', t => {
+  const { dir, moves, history } = renamedFixture(t);
+  const p = moves[1].destination;
+  fs.renameSync(p, path.join(dir, 'kept-original.txt'));
+  fs.writeFileSync(p, 'BBBB');
+  fs.utimesSync(p, 1700000000, 1700000000);
+  assert.throws(() => prepareUndo(history), /修改或替換/);
+  assert.equal(fs.readFileSync(p, 'utf8'), 'BBBB');
+  assert.equal(fs.existsSync(moves[0].source), false);
+});
+
+test('missing files and occupied original names leave every file unchanged', t => {
+  const { a, moves, history } = renamedFixture(t);
+  fs.writeFileSync(a, 'KEEP');
+  assert.throws(() => prepareUndo(history), /已存在/);
+  assert.equal(fs.readFileSync(a, 'utf8'), 'KEEP');
+  fs.unlinkSync(a);
+  fs.unlinkSync(moves[1].destination);
+  assert.throws(() => prepareUndo(history), /移動或刪除/);
+  assert.equal(fs.existsSync(a), false);
+  assert.equal(fs.readFileSync(moves[0].destination, 'utf8'), 'AAAA');
+});
+
+test('legacy, incomplete, interrupted and malformed records fail closed', t => {
+  const { history } = renamedFixture(t);
+  assert.throws(() => prepareUndo({ moves: history.moves }), /舊版/);
+  for (const state of ['pending', 'undoing']) assert.throws(() => prepareUndo({ ...history, state }), /未完整完成/);
+  const malformed = JSON.parse(JSON.stringify(history));
+  delete malformed.moves[0].expectedFingerprint;
+  assert.throws(() => prepareUndo(malformed), /紀錄不完整/);
+});
+
+test('verified undo also supports swapped filenames', t => {
+  const { make } = fixture(t);
+  const a = make('a.txt', 'A'), b = make('b.txt', 'B');
+  const moves = snapshotMoves([{ source:a, destination:b }, { source:b, destination:a }]);
+  executeMoves(moves);
+  executeMoves(prepareUndo({ version:2, state:'completed', moves }));
+  assert.equal(fs.readFileSync(a, 'utf8'), 'A');
+  assert.equal(fs.readFileSync(b, 'utf8'), 'B');
+});
+
+test('a source changed after undo preparation is checked again before execution', t => {
+  const { moves, history, a } = renamedFixture(t);
+  const reversed = prepareUndo(history);
+  fs.writeFileSync(moves[1].destination, 'changed after check');
+  assert.throws(() => executeMoves(reversed), /修改或替換/);
+  assert.equal(fs.existsSync(a), false);
+});
+
+test('replacing an undo source with a symlink never renames its target', t => {
+  const { dir, moves, history } = renamedFixture(t);
+  const p = moves[1].destination;
+  const kept = path.join(dir, 'kept-original.txt');
+  fs.renameSync(p, kept);
+  try { fs.symlinkSync(kept, p); }
+  catch (e) { if (e.code === 'EPERM') { t.skip('Symlink permission unavailable'); return; } throw e; }
+  assert.throws(() => prepareUndo(history), /符號連結/);
+  assert.equal(fs.readFileSync(kept, 'utf8'), 'BBBB');
+  assert.equal(fs.existsSync(moves[0].source), false);
+});
+
+test('a failed rollback reports the remaining temporary path for manual recovery', t => {
+  const { dir, make } = fixture(t);
+  const a=make('a.txt','A'), b=make('b.txt','B');
+  const moves=snapshotMoves([{source:a,destination:path.join(dir,'x.txt')},{source:b,destination:path.join(dir,'y.txt')}]);
+  const original=fs.renameSync;
+  let calls=0, failure;
+  fs.renameSync=(...args)=>{ calls++; if(calls===3||calls===4)throw new Error('injected failure');return original(...args); };
+  try { executeMoves(moves); }
+  catch(e) { failure=e; }
+  finally { fs.renameSync=original; }
+  assert.match(failure.message,/部分檔案無法自動復原/);
+  const temp=fs.readdirSync(dir).find(name=>name.startsWith('.brs-'));
+  assert.ok(temp);
+  assert.ok(failure.message.includes(path.join(dir,temp)));
+  assert.ok(failure.message.includes(b));
+  assert.equal(fs.readFileSync(a,'utf8'),'A');
+  assert.equal(fs.readFileSync(path.join(dir,temp),'utf8'),'B');
 });

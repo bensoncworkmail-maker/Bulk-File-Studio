@@ -148,7 +148,66 @@ function createPreview(filePaths, inputOptions, options = {}) {
   return { rows, counts };
 }
 
-/** Ensure all paths exist and no source/destination collisions exist. */
+const identityFields = ['dev', 'ino', 'birthtimeNs', 'size', 'mtimeNs'];
+function fileIdentity(stat) {
+  if (!stat.isFile()) throw new Error('不是一般檔案（不允許符號連結或資料夾）');
+  return Object.fromEntries(identityFields.map(field => [field, String(stat[field])]));
+}
+function sameIdentity(a, b) {
+  return identityFields.every(field => a[field] === b[field]);
+}
+
+/** Bound memory use even for large files. Reject a file changing while read. */
+function fingerprintFile(filepath) {
+  const before = fileIdentity(fs.lstatSync(filepath, { bigint: true }));
+  const fd = fs.openSync(filepath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+  try {
+    if (!sameIdentity(before, fileIdentity(fs.fstatSync(fd, { bigint: true })))) throw new Error('檔案在檢查期間被替換');
+    const hash = crypto.createHash('sha256');
+    const buffer = Buffer.allocUnsafe(256 * 1024);
+    let length;
+    while ((length = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, length));
+    if (!sameIdentity(before, fileIdentity(fs.fstatSync(fd, { bigint: true }))) ||
+        !sameIdentity(before, fileIdentity(fs.lstatSync(filepath, { bigint: true })))) throw new Error('檔案在檢查期間被修改或替換');
+    return { ...before, sha256: hash.digest('hex') };
+  } finally { fs.closeSync(fd); }
+}
+
+function assertFingerprint(filepath, expected, content = true) {
+  try {
+    const actual = content ? fingerprintFile(filepath) : fileIdentity(fs.lstatSync(filepath, { bigint: true }));
+    if (!sameIdentity(actual, expected) || (content && actual.sha256 !== expected.sha256)) {
+      throw new Error('檔案已被修改或替換，不能安全復原');
+    }
+  } catch (e) {
+    const reason = e.code === 'ENOENT' ? '檔案已被移動或刪除' : e.message;
+    throw new Error(`${filepath}\n${reason}`);
+  }
+}
+
+function snapshotMoves(moves) {
+  return moves.map(move => ({ ...move, expectedFingerprint: fingerprintFile(move.source) }));
+}
+
+function prepareUndo(history) {
+  if (!history || history.version !== 2) throw new Error('舊版復原紀錄沒有檔案校驗資料，無法安全復原。請手動核對檔名；新版操作會建立可校驗的紀錄。');
+  if (history.state !== 'completed') throw new Error('上次操作或復原未完整完成，不能自動復原。請依先前錯誤訊息核對原始、目標及 .brs- 暫存檔案。');
+  if (!Array.isArray(history.moves) || !history.moves.length) throw new Error('沒有可復原的操作紀錄');
+  const reversed = history.moves.map(move => {
+    if (!move || typeof move !== 'object') throw new Error('復原紀錄不完整，操作已取消；請手動核對檔案。');
+    const fp = move.expectedFingerprint;
+    if (typeof move.source !== 'string' || typeof move.destination !== 'string' ||
+        !path.isAbsolute(move.source) || !path.isAbsolute(move.destination) ||
+        !fp || !identityFields.every(field => typeof fp[field] === 'string') || !/^[a-f0-9]{64}$/.test(fp.sha256)) {
+      throw new Error('復原紀錄不完整，操作已取消；請手動核對檔案。');
+    }
+    return { source: move.destination, destination: move.source, expectedFingerprint: fp };
+  });
+  validateMoves(reversed);
+  return reversed;
+}
+
+/** Validate the entire batch before touching any names. */
 function validateMoves(moves) {
   if (moves.length > MAX_FILES) throw new Error('檔案數量超過安全上限');
   const sources = new Set(); const targets = new Set();
@@ -158,12 +217,19 @@ function validateMoves(moves) {
     if (problem) throw new Error(`${path.basename(destination)}：${problem}`);
     if (sources.has(key(source)) || targets.has(key(destination))) throw new Error('原始路徑或目標路徑重複');
     sources.add(key(source)); targets.add(key(destination));
-    if (!fs.lstatSync(source).isFile()) throw new Error(`找不到檔案：${source}`);
+    try {
+      if (!fs.lstatSync(source).isFile()) throw new Error('不是一般檔案或已被替換為符號連結');
+    } catch (e) {
+      throw new Error(`${source}\n${e.code === 'ENOENT' ? '檔案已被移動或刪除' : e.message}`);
+    }
   }
   for (const { destination } of moves) {
     if (!sources.has(key(destination)) && pathExists(destination)) {
       throw new Error(`目標檔案已存在，操作已取消：${destination}`);
     }
+  }
+  for (const move of moves) {
+    if (move.expectedFingerprint) assertFingerprint(move.source, move.expectedFingerprint);
   }
 }
 
@@ -174,6 +240,7 @@ function executeMoves(moves) {
   const staged = []; const completed = [];
   try {
     for (const move of moves) {
+      if (move.expectedFingerprint) assertFingerprint(move.source, move.expectedFingerprint, false);
       let temp;
       do { temp = path.join(path.dirname(move.source), `.brs-${crypto.randomUUID()}.tmp`); }
       while (pathExists(temp));
@@ -181,6 +248,7 @@ function executeMoves(moves) {
       staged.push({ ...move, temp });
     }
     for (const move of staged) {
+      if (move.expectedFingerprint) assertFingerprint(move.temp, move.expectedFingerprint, false);
       if (pathExists(move.destination)) throw new Error(`目標名稱在執行期間已被建立：${move.destination}`);
       fs.renameSync(move.temp, move.destination);
       completed.push(move);
@@ -192,15 +260,17 @@ function executeMoves(moves) {
     for (const move of [...completed].reverse()) {
       try {
         if (pathExists(move.temp)) throw new Error('暫存位置被占用');
+        if (move.expectedFingerprint) assertFingerprint(move.destination, move.expectedFingerprint);
         fs.renameSync(move.destination, move.temp);
-      } catch (e) { rollbackErrors.push(`${move.destination}: ${e.message}`); }
+      } catch (e) { rollbackErrors.push(`目前：${move.destination}；暫存：${move.temp}；原因：${e.message}`); }
     }
     for (const move of [...staged].reverse()) {
       try {
         if (!pathExists(move.temp)) continue;
         if (pathExists(move.source)) throw new Error('原始位置被占用');
+        if (move.expectedFingerprint) assertFingerprint(move.temp, move.expectedFingerprint);
         fs.renameSync(move.temp, move.source);
-      } catch (e) { rollbackErrors.push(`${move.source}: ${e.message}`); }
+      } catch (e) { rollbackErrors.push(`原始：${move.source}；暫存：${move.temp}；原因：${e.message}`); }
     }
     throw new Error(`重新命名失敗：${original.message}${rollbackErrors.length ? `；部分檔案無法自動復原：${rollbackErrors.join('；')}` : '；已嘗試還原所有變更'}`);
   }
@@ -231,4 +301,4 @@ function listPaths(inputs, recursive = false) {
   return { paths, ignored, capped: ignored > 0 && paths.length >= MAX_FILES };
 }
 
-module.exports = { MAX_FILES, splitName, normalizeOptions, renameOne, filenameProblem, createPreview, executeMoves, listPaths };
+module.exports = { MAX_FILES, splitName, normalizeOptions, renameOne, filenameProblem, createPreview, executeMoves, listPaths, fingerprintFile, snapshotMoves, prepareUndo };
