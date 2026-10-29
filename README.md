@@ -6,6 +6,10 @@
 
 使用 **Electron + Node.js** 開發的繁體中文 Windows 桌面工具：收藏檔案／資料夾位置、使用標籤分類，需要時批次重新命名或搬移，先預覽及檢查衝突。**程式本身離線運作，沒有上傳、遙測或自動更新。**
 
+## v1.13.1：停用時隱藏 Everything 搜尋入口
+
+收藏頁及改名工作台的 Everything 搜尋按鈕只在整合可用且啟用時顯示；停用、尚未設定或非 Windows 環境時完全隱藏，不佔工具列空間。設定頁的開關與工具設定入口仍然保留。
+
 ## v1.13.0：Everything 本機搜尋整合（選用、預設停用）
 
 ### 第一次設定
@@ -200,8 +204,8 @@ Windows 右鍵項目加入快捷字母 **B**。在檔案總管選取項目，以
 
 一般使用者請閱讀 [首次安裝及離線使用](INSTALL.md)。取得建置完成的 **Setup 安裝版** 或 **Portable 可攜版** 後，即可在沒有 Node.js／npm、未連網的 Windows 電腦安裝或執行。
 
-- 安裝版：`BulkFileStudio-Setup-1.13.0-x64.exe`。
-- 可攜版：`BulkFileStudio-Portable-1.13.0-x64.exe`。
+- 安裝版：`BulkFileStudio-Setup-1.13.1-x64.exe`。
+- 可攜版：`BulkFileStudio-Portable-1.13.1-x64.exe`。
 - 兩種目標分別設定檔名，避免同版本、同架構的 EXE 互相覆蓋。以上為 x64 檔名範例，架構依建置參數決定。
 - Node.js／npm 及依賴下載屬於開發、建置環境；正式程式不安裝執行環境、不下載元件、不自行檢查更新。
 - 發行時交付建置完成的 EXE；GitHub 的「Source code ZIP」只包含原始碼。此原始碼更新本身不代表已產生或驗證 Windows EXE。
@@ -426,8 +430,8 @@ npm run dist:win
 
 | 目標 | x64 範例輸出 | 用途 |
 |---|---|---|
-| `nsis` | `BulkFileStudio-Setup-1.13.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
-| `portable` | `BulkFileStudio-Portable-1.13.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
+| `nsis` | `BulkFileStudio-Setup-1.13.1-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
+| `portable` | `BulkFileStudio-Portable-1.13.1-x64.exe` | 免安裝執行，不提供右鍵註冊 |
 
 只產生安裝版可執行 `npm run dist:setup`；只產生可攜版可執行 `npm run dist:portable`。要指定 x64 架構，執行 `npm run dist:win -- --x64`。
 
