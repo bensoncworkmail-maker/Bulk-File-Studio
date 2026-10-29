@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'">
+  <title>Bulk Rename Studio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand-wrap">
+        <div class="brand-icon">↗</div>
+        <div><div class="brand-name">Bulk Rename <span>Studio</span></div><div class="brand-sub">批次檔案重新命名工作台</div></div>
+        <span class="version">v1.0</span>
+      </div>
+      <div class="header-right">
+        <span class="local-state"><span class="state-dot"></span>完全離線 · 僅處理本機檔案</span>
+        <button class="btn btn-ghost" id="btn-undo" title="復原上一批重新命名" disabled>↶ <span>復原上一批</span></button>
+        <button class="btn btn-ghost" id="btn-export" title="匯出預覽為 CSV" disabled>↓ 匯出 CSV</button>
+      </div>
+    </header>
+
+    <div class="intro-row">
+      <div><div class="eyebrow">YOUR FILE WORKSPACE</div><h1>把檔案整理得<span>井井有條。</span></h1><p>一次加入、設定規則、預覽結果。確認無誤後才實際修改檔案名稱。</p></div>
+      <div class="stats">
+        <div class="stat"><span>已加入</span><strong id="stat-total">0</strong><small>個檔案</small></div>
+        <div class="stat"><span>待重新命名</span><strong class="stat-good" id="stat-ready">0</strong><small>個檔案</small></div>
+        <div class="stat"><span>需處理</span><strong class="stat-bad" id="stat-error">0</strong><small>項衝突</small></div>
+      </div>
+    </div>
+
+    <main class="workspace">
+      <aside class="panel files-panel">
+        <div class="panel-heading"><div><span class="step-tag">01</span><h2>選擇檔案</h2></div><span class="muted small">來源</span></div>
+        <div class="panel-pad">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="拖放檔案，或點擊加入檔案">
+            <div class="drop-icon">⇧</div>
+            <strong>拖放檔案至此</strong>
+            <span>或按下方按鈕選取</span>
+            <div class="drop-hint">檔案只會在你的電腦上處理</div>
+          </div>
+          <div class="two-buttons">
+            <button class="btn btn-secondary" id="btn-add-files">＋ 加入檔案</button>
+            <button class="btn btn-secondary" id="btn-add-folder">▱ 加入資料夾</button>
+          </div>
+          <label class="check-row small-check"><input id="recursive" type="checkbox"> <span>包含子資料夾的檔案</span></label>
+        </div>
+        <div class="separator"></div>
+        <div class="file-list-heading"><div><strong>檔案清單</strong><span id="file-counter" class="count-pill">0</span></div><button id="btn-clear" class="text-action" disabled>清除全部</button></div>
+        <div id="file-list" class="file-list"><div class="list-empty">尚未加入任何檔案</div></div>
+        <div class="files-foot"><span class="tiny-dot"></span><span>不修改檔案內容，僅重新命名</span></div>
+      </aside>
+
+      <section class="panel preview-panel">
+        <div class="panel-heading preview-heading"><div><span class="step-tag">02</span><h2>重新命名預覽</h2></div><span class="preview-live"><span class="pulse-dot"></span>即時預覽</span></div>
+        <div class="preview-toolbar">
+          <div class="search-box"><span>⌕</span><input id="search" type="search" placeholder="搜尋原始或新檔名…" autocomplete="off" aria-label="搜尋檔案"></div>
+          <button id="btn-select-all" class="text-action" disabled>全選</button>
+          <button id="btn-select-none" class="text-action" disabled>取消全選</button>
+        </div>
+        <div class="table-scroll">
+          <table class="preview-table"><thead><tr><th class="col-check"><input id="check-all" type="checkbox" title="選取全部顯示的檔案"></th><th>原始檔名</th><th class="col-arrow"></th><th>新檔名</th><th class="col-state">狀態</th></tr></thead>
+          <tbody id="preview-body"><tr><td colspan="5"><div class="empty-preview"><div class="empty-graphic"><span>Abc</span><span class="graphic-arrow">→</span><span>ABC</span></div><h3>先加入檔案，開始整理</h3><p>你將在這裡看到每一個檔名變更，<br>包含錯誤與重複名稱提醒。</p><button id="btn-empty-add" class="btn btn-primary">＋ 選取檔案</button></div></td></tr></tbody></table>
+        </div>
+        <div class="table-footer"><span id="table-showing">尚未加入檔案</span><span class="legend"><i class="legend-good"></i>可執行 <i class="legend-same"></i>不變 <i class="legend-bad"></i>衝突</span></div>
+      </section>
+
+      <aside class="panel rules-panel">
+        <div class="panel-heading"><div><span class="step-tag">03</span><h2>命名規則</h2></div><button id="btn-reset" class="text-action">重設</button></div>
+        <div class="presets">
+          <div class="presets-title">快速範本 <span>點擊後會取代目前規則</span></div>
+          <div class="preset-buttons">
+            <button type="button" class="preset" data-preset="photo">照片編號</button>
+            <button type="button" class="preset" data-preset="clean">空白整理</button>
+            <button type="button" class="preset" data-preset="copy">移除 (1) 副本</button>
+          </div>
+        </div>
+        <div class="rules-scroller">
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol violet">⌕</div><div><strong>搜尋與取代</strong><span>尋找檔名中指定內容</span></div></div>
+            <label class="field"><span>尋找文字／模式</span><input id="rule-find" placeholder="例如：IMG_ 或 (\\d+)" type="text" spellcheck="false"></label>
+            <label class="field"><span>取代為</span><input id="rule-replace" placeholder="輸入新文字（留空則刪除）" type="text" spellcheck="false"></label>
+            <div class="switch-row"><label class="check-row"><input id="rule-regex" type="checkbox"> <span>正規表示式 Regex</span></label><label class="check-row"><input id="rule-match-case" type="checkbox"> <span>區分大小寫</span></label></div>
+            <label class="check-row subtle"><input id="rule-replace-all" type="checkbox" checked> <span>取代所有符合項目</span></label>
+          </div>
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol teal">±</div><div><strong>前綴與後綴</strong><span>在檔名首尾增加文字</span></div></div>
+            <div class="field-duo"><label class="field"><span>前綴 Prefix</span><input id="rule-prefix" placeholder="例如：Project_" type="text"></label><label class="field"><span>後綴 Suffix</span><input id="rule-suffix" placeholder="例如：_final" type="text"></label></div>
+          </div>
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol orange">#</div><div><strong>流水編號</strong><span>為每個選取檔案加上序號</span></div><label class="toggle"><input id="rule-number-enabled" type="checkbox"><span class="toggle-track"></span></label></div>
+            <div id="number-details" class="number-fields disabled-group"><div class="three-col"><label class="field"><span>起始值</span><input id="rule-number-start" type="number" value="1" min="0" max="999999"></label><label class="field"><span>遞增值</span><input id="rule-number-step" type="number" value="1" min="1" max="99999"></label><label class="field"><span>位數</span><input id="rule-number-width" type="number" value="3" min="1" max="10"></label></div>
+            <div class="field-duo"><label class="field"><span>位置</span><select id="rule-number-position"><option value="suffix">檔名後方</option><option value="prefix">檔名前方</option></select></label><label class="field"><span>分隔符號</span><input id="rule-number-separator" value="_" type="text" maxlength="12"></label></div></div>
+          </div>
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol blue">Aa</div><div><strong>文字整理</strong><span>統一大小寫及空白</span></div></div>
+            <div class="field-duo"><label class="field"><span>大小寫</span><select id="rule-case-mode"><option value="none">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="title">每字首字大寫</option></select></label><label class="field"><span>空白處理</span><select id="rule-whitespace"><option value="none">保持不變</option><option value="underscore">轉為底線 _</option><option value="dash">轉為連字號 -</option></select></label></div>
+            <label class="check-row subtle"><input id="rule-trim" type="checkbox"> <span>移除名稱前後空白</span></label>
+            <label class="check-row subtle"><input id="rule-include-extension" type="checkbox"> <span>規則也套用到副檔名（.jpg / .pdf）</span></label>
+          </div>
+          <div class="help-card"><strong>✧ 安全提示</strong><p>預設保留副檔名；如果有重複檔名、無效字元或已存在目標，程式會阻止整批操作，避免意外覆蓋。</p></div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="action-footer">
+      <div class="footer-info"><div class="footer-check" id="footer-check">✓</div><div><strong id="footer-title">準備開始</strong><span id="footer-desc">請先選擇檔案並設定重新命名規則</span></div></div>
+      <div class="footer-actions"><span id="footer-count" class="action-count">0 個檔案待處理</span><button class="btn btn-primary btn-run" id="btn-run" disabled><span>✦</span> 執行重新命名 <span class="arrow">→</span></button></div>
+    </footer>
+  </div>
+  <div id="drop-overlay" class="drop-overlay hidden"><div class="drop-overlay-inner"><div>⇧</div><strong>放開以加入檔案</strong><span>支援多個檔案及資料夾</span></div></div>
+  <div class="modal-backdrop hidden" id="confirm-modal"><div class="modal"><div class="modal-icon">✦</div><h2>確認重新命名？</h2><p id="modal-description">即將更改所選檔案名稱。</p><div class="modal-note">所有衝突必須先解決；成功後可使用「復原上一批」。</div><div class="modal-buttons"><button class="btn btn-secondary" id="btn-cancel">取消</button><button class="btn btn-primary" id="btn-confirm">確認並執行</button></div></div></div>
+  <div id="toast-container" aria-live="polite"></div>
+  <script src="renderer.js" defer></script>
+</body>
+</html>

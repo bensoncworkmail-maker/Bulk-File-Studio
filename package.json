@@ -1,0 +1,30 @@
+{
+  "name": "bulk-rename-studio",
+  "version": "1.0.0",
+  "description": "安全、可預覽及復原的批次檔案重新命名桌面工具",
+  "main": "src/main.js",
+  "author": "Bulk Rename Studio",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "dist:win": "electron-builder --win nsis portable",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "app.bulkrenamestudio.desktop",
+    "productName": "Bulk Rename Studio",
+    "directories": {"output": "dist"},
+    "files": ["src/**/*", "package.json", "README.md", "LICENSE"],
+    "asar": true,
+    "win": {
+      "target": ["nsis", "portable"],
+      "artifactName": "BulkRenameStudio-${version}-${arch}.${ext}"
+    },
+    "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true}
+  }
+}
