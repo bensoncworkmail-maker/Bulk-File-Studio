@@ -21,6 +21,8 @@
    const show=node('button','⌖');show.title='在檔案總管定位';show.setAttribute('aria-label','定位 '+model.basename(item.path));show.disabled=item.status!=='ready';show.addEventListener('click',()=>action(()=>window.favoritesAPI.show(item.id)));const copy=node('button','⧉');copy.title='複製完整路徑（包含遺失的位置）';copy.setAttribute('aria-label','複製路徑 '+model.basename(item.path));copy.addEventListener('click',()=>action(()=>window.favoritesAPI.copy(item.id),'已複製完整路徑'));if(settings.floatingView==='icons'){const menu=node('details',undefined,'mini-actions'),summary=node('summary','⋯');summary.title='定位／複製路徑';menu.append(summary,show,copy);row.append(name,menu);}else row.append(name,show,copy);$('mini-list').appendChild(row);
   }
   if(!found.length)$('mini-list').appendChild(node('div','沒有符合條件的收藏','mini-empty'));
+  $('mini-pager').hidden=settings.floatingPager==='hidden'||(settings.floatingPager!=='always'&&total===1);
+  $('mini-main').title=`在主視窗顯示目前標籤 · ${found.length} 項 · 第 ${page+1}/${total} 頁（PageUp／PageDown 換頁）`;
   $('mini-count').textContent=`${found.length} 項 · ${page+1}/${total}`;$('mini-prev').disabled=page===0;$('mini-next').disabled=page===total-1;
  }
  async function refresh(){const request=++revision;try{const [result,prefs]=await Promise.all([window.favoritesAPI.list(),window.desktopAPI.get()]);if(request!==revision)return;items=result.items;settings=prefs;render();}catch(e){$('mini-status').textContent=String(e.message||e);$('mini-status').className='error';}}
@@ -34,6 +36,6 @@
  document.addEventListener('drop',event=>{event.preventDefault();hideDrop();if(busy)return;const targetTag=tag;action(async()=>{const paths=Array.from(event.dataTransfer?.files||[]).map(file=>window.renameAPI.pathForFile(file)).filter(Boolean);if(!paths.length)throw new Error('無法讀取拖放路徑，請改用匯入路徑');const result=await window.favoritesAPI.collectFloating(paths,targetTag);await refresh();return result;},result=>`已新增 ${result.added} 項、已收藏 ${result.existing} 項${result.issues.length?'；'+result.issues.length+' 項未完成（滑鼠移到訊息查看原因）':''}`);});
  window.addEventListener('blur',hideDrop);
  $('mini-close').addEventListener('click',()=>window.desktopAPI.hideFloating());$('mini-main').addEventListener('click',()=>window.desktopAPI.showMain(tag));$('mini-refresh').addEventListener('click',refresh);$('mini-search').addEventListener('input',()=>{page=0;render();});$('mini-prev').addEventListener('click',()=>{page--;render();});$('mini-next').addEventListener('click',()=>{page++;render();});
- document.addEventListener('keydown',e=>{if(e.key==='Escape')window.desktopAPI.hideFloating();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();$('mini-search-bar').hidden=false;$('mini-search').focus();}});
+ document.addEventListener('keydown',e=>{if(['PageUp','PageDown'].includes(e.key)&&!['INPUT','TEXTAREA','SELECT'].includes(e.target?.tagName)){e.preventDefault();page+=e.key==='PageDown'?1:-1;render();}if(e.key==='Escape')window.desktopAPI.hideFloating();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();$('mini-search-bar').hidden=false;$('mini-search').focus();}});
  window.favoritesAPI.onChanged(refresh);window.desktopAPI.onChanged(payload=>{if(payload.settings){settings=payload.settings;render();}});window.addEventListener('focus',refresh);refresh();
 })();

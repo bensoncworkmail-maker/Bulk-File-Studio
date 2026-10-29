@@ -6,6 +6,8 @@ const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
 const {DesktopShell}=require('./desktop-shell');
+const globalShortcuts=require('./global-shortcuts');
+const {normalize:normalizeDesktop}=require('./desktop-state');
 const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -141,8 +143,14 @@ app.whenReady().then(() => {
   handle('startup-set',(_,enabled)=>desktopShell.setLogin(enabled));
   handle('app-hide-to-tray',()=>{if(!desktopShell.hideToTray())throw new Error(shellWarning||'無法隱藏至系統匣');});
   handle('desktop-settings-set',(_,patch)=>{
-    const previous=desktop.settings;const settings=desktop.update(patch);
-    if(previous.floatingShortcut!==settings.floatingShortcut||previous.mainShortcut!==settings.mainShortcut)shortcutWarning=registerShortcut();
+    const previous=desktop.settings;
+    if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
+    for(const key of ['mainShortcut','floatingShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
+    const candidate=normalizeDesktop({...previous,...patch});globalShortcuts.validatePair(candidate);
+    const changed=previous.floatingShortcut!==candidate.floatingShortcut||previous.mainShortcut!==candidate.mainShortcut;
+    if(changed){const warning=desktopShell.registerShortcuts(candidate);if(warning){shortcutWarning=desktopShell.registerShortcuts(previous);throw new Error(warning+' 已保留原設定。'+shortcutWarning);}}
+    let settings;try{settings=desktop.update(patch);}catch(e){if(changed)shortcutWarning=desktopShell.registerShortcuts(previous);throw e;}
+    if(changed)shortcutWarning='';
     if(!settings.explorerTagPrompt)pendingTagIds.clear();
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');

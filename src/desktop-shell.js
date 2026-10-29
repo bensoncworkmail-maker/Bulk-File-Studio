@@ -22,10 +22,10 @@ class DesktopShell {
  }
  hideToTray(){if(!this.ensureTray())return false;this.hideMain();this.hideFloating();return true;}
  onClose(event){if(this.quitting||!this.getSettings().closeToTray)return false;if(!this.ensureTray())return false;event.preventDefault();this.hideMain();this.hideFloating();return true;}
- registerShortcuts(){
+ registerShortcuts(settings=this.getSettings()){
   this.globalShortcut.unregisterAll();const warnings=[];
   for(const [key,label,callback] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)]]){
-   const accelerator=this.getSettings()[key];if(!accelerator)continue;
+   const accelerator=settings[key];if(!accelerator)continue;
    try{if(!this.globalShortcut.register(accelerator,callback))warnings.push(label+'快捷鍵已被其他程式使用，請在設定選擇另一組。');}
    catch(e){warnings.push('無法註冊'+label+'快捷鍵：'+e.message);}
   }return warnings.join('\n');
