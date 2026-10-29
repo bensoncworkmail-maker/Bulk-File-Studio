@@ -6,6 +6,30 @@
 
 使用 **Electron + Node.js** 開發的繁體中文 Windows 桌面工具：收藏檔案／資料夾位置、使用標籤分類，需要時批次重新命名或搬移，先預覽及檢查衝突。**程式本身離線運作，沒有上傳、遙測或自動更新。**
 
+## v1.13.0：Everything 本機搜尋整合（選用、預設停用）
+
+### 第一次設定
+
+1. 從 [voidtools 官方下載頁](https://www.voidtools.com/downloads/) 安裝 Everything，另下載最新的 **ES 命令列工具** 並解壓縮。需要支援 `-argv`、`-ipc2`、`-export-txt` 的新版 ES。Studio 不附帶或下載外部執行檔。
+2. 啟動 Everything 搜尋程式並等待索引就緒；只執行 Everything service 並不足夠。
+3. Studio → 設定 → **啟動** → **Everything 本機搜尋**，按「選取 es.exe」。請選官方 ES 工具，不是 Everything.exe；選取後仍維持停用。
+4. 若使用具名稱的 Everything 執行個體，填入名稱；通常留空，1.5 Alpha 常用 `1.5a`。開啟「允許 Studio 使用 Everything」，再按「測試本機查詢」。變更名稱後按「儲存整合設定」。
+5. 收藏頁或改名工作台按 **Everything 搜尋**。輸入檔名關鍵字／萬用字元（例如 `*.pdf`、`report 2026`），選擇檔案／資料夾並搜尋。此入口不接受 `ext:`、`content:` 等進階語法。
+6. 勾選結果，可加共同標籤後加入收藏，或將一般檔案加入改名工作台。加入改名只是建立預覽，仍需另行確認改名；資料夾可收藏，不會在此入口展開。
+
+每次最多顯示 500 項，超過會提示縮小搜尋範圍；只顯示本機磁碟路徑，UNC／相對／無效結果會略過，加入時再次驗證。索引可能過期，失效或替換的項目仍按現有收藏與改名安全檢查處理。
+
+### 停用與離線範圍
+
+- 關閉開關後拒絕查詢及舊結果操作、取消執行中的 ES 查詢並清除結果；不會刪除收藏、停止 Everything 本體或更改檔案。重開 Studio 保留開關。還原 Studio 設定也會停用整合。
+- 不在啟動時執行 ES、不自動啟動 Everything；只在按搜尋／測試時啟動使用者選取的 ES 工具。查詢固定使用 **IPC2**，不啟用 HTTP／ETP，不使用網路 API。原本 Studio 的網路請求封鎖維持不變。
+- 請在 Everything 另外關閉更新檢查、HTTP／ETP／Everything Server 及網路索引；外部程式自己的連線和作業系統的映射遠端磁碟不受 Studio 控制。需要整台電腦的網路限制時，仍應使用作業系統防火牆。
+- 本機選取的工具存放於 `everything-config.json`，包含執行檔路徑及 SHA-256。每次執行前比對，更新／替換後需重新選取並手動啟用。雜湊只偵測選取後的變更，**不代表已驗證供應商簽章**，請只選官方下載的工具。此授權設定不包含於匯出設定 JSON。
+- 不透過 shell 執行；參數固定、查詢置於 `--` 後，文字不會被當成 ES 指令。私有暫存目錄中的 UTF-8 結果用後刪除。查詢有 10 秒程序逾時、20 MB 輸出上限，同時間只允許一個查詢；關閉搜尋視窗可取消。
+- 此環境測試使用程序與介面替身，以及真實暫存檔；Windows 的官方 ES／Everything 實際 IPC、Unicode 路徑、1.5a 執行個體仍需實機驗證。
+
+官方參考：[IPC](https://www.voidtools.com/support/everything/sdk/ipc/)、[ES CLI](https://www.voidtools.com/support/everything/command_line_interface/)、[ES 原始碼與參數](https://github.com/voidtools/ES)。
+
 ## v1.12.0：標籤管理與更多命名變數
 
 在主視窗收藏頁的標籤分類按右鍵，可顯示分類、選取分類全部項目、重新命名／合併、刪除標籤。重新命名與刪除會顯示影響數量並要求確認；輸入既有名稱會合併、去除重複標籤。只修改收藏資料庫，不改動檔案內容或檔案名稱；刪除後沒有其他標籤的收藏會進入未分類。「全部收藏／未分類」為固定分類，不提供更名及刪除。分類選取會清除搜尋與類型／狀態篩選並選取跨頁項目。確認後項目數量已變更則停止，請重新整理。
@@ -26,7 +50,7 @@
 
 原副檔名仍依獨立的副檔名設定保留或修改。日期格式可選 YYYY-MM-DD、YYYYMMDD、DD-MM-YYYY。建立日期不等於拍攝日期，複製或移動檔案可能影響建立日期，請先檢查預覽。
 
-Everything 目前可透過「複製完整路徑 → Studio 匯入路徑」搭配使用，尚未加入自動查詢或外部執行檔呼叫。若未來整合，建議選用本機 IPC，保持 Studio 網路封鎖，避免啟用 HTTP／ETP 服務。參考：[官方本機 IPC](https://www.voidtools.com/support/everything/sdk/ipc/)、[ES CLI](https://www.voidtools.com/support/everything/command_line_interface/)。外部程式自己的更新、網路索引及伺服器設定不受 Studio 控制。
+1.12 及更早版本可透過「複製完整路徑 → Studio 匯入路徑」搭配使用；1.13 新增選用的直接查詢整合，詳見上方說明。若未來整合，建議選用本機 IPC，保持 Studio 網路封鎖，避免啟用 HTTP／ETP 服務。參考：[官方本機 IPC](https://www.voidtools.com/support/everything/sdk/ipc/)、[ES CLI](https://www.voidtools.com/support/everything/command_line_interface/)。外部程式自己的更新、網路索引及伺服器設定不受 Studio 控制。
 
 ## v1.11.0：浮動分頁與自訂全域快捷鍵
 
@@ -176,8 +200,8 @@ Windows 右鍵項目加入快捷字母 **B**。在檔案總管選取項目，以
 
 一般使用者請閱讀 [首次安裝及離線使用](INSTALL.md)。取得建置完成的 **Setup 安裝版** 或 **Portable 可攜版** 後，即可在沒有 Node.js／npm、未連網的 Windows 電腦安裝或執行。
 
-- 安裝版：`BulkFileStudio-Setup-1.12.0-x64.exe`。
-- 可攜版：`BulkFileStudio-Portable-1.12.0-x64.exe`。
+- 安裝版：`BulkFileStudio-Setup-1.13.0-x64.exe`。
+- 可攜版：`BulkFileStudio-Portable-1.13.0-x64.exe`。
 - 兩種目標分別設定檔名，避免同版本、同架構的 EXE 互相覆蓋。以上為 x64 檔名範例，架構依建置參數決定。
 - Node.js／npm 及依賴下載屬於開發、建置環境；正式程式不安裝執行環境、不下載元件、不自行檢查更新。
 - 發行時交付建置完成的 EXE；GitHub 的「Source code ZIP」只包含原始碼。此原始碼更新本身不代表已產生或驗證 Windows EXE。
@@ -402,8 +426,8 @@ npm run dist:win
 
 | 目標 | x64 範例輸出 | 用途 |
 |---|---|---|
-| `nsis` | `BulkFileStudio-Setup-1.12.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
-| `portable` | `BulkFileStudio-Portable-1.12.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
+| `nsis` | `BulkFileStudio-Setup-1.13.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
+| `portable` | `BulkFileStudio-Portable-1.13.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
 
 只產生安裝版可執行 `npm run dist:setup`；只產生可攜版可執行 `npm run dist:portable`。要指定 x64 架構，執行 `npm run dist:win -- --x64`。
 

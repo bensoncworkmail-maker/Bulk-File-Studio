@@ -6,8 +6,8 @@
 
 | 版本 | 檔名範例 | 使用方式 |
 |---|---|---|
-| 完整安裝版 | `BulkFileStudio-Setup-1.12.0-x64.exe` | 雙擊並完成安裝，可於設定啟用 Windows 右鍵收藏 |
-| 可攜版 | `BulkFileStudio-Portable-1.12.0-x64.exe` | 雙擊直接執行，不提供 Windows 右鍵註冊 |
+| 完整安裝版 | `BulkFileStudio-Setup-1.13.0-x64.exe` | 雙擊並完成安裝，可於設定啟用 Windows 右鍵收藏 |
+| 可攜版 | `BulkFileStudio-Portable-1.13.0-x64.exe` | 雙擊直接執行，不提供 Windows 右鍵註冊 |
 
 架構需符合你的電腦；上表是 x64 範例。GitHub 的「Source code ZIP」是開發原始碼，並非已建置的安裝檔。若尚未有人提供 EXE，需先由開發者依 README 在 Windows 完成建置及驗證。
 
@@ -63,3 +63,7 @@
 拖曳命名規則左邊界可調寬，雙擊還原 420 px；設定頁提供 280–720 px 連續寬度。窄視窗會限制實際寬度，為清單保留空間。
 
 「設定 → 資料與設定 → 匯出設定 JSON」可儲存目前介面、欄位、排序、快捷鍵、浮動工具、工作台規則及自訂範本。匯出不含收藏清單、原檔案或復原紀錄，目前尚未提供設定 JSON 匯入介面。
+
+## 選用：Everything 本機搜尋
+
+不使用 Everything 時無需安裝其他工具。需要整合時，先從 https://www.voidtools.com/downloads/ 取得 Everything 及最新 ES 命令列工具，啟動 Everything，然後在 Studio「設定 → 啟動 → Everything 本機搜尋」選取官方 es.exe 並手動啟用。可按測試檢查本機查詢；1.5 Alpha 若使用具名稱的執行個體，可填入 1.5a。首次下載需網路，之後本機 IPC 查詢不需要網路；請另行關閉 Everything 的更新檢查及網路服務。完整步驟及限制見 README 的 1.13 說明。

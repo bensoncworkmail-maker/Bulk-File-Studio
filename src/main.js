@@ -12,7 +12,8 @@ const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createPreview, executeMoves, listPaths, snapshotMoves, prepareUndo } = require('./rename-core');
-const { FavoritesStore } = require('./favorites-store');
+const { FavoritesStore,inspectPath } = require('./favorites-store');
+const {EverythingBridge}=require('./everything-bridge');
 const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('./windows-context-menu');
 
 // Keep the historical packaged profile path after the display-name change.
@@ -24,7 +25,7 @@ const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 const floatingDefaults={width:390,height:560,minWidth:300,minHeight:280};
-let favorites;
+let favorites,everything;
 let contextMenu;
 let queuedFavorites = favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
@@ -121,6 +122,14 @@ app.whenReady().then(() => {
   });
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
+  everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
+  handle('everything-status',()=>everything.status());
+  handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
+  handle('everything-choose',async()=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const result=await dialog.showOpenDialog(win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']});return result.canceled?{canceled:true}:everything.choose(result.filePaths[0]);});
+  handle('everything-search',(_,input)=>everything.search(input));
+  handle('everything-cancel',()=>everything.cancel());
+  handle('everything-favorite',(_,token,indices,tags)=>{const paths=everything.selection(token,indices);const result=favorites.addPaths(paths,tags);notifyFavorites();return result;});
+  handle('everything-to-rename',(_,token,indices)=>{const paths=everything.selection(token,indices);for(const file of paths)if(inspectPath(file).type!=='file')throw new Error('加入改名只接受一般檔案，資料夾可先加入收藏');return listPaths(paths,false);});
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
   handle('favorites-list', event => {
@@ -321,7 +330,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',()=>{if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>desktopShell?.destroy());
+app.on('will-quit',()=>{everything?.cancel();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

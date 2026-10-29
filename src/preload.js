@@ -57,3 +57,5 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  resetWindow:()=>ipcRenderer.invoke('desktop-reset-window'),showFloating:()=>ipcRenderer.invoke('floating-show'),hideFloating:()=>ipcRenderer.invoke('floating-hide'),showMain:tag=>ipcRenderer.invoke('floating-main',tag),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));
+
+contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>ipcRenderer.invoke('everything-status'),configure:(enabled,instance)=>ipcRenderer.invoke('everything-configure',enabled,instance),choose:()=>ipcRenderer.invoke('everything-choose'),search:input=>ipcRenderer.invoke('everything-search',input),cancel:()=>ipcRenderer.invoke('everything-cancel'),favorite:(token,indices,tags)=>ipcRenderer.invoke('everything-favorite',token,indices,tags),toRename:(token,indices)=>ipcRenderer.invoke('everything-to-rename',token,indices)}));
