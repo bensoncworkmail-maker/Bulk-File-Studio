@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+const {assertLocalPath}=require('./offline-policy');
 const MAX_FILES = 5000;
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
 const segmenter = new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' });
@@ -145,7 +146,7 @@ function createPreview(filePaths, inputOptions, options = {}) {
   if (unique.length > MAX_FILES) throw new Error(`每次最多處理 ${MAX_FILES} 個檔案`);
   const stats = new Map();
   if (!options.skipStat) for (const source of unique) {
-    try { stats.set(source, fs.lstatSync(source)); } catch { stats.set(source, null); }
+    try { assertLocalPath(source);stats.set(source, fs.lstatSync(source)); } catch { stats.set(source, null); }
   }
   unique.sort((a,b) => {
     const order = rules.sortBy === 'name' ? collator.compare(path.basename(a),path.basename(b)) :
@@ -220,6 +221,7 @@ function sameIdentity(a, b) {
 
 /** Bound memory use even for large files. Reject a file changing while read. */
 function fingerprintFile(filepath) {
+  assertLocalPath(filepath);
   const before = fileIdentity(fs.lstatSync(filepath, { bigint: true }));
   const fd = fs.openSync(filepath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
   try {
@@ -273,6 +275,7 @@ function validateMoves(moves) {
   if (moves.length > MAX_FILES) throw new Error('檔案數量超過安全上限');
   const sources = new Set(); const targets = new Set();
   for (const { source, destination } of moves) {
+    assertLocalPath(source);assertLocalPath(destination);
     if (path.dirname(source) !== path.dirname(destination)) throw new Error('只允許在原來資料夾內重新命名');
     const problem = filenameProblem(path.basename(destination));
     if (problem) throw new Error(`${path.basename(destination)}：${problem}`);
@@ -340,6 +343,7 @@ function executeMoves(moves) {
 function listPaths(inputs, recursive = false) {
   const found = new Map(); const visitedDirs = new Set(); let ignored = 0;
   const visit = (p) => {
+    try{assertLocalPath(p);}catch{ignored++;return;}
     if (found.size >= MAX_FILES) { ignored++; return; }
     let stat;
     try { stat = fs.lstatSync(p); } catch { ignored++; return; }

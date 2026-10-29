@@ -15,22 +15,24 @@ function harness(t, overrides = {}) {
   const realRequire = createRequire(main);
   const nativeTheme = {};
   const events=new Map();
+  let contents;const rawHandlers=new Map(),opened=[],shown=[];let copied='';
+  const network={};
   class Window {
-    constructor() { this.webContents = { setWindowOpenHandler() {},send() {} }; }
+    constructor() { this.webContents = contents = { on:(name,callback)=>network[name]=callback,setWindowOpenHandler:callback=>network.windowOpen=callback,send() {},session:{webRequest:{onBeforeRequest:callback=>network.request=callback},setPermissionRequestHandler:callback=>network.permission=callback,setPermissionCheckHandler:callback=>network.check=callback,on:(name,callback)=>network[name]=callback} }; }
     loadFile() {}
     setBackgroundColor(value) { this.background = value; }
     isMinimized(){return false;}show(){}focus(){}restore(){}
   }
   const electron = {
-    app: { getPath:()=>dir, requestSingleInstanceLock:()=>true, whenReady:()=>({ then:callback=>callback() }), on:(name,callback)=>events.set(name,callback), isPackaged:false },
+    app: {commandLine:{appendSwitch(){}},getVersion:()=>require('../package.json').version, getPath:()=>dir, requestSingleInstanceLock:()=>true, whenReady:()=>({ then:callback=>callback() }), on:(name,callback)=>events.set(name,callback), isPackaged:false },
     BrowserWindow:Window, nativeTheme,
-    ipcMain:{ handle:(name,handler)=>handlers.set(name,handler) }, dialog:{}, shell:{}
+    ipcMain:{ handle:(name,handler)=>{rawHandlers.set(name,handler);handlers.set(name,(_, ...args)=>handler({sender:contents,senderFrame:{url:require('node:url').pathToFileURL(path.join(path.dirname(main),'index.html')).href}},...args));} }, dialog:{}, clipboard:{writeText:text=>{copied=text;}},shell:{openPath:async filepath=>{opened.push(filepath);return '';},showItemInFolder:filepath=>shown.push(filepath)}
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
     __dirname:path.dirname(main), process
   }, { filename:main });
-  return { dir, handlers, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
+  return { dir, handlers, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
 test('IPC persists verified history, blocks edited files, and allows retry', t => {
@@ -125,4 +127,24 @@ test('second-instance Explorer requests collect files once and activate favorite
   const second=path.join(dir,'transferred.txt');fs.writeFileSync(second,'B');
   events.get('second-instance')(null,['reordered-argv'],dir,{favoritePaths:[second,'relative.txt']});
   assert.equal(handlers.get('favorites-list')().items.length,2);
+});
+
+test('IPC rejects other windows, frames and missing sender identity',t=>{
+ const {rawHandlers}=harness(t);for(const event of [null,{}, {sender:{},senderFrame:{url:'https://example.com'}}])assert.throws(()=>rawHandlers.get('history')(event),/不受信任/);
+});
+test('window session blocks network, permissions, navigation and external windows',t=>{
+ const {network}=harness(t);let canceled;network.request({url:'https://example.com'},result=>canceled=result.cancel);assert.equal(canceled,true);
+ let permission;network.permission(null,'camera',result=>permission=result);assert.equal(permission,false);assert.equal(network.check(),false);assert.equal(network.windowOpen({url:'https://example.com'}).action,'deny');let prevented=false;network['will-navigate']({preventDefault:()=>prevented=true});assert.ok(prevented);
+});
+test('move IPC persists verified journal and synchronizes favorites through undo',t=>{
+ const {dir,handlers,historyPath}=harness(t);const source=path.join(dir,'a.txt'),folder=path.join(dir,'out');fs.writeFileSync(source,'A');fs.mkdirSync(folder);handlers.get('favorites-add')(null,[source],['saved']);
+ const preview=handlers.get('move-preview')(null,[source],folder);assert.throws(()=>handlers.get('move-files')(null,[source],folder,[]),/預覽已變更/);assert.equal(fs.existsSync(historyPath),false);
+ const result=handlers.get('move-files')(null,[source],folder,preview);assert.equal(result.changed,1);assert.equal(handlers.get('history')().kind,'move');assert.equal(handlers.get('favorites-list')().items[0].path,path.join(folder,'a.txt'));
+ handlers.get('undo')();assert.equal(fs.readFileSync(source,'utf8'),'A');assert.equal(handlers.get('favorites-list')().items[0].path,source);
+});
+test('bulk open validates the entire selection, limits volume, and copies paths',async t=>{
+ const {dir,handlers,opened,getCopied}=harness(t);const paths=Array.from({length:21},(_,i)=>path.join(dir,`item-${i}.txt`));paths.forEach(p=>fs.writeFileSync(p,'A'));handlers.get('favorites-add')(null,paths);const ids=handlers.get('favorites-list')().items.map(item=>item.id);
+ await assert.rejects(()=>handlers.get('favorites-bulk-open')(null,ids),/最多開啟 20/);assert.equal(opened.length,0);
+ assert.equal((await handlers.get('favorites-bulk-open')(null,ids.slice(0,2))).opened,2);handlers.get('favorites-copy-many')(null,ids.slice(0,2));assert.equal(getCopied(),paths.slice(0,2).join('\r\n'));
+ const executable=path.join(dir,'danger.exe');fs.writeFileSync(executable,'data');handlers.get('favorites-add')(null,[executable]);const executableId=handlers.get('favorites-list')().items.find(item=>item.path===executable).id;await assert.rejects(()=>handlers.get('favorites-bulk-open')(null,[ids[0],executableId]),/自行開啟/);assert.equal(opened.length,2);
 });

@@ -345,6 +345,7 @@ function render() {
   const canRun = !busy && !previewPending && counts.ready > 0 && counts.error === 0;
   const blocker = counts.error > 0;
   $('btn-run').disabled = !canRun;
+  $('btn-move-selected').disabled=busy||!selected.size;
   $('btn-undo').disabled = busy || !history;
   $('btn-export').disabled = busy || !selCount;
   $('btn-favorite-selected').disabled = busy || !selCount;
@@ -427,8 +428,8 @@ async function executeRename() {
 function undo() {
   if (busy || !history || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog()) return;
   pendingAction = 'undo';
-  $('modal-title').textContent = '復原上一批命名？';
-  $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的名稱。復原只會更改名稱，不會還原檔案內容。`;
+  $('modal-title').textContent = '復原上一批操作？';
+  $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的${history.kind==='move'?'位置':'名稱'}。不會還原檔案內容；若檔案已修改／替換或原位置被占用，會整批停止。`;
   $('modal-note').textContent = '若任何檔案已被修改、替換、移走，或原名稱已被佔用，整批復原會停止。紀錄會保留，修正問題後可再試。舊版未校驗紀錄不支援自動復原。';
   $('btn-confirm').textContent = '檢查並復原';
   $('confirm-modal').showModal();
@@ -501,10 +502,7 @@ function wireEvents() {
   document.addEventListener('keydown',e=>{
     if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog() || window.settingsUI.hasOpenDialog()) return;
     if(window.favoritesUI.isSettings())return;
-    if(window.favoritesUI.isActive()) {
-      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='o'){e.preventDefault();$('btn-fav-add-files').click();}
-      return;
-    }
+    if(window.favoritesUI.isActive())return;
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='o') {e.preventDefault();e.shiftKey?chooseFolder():chooseFiles();}
     if((e.ctrlKey||e.metaKey) && e.key==='Enter') {e.preventDefault();confirmRename();}
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && document.activeElement?.tagName!=='INPUT') {e.preventDefault();undo();}
@@ -543,6 +541,11 @@ async function init() {
     render();window.favoritesUI.render();
   }});
   setRuleTab('presets');initPresets();wireEvents();render();
+  window.movingUI.init({showFailure,onMoved:async result=>{
+    const destinations=new Map(result.moves.map(move=>[norm(move.source),move.destination]));
+    files=files.map(file=>destinations.get(norm(file))||file);selected.clear();history=await api.history().catch(()=>null);await updatePreview();await window.favoritesUI.refresh();showToast(`已搬移 ${result.changed} 個檔案`,'success');
+  }});
+  $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;

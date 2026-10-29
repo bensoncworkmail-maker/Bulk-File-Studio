@@ -4,7 +4,7 @@
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
   const controls={theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
-    showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
+    rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
     startPage:'settings-start-page',rememberRules:'settings-remember-rules',resetRulesAfterRename:'settings-reset-rules',
     defaultSortBy:'settings-sort-by',defaultSortDirection:'settings-sort-direction'};
   function syncControls() {
@@ -30,7 +30,9 @@
     catch(e){$('settings-data-path').textContent=String(e.message||e);}
   }
   function init(options) {
-    callbacks=options;syncControls();
+    callbacks=options;syncControls();window.studioShortcuts.init();
+    $('btn-shortcuts-reset').addEventListener('click',()=>window.studioShortcuts.reset());
+    window.renameAPI.appInfo().then(info=>{$('info-version').textContent='v'+info.version;}).catch(()=>{});
     for(const [key,id] of Object.entries(controls))$(id).addEventListener('change',event=>{
       const el=event.target;update({[key]:typeof DEFAULTS[key]==='boolean'?el.checked:key==='pageSize'?Number(el.value):el.value});
     });

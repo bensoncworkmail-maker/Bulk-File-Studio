@@ -7,9 +7,12 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-if not exist "node_modules\electron" (
-    call npm install
-    if errorlevel 1 (echo Installation failed. & pause & exit /b 1)
+node -e "process.exit(require('./node_modules/electron/package.json').version===require('./package.json').devDependencies.electron?0:1)" >nul 2>nul
+if errorlevel 1 (
+    echo Dependencies are missing or outdated. Run npm install during development, then retry.
+    echo Dependency setup needs Internet access. The installed app runs offline.
+    pause
+    exit /b 1
 )
 call npm run dist:win
 if errorlevel 1 (echo Build failed. & pause & exit /b 1)

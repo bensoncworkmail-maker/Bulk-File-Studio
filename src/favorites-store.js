@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const {assertLocalPath}=require('./offline-policy');
 const MAX_FAVORITES = 10000;
 const pathKey = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
 const identityKeys = ['dev','ino','birthtimeNs'];
@@ -9,6 +10,7 @@ function identity(stat) { return Object.fromEntries(identityKeys.map(key=>[key,S
 function sameIdentity(a,b) { return a && b && identityKeys.every(key=>a[key]===b[key]); }
 function inspectPath(filepath) {
   if (typeof filepath !== 'string' || !path.isAbsolute(filepath) || filepath.includes('\0')) throw new Error('請選取有效的完整檔案或資料夾路徑');
+  assertLocalPath(filepath);
   const stat=fs.lstatSync(filepath,{bigint:true});
   if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) throw new Error('只支援一般檔案及資料夾，不包含符號連結');
   return {type:stat.isDirectory()?'folder':'file',identity:identity(stat)};
@@ -125,6 +127,7 @@ class FavoritesStore {
     const data=this.read(),items=this.selection(data,ids),selected=new Set(items.map(item=>item.id));
     data.items=data.items.filter(item=>!selected.has(item.id));this.write(data);return {removed:items.length};
   }
+  recordedPaths(ids) { return this.selection(this.read(),ids).map(item=>item.path); }
   readyPaths(ids) {
     const data=this.read(),items=this.selection(data,ids);
     for(const item of items){const state=this.state(item);if(state.status!=='ready')throw new Error(`${item.path}\n${state.reason}`);}

@@ -8,19 +8,21 @@
   const labels={ready:'可使用',missing:'找不到位置',replaced:'檔案可能已替換',unavailable:'無法存取'};
   let items=[],selected=new Set(),activeTag=null,active=false,busy=false,loaded=false,revision=0;
   let settingsActive=false,pageIndex=0;
-  let callbacks,editingIds=[],removingIds=[],pendingLink=null,contextState=null;
+  let openingIds=[],callbacks,editingIds=[],removingIds=[],pendingLink=null,contextState=null;
   const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;};
   function button(text,handler,className='btn btn-ghost') {
     const el=node('button',className,text);el.type='button';el.addEventListener('click',handler);return el;
   }
   function setView(view) {
     if(callbacks?.isBusy())return;
-    active=view==='favorites';settingsActive=view==='settings';closeMenu();
+    active=view==='favorites';settingsActive=view==='settings'||view==='info';closeMenu();
+    $('info-page').classList.toggle('hidden',view!=='info');$('tab-info').classList.toggle('active',view==='info');$('tab-info').setAttribute('aria-pressed',String(view==='info'));
+    $('btn-undo').classList.toggle('hidden',settingsActive);
     $('favorites-page').classList.toggle('hidden',!active);
-    $('settings-page').classList.toggle('hidden',!settingsActive);
-    for(const id of ['rename-intro','rename-workspace','rename-footer','btn-undo','btn-export','btn-favorite-selected'])$(id).classList.toggle('hidden',active||settingsActive);
-    $('tab-favorites').classList.toggle('active',active);$('tab-rename').classList.toggle('active',!active&&!settingsActive);$('tab-settings').classList.toggle('active',settingsActive);
-    $('tab-favorites').setAttribute('aria-pressed',String(active));$('tab-rename').setAttribute('aria-pressed',String(!active&&!settingsActive));$('tab-settings').setAttribute('aria-pressed',String(settingsActive));
+    $('settings-page').classList.toggle('hidden',view!=='settings');
+    for(const id of ['rename-intro','rename-workspace','rename-footer','btn-export','btn-favorite-selected'])$(id).classList.toggle('hidden',active||settingsActive);
+    $('tab-favorites').classList.toggle('active',active);$('tab-rename').classList.toggle('active',!active&&!settingsActive);$('tab-settings').classList.toggle('active',view==='settings');
+    $('tab-favorites').setAttribute('aria-pressed',String(active));$('tab-rename').setAttribute('aria-pressed',String(!active&&!settingsActive));$('tab-settings').setAttribute('aria-pressed',String(view==='settings'));
     if(settingsActive)window.settingsUI.refreshInfo();
     $('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';
   }
@@ -54,7 +56,7 @@
     const hiddenCount=[...selected].filter(id=>!visibleIds.has(id)).length;
     $('favorite-count').textContent=loaded?items.length:'—';
     $('favorite-selection-count').textContent=selected.size?`已選取 ${selected.size} 項${hiddenCount?`（${hiddenCount} 項目前未顯示）`:''}`:'尚未選取';
-    for(const id of ['btn-fav-edit','btn-fav-remove','btn-fav-rename','btn-fav-select-none'])$(id).disabled=busy||!loaded||!selected.size;
+    for(const id of ['btn-fav-open','btn-fav-copy','btn-fav-move','btn-fav-edit','btn-fav-remove','btn-fav-rename','btn-fav-select-none'])$(id).disabled=busy||!loaded||!selected.size;
     $('btn-fav-select-all').disabled=busy||!loaded||!visible.length;
     for(const id of ['btn-fav-add-files','btn-fav-add-folders','btn-fav-refresh'])$(id).disabled=busy;
     const container=$('favorite-list');container.replaceChildren();
@@ -66,19 +68,22 @@
       const check=node('input');check.type='checkbox';check.checked=selected.has(item.id);check.disabled=busy;
       check.setAttribute('aria-label','選取 '+(item.label||basename(item.path)));
       check.addEventListener('change',()=>{if(check.checked)selected.add(item.id);else selected.delete(item.id);render();});
-      const content=node('div','favorite-row-content');
-      const name=button(item.label||basename(item.path),()=>open(item),'favorite-name');name.disabled=busy||item.status!=='ready';
-      name.title=item.path;
-      const path=node('div','favorite-path',item.path);path.title=item.path;
+      const content=node('div','favorite-name-cell');
+      const icon=node('span','favorite-row-icon',item.type==='folder'?'▱':'▤');
+      const name=button(item.label||basename(item.path),()=>{},'favorite-name');name.disabled=busy||item.status!=='ready';
+      name.addEventListener('dblclick',()=>open(item));name.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();open(item);}});name.title=item.path;content.append(icon,name);
+      let location=item.path.replace(/[\\/][^\\/]+$/,'')||'/';if(/^[A-Za-z]:$/.test(location))location+='\\';
+      const locationButton=button(location,()=>{},'favorite-location');locationButton.title=item.path;locationButton.disabled=busy||item.status!=='ready';
+      locationButton.addEventListener('dblclick',()=>run(()=>api.show(item.id)));locationButton.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();run(()=>api.show(item.id));}});
       const badges=node('div','favorite-badges');
       for(const tag of item.tags)badges.appendChild(button(tag,()=>{activeTag=tag.toLocaleLowerCase();pageIndex=0;render();},'favorite-badge'));
       if(!item.tags.length)badges.appendChild(node('span','favorite-badge','未分類'));
       const status=node('div','favorite-status'+(item.status==='ready'?'':' problem'),`${item.type==='folder'?'資料夾':'檔案'} · ${labels[item.status]||'需要處理'}`);status.title=item.reason||'';
-      content.append(name,path,badges,status);
       const actions=node('div','favorite-row-actions');
-      const show=button('定位',()=>run(()=>api.show(item.id)),'btn btn-ghost favorite-show-button');show.disabled=busy||item.status!=='ready';
       const more=button('⋯',event=>showItemMenu(event,item));more.disabled=busy;more.setAttribute('aria-label','更多操作：'+(item.label||basename(item.path)));
-      actions.append(show,more);row.append(check,node('div','favorite-row-icon',item.type==='folder'?'▱':'▤'),content,actions);
+      actions.append(more);row.append(check,content,locationButton,badges,status,actions);
+      row.classList.toggle('selected',selected.has(item.id));
+      row.addEventListener('click',event=>{if(busy||event.target.closest('input,button'))return;if(!event.ctrlKey&&!event.metaKey)selected.clear();if(selected.has(item.id))selected.delete(item.id);else selected.add(item.id);render();});
       row.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy){if(!selected.has(item.id)){selected=new Set([item.id]);render();}showItemMenu(event,item);}});
       container.appendChild(row);
     }
@@ -115,6 +120,8 @@
       callbacks.addToRename(result);setView('rename');
     });
   }
+  function requestBulkOpen(){if(busy||!selected.size)return;if(selected.size>20){callbacks.showFailure('開啟項目過多','每次最多開啟 20 項，請縮小選取範圍。');return;}openingIds=[...selected];$('favorite-open-description').textContent=`將使用系統預設程式開啟 ${openingIds.length} 個檔案／資料夾，包含跨頁選取。外部程式可能有自己的網路行為。`;$('favorite-open-dialog').showModal();}
+  function moveSelected(){if(busy||!selected.size)return;const found=items.filter(item=>selected.has(item.id));if(found.some(item=>item.type!=='file'||item.status!=='ready')){callbacks.showFailure('無法搬移','只可搬移可使用的一般檔案；資料夾請先加入工作台。');return;}window.movingUI.start(found.map(item=>item.path));}
   async function open(item) {await run(()=>api.open(item.id));}
   function edit(ids=[...selected]) {
     if(busy||!ids.length)return;
@@ -151,6 +158,8 @@
     menuAt(event,[
       {label:'開啟',disabled:item.status!=='ready',run:()=>open(item)},
       {label:'顯示所在位置',disabled:item.status!=='ready',run:()=>run(()=>api.show(item.id))},
+      {label:`批次開啟所選（${ids.length} 項）`,run:()=>{selected=new Set(ids);requestBulkOpen();}},
+      {label:`搬移所選檔案（${ids.length} 項）`,run:()=>{selected=new Set(ids);moveSelected();}},
       {label:'複製完整路徑',run:()=>run(async()=>{await api.copy(item.id);callbacks.showToast('已複製路徑');})},
       {label:ids.length===1?'編輯標籤／重新連結':`編輯 ${ids.length} 項的標籤`,run:()=>edit(ids)},
       {label:'只重新連結此項目',run:()=>edit([item.id])},
@@ -168,6 +177,17 @@
   }
   async function init(options) {
     callbacks=options;
+    $('tab-info').addEventListener('click',()=>setView('info'));
+    $('btn-fav-open').addEventListener('click',requestBulkOpen);
+    $('btn-fav-copy').addEventListener('click',()=>run(async()=>{await api.copyMany([...selected]);callbacks.showToast('已複製所選路徑');}));
+    $('btn-fav-move').addEventListener('click',moveSelected);
+    $('btn-fav-open-cancel').addEventListener('click',()=>$('favorite-open-dialog').close());
+    $('btn-fav-open-confirm').addEventListener('click',()=>{const ids=[...openingIds];$('favorite-open-dialog').close();run(async()=>{const result=await api.bulkOpen(ids);callbacks.showToast(`已開啟 ${result.opened} 項`);if(result.failures.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));});});
+    document.addEventListener('keydown',event=>{
+      if(!active||busy||callbacks.isBusy()||window.movingUI.hasOpenDialog()||document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+      const action=window.studioShortcuts.match(event);if(!action)return;event.preventDefault();
+      const actions={selectAll:()=>{for(const item of visibleItems())selected.add(item.id);render();},clear:()=>{selected.clear();render();},search:()=>$('favorite-search').focus(),open:requestBulkOpen,copy:()=>$('btn-fav-copy').click(),edit:()=>edit(),remove:()=>requestRemove(),refresh,add:()=>$('btn-fav-add-files').click(),rename:importSelected,move:moveSelected,undo:()=>$('btn-undo').click()};actions[action]?.();
+    });
     $('tab-rename').addEventListener('click',()=>setView('rename'));
     $('tab-favorites').addEventListener('click',()=>{setView('favorites');refresh();});
     $('tab-settings').addEventListener('click',()=>setView('settings'));
@@ -221,7 +241,8 @@
     setView(window.settingsUI.get().startPage);await refresh();await updateContextStatus();
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
-    hasOpenDialog:()=>$('favorite-edit-dialog').open||$('favorite-remove-dialog').open,
+    hasOpenDialog:()=>$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||window.movingUI.hasOpenDialog(),
+    show:view=>setView(view),
     showSourceMenu:(event,filepath)=>{
       if(busy||!callbacks)return;
       const paths=callbacks.getSelectedPaths(),actions=[{label:'☆ 收藏此檔案',run:()=>addPaths([filepath])}];
