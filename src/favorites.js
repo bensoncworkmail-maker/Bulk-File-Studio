@@ -9,7 +9,7 @@
   const labels={ready:'可使用',missing:'找不到位置',replaced:'檔案可能已替換',unavailable:'無法存取'};
   let items=[],selected=new Set(),activeTag=null,active=false,busy=false,loaded=false,revision=0;
   let settingsActive=false,pageIndex=0;
-  let tagSaving=false,anchor=null,taggingIds=[],columnDraft=[],pendingPromptIds=new Set(),promptTimer;
+  let managedTag=null,tagSaving=false,anchor=null,taggingIds=[],columnDraft=[],pendingPromptIds=new Set(),promptTimer;
   let openingIds=[],callbacks,editingIds=[],removingIds=[],pendingLink=null,contextState=null;
   const node=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;};
   function button(text,handler,className='btn btn-ghost') {
@@ -43,7 +43,8 @@
     if(activeTag&&!tags.some(tag=>tag.key===activeTag))activeTag=null;
     for(const tag of [{key:null,name:'全部收藏',count:items.length},{key:'',name:'未分類',count:items.filter(item=>!item.tags.length).length},...tags]){
       const el=button('',()=>{activeTag=tag.key;pageIndex=0;render();},'favorite-tag-filter'+(activeTag===tag.key?' active':''));
-      el.setAttribute('aria-pressed',String(activeTag===tag.key));el.title=tag.name+' · '+tag.count+' 項';el.append(node('span','',tag.name),node('span','count-pill',String(tag.count)));container.appendChild(el);
+      el.addEventListener('contextmenu',event=>{event.preventDefault();if(busy)return;const found=items.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));const actions=[{label:'顯示此分類',run:()=>{activeTag=tag.key;pageIndex=0;render();}},{label:'選取此分類全部項目',run:()=>{activeTag=tag.key;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set(found.map(item=>item.id));pageIndex=0;render();}}];if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},{label:'刪除標籤（保留收藏與檔案）',run:()=>manageTag(tag,true)});menuAt(event,actions);});
+      el.setAttribute('aria-pressed',String(activeTag===tag.key));el.title=tag.name+' · '+tag.count+' 項 · 右鍵開啟分類管理';el.append(node('span','',tag.name),node('span','count-pill',String(tag.count)));container.appendChild(el);
     }
   }
   function selectionUI() {
@@ -201,6 +202,9 @@
       {label:`移除收藏（${ids.length} 項）`,run:()=>requestRemove(ids)}
     ]);
   }
+  function manageTag(tag,deleting){
+    managedTag={...tag,deleting};closeMenu();$('tag-manage-title').textContent=deleting?'刪除標籤？':'重新命名／合併標籤';$('tag-manage-description').textContent=`「${tag.name}」影響 ${tag.count} 項收藏。`+(deleting?'只移除此標籤，保留其他標籤、收藏及實際檔案。沒有其他標籤的項目會列入未分類。':'輸入既有標籤名稱可合併，不會產生重複標籤。');$('tag-manage-name').value=tag.name;$('tag-manage-field').hidden=deleting;$('tag-manage-dialog').showModal();
+  }
   function openColumns(){
     columnDraft=[...model.columns(window.settingsUI.get().favoriteColumns),...Object.keys(model.COLUMNS).filter(key=>!window.settingsUI.get().favoriteColumns.includes(key))].map(key=>({key,checked:window.settingsUI.get().favoriteColumns.includes(key)}));renderColumnEditor();$('favorite-columns-dialog').showModal();
   }
@@ -230,6 +234,8 @@
     callbacks=options;
     window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
     window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
+    $('btn-tag-manage-cancel').addEventListener('click',()=>$('tag-manage-dialog').close());
+    $('tag-manage-form').addEventListener('submit',event=>{event.preventDefault();const tag=managedTag;if(!tag)return;const replacement=tag.deleting?null:$('tag-manage-name').value.trim();if(!tag.deleting&&!replacement){$('tag-manage-name').focus();return;}$('tag-manage-dialog').close();run(async()=>{const result=await api.manageTag(tag.name,replacement,tag.count);if(activeTag===tag.key)activeTag=replacement===null?null:replacement.toLocaleLowerCase();callbacks.showToast(`已更新 ${result.updated} 項收藏的標籤`);},true);});
     $('btn-fav-import-paths').addEventListener('click',()=>window.pathImportUI.open());
     window.desktopAPI.onChanged(payload=>{if(payload.settings?.explorerTagPrompt===false){pendingPromptIds.clear();clearTimeout(promptTimer);}});
     $('favorite-columns').addEventListener('contextmenu',event=>{event.preventDefault();openColumns();});
@@ -310,7 +316,7 @@
     setView(window.settingsUI.get().startPage);await refresh();await updateContextStatus();
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
-    hasOpenDialog:()=>$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),
+    hasOpenDialog:()=>$('tag-manage-dialog').open||$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),
     openColumns,show:view=>setView(view),
     showSourceMenu:(event,filepath)=>{
       if(busy||!callbacks)return;

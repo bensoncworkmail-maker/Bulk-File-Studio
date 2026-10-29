@@ -94,9 +94,14 @@ function renameOne(name, input, sequence = 0, context = {}) {
   }
   const num = String(opts.numberStart + sequence * opts.numberStep).padStart(opts.numberWidth, '0');
   if (opts.nameTemplate) {
-    if (/[{}]/.test(opts.nameTemplate.replace(/\{(?:name|folder|n|date|modified)\}/g, ''))) throw new Error('命名格式包含未知或不完整的標籤；可用 {name}、{folder}、{n}、{date}、{modified}');
-    const values = { name:newName, n:num };
-    newName = opts.nameTemplate.replace(/\{(name|folder|n|date|modified)\}/g, (_, tag) => {
+    if (/[{}]/.test(opts.nameTemplate.replace(/\{(?:name|original|ext|parent|created|folder|n|date|modified)\}/g, ''))) throw new Error('命名格式包含未知或不完整的標籤；可用 {name}、{original}、{ext}、{folder}、{parent}、{n}、{date}、{modified}、{created}');
+    const values = { name:newName, original:stem, ext:ext.slice(1), n:num };
+    newName = opts.nameTemplate.replace(/\{(name|original|ext|parent|created|folder|n|date|modified)\}/g, (_, tag) => {
+      if (tag === 'created') {
+        if(!(context.created instanceof Date)||!Number.isFinite(context.created.getTime())||context.created.getTime()<=0)throw new Error('無法讀取可靠的檔案建立日期');
+        return formatDate(localDate(context.created), opts.dateFormat);
+      }
+      if(tag === 'parent'){if(!context.parent)throw new Error('無法取得再上一層資料夾名稱');return context.parent;}
       if (tag === 'date') return formatDate(opts.dateValue, opts.dateFormat);
       if (tag === 'modified') return formatDate(localDate(context.modified), opts.dateFormat);
       if (tag === 'folder') {
@@ -166,7 +171,7 @@ function createPreview(filePaths, inputOptions, options = {}) {
     let targetName = name;
     let error = regexProblem;
     if (!error) {
-      try { targetName = renameOne(name, rules, sequence, { folder:path.basename(dir), modified:stats.get(source)?.mtime }); }
+      try { targetName = renameOne(name, rules, sequence, { folder:path.basename(dir), parent:path.basename(path.dirname(dir)),created:stats.get(source)?.birthtime,modified:stats.get(source)?.mtime }); }
       catch (e) { error = e.message; }
     }
     if (!error) error = filenameProblem(targetName);

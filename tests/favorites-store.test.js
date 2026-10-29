@@ -92,3 +92,6 @@ test('tag validation supports spaces, limits length and rejects malformed input'
   assert.throws(()=>cleanTags(Array.from({length:21},(_,i)=>'t'+i)),/20/);
   assert.throws(()=>cleanTags('text'),/清單/);
 });
+
+test('tag management renames globally, merges duplicates and deletes only tag metadata',t=>{const {store,make}=fixture(t),a=make('a.txt'),b=make('b.txt');store.addPaths([a],['Work','Keep']);store.addPaths([b],['work','Target']);assert.equal(store.manageTag('WORK','Target',2).updated,2);assert.deepEqual(store.read().items.map(i=>i.tags),[['Target','Keep'],['Target']]);store.manageTag('target',null,2);assert.deepEqual(store.read().items.map(i=>i.tags),[['Keep'],[]]);assert.equal(store.read().items.length,2);assert.equal(fs.readFileSync(a,'utf8'),'content');assert.equal(fs.readFileSync(b,'utf8'),'content');});
+test('tag validation and changed counts never partially write the catalog',t=>{const {store,make}=fixture(t);store.addPaths([make('a.txt')],['Work']);const before=fs.readFileSync(store.filename,'utf8');for(const [name,target,count] of [['Work','',1],['Work','X'.repeat(33),1],['Work',null,2],['Missing','New',1]])assert.throws(()=>store.manageTag(name,target,count));assert.equal(fs.readFileSync(store.filename,'utf8'),before);store.manageTag('work','WORK',1);assert.deepEqual(store.read().items[0].tags,['WORK']);});

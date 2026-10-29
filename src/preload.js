@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
   previewImport:(text,tags)=>ipcRenderer.invoke('favorites-import-preview',text,tags),
   importPaths:(text,tags,token)=>ipcRenderer.invoke('favorites-import-paths',text,tags,token),
   collectFloating:(paths,tag)=>ipcRenderer.invoke('floating-collect',paths,tag),
+  manageTag:(name,replacement,count)=>ipcRenderer.invoke('favorites-manage-tag',name,replacement,count),
   addTags:(ids,tags)=>ipcRenderer.invoke('favorites-add-tags',ids,tags),
   acknowledgeTags:ids=>ipcRenderer.invoke('favorites-tags-ack',ids),
   list:()=>ipcRenderer.invoke('favorites-list'),

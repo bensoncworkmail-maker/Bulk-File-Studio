@@ -129,6 +129,14 @@ class FavoritesStore {
     for(const update of updates){update.item.tags=update.tags;update.item.updatedAt=new Date().toISOString();}
     this.write(data);return {updated:items.length};
   }
+  manageTag(name,replacement,expectedCount) {
+    const single=value=>{const tags=cleanTags([value]);if(tags.length!==1)throw new Error('請輸入非空白標籤');return tags[0];};
+    const source=single(name),target=replacement===null?null:single(replacement),data=this.read();
+    const affected=data.items.filter(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===source.toLocaleLowerCase()));
+    if(!affected.length||affected.length!==expectedCount)throw new Error('標籤項目數量已變更，請重新整理後再試');
+    for(const item of affected){item.tags=cleanTags(item.tags.flatMap(tag=>tag.toLocaleLowerCase()===source.toLocaleLowerCase()?(target===null?[]:[target]):[tag]));item.updatedAt=new Date().toISOString();}
+    this.write(data);return {updated:affected.length};
+  }
   remove(ids) {
     const data=this.read(),items=this.selection(data,ids),selected=new Set(items.map(item=>item.id));
     data.items=data.items.filter(item=>!selected.has(item.id));this.write(data);return {removed:items.length};

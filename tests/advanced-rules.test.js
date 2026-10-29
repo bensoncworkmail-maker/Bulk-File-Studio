@@ -97,3 +97,5 @@ test('changing an extension renames the file without converting its bytes and ca
   executeMoves(moves);assert.deepEqual(fs.readFileSync(path.join(dir,'photo.png')),bytes);
   executeMoves(prepareUndo({version:2,state:'completed',moves}));assert.deepEqual(fs.readFileSync(original),bytes);
 });
+
+test('extra template tokens use original stem, extension text, parent and filesystem creation date',()=>{assert.equal(renameOne('Report.TXT',{find:'Report',replace:'Changed',nameTemplate:'{parent}_{folder}_{original}_{name}_{ext}_{created}',dateFormat:'YYYYMMDD'},0,{folder:'Work',parent:'Projects',created:new Date(2026,9,30)}),'Projects_Work_Report_Changed_TXT_20261030.TXT');assert.equal(renameOne('readme',{nameTemplate:'{original}{ext}'}),'readme');assert.throws(()=>renameOne('a.txt',{nameTemplate:'{parent}'}),/上一層/);assert.throws(()=>renameOne('a.txt',{nameTemplate:'{created}'},0,{created:new Date(0)}),/建立日期/);});

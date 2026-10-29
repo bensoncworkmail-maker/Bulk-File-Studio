@@ -130,6 +130,7 @@ app.whenReady().then(() => {
   });
   handle('favorites-import-preview',(_,text,tags)=>previewPathImport(favorites,text,tags));
   handle('favorites-import-paths',(_,text,tags,token)=>{const result=importPathList(favorites,text,tags,token);notifyFavorites();return result;});
+  handle('favorites-manage-tag',(_,name,replacement,count)=>{const result=favorites.manageTag(name,replacement,count);notifyFavorites();return result;});
   handle('favorites-add-tags',(_,ids,tags)=>{const result=favorites.addTags(ids,tags);notifyFavorites();return result;});
   handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
   handle('export-settings',async(_,input)=>{

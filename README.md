@@ -6,6 +6,28 @@
 
 使用 **Electron + Node.js** 開發的繁體中文 Windows 桌面工具：收藏檔案／資料夾位置、使用標籤分類，需要時批次重新命名或搬移，先預覽及檢查衝突。**程式本身離線運作，沒有上傳、遙測或自動更新。**
 
+## v1.12.0：標籤管理與更多命名變數
+
+在主視窗收藏頁的標籤分類按右鍵，可顯示分類、選取分類全部項目、重新命名／合併、刪除標籤。重新命名與刪除會顯示影響數量並要求確認；輸入既有名稱會合併、去除重複標籤。只修改收藏資料庫，不改動檔案內容或檔案名稱；刪除後沒有其他標籤的收藏會進入未分類。「全部收藏／未分類」為固定分類，不提供更名及刪除。分類選取會清除搜尋與類型／狀態篩選並選取跨頁項目。確認後項目數量已變更則停止，請重新整理。
+
+命名格式支援：
+
+| 變數 | 內容 |
+|---|---|
+| `{name}` | 經文字規則處理的檔名 |
+| `{original}` | 未經文字規則處理的原始檔名，不含副檔名 |
+| `{ext}` | 原副檔名文字，不含點；無副檔名則留空 |
+| `{folder}` | 直接上層資料夾名稱 |
+| `{parent}` | 再上一層資料夾名稱；無法取得則停止 |
+| `{n}` | 依起始值、遞增及位數產生的編號 |
+| `{date}` | 指定日期 |
+| `{modified}` | 本地時區的檔案修改日期 |
+| `{created}` | 本地時區的檔案系統建立日期；無法取得則停止 |
+
+原副檔名仍依獨立的副檔名設定保留或修改。日期格式可選 YYYY-MM-DD、YYYYMMDD、DD-MM-YYYY。建立日期不等於拍攝日期，複製或移動檔案可能影響建立日期，請先檢查預覽。
+
+Everything 目前可透過「複製完整路徑 → Studio 匯入路徑」搭配使用，尚未加入自動查詢或外部執行檔呼叫。若未來整合，建議選用本機 IPC，保持 Studio 網路封鎖，避免啟用 HTTP／ETP 服務。參考：[官方本機 IPC](https://www.voidtools.com/support/everything/sdk/ipc/)、[ES CLI](https://www.voidtools.com/support/everything/command_line_interface/)。外部程式自己的更新、網路索引及伺服器設定不受 Studio 控制。
+
 ## v1.11.0：浮動分頁與自訂全域快捷鍵
 
 - 設定 → 浮動工具 → 底部分頁列：預設「自動」，只有一頁時隱藏；亦可選永遠顯示或永遠隱藏。隱藏後仍可使用 PageUp／PageDown 換頁（在搜尋輸入框中不攔截）；主視窗按鈕的提示顯示目前頁次及筆數。
@@ -154,8 +176,8 @@ Windows 右鍵項目加入快捷字母 **B**。在檔案總管選取項目，以
 
 一般使用者請閱讀 [首次安裝及離線使用](INSTALL.md)。取得建置完成的 **Setup 安裝版** 或 **Portable 可攜版** 後，即可在沒有 Node.js／npm、未連網的 Windows 電腦安裝或執行。
 
-- 安裝版：`BulkFileStudio-Setup-1.11.0-x64.exe`。
-- 可攜版：`BulkFileStudio-Portable-1.11.0-x64.exe`。
+- 安裝版：`BulkFileStudio-Setup-1.12.0-x64.exe`。
+- 可攜版：`BulkFileStudio-Portable-1.12.0-x64.exe`。
 - 兩種目標分別設定檔名，避免同版本、同架構的 EXE 互相覆蓋。以上為 x64 檔名範例，架構依建置參數決定。
 - Node.js／npm 及依賴下載屬於開發、建置環境；正式程式不安裝執行環境、不下載元件、不自行檢查更新。
 - 發行時交付建置完成的 EXE；GitHub 的「Source code ZIP」只包含原始碼。此原始碼更新本身不代表已產生或驗證 Windows EXE。
@@ -380,8 +402,8 @@ npm run dist:win
 
 | 目標 | x64 範例輸出 | 用途 |
 |---|---|---|
-| `nsis` | `BulkFileStudio-Setup-1.11.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
-| `portable` | `BulkFileStudio-Portable-1.11.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
+| `nsis` | `BulkFileStudio-Setup-1.12.0-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
+| `portable` | `BulkFileStudio-Portable-1.12.0-x64.exe` | 免安裝執行，不提供右鍵註冊 |
 
 只產生安裝版可執行 `npm run dist:setup`；只產生可攜版可執行 `npm run dist:portable`。要指定 x64 架構，執行 `npm run dist:win -- --x64`。
 
