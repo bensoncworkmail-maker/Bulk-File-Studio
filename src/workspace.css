@@ -222,3 +222,20 @@ html,body { height:100%; overflow:hidden; }
 #quick-tag-error { color:var(--bad); font-size:calc(var(--font-scale)*12px); }
 @media(max-width:1100px) { .app-header .header-right { margin-left:0; } .app-header { gap:7px 12px; } .inline-tip span { display:none; } }
 .favorite-table-scroll .favorite-columns { min-width:calc(var(--favorite-min-width) + 24px); }
+/* 1.7: adjustable tag sidebar and path-list import. */
+.favorites-page .favorites-layout { grid-template-columns:clamp(140px,var(--tag-panel-width,220px),40vw) 8px minmax(0,1fr); column-gap:4px; }
+.tag-panel-resizer { align-self:stretch; position:relative; cursor:col-resize; border-radius:5px; touch-action:none; }
+.tag-panel-resizer::after { content:''; position:absolute; top:15px; bottom:15px; left:3px; width:2px; border-radius:2px; background:var(--line); }
+.tag-panel-resizer:hover::after,.tag-panel-resizer:focus-visible::after,.resizing-tags .tag-panel-resizer::after { background:var(--accent); }
+.tag-panel-resizer:focus-visible { outline:2px solid var(--accent); outline-offset:-1px; }
+.resizing-tags,.resizing-tags * { cursor:col-resize!important; user-select:none!important; }
+#settings-tag-width-value { color:var(--accent); margin-left:6px; }
+.path-import-dialog { width:min(760px,calc(100% - 36px)); max-height:90vh; overflow:auto; }
+#path-import-text { width:100%; resize:vertical; min-height:120px; padding:10px; font:inherit; line-height:1.6; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:7px; }
+.path-import-preview { max-height:25vh; overflow:auto; margin:10px 0; }
+.path-import-row { display:grid; grid-template-columns:90px minmax(0,1fr); gap:3px 9px; padding:7px 4px; border-bottom:1px solid var(--line); text-align:left; font-size:calc(var(--font-scale)*11px); }
+.path-import-row span { overflow-wrap:anywhere; }
+.path-import-row small { grid-column:2; color:var(--muted); }
+.path-import-row.error strong { color:var(--bad); }
+.path-import-row.new strong { color:var(--good); }
+#path-import-status { color:var(--accent); font-size:calc(var(--font-scale)*12px); line-height:1.7; margin-top:9px; }

@@ -17,8 +17,8 @@ test('persisted settings take priority over legacy values and reject invalid con
   assert.deepEqual(load({getItem(){throw new Error('storage disabled');}}),{...DEFAULTS});
 });
 test('persisted layout can be applied before the first paint',()=>{
-  const root={dataset:{}};applyRoot(root,normalize({showSource:true,showRules:false,showPaths:true,density:'comfortable'}));
-  assert.equal(root.dataset.sourceOpen,'true');assert.equal(root.dataset.rulesOpen,'false');assert.equal(root.dataset.showPaths,'true');assert.equal(root.dataset.density,'comfortable');
+  const root={dataset:{},style:{setProperty(key,value){this[key]=value;}}};applyRoot(root,normalize({showSource:true,showRules:false,showPaths:true,density:'comfortable'}));
+  assert.equal(root.dataset.sourceOpen,'true');assert.equal(root.dataset.rulesOpen,'false');assert.equal(root.dataset.showPaths,'true');assert.equal(root.dataset.density,'comfortable');assert.equal(root.style['--tag-panel-width'],'220px');
 });
 test('pagination exposes every item, including records beyond the old truncation limits',()=>{
   const items=Array.from({length:1057},(_,i)=>i);
@@ -34,3 +34,5 @@ test('empty or newly filtered lists clamp page indexes and keep display boundari
   const filtered=paginate(['a','b'],12,100);assert.equal(filtered.page,0);assert.equal(filtered.start,1);assert.equal(filtered.end,2);
   assert.equal(paginate(Array(550).fill('x'),1,250).start,251);
 });
+
+test('tag panel width accepts numeric pixels, clamps to usable bounds and migrates old settings',()=>{assert.equal(normalize({tagPanelWidth:360}).tagPanelWidth,360);assert.equal(normalize({tagPanelWidth:1}).tagPanelWidth,140);assert.equal(normalize({tagPanelWidth:999}).tagPanelWidth,480);assert.equal(normalize({tagPanelWidth:'wide'}).tagPanelWidth,220);assert.equal(normalize({tagPanelWidth:NaN}).tagPanelWidth,220);});

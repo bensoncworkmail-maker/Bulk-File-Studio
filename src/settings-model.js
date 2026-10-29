@@ -2,7 +2,7 @@
 (() => {
   const KEY='brs-settings-v1';
   const DEFAULTS=Object.freeze({theme:'dark',fontSize:'13',density:'compact',pageSize:100,
-    tagSort:'name',tagDirection:'asc',favoriteSort:'recent',favoriteDirection:'desc',favoriteOpenMode:'double',showFileIcons:true,showTips:true,favoriteColumns:['name','location','tags','status'],rulesWidth:'420',showSource:false,showRules:true,showPaths:false,recursiveDefault:false,startPage:'rename',
+    tagPanelWidth:220,tagSort:'name',tagDirection:'asc',favoriteSort:'recent',favoriteDirection:'desc',favoriteOpenMode:'double',showFileIcons:true,showTips:true,favoriteColumns:['name','location','tags','status'],rulesWidth:'420',showSource:false,showRules:true,showPaths:false,recursiveDefault:false,startPage:'rename',
     rememberRules:true,resetRulesAfterRename:true,defaultSortBy:'path',defaultSortDirection:'asc'});
   function normalize(input={}) {
     if(!input||typeof input!=='object')input={};
@@ -10,7 +10,8 @@
     const choices={theme:['light','dark'],fontSize:['12','13','15','17','19'],density:['compact','comfortable'],
       tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],rulesWidth:['360','420','500'],pageSize:[100,250,500],startPage:['rename','favorites'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
     for(const [key,value] of Object.entries(DEFAULTS)) {
-      if(key==='favoriteColumns'){out[key]=globalThis.favoritesModel?globalThis.favoritesModel.columns(input[key]):require('./favorites-model').columns(input[key]);}
+      if(key==='tagPanelWidth'){if(typeof input[key]==='number'&&Number.isFinite(input[key]))out[key]=Math.round(Math.max(140,Math.min(480,input[key])));}
+      else if(key==='favoriteColumns'){out[key]=globalThis.favoritesModel?globalThis.favoritesModel.columns(input[key]):require('./favorites-model').columns(input[key]);}
       else if(typeof value==='boolean'){if(typeof input[key]==='boolean')out[key]=input[key];}
       else if(choices[key].includes(input[key]))out[key]=input[key];
     }
@@ -24,6 +25,7 @@
     } catch {return {...DEFAULTS};}
   }
   function applyRoot(root,settings) {
+    root.style.setProperty('--tag-panel-width',settings.tagPanelWidth+'px');
     root.dataset.showTips=String(settings.showTips);
     root.dataset.rulesWidth=settings.rulesWidth;
     root.dataset.theme=settings.theme;root.dataset.fontSize=settings.fontSize;root.dataset.density=settings.density;

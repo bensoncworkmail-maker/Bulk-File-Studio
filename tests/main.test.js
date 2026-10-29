@@ -168,3 +168,14 @@ test('Explorer quick-tag requests survive reads by the floating tool and acknowl
 test('main-window close flushes the latest normal geometry and maximize state',t=>{
  const {dir,windows}=harness(t),main=windows[0];main.bounds={x:140,y:90,width:1180,height:740};main.maximized=true;main.emit('close');const saved=JSON.parse(fs.readFileSync(path.join(dir,'desktop-state.json'),'utf8'));assert.deepEqual(saved.windows.main.bounds,{x:140,y:90,width:1180,height:740});assert.equal(saved.windows.main.maximized,true);
 });
+
+test('path-list import IPC requires a current preview and merges tags through the catalog',t=>{
+ const {dir,handlers}=harness(t),a=path.join(dir,'a.txt'),b=path.join(dir,'b.txt');fs.writeFileSync(a,'A');fs.writeFileSync(b,'B');handlers.get('favorites-add')(null,[a],['old']);const text=`"${a}"\n${b}\n${b}\nrelative.txt`,preview=handlers.get('favorites-import-preview')(null,text,['new']);assert.equal(preview.counts.duplicate,1);assert.throws(()=>handlers.get('favorites-import-paths')(null,text,['changed'],preview.token),/預覽已變更/);const result=handlers.get('favorites-import-paths')(null,text,['new'],preview.token);assert.equal(result.added,1);assert.equal(result.existing,1);assert.deepEqual(handlers.get('favorites-list')().items.find(i=>i.path===a).tags,['old','new']);
+});
+test('floating quick actions pin, collect with an existing tag and route path import to main',t=>{
+ const {dir,handlers,rawHandlers,windows}=harness(t),a=path.join(dir,'a.txt'),b=path.join(dir,'b.txt');fs.writeFileSync(a,'A');fs.writeFileSync(b,'B');handlers.get('favorites-add')(null,[a],['Work']);handlers.get('floating-show')();const mini=windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ const toggled=rawHandlers.get('floating-pin')(event);assert.equal(toggled.settings.floatingOnTop,false);assert.equal(mini.onTop,false);
+ const result=rawHandlers.get('floating-collect')(event,[b],'work');assert.equal(result.added,1);assert.deepEqual(handlers.get('favorites-list')().items.find(i=>i.path===b).tags,['Work']);assert.throws(()=>rawHandlers.get('floating-collect')(event,[b],'deleted-tag'),/不存在/);
+ rawHandlers.get('floating-import')(event,'work');assert.equal(mini.visible,false);rawHandlers.get('favorites-list')(event);assert.deepEqual(Array.from(handlers.get('favorites-list')().importRequest.tags),['Work']);assert.equal(handlers.get('favorites-list')().importRequest,null);
+ assert.throws(()=>rawHandlers.get('favorites-import-preview')(event,b,[]),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{theme:'light'}),/不受信任/);
+});

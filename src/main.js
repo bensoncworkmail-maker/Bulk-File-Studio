@@ -2,6 +2,7 @@
 const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
 const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
+const {previewPathImport,importPathList}=require('./path-import-core');
 const {DesktopState}=require('./desktop-state');
 const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
@@ -16,7 +17,7 @@ for(const flag of ['disable-background-networking','disable-component-update','d
 
 let win, floating, desktop, shortcutWarning='';
 const pendingTagIds=new Set();
-let queuedFilter=null;
+let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 const floatingDefaults={width:390,height:560,minWidth:300,minHeight:280};
 let favorites;
@@ -109,7 +110,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main'];
+    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-collect','floating-import'];
     if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
@@ -118,9 +119,11 @@ app.whenReady().then(() => {
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
   handle('favorites-list', event => {
     if(event.sender===floating?.webContents)return {items:favorites.list()};
-    const result={items:favorites.list(),activate:favoriteActivation,notice:favoriteNotice,promptIds:desktop.settings.explorerTagPrompt?[...pendingTagIds]:[],filterTag:queuedFilter};
-    favoriteActivation=false;favoriteNotice=null;queuedFilter=null;return result;
+    const result={items:favorites.list(),activate:favoriteActivation,notice:favoriteNotice,promptIds:desktop.settings.explorerTagPrompt?[...pendingTagIds]:[],filterTag:queuedFilter,importRequest:pendingImportRequest};
+    favoriteActivation=false;favoriteNotice=null;queuedFilter=null;pendingImportRequest=null;return result;
   });
+  handle('favorites-import-preview',(_,text,tags)=>previewPathImport(favorites,text,tags));
+  handle('favorites-import-paths',(_,text,tags,token)=>{const result=importPathList(favorites,text,tags,token);notifyFavorites();return result;});
   handle('favorites-add-tags',(_,ids,tags)=>{const result=favorites.addTags(ids,tags);notifyFavorites();return result;});
   handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
   handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning}));
@@ -139,6 +142,20 @@ app.whenReady().then(() => {
     if(tag!==null&&(typeof tag!=='string'||tag.length>32))throw new Error('標籤無效');
     if(!win||win.isDestroyed())createWindow();if(win.isMinimized())win.restore();win.show();win.focus();
     favoriteActivation=true;queuedFilter={tag};notifyFavorites({activate:true});
+  });
+  const floatingTags=tag=>{
+    if(tag===null||tag==='')return [];
+    if(typeof tag!=='string'||tag.length>64)throw new Error('標籤無效');
+    const known=favorites.read().items.flatMap(item=>item.tags).find(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase());
+    if(!known)throw new Error('標籤已不存在，請重新整理後再試');return [known];
+  };
+  handle('floating-pin',()=>{
+    const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);
+    const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+  });
+  handle('floating-collect',(_,paths,tag)=>{const result=favorites.addPaths(paths,floatingTags(tag));notifyFavorites();return result;});
+  handle('floating-import',(_,tag)=>{
+    pendingImportRequest={tags:floatingTags(tag)};favoriteActivation=true;if(!win||win.isDestroyed())createWindow();if(floating&&!floating.isDestroyed())floating.hide();if(win.isMinimized())win.restore();win.show();win.focus();notifyFavorites({activate:true});
   });
   handle('favorites-add', (_, paths, tags) => {
     const result=favorites.addPaths(paths,tags);notifyFavorites();return result;

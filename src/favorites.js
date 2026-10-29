@@ -76,11 +76,12 @@
     const filtered=visibleItems(),page=paginate(filtered,pageIndex,window.settingsUI.get().pageSize),visible=page.rows,visibleIds=new Set(visible.map(item=>item.id));
     pageIndex=page.page;$('favorite-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
     $('favorite-page-prev').disabled=busy||!page.hasPrevious;$('favorite-page-next').disabled=busy||!page.hasNext;
+    $('tag-panel-resizer').setAttribute('aria-valuenow',String(window.settingsUI.get().tagPanelWidth));
     $('favorite-count').textContent=loaded?items.length:'—';
     const settings=window.settingsUI.get(),keys=model.columns(settings.favoriteColumns);renderColumns(keys);
     $('favorite-sort').value=settings.favoriteSort;$('favorite-direction').textContent=settings.favoriteDirection==='asc'?'↑':'↓';
     $('btn-fav-select-all').disabled=busy||!loaded||!visible.length;
-    for(const id of ['btn-fav-add-files','btn-fav-add-folders','btn-fav-refresh'])$(id).disabled=busy;
+    for(const id of ['btn-fav-add-files','btn-fav-add-folders','btn-fav-import-paths','btn-fav-refresh'])$(id).disabled=busy;
     const container=$('favorite-list');container.replaceChildren();
     if(!visible.length){
       container.appendChild(node('div','list-empty',!loaded?'無法載入收藏；請重新整理。原資料不會被清空。':items.length?'沒有符合條件的收藏。':'尚未收藏任何位置。加入檔案或資料夾，或把項目拖放到此頁。'));
@@ -121,6 +122,7 @@
       if(result.activate)setView('favorites');
       if(request!==revision)return;
       items=result.items;loaded=true;
+      if(result.importRequest)window.pathImportUI.queue(result.importRequest);
       if(result.filterTag){activeTag=result.filterTag.tag;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;}
       for(const id of result.promptIds||[])pendingPromptIds.add(id);queuePrompt();
       selected=new Set([...selected].filter(id=>items.some(item=>item.id===id)));render();
@@ -222,6 +224,9 @@
   }
   async function init(options) {
     callbacks=options;
+    window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
+    window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
+    $('btn-fav-import-paths').addEventListener('click',()=>window.pathImportUI.open());
     window.desktopAPI.onChanged(payload=>{if(payload.settings?.explorerTagPrompt===false){pendingPromptIds.clear();clearTimeout(promptTimer);}});
     $('favorite-columns').addEventListener('contextmenu',event=>{event.preventDefault();openColumns();});
     $('btn-fav-columns').addEventListener('click',openColumns);
@@ -245,7 +250,7 @@
     document.addEventListener('keydown',event=>{
       if(!active||busy||callbacks.isBusy()||window.movingUI.hasOpenDialog()||document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
       const action=window.studioShortcuts.match(event);if(!action)return;event.preventDefault();
-      const actions={selectAll:()=>{for(const item of visibleItems())selected.add(item.id);render();},clear:()=>{selected.clear();render();},search:()=>$('favorite-search').focus(),open:requestBulkOpen,copy:()=>$('btn-fav-copy').click(),edit:()=>edit(),remove:()=>requestRemove(),refresh,add:()=>$('btn-fav-add-files').click(),rename:importSelected,move:moveSelected,undo:()=>$('btn-undo').click(),quickTag:()=>quickTag()};actions[action]?.();
+      const actions={selectAll:()=>{for(const item of visibleItems())selected.add(item.id);render();},clear:()=>{selected.clear();render();},search:()=>$('favorite-search').focus(),open:requestBulkOpen,copy:()=>$('btn-fav-copy').click(),edit:()=>edit(),remove:()=>requestRemove(),refresh,add:()=>$('btn-fav-add-files').click(),rename:importSelected,move:moveSelected,undo:()=>$('btn-undo').click(),quickTag:()=>quickTag(),importPaths:()=>window.pathImportUI.open()};actions[action]?.();
     });
     $('tab-rename').addEventListener('click',()=>setView('rename'));
     $('tab-favorites').addEventListener('click',()=>{setView('favorites');refresh();});
@@ -300,7 +305,7 @@
     setView(window.settingsUI.get().startPage);await refresh();await updateContextStatus();
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
-    hasOpenDialog:()=>$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.movingUI.hasOpenDialog(),
+    hasOpenDialog:()=>$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),
     openColumns,show:view=>setView(view),
     showSourceMenu:(event,filepath)=>{
       if(busy||!callbacks)return;

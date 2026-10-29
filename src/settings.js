@@ -4,11 +4,12 @@
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
   const controls={theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
-    showTips:'settings-tips',favoriteOpenMode:'settings-favorite-open',showFileIcons:'settings-file-icons',favoriteSort:'settings-favorite-sort',favoriteDirection:'settings-favorite-direction',rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
+    tagPanelWidth:'settings-tag-panel-width',showTips:'settings-tips',favoriteOpenMode:'settings-favorite-open',showFileIcons:'settings-file-icons',favoriteSort:'settings-favorite-sort',favoriteDirection:'settings-favorite-direction',rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
     startPage:'settings-start-page',rememberRules:'settings-remember-rules',resetRulesAfterRename:'settings-reset-rules',
     defaultSortBy:'settings-sort-by',defaultSortDirection:'settings-sort-direction'};
   function syncControls() {
     applyRoot(document.documentElement,settings);
+    $('settings-tag-width-value').textContent=settings.tagPanelWidth+' px';
     for(const [key,id] of Object.entries(controls)){
       const el=$(id);if(typeof settings[key]==='boolean')el.checked=settings[key];else el.value=settings[key];
     }
@@ -41,10 +42,11 @@
     for(const id of ['btn-floating','btn-settings-floating'])$(id).addEventListener('click',()=>window.desktopAPI.showFloating().catch(e=>callbacks.showFailure('無法開啟浮動收藏',e)));
     $('btn-window-reset').addEventListener('click',()=>window.desktopAPI.resetWindow().catch(e=>callbacks.showFailure('無法還原視窗',e)));
     $('btn-settings-columns').addEventListener('click',()=>window.favoritesUI.openColumns());
+    $('settings-tag-panel-width').addEventListener('input',event=>{$('settings-tag-width-value').textContent=event.target.value+' px';});
     $('btn-shortcuts-reset').addEventListener('click',()=>window.studioShortcuts.reset());
     window.renameAPI.appInfo().then(info=>{$('info-version').textContent='v'+info.version;}).catch(()=>{});
     for(const [key,id] of Object.entries(controls))$(id).addEventListener('change',event=>{
-      const el=event.target;update({[key]:typeof DEFAULTS[key]==='boolean'?el.checked:key==='pageSize'?Number(el.value):el.value});
+      const el=event.target;update({[key]:typeof DEFAULTS[key]==='boolean'?el.checked:['pageSize','tagPanelWidth'].includes(key)?Number(el.value):el.value});
     });
     $('btn-settings-reset').addEventListener('click',()=>$('settings-reset-dialog').showModal());
     $('btn-settings-reset-cancel').addEventListener('click',()=>$('settings-reset-dialog').close());

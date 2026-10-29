@@ -1,7 +1,7 @@
 'use strict';
 (() => {
- const DEFAULTS=Object.freeze({selectAll:'Ctrl+A',clear:'Escape',search:'Ctrl+F',open:'Enter',copy:'Ctrl+Shift+C',edit:'F2',remove:'Delete',refresh:'F5',add:'Ctrl+O',rename:'Ctrl+R',move:'Ctrl+M',undo:'Ctrl+Z',quickTag:'Ctrl+T'});
- const LABELS={selectAll:'選取全部搜尋結果（跨頁）',clear:'取消選取',search:'搜尋收藏',open:'批次開啟（最多 20 項）',copy:'複製所選完整路徑',edit:'編輯標籤',remove:'移除收藏紀錄',refresh:'重新整理',add:'收藏檔案',rename:'加入重新命名',move:'搬移所選檔案',undo:'復原上一批改名／搬移',quickTag:'加入標籤並保留原標籤'};
+ const DEFAULTS=Object.freeze({selectAll:'Ctrl+A',clear:'Escape',search:'Ctrl+F',open:'Enter',copy:'Ctrl+Shift+C',edit:'F2',remove:'Delete',refresh:'F5',add:'Ctrl+O',rename:'Ctrl+R',move:'Ctrl+M',undo:'Ctrl+Z',quickTag:'Ctrl+T',importPaths:'Ctrl+Shift+I'});
+ const LABELS={selectAll:'選取全部搜尋結果（跨頁）',clear:'取消選取',search:'搜尋收藏',open:'批次開啟（最多 20 項）',copy:'複製所選完整路徑',edit:'編輯標籤',remove:'移除收藏紀錄',refresh:'重新整理',add:'收藏檔案',rename:'加入重新命名',move:'搬移所選檔案',undo:'復原上一批改名／搬移',quickTag:'加入標籤並保留原標籤',importPaths:'從每行路徑匯入收藏'};
  function chord(event){const key=event.key.length===1?event.key.toUpperCase():event.key;if(['Control','Meta','Shift','Alt'].includes(key))return '';return [event.ctrlKey||event.metaKey?'Ctrl':'',event.altKey?'Alt':'',event.shiftKey?'Shift':'',key].filter(Boolean).join('+');}
  function normalize(input={}) {
    if(!input||typeof input!=='object')input={};
