@@ -6,6 +6,16 @@
 
 使用 **Electron + Node.js** 開發的繁體中文 Windows 桌面工具：收藏檔案／資料夾位置、使用標籤分類，需要時批次重新命名或搬移，先預覽及檢查衝突。**程式本身離線運作，沒有上傳、遙測或自動更新。**
 
+## v1.5.1：完整離線安裝與交付
+
+一般使用者請閱讀 [首次安裝及離線使用](INSTALL.md)。取得建置完成的 **Setup 安裝版** 或 **Portable 可攜版** 後，即可在沒有 Node.js／npm、未連網的 Windows 電腦安裝或執行。
+
+- 安裝版：`BulkFileStudio-Setup-1.5.1-x64.exe`。
+- 可攜版：`BulkFileStudio-Portable-1.5.1-x64.exe`。
+- 兩種目標分別設定檔名，避免同版本、同架構的 EXE 互相覆蓋。以上為 x64 檔名範例，架構依建置參數決定。
+- Node.js／npm 及依賴下載屬於開發、建置環境；正式程式不安裝執行環境、不下載元件、不自行檢查更新。
+- 發行時交付建置完成的 EXE；GitHub 的「Source code ZIP」只包含原始碼。此原始碼更新本身不代表已產生或驗證 Windows EXE。
+
 ## v1.5.0：Bulk File Studio
 
 原名 Bulk Rename Studio。安裝版保留原來的應用程式識別、使用者資料位置及右鍵選單登錄鍵，沿用收藏與偏好；視窗、介面、安裝程式及右鍵文字改為 **Bulk File Studio**。升級後若右鍵仍顯示舊名稱，於設定停用後再啟用一次。
@@ -189,30 +199,62 @@
 
 **復原只還原名稱／位置，不還原內容。** 如果檔案被其他程式覆蓋，這個工具無法重建原來內容，需要從你自己的備份或版本紀錄還原。程式不會提供強制覆蓋或略過有問題檔案的部分復原。
 
-## Windows 使用方法
+## Windows 一般使用者：安裝或直接執行
 
-1. 安裝 [Node.js LTS](https://nodejs.org/)（需包含 npm；建議 Node.js 24 或更新版本）。
-2. 將本專案 ZIP 解壓到一個資料夾。
-3. 開發環境先手動執行 `npm install` 取得依賴，再雙擊 `Start-App.cmd`。啟動腳本只檢查依賴與版本，不會自動下載或安裝。
-4. 也可以使用 PowerShell / 終端機：
+**不需要安裝 Node.js、npm、Python 或其他開發環境。**
+
+1. 取得建置者提供的 `BulkFileStudio-Setup-版本-架構.exe` 或 `BulkFileStudio-Portable-版本-架構.exe`。
+2. 完整安裝版直接雙擊安裝；可攜版直接雙擊執行。元件已包含在 EXE，首次使用也不需要下載。
+3. 可在另一台可連網電腦取得 EXE，再以 USB 帶到離線電腦。
+4. 更新時手動取得新版 EXE；程式不會自行連線檢查或下載更新。
+
+詳細步驟、右鍵收藏及資料保存方式見 [INSTALL.md](INSTALL.md)。Windows 右鍵收藏需使用已安裝版本；可攜版的程式內收藏功能仍可使用。
+
+## 開發者：從原始碼啟動
+
+1. 安裝 [Node.js LTS](https://nodejs.org/)（包含 npm；建議 Node.js 24 或更新版本）。
+2. 在專案目錄執行 `npm install`，安裝開發與建置依賴；此步驟需要網路。
+3. 執行 `npm start` 或雙擊 `Start-App.cmd`。啟動腳本只檢查依賴與 Electron 版本，不會自動下載或安裝。
 
 ```powershell
 npm install
 npm start
 ```
 
-> **注意**：ZIP 包含完整原始碼，**不包含已編譯的 Windows EXE**。第一次安裝依賴需要網絡連線，之後應用程式操作檔案完全離線。
+GitHub 的 Source code ZIP 是原始碼，不能當作一般使用者的離線安裝包。
 
-## 建立 Windows EXE
+## 開發者：建立 Windows EXE
 
-在 **Windows** 安裝 Node.js 並執行 `npm install` 後，雙擊 `Build-Windows-EXE.cmd`，或執行：
+在 **Windows** 完成上述依賴安裝後，雙擊 `Build-Windows-EXE.cmd`，或執行：
 
 ```powershell
-npm install
+npm test
 npm run dist:win
 ```
 
-安裝版及可攜版 EXE 會輸出至 `dist/` 資料夾。亦可執行 `npm run dist:portable` 只建立可攜版。首次打包需網絡下載 Electron / 建置元件。未簽署的程式可能顯示 Windows SmartScreen 警告，正式分發前建議簽署程式。
+`dist/` 會產生各自獨立的完整安裝版及可攜版，例如：
+
+| 目標 | x64 範例輸出 | 用途 |
+|---|---|---|
+| `nsis` | `BulkFileStudio-Setup-1.5.1-x64.exe` | 完整離線安裝版，安裝後可啟用右鍵收藏 |
+| `portable` | `BulkFileStudio-Portable-1.5.1-x64.exe` | 免安裝執行，不提供右鍵註冊 |
+
+只產生安裝版可執行 `npm run dist:setup`；只產生可攜版可執行 `npm run dist:portable`。要指定 x64 架構，執行 `npm run dist:win -- --x64`。
+
+建置環境首次打包可能需要下載 Electron、NSIS 及建置元件；正式 EXE 包含執行所需元件。打包指令明確設定 `--publish never`，只在本機輸出檔案。程式碼簽章及安裝檔下載由發行流程處理，正式程式不提供網路安裝器或自動更新。
+
+### 發行前的 Windows 離線驗證
+
+目前尚未在此環境建立或啟動 Windows EXE。發行前應在 Windows 實機或乾淨虛擬機完成：
+
+1. 使用沒有 Node.js／npm 的 Windows 測試機，預先複製上述兩個 EXE 與測試檔案。
+2. 中斷測試機網路，在該狀態下首次安裝並啟動 Setup 版本，確認沒有要求下載元件。
+3. 驗證收藏／標籤、設定、改名預覽、改名、同磁碟搬移及上一批復原；測試檔案放在本機磁碟。
+4. 關閉安裝版，再測試 Portable 版本在斷網下首次啟動及相同操作。
+5. 驗證安裝版啟用／停用右鍵收藏、升級保留資料及解除安裝清理。
+6. 若要驗證沒有嘗試連線，另外在可監察網路的測試環境觀察 Studio 程序的請求／封包；單純斷網測試只能證明離線可用。
+
+外部文件程式、作業系統、雲端同步及遠端映射磁碟的網路行為不屬於 Studio 的 Session 封鎖範圍。
 
 ## 主要功能
 

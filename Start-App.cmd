@@ -1,5 +1,6 @@
 @echo off
 setlocal
+echo Developer source launcher. End users should run the Setup or Portable EXE.
 cd /d "%~dp0"
 where npm.cmd >nul 2>nul
 if errorlevel 1 (
