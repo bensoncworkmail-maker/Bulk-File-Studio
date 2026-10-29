@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   undo: () => ipcRenderer.invoke('undo'),
   history: () => ipcRenderer.invoke('history'),
   setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+  dataLocation:()=>ipcRenderer.invoke('data-location'),
+  openDataLocation:()=>ipcRenderer.invoke('open-data-location'),
   exportCSV: (paths, rules) => ipcRenderer.invoke('export-csv', paths, rules),
   showInFolder: (p) => ipcRenderer.invoke('show-in-folder', p),
   pathForFile: (file) => webUtils.getPathForFile(file)

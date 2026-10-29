@@ -4,6 +4,7 @@ const api = window.renameAPI;
 const $ = (id) => document.getElementById(id);
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
 const { DEFAULT_RULES, BUILTIN_PRESETS, todayISO, presetRules, sanitizeSavedPresets } = window.renamePresets;
+const { paginate } = window.studioPagination;
 const fieldIds = [
   'find','replace','regex','match-case','replace-all','prefix','suffix',
   'number-enabled','number-start','number-step','number-width',
@@ -11,7 +12,8 @@ const fieldIds = [
   'name-template','date-value','date-format','remove-start','remove-end','trim-characters',
   'extension-mode','extension-value','sort-by','sort-direction'
 ];
-const defaults = { ...DEFAULT_RULES, dateValue:todayISO() };
+const initialSettings=window.settingsUI.get();
+const defaults = { ...DEFAULT_RULES, dateValue:todayISO(),sortBy:initialSettings.defaultSortBy,sortDirection:initialSettings.defaultSortDirection };
 const optionsMap = {
   'find':'find', 'replace':'replace', 'regex':'regex', 'match-case':'matchCase',
   'replace-all':'replaceAll', 'prefix':'prefix', 'suffix':'suffix',
@@ -36,6 +38,8 @@ let noticeTimeout;
 let pendingAction = 'rename';
 let previewPending = false;
 let savedPresets = [];
+let previewPage=0,sourcePage=0;
+let previousPanels={showSource:initialSettings.showSource,showRules:initialSettings.showRules};
 
 const norm = (s) => s.normalize('NFC').toLocaleLowerCase('en-US');
 const basename = (p) => p.split(/[\\/]/).pop();
@@ -155,9 +159,11 @@ function initPresets() {
   $('preset-name').addEventListener('input',()=>$('preset-name').setCustomValidity(''));
 }
 function saveRulePreferences() {
+  if(!window.settingsUI.get().rememberRules)return;
   try { localStorage.setItem('brs-rules-v1', JSON.stringify(rules)); } catch {} 
 }
-function enqueuePreview() {
+function enqueuePreview(resetPage=false) {
+  if(resetPage)previewPage=0;
   rules = getRules(); saveRulePreferences();
   updateRuleControls();
   previewPending = true;
@@ -200,6 +206,7 @@ function addFromResult(result) {
   }
   files.sort((a,b) => collator.compare(a,b));
   if (count) {
+    sourcePage=0;previewPage=0;
     enqueuePreview();
     showToast(`已加入 ${count} 個檔案`, 'success');
   } else if (paths.length) {enqueuePreview();showToast('已選取清單中現有的檔案');}
@@ -217,7 +224,7 @@ async function chooseFolder() {
 }
 function clearFiles() {
   if (busy) return;
-  files = []; selected.clear(); enqueuePreview(); render();
+  files = []; selected.clear(); sourcePage=0;previewPage=0;enqueuePreview(); render();
 }
 function filterFiles() {
   const q = $('search').value.trim().toLocaleLowerCase();
@@ -238,9 +245,12 @@ function element(tag, className, text, title) {
 function renderFiles() {
   const container = $('file-list'); container.replaceChildren();
   $('file-counter').textContent = files.length;
+  const page=paginate(files,sourcePage,window.settingsUI.get().pageSize);sourcePage=page.page;
+  $('source-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
+  $('source-page-prev').disabled=busy||!page.hasPrevious;$('source-page-next').disabled=busy||!page.hasNext;
   if (!files.length) { container.appendChild(element('div','list-empty','尚未加入任何檔案')); return; }
   const fragment = document.createDocumentFragment();
-  const list = files.slice(0,180);
+  const list = page.rows;
   for (const p of list) {
     const name = basename(p); const isChecked = selected.has(norm(p));
     const row = element('div', 'file-item' + (isChecked ? '' : ' unselected'));
@@ -256,12 +266,15 @@ function renderFiles() {
     row.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,p);});
     fragment.appendChild(row);
   }
-  if (files.length > list.length) fragment.appendChild(element('div','list-empty',`檔案清單只展示前 ${list.length} 筆，預覽與改名仍會處理全部選取檔案`));
   container.appendChild(fragment);
 }
 function renderTable() {
   const tbody = $('preview-body'); tbody.replaceChildren();
   const filtered = filterFiles();
+  const page=paginate(filtered,previewPage,window.settingsUI.get().pageSize);previewPage=page.page;
+  $('preview-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
+  for(const id of ['preview-page-first','preview-page-prev'])$(id).disabled=busy||!page.hasPrevious;
+  for(const id of ['preview-page-next','preview-page-last'])$(id).disabled=busy||!page.hasNext;
   if (!files.length) {
     const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 5;
     const empty = element('div','empty-preview');
@@ -279,7 +292,7 @@ function renderTable() {
     $('table-showing').textContent = '沒有符合搜尋條件的檔案';return;
   }
   const fragment = document.createDocumentFragment();
-  const visible = filtered.slice(0,300);
+  const visible = page.rows;
   for (const row of visible) {
     const on = selected.has(norm(row.source));
     const tr = element('tr', on ? '' : 'row-off');
@@ -288,7 +301,7 @@ function renderTable() {
     const checkbox = element('input');checkbox.type='checkbox';checkbox.checked=on;checkbox.setAttribute('aria-label','選取 ' + row.name);
     checkbox.addEventListener('change',() => selectOne(row.source, checkbox.checked));checkTd.appendChild(checkbox);
     const originalTd = document.createElement('td');
-    originalTd.append(element('span','filename',row.name,row.source),element('div','full-dir',shortDir(row.source),row.dir));
+    originalTd.append(element('span','filename',row.name,row.source),element('div','full-dir full-dir-path',row.dir,row.dir));
     const arrowTd = document.createElement('td'); arrowTd.appendChild(element('span','row-arrow','→'));
     const newTd = document.createElement('td');newTd.appendChild(element('span','filename target',row.targetName,row.destination));
     const stateTd = document.createElement('td');
@@ -299,7 +312,29 @@ function renderTable() {
     tr.append(checkTd,originalTd,arrowTd,newTd,stateTd);fragment.appendChild(tr);
   }
   tbody.appendChild(fragment);
-  $('table-showing').textContent = `顯示 ${visible.length} / ${filtered.length} 個檔案${filtered.length > visible.length ? '（搜尋可縮小範圍）' : ''}`;
+  $('table-showing').textContent = `顯示 ${page.start}–${page.end} / ${page.total} 項 · 已選取 ${selected.size} 項`;
+}
+function setRuleTab(tab) {
+  const value=['presets','name','text','extension'].includes(tab)?tab:'presets';
+  document.documentElement.dataset.ruleTab=value;
+  for(const item of ['presets','name','text','extension'])$('rule-tab-'+item).setAttribute('aria-pressed',String(item===value));
+  $('rules-scroll').scrollTop=0;
+}
+function renderWorkspaceControls() {
+  const settings=window.settingsUI.get();
+  $('btn-toggle-source').textContent=settings.showSource?'收合來源':'來源清單';
+  $('btn-toggle-rules').textContent=settings.showRules?'收合規則':'命名規則';
+  $('btn-toggle-source').setAttribute('aria-pressed',String(settings.showSource));
+  $('btn-toggle-rules').setAttribute('aria-pressed',String(settings.showRules));
+  $('btn-focus-list').textContent=settings.showSource||settings.showRules?'專注清單':'還原面板';
+  const summary=[];
+  if(rules.nameTemplate)summary.push('命名格式');if(rules.find)summary.push('搜尋取代');
+  if(rules.prefix||rules.suffix)summary.push('前後綴');if(rules.numberEnabled)summary.push('編號');
+  if(rules.removeStart||rules.removeEnd||rules.trimCharacters)summary.push('字元移除');
+  if(rules.trim||rules.caseMode!=='none'||rules.whitespace!=='none')summary.push('文字整理');
+  if(rules.extensionMode!=='keep')summary.push(rules.extensionMode==='replace'?`副檔名 → .${rules.extensionValue||'（未填）'}`:'副檔名大小寫');
+  $('rule-summary').textContent=summary.length?summary.join(' · '):'尚未設定命名規則';
+  $('rule-summary').title=$('rule-summary').textContent+'；搜尋及分頁只改變顯示，仍處理全部選取項目。';
 }
 function render() {
   const counts = latest.counts;
@@ -345,7 +380,7 @@ function render() {
     $('footer-title').textContent = '準備開始';
     $('footer-desc').textContent = '請先選擇檔案並設定重新命名規則';
   }
-  renderFiles(); renderTable();
+  renderWorkspaceControls();renderFiles(); renderTable();
 }
 function selectOne(p, enabled) {
   if (busy) return;
@@ -365,6 +400,7 @@ function confirmRename() {
   const ready = latest.counts.ready;
   $('modal-title').textContent = '確認重新命名？';
   $('modal-description').textContent = `即將對 ${ready} 個檔案重新命名。操作只會更改檔案名稱，不會改動檔案內容。`;
+  if(rules.extensionMode!=='keep')$('modal-description').textContent+=' 副檔名變更亦不會轉換檔案格式。';
   $('modal-note').textContent = '會先讀取檔案並建立校驗紀錄；大型檔案可能需要較長時間。成功後可使用「復原上一批」。';
   $('btn-confirm').textContent = '確認並執行';
   $('confirm-modal').showModal();
@@ -380,7 +416,7 @@ async function executeRename() {
     if (result.changed) {
       files = [...new Set(files.map(p => map.get(norm(p)) || p))].sort((a,b)=>collator.compare(a,b));
       selected.clear();
-      applyRules(defaults);saveRulePreferences();
+      if(window.settingsUI.get().resetRulesAfterRename)applyRules(defaults);saveRulePreferences();
       history = result.history ? { count: result.changed } : null;
       showToast(`成功重新命名 ${result.changed} 個檔案`, 'success');
       if (result.warning) showFailure('重新命名完成，但需要注意', result.warning);
@@ -406,7 +442,7 @@ async function executeUndo() {
     const map = new Map(result.moves.map(m => [norm(m.source),m.destination]));
     files = [...new Set(files.map(p => map.get(norm(p)) || p))].sort((a,b)=>collator.compare(a,b));
     selected.clear(); history = null;
-    applyRules(defaults);saveRulePreferences();
+    if(window.settingsUI.get().resetRulesAfterRename)applyRules(defaults);saveRulePreferences();
     showToast(`已復原 ${result.changed} 個檔案`, 'success');
     if (result.warning) showFailure('復原完成，但需要注意', result.warning);
   } catch(e) {showFailure('無法安全復原', e);}
@@ -418,8 +454,23 @@ async function exportCSV() {
   catch(e) {showToast(withoutPrefix(e),'error');}
 }
 function wireEvents() {
-  $('font-size-select').addEventListener('change', e => applyFontSize(e.target.value));
-  $('theme-select').addEventListener('change', e => applyTheme(e.target.value));
+  $('btn-toggle-source').addEventListener('click',()=>window.settingsUI.update({showSource:!window.settingsUI.get().showSource}));
+  $('btn-toggle-rules').addEventListener('click',()=>window.settingsUI.update({showRules:!window.settingsUI.get().showRules}));
+  $('btn-close-source').addEventListener('click',()=>window.settingsUI.update({showSource:false}));
+  $('btn-close-rules').addEventListener('click',()=>window.settingsUI.update({showRules:false}));
+  $('btn-focus-list').addEventListener('click',()=>{
+    const settings=window.settingsUI.get();
+    if(settings.showSource||settings.showRules){previousPanels={showSource:settings.showSource,showRules:settings.showRules};window.settingsUI.update({showSource:false,showRules:false});}
+    else window.settingsUI.update(previousPanels.showSource||previousPanels.showRules?previousPanels:{showSource:false,showRules:true});
+  });
+  $('btn-extension').addEventListener('click',()=>{window.settingsUI.update({showRules:true});setRuleTab('extension');});
+  for(const tab of ['presets','name','text','extension'])$('rule-tab-'+tab).addEventListener('click',()=>setRuleTab(tab));
+  $('source-page-prev').addEventListener('click',()=>{sourcePage--;renderFiles();});
+  $('source-page-next').addEventListener('click',()=>{sourcePage++;renderFiles();});
+  $('preview-page-first').addEventListener('click',()=>{previewPage=0;renderTable();});
+  $('preview-page-prev').addEventListener('click',()=>{previewPage--;renderTable();});
+  $('preview-page-next').addEventListener('click',()=>{previewPage++;renderTable();});
+  $('preview-page-last').addEventListener('click',()=>{previewPage=paginate(filterFiles(),0,window.settingsUI.get().pageSize).pageCount-1;renderTable();});
   $('btn-error-close').addEventListener('click', () => $('error-dialog').close());
   $('btn-add-files').addEventListener('click',chooseFiles);
   $('btn-empty-add').addEventListener('click',chooseFiles);
@@ -442,13 +493,14 @@ function wireEvents() {
   $('btn-cancel').addEventListener('click',()=>$('confirm-modal').close());
   $('btn-undo').addEventListener('click',undo);
   $('btn-export').addEventListener('click',exportCSV);
-  $('search').addEventListener('input',render);
+  $('search').addEventListener('input',()=>{previewPage=0;render();});
   for (const id of fieldIds) {
     const el = $('rule-' + id);
     el.addEventListener(el.type === 'checkbox' || el.tagName==='SELECT' ? 'change':'input',enqueuePreview);
   }
   document.addEventListener('keydown',e=>{
-    if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog()) return;
+    if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog() || window.settingsUI.hasOpenDialog()) return;
+    if(window.favoritesUI.isSettings())return;
     if(window.favoritesUI.isActive()) {
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='o'){e.preventDefault();$('btn-fav-add-files').click();}
       return;
@@ -459,6 +511,7 @@ function wireEvents() {
   });
   let dragDepth=0;
   document.addEventListener('dragenter',e=>{
+    if(window.favoritesUI.isSettings())return;
     if(!e.dataTransfer?.types.includes('Files'))return;
     e.preventDefault();dragDepth++;$('drop-overlay').classList.remove('hidden');
   });
@@ -466,7 +519,7 @@ function wireEvents() {
   document.addEventListener('dragleave',e=>{e.preventDefault();dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$('drop-overlay').classList.add('hidden');});
   document.addEventListener('drop',async e=>{
     e.preventDefault();dragDepth=0;$('drop-overlay').classList.add('hidden');
-    if(busy)return;
+    if(busy||window.favoritesUI.isSettings())return;
     try {
       const paths=Array.from(e.dataTransfer.files).map(f=>api.pathForFile(f)).filter(Boolean);
       if(paths.length){if(window.favoritesUI.isActive())await window.favoritesUI.addPaths(paths);else addFromResult(await api.addPaths(paths,$('recursive').checked));}
@@ -477,9 +530,19 @@ function wireEvents() {
 async function init() {
   applyTheme(document.documentElement.dataset.theme);
   applyFontSize(document.documentElement.dataset.fontSize);
-  try { const saved=JSON.parse(localStorage.getItem('brs-rules-v1') || 'null');applyRules(saved && typeof saved==='object' ? {...defaults,...saved}:defaults); }
+  try { const saved=initialSettings.rememberRules?JSON.parse(localStorage.getItem('brs-rules-v1') || 'null'):null;applyRules(saved && typeof saved==='object' ? {...defaults,...saved}:defaults); }
   catch {applyRules(defaults);}
-  initPresets();wireEvents();render();
+  $('recursive').checked=initialSettings.recursiveDefault;$('favorite-recursive').checked=initialSettings.recursiveDefault;
+  window.settingsUI.init({isBusy:()=>busy,showFailure,onChange:(settings,changed)=>{
+    if(changed.includes('theme'))applyTheme(settings.theme);
+    if(changed.includes('fontSize'))applyFontSize(settings.fontSize);
+    if(changed.includes('recursiveDefault')){$('recursive').checked=settings.recursiveDefault;$('favorite-recursive').checked=settings.recursiveDefault;}
+    defaults.sortBy=settings.defaultSortBy;defaults.sortDirection=settings.defaultSortDirection;
+    if(changed.includes('pageSize')){sourcePage=0;previewPage=0;window.favoritesUI.resetPage();}
+    if(changed.includes('rememberRules')&&settings.rememberRules)saveRulePreferences();
+    render();window.favoritesUI.render();
+  }});
+  setRuleTab('presets');initPresets();wireEvents();render();
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;

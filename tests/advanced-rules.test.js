@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { renameOne, createPreview } = require('../src/rename-core');
+const { renameOne, createPreview,executeMoves,snapshotMoves,prepareUndo } = require('../src/rename-core');
 const { BUILTIN_PRESETS, presetRules, sanitizeSavedPresets } = require('../src/presets');
 
 const examples = [
@@ -87,4 +87,13 @@ test('stored presets tolerate corrupt entries, cap capacity and whitelist rule v
   assert.equal(saved[0].rules.prefix,'<tag>');assert.equal('extra' in saved[0].rules,false);
   assert.equal(sanitizeSavedPresets('invalid').length,0);
   assert.equal(sanitizeSavedPresets(Array.from({length:40},(_,i)=>({id:'id'+i,name:'n'+i,rules:{}}))).length,30);
+});
+
+test('changing an extension renames the file without converting its bytes and can be undone',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'brs-extension-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const original=path.join(dir,'photo.jpg'),bytes=Buffer.from([255,216,255,224,1,2,3,4]);fs.writeFileSync(original,bytes);
+  const preview=createPreview([original],{extensionMode:'replace',extensionValue:'png'});
+  const moves=snapshotMoves(preview.rows.map(({source,destination})=>({source,destination})));
+  executeMoves(moves);assert.deepEqual(fs.readFileSync(path.join(dir,'photo.png')),bytes);
+  executeMoves(prepareUndo({version:2,state:'completed',moves}));assert.deepEqual(fs.readFileSync(original),bytes);
 });

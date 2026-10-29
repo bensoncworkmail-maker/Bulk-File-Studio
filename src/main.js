@@ -100,6 +100,11 @@ app.whenReady().then(() => {
   ipcMain.handle('favorites-to-rename', (_, ids, recursive) => listPaths(favorites.readyPaths(ids),Boolean(recursive)));
   ipcMain.handle('context-menu-status', () => contextMenu.status());
   ipcMain.handle('context-menu-set', (_, enabled) => contextMenu.setEnabled(enabled));
+  ipcMain.handle('data-location',()=>app.getPath('userData'));
+  ipcMain.handle('open-data-location',async()=>{
+    const folder=app.getPath('userData');fs.mkdirSync(folder,{recursive:true});
+    const error=await shell.openPath(folder);if(error)throw new Error(error);
+  });
   ipcMain.handle('set-theme', (_, theme) => {
     if (!['light', 'dark'].includes(theme)) throw new Error('不支援的主題');
     nativeTheme.themeSource = theme;

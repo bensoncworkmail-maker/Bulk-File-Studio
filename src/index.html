@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Bulk Rename Studio</title>
+  <script src="settings-model.js"></script>
   <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="themes.css">
   <link rel="stylesheet" href="upgrades.css">
   <link rel="stylesheet" href="favorites.css">
+  <link rel="stylesheet" href="workspace.css">
 </head>
 <body>
   <div class="app-shell">
@@ -17,32 +19,42 @@
       <div class="brand-wrap">
         <div class="brand-icon">↗</div>
         <div><div class="brand-name">Bulk Rename <span>Studio</span></div><div class="brand-sub">收藏位置 · 標籤分類 · 批次重新命名</div></div>
-        <span class="version">v1.3</span>
+        <span class="version">v1.4</span>
       </div>
       <div class="header-right">
-        <label class="font-picker"><span>字體</span><select id="font-size-select" aria-label="字體大小"><option value="12">12 px 小</option><option value="13">13 px 標準</option><option value="15">15 px 中</option><option value="17">17 px 大</option><option value="19">19 px 特大</option></select></label>
-        <label class="theme-picker"><span>外觀</span><select id="theme-select" aria-label="外觀主題"><option value="light">☀ 淺色</option><option value="dark">☾ 深色</option></select></label>
         <span class="local-state"><span class="state-dot"></span>完全離線 · 僅處理本機檔案</span>
         <button class="btn btn-ghost" id="btn-undo" title="復原上一批重新命名" disabled>↶ <span>復原上一批</span></button>
         <button class="btn btn-ghost" id="btn-export" title="匯出預覽為 CSV" disabled>↓ 匯出 CSV</button>
+        <button id="btn-favorite-selected" class="btn btn-ghost" disabled>☆ 收藏選取</button>
       </div>
     </header>
 
-    <nav class="studio-tabs" aria-label="工作區"><button id="tab-rename" class="studio-tab active" aria-pressed="true">↗ 批次重新命名</button><button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button></nav>
+    <nav class="studio-tabs" aria-label="工作區"><button id="tab-rename" class="studio-tab active" aria-pressed="true">↗ 批次重新命名</button><button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button><button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button></nav>
+    <section id="settings-page" class="settings-page hidden" aria-labelledby="settings-title">
+      <div class="settings-heading"><div><h1 id="settings-title">設定</h1><p>外觀、清單版面及預設操作；變更會自動儲存。</p></div><span id="settings-save-status" role="status">設定會保留至下次啟動</span></div>
+      <div class="settings-grid">
+        <section class="settings-card"><h2>外觀與閱讀</h2><label class="field"><span>外觀主題</span><select id="theme-select"><option value="light">☀ 淺色</option><option value="dark">☾ 深色</option></select></label><label class="field"><span>字體大小</span><select id="font-size-select"><option value="12">12 px 小</option><option value="13">13 px 標準</option><option value="15">15 px 中</option><option value="17">17 px 大</option><option value="19">19 px 特大</option></select></label><label class="field"><span>清單密度</span><select id="settings-density"><option value="compact">精簡：同時顯示更多項目</option><option value="comfortable">舒適：較大的行距</option></select></label><label class="check-row"><input id="settings-show-paths" type="checkbox"><span>在清單中顯示路徑第二行</span></label><p class="rule-hint">關閉第二行時，將滑鼠移到檔名仍可查看完整路徑。</p></section>
+        <section class="settings-card"><h2>工作區與清單</h2><label class="field"><span>每頁顯示筆數（來源、預覽與收藏共用）</span><select id="settings-page-size"><option value="100">100 筆</option><option value="250">250 筆</option><option value="500">500 筆</option></select></label><label class="field"><span>啟動時開啟</span><select id="settings-start-page"><option value="rename">批次重新命名</option><option value="favorites">我的收藏</option></select></label><label class="check-row"><input id="settings-show-source" type="checkbox"><span>顯示來源清單面板</span></label><label class="check-row"><input id="settings-show-rules" type="checkbox"><span>顯示命名規則面板</span></label><p class="rule-hint">也可在工作台直接收合面板，或使用「專注清單」擴大預覽區。分頁只改變顯示，不改變實際處理的選取範圍。</p></section>
+        <section class="settings-card"><h2>重新命名預設</h2><label class="check-row"><input id="settings-recursive" type="checkbox"><span>加入資料夾時預設包含子資料夾檔案</span></label><label class="check-row"><input id="settings-remember-rules" type="checkbox"><span>重開程式後保留上次命名規則</span></label><label class="check-row"><input id="settings-reset-rules" type="checkbox"><span>完成改名／復原後重設命名規則</span></label><label class="field"><span>預設編號排序（下次重設規則時使用）</span><select id="settings-sort-by"><option value="path">完整路徑</option><option value="name">檔案名稱</option><option value="modified">修改時間</option></select></label><label class="field"><span>預設排序方向</span><select id="settings-sort-direction"><option value="asc">遞增／舊至新</option><option value="desc">遞減／新至舊</option></select></label></section>
+        <section class="settings-card"><h2>Windows 右鍵收藏</h2><p id="favorite-context-status">正在檢查…</p><button id="btn-context-menu" class="btn btn-secondary" disabled>啟用右鍵收藏</button><p class="rule-hint">收藏不會改變原檔案。Windows 11 可能要先按「顯示更多選項」。</p></section>
+        <section class="settings-card"><h2>資料與設定</h2><p>收藏與復原紀錄保存在目前使用者的本機資料位置。收藏標籤不會寫入原檔案。</p><code id="settings-data-path">正在讀取…</code><button id="btn-settings-open-data" class="btn btn-secondary">開啟資料位置</button><button id="btn-settings-reset" class="btn btn-ghost">還原此頁預設設定</button></section>
+        <section class="settings-card"><h2>副檔名與檔案格式</h2><p>可以批次修改副檔名，例如 <strong>.jpeg → .jpg</strong>、<strong>.TXT → .txt</strong>；入口在工作台上方的「副檔名」。</p><p class="rule-hint">更改副檔名只會改名稱，不會轉換內容。將 .jpg 改成 .png 並不會產生 PNG 圖片；真正的格式轉換需使用對應的轉換工具。</p></section>
+      </div>
+    </section>
     <section id="favorites-page" class="favorites-page hidden" aria-labelledby="favorites-title">
       <div class="favorites-heading"><div><div class="eyebrow">YOUR SAVED LOCATIONS</div><h1 id="favorites-title">我的收藏</h1><p>集中存取不同資料夾的檔案與位置，需要時再加入重新命名。</p></div><div class="favorites-add-actions"><button id="btn-fav-add-files" class="btn btn-primary">＋ 收藏檔案</button><button id="btn-fav-add-folders" class="btn btn-secondary">＋ 收藏資料夾</button><button id="btn-fav-refresh" class="btn btn-ghost">↻ 重新整理</button></div></div>
       <div class="favorites-layout">
-        <aside class="panel favorites-sidebar"><h2>標籤分類</h2><div id="favorite-tags" class="favorite-tags"></div><div class="favorite-context-settings"><h3>Windows 右鍵入口</h3><p id="favorite-context-status">正在檢查…</p><button id="btn-context-menu" class="btn btn-secondary" disabled>啟用右鍵收藏</button></div></aside>
+        <aside class="panel favorites-sidebar"><h2>標籤分類</h2><div id="favorite-tags" class="favorite-tags"></div><div class="favorite-context-settings"><button id="btn-fav-settings" class="btn btn-secondary">⚙ 收藏與外觀設定</button></div></aside>
         <section class="panel favorites-content" aria-label="收藏項目">
           <div class="favorites-filters"><input id="favorite-search" type="search" placeholder="搜尋名稱、完整路徑或標籤…" aria-label="搜尋收藏"><select id="favorite-type" aria-label="收藏類型"><option value="all">所有類型</option><option value="file">檔案</option><option value="folder">資料夾</option></select><select id="favorite-status" aria-label="收藏狀態"><option value="all">所有狀態</option><option value="ready">可使用</option><option value="problem">需要處理</option></select><select id="favorite-sort" aria-label="收藏排序"><option value="recent">最近收藏</option><option value="name">名稱 A–Z</option><option value="path">完整路徑</option></select></div>
           <div class="favorite-selection-actions"><span id="favorite-selection-count">尚未選取</span><button id="btn-fav-select-all" class="text-action">選取顯示項目</button><button id="btn-fav-select-none" class="text-action">取消選取</button><button id="btn-fav-edit" class="btn btn-secondary" disabled>編輯／標籤</button><button id="btn-fav-remove" class="btn btn-ghost" disabled>移除收藏</button><button id="btn-fav-rename" class="btn btn-primary" disabled>加入重新命名 →</button><label class="check-row"><input id="favorite-recursive" type="checkbox"><span>加入資料夾時包含子資料夾檔案</span></label></div>
           <div id="favorite-list" class="favorite-list"><div class="list-empty">正在載入收藏…</div></div>
-          <div id="favorite-results" class="table-footer">收藏只記錄位置，不會複製檔案。</div>
+          <div class="table-footer list-pager"><span id="favorite-results">收藏只記錄位置，不會複製檔案。</span><div class="pager-buttons"><button id="favorite-page-prev" class="btn btn-ghost" aria-label="收藏上一頁">‹</button><span id="favorite-page-info">1 / 1</span><button id="favorite-page-next" class="btn btn-ghost" aria-label="收藏下一頁">›</button></div></div>
         </section>
       </div>
     </section>
     <div id="rename-intro" class="intro-row">
-      <div><div class="eyebrow">YOUR FILE WORKSPACE</div><h1>把檔案整理得<span>井井有條。</span></h1><p>一次加入、設定規則、預覽結果。確認無誤後才實際修改檔案名稱。</p></div>
+      <div class="workspace-actions"><h1>批次重新命名</h1><button class="btn btn-primary" id="btn-add-files">＋ 檔案</button><button class="btn btn-secondary" id="btn-add-folder">＋ 資料夾</button><button class="btn btn-ghost" id="btn-toggle-source" aria-pressed="false">來源清單</button><button class="btn btn-ghost" id="btn-toggle-rules" aria-pressed="true">命名規則</button><button class="btn btn-ghost" id="btn-focus-list">專注清單</button><button class="btn btn-secondary" id="btn-extension">副檔名</button></div>
       <div class="stats">
         <div class="stat"><span>已加入</span><strong id="stat-total">0</strong><small>個檔案</small></div>
         <div class="stat"><span>待重新命名</span><strong class="stat-good" id="stat-ready">0</strong><small>個檔案</small></div>
@@ -52,7 +64,7 @@
 
     <main id="rename-workspace" class="workspace">
       <aside class="panel files-panel">
-        <div class="panel-heading"><div><span class="step-tag">01</span><h2>選擇檔案</h2></div><span class="muted small">來源</span></div>
+        <div class="panel-heading"><div><h2>來源清單</h2></div><button id="btn-close-source" class="text-action" aria-label="收合來源面板">✕</button></div>
         <div class="panel-pad">
           <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="拖放檔案，或點擊加入檔案">
             <div class="drop-icon">⇧</div>
@@ -60,17 +72,13 @@
             <span>或按下方按鈕選取</span>
             <div class="drop-hint">檔案只會在你的電腦上處理</div>
           </div>
-          <div class="two-buttons">
-            <button class="btn btn-secondary" id="btn-add-files">＋ 加入檔案</button>
-            <button class="btn btn-secondary" id="btn-add-folder">▱ 加入資料夾</button>
-          </div>
           <label class="check-row small-check"><input id="recursive" type="checkbox"> <span>包含子資料夾的檔案</span></label>
-          <button id="btn-favorite-selected" class="text-action" disabled>☆ 收藏選取檔案</button>
+
         </div>
         <div class="separator"></div>
-        <div class="file-list-heading"><div><strong>檔案清單</strong><span id="file-counter" class="count-pill">0</span></div><button id="btn-clear" class="text-action" disabled>清除全部</button></div>
+        <div class="file-list-heading"><div><strong>檔案清單</strong><span id="file-counter" class="count-pill">0</span></div></div>
         <div id="file-list" class="file-list"><div class="list-empty">尚未加入任何檔案</div></div>
-        <div class="files-foot"><span class="tiny-dot"></span><span>不修改檔案內容，僅重新命名</span></div>
+        <div class="source-pager"><button id="source-page-prev" class="btn btn-ghost" aria-label="來源上一頁">‹</button><span id="source-page-info">1 / 1</span><button id="source-page-next" class="btn btn-ghost" aria-label="來源下一頁">›</button></div>
       </aside>
 
       <section class="panel preview-panel">
@@ -79,53 +87,55 @@
           <div class="search-box"><span>⌕</span><input id="search" type="search" placeholder="搜尋原始或新檔名…" autocomplete="off" aria-label="搜尋檔案"></div>
           <button id="btn-select-all" class="text-action" disabled>全選</button>
           <button id="btn-select-none" class="text-action" disabled>取消全選</button>
+          <button id="btn-clear" class="text-action" disabled>清空</button>
         </div>
-        <div class="sort-toolbar"><span>編號排序</span><select id="rule-sort-by" aria-label="編號排序依據"><option value="path">完整路徑</option><option value="name">檔案名稱</option><option value="modified">檔案修改時間</option></select><select id="rule-sort-direction" aria-label="排序方向"><option value="asc">↑ 遞增／舊至新</option><option value="desc">↓ 遞減／新至舊</option></select><span class="sort-hint">編號依此預覽順序；搜尋只篩選顯示</span></div>
+        <div class="sort-toolbar"><span>編號排序</span><select id="rule-sort-by" aria-label="編號排序依據"><option value="path">完整路徑</option><option value="name">檔案名稱</option><option value="modified">檔案修改時間</option></select><select id="rule-sort-direction" aria-label="排序方向"><option value="asc">↑ 遞增／舊至新</option><option value="desc">↓ 遞減／新至舊</option></select><span id="rule-summary" title="編號依預覽順序；搜尋和分頁只改變顯示">未設定命名規則</span></div>
         <div class="table-scroll">
           <table class="preview-table"><thead><tr><th class="col-check"><input id="check-all" type="checkbox" title="選取全部顯示的檔案"></th><th>原始檔名</th><th class="col-arrow"></th><th>新檔名</th><th class="col-state">狀態</th></tr></thead>
           <tbody id="preview-body"><tr><td colspan="5"><div class="empty-preview"><div class="empty-graphic"><span>Abc</span><span class="graphic-arrow">→</span><span>ABC</span></div><h3>先加入檔案，開始整理</h3><p>你將在這裡看到每一個檔名變更，<br>包含錯誤與重複名稱提醒。</p><button id="btn-empty-add" class="btn btn-primary">＋ 選取檔案</button></div></td></tr></tbody></table>
         </div>
-        <div class="table-footer"><span id="table-showing">尚未加入檔案</span><span class="legend"><i class="legend-good"></i>可執行 <i class="legend-same"></i>不變 <i class="legend-bad"></i>衝突</span></div>
+        <div class="table-footer list-pager"><span id="table-showing">尚未加入檔案</span><div class="pager-buttons"><button id="preview-page-first" class="btn btn-ghost" aria-label="預覽第一頁">«</button><button id="preview-page-prev" class="btn btn-ghost" aria-label="預覽上一頁">‹</button><span id="preview-page-info">1 / 1</span><button id="preview-page-next" class="btn btn-ghost" aria-label="預覽下一頁">›</button><button id="preview-page-last" class="btn btn-ghost" aria-label="預覽最後一頁">»</button></div></div>
       </section>
 
       <aside class="panel rules-panel">
-        <div class="panel-heading"><div><span class="step-tag">03</span><h2>命名規則</h2></div><button id="btn-reset" class="text-action">重設</button></div>
-        <div class="presets">
+        <div class="panel-heading"><div><h2>命名規則</h2></div><div class="panel-actions"><button id="btn-reset" class="text-action">重設</button><button id="btn-close-rules" class="text-action" aria-label="收合命名規則面板">✕</button></div></div>
+        <nav class="rule-tabs" aria-label="命名規則分類"><button id="rule-tab-presets" data-rule-tab="presets" aria-pressed="true">範本</button><button id="rule-tab-name" data-rule-tab="name" aria-pressed="false">命名</button><button id="rule-tab-text" data-rule-tab="text" aria-pressed="false">文字</button><button id="rule-tab-extension" data-rule-tab="extension" aria-pressed="false">副檔名</button></nav>
+        <div id="rules-scroll" class="rules-scroller">
+        <div class="presets" data-rule-section="presets">
           <div class="presets-title">快速範本 <span>套用會取代目前規則</span></div>
           <div class="preset-row"><select id="preset-select" aria-label="內建快速範本"></select><button id="btn-apply-preset" class="btn btn-secondary">套用</button></div>
           <p id="preset-description" class="preset-description"></p>
           <details class="preset-library"><summary id="saved-presets-summary">我的範本（0）</summary><div class="preset-row"><select id="saved-preset-select" aria-label="已儲存範本"></select><button id="btn-load-preset" class="btn btn-secondary">套用</button><button id="btn-delete-preset" class="btn btn-ghost">刪除</button></div></details>
           <button id="btn-save-preset" class="text-action">＋ 儲存目前規則為範本</button>
         </div>
-        <div class="rules-scroller">
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol violet">{ }</div><div><strong>自訂命名格式</strong><span>留空會沿用原檔名，預設保留副檔名</span></div></div>
+          <div class="rule-group" data-rule-section="name"><div class="group-title"><div class="rule-symbol violet">{ }</div><div><strong>自訂命名格式</strong><span>留空會沿用原檔名，預設保留副檔名</span></div></div>
             <label class="field"><span>格式（例如 {date}_{name}）</span><input id="rule-name-template" type="text" placeholder="{folder}_{n}_{name}" spellcheck="false"></label>
             <div class="token-buttons"><button class="preset" data-token="name">{name} 檔名</button><button class="preset" data-token="folder">{folder} 資料夾</button><button class="preset" data-token="n">{n} 編號</button><button class="preset" data-token="date">{date} 指定日期</button><button class="preset" data-token="modified">{modified} 修改日期</button></div>
             <div class="field-duo"><label class="field"><span>指定日期（{date}）</span><input id="rule-date-value" type="date" min="1000-01-01" max="9999-12-31"></label><label class="field"><span>日期格式</span><select id="rule-date-format"><option value="YYYY-MM-DD">YYYY-MM-DD</option><option value="YYYYMMDD">YYYYMMDD</option><option value="DD-MM-YYYY">DD-MM-YYYY</option></select></label></div>
             <p class="rule-hint">{modified} 使用電腦本地時區的檔案修改日期，並非照片拍攝日期。{n} 沿用下方起始值、遞增值及位數。</p>
           </div>
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol violet">⌕</div><div><strong>搜尋與取代</strong><span>尋找檔名中指定內容</span></div></div>
+          <div class="rule-group" data-rule-section="text"><div class="group-title"><div class="rule-symbol violet">⌕</div><div><strong>搜尋與取代</strong><span>尋找檔名中指定內容</span></div></div>
             <label class="field"><span>尋找文字／模式</span><input id="rule-find" placeholder="例如：IMG_ 或 (\\d+)" type="text" spellcheck="false"></label>
             <label class="field"><span>取代為</span><input id="rule-replace" placeholder="輸入新文字（留空則刪除）" type="text" spellcheck="false"></label>
             <div class="switch-row"><label class="check-row"><input id="rule-regex" type="checkbox"> <span>正規表示式 Regex</span></label><label class="check-row"><input id="rule-match-case" type="checkbox"> <span>區分大小寫</span></label></div>
             <label class="check-row subtle"><input id="rule-replace-all" type="checkbox" checked> <span>取代所有符合項目</span></label>
           </div>
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol teal">±</div><div><strong>前綴與後綴</strong><span>在檔名首尾增加文字</span></div></div>
+          <div class="rule-group" data-rule-section="name"><div class="group-title"><div class="rule-symbol teal">±</div><div><strong>前綴與後綴</strong><span>在檔名首尾增加文字</span></div></div>
             <div class="field-duo"><label class="field"><span>前綴 Prefix</span><input id="rule-prefix" placeholder="例如：Project_" type="text"></label><label class="field"><span>後綴 Suffix</span><input id="rule-suffix" placeholder="例如：_final" type="text"></label></div>
           </div>
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol orange">#</div><div><strong>流水編號</strong><span>開關控制另加編號；{n} 可獨立使用</span></div><label class="toggle"><input id="rule-number-enabled" type="checkbox"><span class="toggle-track"></span></label></div>
+          <div class="rule-group" data-rule-section="name"><div class="group-title"><div class="rule-symbol orange">#</div><div><strong>流水編號</strong><span>開關控制另加編號；{n} 可獨立使用</span></div><label class="toggle"><input id="rule-number-enabled" type="checkbox"><span class="toggle-track"></span></label></div>
             <div id="number-details" class="number-fields disabled-group"><div class="three-col"><label class="field"><span>起始值</span><input id="rule-number-start" type="number" value="1" min="0" max="999999"></label><label class="field"><span>遞增值</span><input id="rule-number-step" type="number" value="1" min="1" max="99999"></label><label class="field"><span>位數</span><input id="rule-number-width" type="number" value="3" min="1" max="10"></label></div>
             <div class="field-duo"><label class="field"><span>位置</span><select id="rule-number-position"><option value="suffix">檔名後方</option><option value="prefix">檔名前方</option></select></label><label class="field"><span>分隔符號</span><input id="rule-number-separator" value="_" type="text" maxlength="12"></label></div></div>
           </div>
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol blue">Aa</div><div><strong>文字整理</strong><span>統一大小寫及空白</span></div></div>
+          <div class="rule-group" data-rule-section="text"><div class="group-title"><div class="rule-symbol blue">Aa</div><div><strong>文字整理</strong><span>統一大小寫及空白</span></div></div>
             <div class="field-duo"><label class="field"><span>移除開頭字元數</span><input id="rule-remove-start" type="number" min="0" max="500" value="0"></label><label class="field"><span>移除尾端字元數</span><input id="rule-remove-end" type="number" min="0" max="500" value="0"></label></div>
             <label class="field"><span>清除頭尾指定字元（留空不處理）</span><input id="rule-trim-characters" type="text" placeholder="例如： _-（包含空白）"></label>
             <div class="field-duo"><label class="field"><span>大小寫</span><select id="rule-case-mode"><option value="none">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="title">每字首字大寫</option></select></label><label class="field"><span>空白處理</span><select id="rule-whitespace"><option value="none">保持不變</option><option value="underscore">轉為底線 _</option><option value="dash">轉為連字號 -</option></select></label></div>
             <label class="check-row subtle"><input id="rule-trim" type="checkbox"> <span>移除名稱前後空白</span></label>
             <label class="check-row subtle"><input id="rule-include-extension" type="checkbox"> <span>規則也套用到副檔名（.jpg / .pdf）</span></label>
           </div>
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol teal">.ext</div><div><strong>副檔名整理</strong><span>獨立設定，不影響主檔名</span></div></div><div class="field-duo"><label class="field"><span>處理方式</span><select id="rule-extension-mode"><option value="keep">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="replace">改為指定副檔名</option></select></label><label class="field"><span>指定副檔名</span><input id="rule-extension-value" type="text" placeholder="例如 jpg"></label></div><p class="rule-hint">只更改名稱，不會轉換檔案格式。若使用此功能，請取消上方「規則也套用到副檔名」。</p></div>
-          <div class="help-card"><strong>✧ 安全提示</strong><p>預設保留副檔名；如果有重複檔名、無效字元或已存在目標，程式會阻止整批操作，避免意外覆蓋。</p></div>
+          <div class="rule-group" data-rule-section="extension"><div class="group-title"><div class="rule-symbol teal">.ext</div><div><strong>副檔名整理</strong><span>獨立設定，不影響主檔名</span></div></div><div class="field-duo"><label class="field"><span>處理方式</span><select id="rule-extension-mode"><option value="keep">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="replace">改為指定副檔名</option></select></label><label class="field"><span>指定副檔名</span><input id="rule-extension-value" type="text" placeholder="例如 jpg"></label></div><p class="rule-hint">只更改名稱，不會轉換檔案格式。若使用此功能，請先在「文字」頁取消「規則也套用到副檔名」。</p></div>
+          <div class="help-card" data-rule-section="presets"><strong>✧ 安全提示</strong><p>預設保留副檔名；如果有重複檔名、無效字元或已存在目標，程式會阻止整批操作，避免意外覆蓋。</p></div>
         </div>
       </aside>
     </main>
@@ -142,8 +152,11 @@
   <dialog id="favorite-edit-dialog" class="modal favorite-edit-dialog" aria-labelledby="favorite-edit-title"><form id="favorite-edit-form"><h2 id="favorite-edit-title">編輯收藏</h2><div id="favorite-single-fields"><label class="field preset-name-field"><span>顯示名稱（留空沿用檔名）</span><input id="favorite-label" type="text" maxlength="100"></label><label class="field"><span>目前連結位置</span><input id="favorite-path" type="text" readonly></label><button id="btn-fav-relink" type="button" class="btn btn-secondary">選擇新位置／確認替換的檔案</button><p class="rule-hint">重新連結只更新收藏的位置與檔案識別，不會移動檔案；按「儲存」才生效。</p></div><label class="field preset-name-field"><span>標籤（使用逗號分隔）</span><input id="favorite-edit-tags" type="text" placeholder="工作, 常用, 專案 A" maxlength="1000"></label><p id="favorite-edit-note" class="rule-hint">最多 20 個標籤，每個最多 32 個字元。</p><div class="modal-buttons"><button id="btn-fav-edit-cancel" type="button" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">儲存</button></div></form></dialog>
   <dialog id="favorite-remove-dialog" class="modal" aria-labelledby="favorite-remove-title"><h2 id="favorite-remove-title">移除收藏？</h2><p id="favorite-remove-description"></p><div class="modal-note">只移除收藏紀錄，實際檔案及資料夾會保留。</div><div class="modal-buttons"><button id="btn-fav-remove-cancel" class="btn btn-secondary" autofocus>取消</button><button id="btn-fav-remove-confirm" class="btn btn-primary">移除收藏</button></div></dialog>
   <div id="favorite-context-menu" class="favorite-context-menu hidden" role="menu" aria-label="收藏操作"></div>
+  <dialog id="settings-reset-dialog" class="modal" aria-labelledby="settings-reset-title"><h2 id="settings-reset-title">還原預設設定？</h2><p>只重設設定頁中的外觀、版面及操作預設，不會刪除收藏、自訂範本或復原紀錄。</p><div class="modal-buttons"><button id="btn-settings-reset-cancel" class="btn btn-secondary" autofocus>取消</button><button id="btn-settings-reset-confirm" class="btn btn-primary">還原設定</button></div></dialog>
   <div id="toast-container" aria-live="polite"></div>
   <script src="presets.js" defer></script>
+  <script src="list-pagination.js" defer></script>
+  <script src="settings.js" defer></script>
   <script src="favorites.js" defer></script>
   <script src="renderer.js" defer></script>
 </body>
