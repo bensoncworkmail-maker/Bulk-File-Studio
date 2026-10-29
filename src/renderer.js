@@ -546,6 +546,7 @@ async function init() {
     const destinations=new Map(result.moves.map(move=>[norm(move.source),move.destination]));
     files=files.map(file=>destinations.get(norm(file))||file);selected.clear();history=await api.history().catch(()=>null);await updatePreview();await window.favoritesUI.refresh();showToast(`已搬移 ${result.changed} 個檔案`,'success');
   }});
+  window.sidebarResize.initSource({getWidth:()=>window.settingsUI.get().sourcePanelWidth,save:value=>window.settingsUI.update({sourcePanelWidth:value}),isBusy:()=>busy});
   window.sidebarResize.initRules({getWidth:()=>Number(window.settingsUI.get().rulesWidth),save:value=>window.settingsUI.update({rulesWidth:String(value)}),isBusy:()=>busy});
   $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});

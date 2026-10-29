@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ setFloatingCompact:value=>ipcRenderer.invoke('floating-tools',value),
+ startup:()=>ipcRenderer.invoke('startup-get'),setStartup:enabled=>ipcRenderer.invoke('startup-set',enabled),hideToTray:()=>ipcRenderer.invoke('app-hide-to-tray'),
  setFloatingView:mode=>ipcRenderer.invoke('floating-view',mode),
  importPaths:tag=>ipcRenderer.invoke('floating-import',tag),togglePin:()=>ipcRenderer.invoke('floating-pin'),
  get:()=>ipcRenderer.invoke('desktop-settings-get'),configure:patch=>ipcRenderer.invoke('desktop-settings-set',patch),

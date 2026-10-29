@@ -14,6 +14,7 @@
  }
  window.sidebarResize=Object.freeze({
   init:options=>bind(options,{handle:'tag-panel-resizer',panel:'favorite-tags-panel',property:'--tag-panel-width',dragClass:'resizing-tags',min:140,max:480,defaultWidth:220,direction:1}),
+  initSource:options=>bind(options,{handle:'source-panel-resizer',panel:'source-panel',property:'--source-panel-width',dragClass:'resizing-source',min:160,max:480,defaultWidth:220,direction:1}),
   initRules:options=>bind(options,{handle:'rules-panel-resizer',panel:'rules-panel',property:'--rules-width',dragClass:'resizing-rules',min:280,max:720,defaultWidth:420,direction:-1})
  });
 })();

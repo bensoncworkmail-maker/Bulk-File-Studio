@@ -1,8 +1,8 @@
 'use strict';
 const fs=require('node:fs');
 const path=require('node:path');
-const DEFAULTS=Object.freeze({rememberWindow:true,floatingView:'list',floatingOnTop:true,floatingStartup:false,floatingShortcut:'CommandOrControl+Alt+B',explorerTagPrompt:true,theme:'dark',fontSize:'13',tagSort:'name',tagDirection:'asc'});
-const choices={floatingView:['list','icons'],floatingShortcut:['','CommandOrControl+Alt+B','CommandOrControl+Alt+F'],theme:['light','dark'],fontSize:['12','13','15','17','19'],tagSort:['name','count','recent'],tagDirection:['asc','desc']};
+const DEFAULTS=Object.freeze({rememberWindow:true,closeToTray:false,startHidden:false,mainShortcut:'CommandOrControl+Alt+S',floatingIconSize:'small',floatingCompact:false,floatingShowSearch:true,floatingShowTools:true,floatingShowTags:true,floatingShowStatus:false,floatingView:'list',floatingOnTop:true,floatingStartup:false,floatingShortcut:'CommandOrControl+Alt+B',explorerTagPrompt:true,theme:'dark',fontSize:'13',tagSort:'name',tagDirection:'asc'});
+const choices={mainShortcut:['','CommandOrControl+Alt+S','CommandOrControl+Alt+M'],floatingIconSize:['small','medium','large'],floatingView:['list','icons'],floatingShortcut:['','CommandOrControl+Alt+B','CommandOrControl+Alt+F'],theme:['light','dark'],fontSize:['12','13','15','17','19'],tagSort:['name','count','recent'],tagDirection:['asc','desc']};
 function normalize(input={}){const result={...DEFAULTS};if(!input||typeof input!=='object')return result;for(const key of Object.keys(DEFAULTS)){if(typeof DEFAULTS[key]==='boolean'){if(typeof input[key]==='boolean')result[key]=input[key];}else if(choices[key].includes(input[key]))result[key]=input[key];}return result;}
 function validBounds(bounds){return bounds&&['x','y','width','height'].every(key=>Number.isFinite(bounds[key]))&&bounds.width>0&&bounds.height>0;}
 function fitBounds(saved,displays,defaults){

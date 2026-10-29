@@ -158,7 +158,7 @@ test('floating window has offline policy, limited IPC and can focus a tag in the
  assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
  rawHandlers.get('floating-main')(event,'work');assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
  registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,false);registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,true);
- handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.equal(registered.size,0);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
+ handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.equal(registered.size,1);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
 });
 test('Explorer quick-tag requests survive reads by the floating tool and acknowledge only handled IDs',t=>{
  const {dir,events,handlers,rawHandlers,windows}=harness(t);const paths=['a.txt','b.txt'].map(name=>path.join(dir,name));paths.forEach(p=>fs.writeFileSync(p,'A'));events.get('second-instance')(null,['Studio.exe','--favorite','--',paths[0]]);events.get('second-instance')(null,['Studio.exe','--favorite','--',paths[1]]);

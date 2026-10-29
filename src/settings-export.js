@@ -14,7 +14,7 @@ function createSettingsExport(input,desktop,version,now=new Date()){
   format:'BulkFileStudio.Settings',schemaVersion:1,application:{name:'Bulk File Studio',version},exportedAt:now.toISOString(),
   settings:normalizeSettings(input.settings),desktop:normalizeDesktop(desktop),shortcuts:normalizeShortcuts(input.shortcuts),
   naming:{activeRules:normalizeOptions(input.rules&&typeof input.rules==='object'?input.rules:{}),presets:sanitizeSavedPresets(input.presets).map(preset=>({...preset,rules:normalizeOptions(preset.rules)}))},
-  excluded:['favorites','fileContents','undoHistory','windowBounds','windowsContextMenuRegistration']
+  excluded:['favorites','fileContents','undoHistory','windowBounds','windowsContextMenuRegistration','windowsLoginRegistration']
  };
 }
 function writeSettingsExport(filename,data){

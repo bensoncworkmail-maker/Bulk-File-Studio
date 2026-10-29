@@ -1,10 +1,11 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
 const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
+const {DesktopShell}=require('./desktop-shell');
 const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -16,7 +17,7 @@ const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('.
 if(app.isPackaged){const profile=path.join(app.getPath('appData'),'Bulk Rename Studio');fs.mkdirSync(profile,{recursive:true});app.setPath('userData',profile);}
 for(const flag of ['disable-background-networking','disable-component-update','disable-domain-reliability','dns-prefetch-disable'])app.commandLine.appendSwitch(flag);
 
-let win, floating, desktop, shortcutWarning='';
+let win, floating, desktop, desktopShell, pendingMaximize=false, shortcutWarning='',shellWarning='';
 const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
@@ -63,9 +64,13 @@ const saveHistory = (history) => {
   fs.renameSync(temp, filepath);
 };
 
-function createWindow() {
+function focusMain(){
+  if(!win||win.isDestroyed())createWindow();if(win.isMinimized())win.restore();win.show();if(pendingMaximize){pendingMaximize=false;win.maximize();}win.focus();
+}
+function createWindow(hidden=false) {
   win = new BrowserWindow({
     ...desktop.bounds('main',screen.getAllDisplays(),mainDefaults),
+    show:!hidden,
     backgroundColor: '#0b1020',
     title: 'Bulk File Studio',
     autoHideMenuBar: true,
@@ -77,8 +82,9 @@ function createWindow() {
   });
   secureWindow(win);
   desktop.attach('main',win,error=>send(win,'desktop-settings-changed',{error:error.message}));
-  if(desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized)win.maximize();
-  win.on('close',()=>{if(floating&&!floating.isDestroyed()){try{desktop.record('floating',floating);}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
+  pendingMaximize=Boolean(hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized);
+  if(!hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized)win.maximize();
+  win.on('close',event=>{if(desktopShell.onClose(event))return;if(floating&&!floating.isDestroyed()){try{desktop.record('floating',floating);}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
   win.on('closed',()=>{win=null;});
   win.loadFile(path.join(__dirname, 'index.html'));
 }
@@ -98,12 +104,8 @@ function showFloating(toggle=false){
   secureWindow(floating);desktop.attach('floating',floating);
   floating.on('closed',()=>{floating=null;});floating.loadFile(path.join(__dirname,'floating.html'));
 }
-function registerShortcut(){
-  globalShortcut.unregisterAll();const accelerator=desktop.settings.floatingShortcut;
-  if(!accelerator)return '';
-  try{return globalShortcut.register(accelerator,()=>showFloating(true))?'':'浮動工具快捷鍵已被其他程式使用，請在設定選擇另一組。';}
-  catch(e){return '無法註冊浮動工具快捷鍵：'+e.message;}
-}
+function registerShortcut(){return desktopShell.registerShortcuts();}
+
 
 if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites})) {
 app.on('second-instance', (_, argv, workingDirectory, additionalData) => receiveFavorites(argv,additionalData?.favoritePaths));
@@ -111,11 +113,12 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-collect','floating-import'];
+    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import'];
     if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
+  desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
   handle('favorites-list', event => {
@@ -133,12 +136,16 @@ app.whenReady().then(() => {
     if(result.canceled||!result.filePath)return {canceled:true};
     writeSettingsExport(result.filePath,data);return {canceled:false,path:result.filePath};
   });
-  handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning}));
+  handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning:[shortcutWarning,shellWarning].filter(Boolean).join('\n')}));
+  handle('startup-get',()=>desktopShell.loginStatus());
+  handle('startup-set',(_,enabled)=>desktopShell.setLogin(enabled));
+  handle('app-hide-to-tray',()=>{if(!desktopShell.hideToTray())throw new Error(shellWarning||'無法隱藏至系統匣');});
   handle('desktop-settings-set',(_,patch)=>{
     const previous=desktop.settings;const settings=desktop.update(patch);
-    if(previous.floatingShortcut!==settings.floatingShortcut)shortcutWarning=registerShortcut();
+    if(previous.floatingShortcut!==settings.floatingShortcut||previous.mainShortcut!==settings.mainShortcut)shortcutWarning=registerShortcut();
     if(!settings.explorerTagPrompt)pendingTagIds.clear();
-    const warning=shortcutWarning;
+    if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
+    const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
     if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);
     const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
@@ -147,7 +154,7 @@ app.whenReady().then(() => {
   handle('floating-hide',()=>floating?.hide());
   handle('floating-main',(_,tag)=>{
     if(tag!==null&&(typeof tag!=='string'||tag.length>32))throw new Error('標籤無效');
-    if(!win||win.isDestroyed())createWindow();if(win.isMinimized())win.restore();win.show();win.focus();
+    focusMain();
     favoriteActivation=true;queuedFilter={tag};notifyFavorites({activate:true});
   });
   const floatingTags=tag=>{
@@ -159,6 +166,10 @@ app.whenReady().then(() => {
   handle('floating-view',(_,mode)=>{
     if(!['list','icons'].includes(mode))throw new Error('不支援的浮動檢視模式');
     const settings=desktop.update({floatingView:mode}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+  });
+  handle('floating-tools',(_,compact)=>{
+    if(typeof compact!=='boolean')throw new Error('浮動工具顯示設定無效');
+    const settings=desktop.update({floatingCompact:compact}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-pin',()=>{
     const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);
@@ -292,13 +303,16 @@ app.whenReady().then(() => {
     if (typeof filePath !== 'string') return;
     shell.showItemInFolder(assertLocalPath(filePath));
   });
-  createWindow();
-  receiveFavorites([]);
+  const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
+  if(desktop.settings.closeToTray)desktopShell.ensureTray();
+  createWindow(initiallyHidden);
+  if(queuedFavorites.length)receiveFavorites([]);
   shortcutWarning=registerShortcut();if(shortcutWarning)send(win,'desktop-settings-changed',{warning:shortcutWarning});
   if(desktop.settings.floatingStartup)showFloating();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on('activate',focusMain);
 });
-app.on('will-quit',()=>globalShortcut.unregisterAll());
+app.on('before-quit',()=>{if(desktopShell)desktopShell.quitting=true;});
+app.on('will-quit',()=>desktopShell?.destroy());
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();
