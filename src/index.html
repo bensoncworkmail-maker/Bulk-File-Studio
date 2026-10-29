@@ -8,6 +8,7 @@
   <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="upgrades.css">
 </head>
 <body>
   <div class="app-shell">
@@ -15,9 +16,10 @@
       <div class="brand-wrap">
         <div class="brand-icon">↗</div>
         <div><div class="brand-name">Bulk Rename <span>Studio</span></div><div class="brand-sub">批次檔案重新命名工作台</div></div>
-        <span class="version">v1.1</span>
+        <span class="version">v1.2</span>
       </div>
       <div class="header-right">
+        <label class="font-picker"><span>字體</span><select id="font-size-select" aria-label="字體大小"><option value="12">12 px 小</option><option value="13">13 px 標準</option><option value="15">15 px 中</option><option value="17">17 px 大</option><option value="19">19 px 特大</option></select></label>
         <label class="theme-picker"><span>外觀</span><select id="theme-select" aria-label="外觀主題"><option value="light">☀ 淺色</option><option value="dark">☾ 深色</option></select></label>
         <span class="local-state"><span class="state-dot"></span>完全離線 · 僅處理本機檔案</span>
         <button class="btn btn-ghost" id="btn-undo" title="復原上一批重新命名" disabled>↶ <span>復原上一批</span></button>
@@ -63,6 +65,7 @@
           <button id="btn-select-all" class="text-action" disabled>全選</button>
           <button id="btn-select-none" class="text-action" disabled>取消全選</button>
         </div>
+        <div class="sort-toolbar"><span>編號排序</span><select id="rule-sort-by" aria-label="編號排序依據"><option value="path">完整路徑</option><option value="name">檔案名稱</option><option value="modified">檔案修改時間</option></select><select id="rule-sort-direction" aria-label="排序方向"><option value="asc">↑ 遞增／舊至新</option><option value="desc">↓ 遞減／新至舊</option></select><span class="sort-hint">編號依此預覽順序；搜尋只篩選顯示</span></div>
         <div class="table-scroll">
           <table class="preview-table"><thead><tr><th class="col-check"><input id="check-all" type="checkbox" title="選取全部顯示的檔案"></th><th>原始檔名</th><th class="col-arrow"></th><th>新檔名</th><th class="col-state">狀態</th></tr></thead>
           <tbody id="preview-body"><tr><td colspan="5"><div class="empty-preview"><div class="empty-graphic"><span>Abc</span><span class="graphic-arrow">→</span><span>ABC</span></div><h3>先加入檔案，開始整理</h3><p>你將在這裡看到每一個檔名變更，<br>包含錯誤與重複名稱提醒。</p><button id="btn-empty-add" class="btn btn-primary">＋ 選取檔案</button></div></td></tr></tbody></table>
@@ -73,14 +76,19 @@
       <aside class="panel rules-panel">
         <div class="panel-heading"><div><span class="step-tag">03</span><h2>命名規則</h2></div><button id="btn-reset" class="text-action">重設</button></div>
         <div class="presets">
-          <div class="presets-title">快速範本 <span>點擊後會取代目前規則</span></div>
-          <div class="preset-buttons">
-            <button type="button" class="preset" data-preset="photo">照片編號</button>
-            <button type="button" class="preset" data-preset="clean">空白整理</button>
-            <button type="button" class="preset" data-preset="copy">移除 (1) 副本</button>
-          </div>
+          <div class="presets-title">快速範本 <span>套用會取代目前規則</span></div>
+          <div class="preset-row"><select id="preset-select" aria-label="內建快速範本"></select><button id="btn-apply-preset" class="btn btn-secondary">套用</button></div>
+          <p id="preset-description" class="preset-description"></p>
+          <details class="preset-library"><summary id="saved-presets-summary">我的範本（0）</summary><div class="preset-row"><select id="saved-preset-select" aria-label="已儲存範本"></select><button id="btn-load-preset" class="btn btn-secondary">套用</button><button id="btn-delete-preset" class="btn btn-ghost">刪除</button></div></details>
+          <button id="btn-save-preset" class="text-action">＋ 儲存目前規則為範本</button>
         </div>
         <div class="rules-scroller">
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol violet">{ }</div><div><strong>自訂命名格式</strong><span>留空會沿用原檔名，預設保留副檔名</span></div></div>
+            <label class="field"><span>格式（例如 {date}_{name}）</span><input id="rule-name-template" type="text" placeholder="{folder}_{n}_{name}" spellcheck="false"></label>
+            <div class="token-buttons"><button class="preset" data-token="name">{name} 檔名</button><button class="preset" data-token="folder">{folder} 資料夾</button><button class="preset" data-token="n">{n} 編號</button><button class="preset" data-token="date">{date} 指定日期</button><button class="preset" data-token="modified">{modified} 修改日期</button></div>
+            <div class="field-duo"><label class="field"><span>指定日期（{date}）</span><input id="rule-date-value" type="date" min="1000-01-01" max="9999-12-31"></label><label class="field"><span>日期格式</span><select id="rule-date-format"><option value="YYYY-MM-DD">YYYY-MM-DD</option><option value="YYYYMMDD">YYYYMMDD</option><option value="DD-MM-YYYY">DD-MM-YYYY</option></select></label></div>
+            <p class="rule-hint">{modified} 使用電腦本地時區的檔案修改日期，並非照片拍攝日期。{n} 沿用下方起始值、遞增值及位數。</p>
+          </div>
           <div class="rule-group"><div class="group-title"><div class="rule-symbol violet">⌕</div><div><strong>搜尋與取代</strong><span>尋找檔名中指定內容</span></div></div>
             <label class="field"><span>尋找文字／模式</span><input id="rule-find" placeholder="例如：IMG_ 或 (\\d+)" type="text" spellcheck="false"></label>
             <label class="field"><span>取代為</span><input id="rule-replace" placeholder="輸入新文字（留空則刪除）" type="text" spellcheck="false"></label>
@@ -90,15 +98,18 @@
           <div class="rule-group"><div class="group-title"><div class="rule-symbol teal">±</div><div><strong>前綴與後綴</strong><span>在檔名首尾增加文字</span></div></div>
             <div class="field-duo"><label class="field"><span>前綴 Prefix</span><input id="rule-prefix" placeholder="例如：Project_" type="text"></label><label class="field"><span>後綴 Suffix</span><input id="rule-suffix" placeholder="例如：_final" type="text"></label></div>
           </div>
-          <div class="rule-group"><div class="group-title"><div class="rule-symbol orange">#</div><div><strong>流水編號</strong><span>為每個選取檔案加上序號</span></div><label class="toggle"><input id="rule-number-enabled" type="checkbox"><span class="toggle-track"></span></label></div>
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol orange">#</div><div><strong>流水編號</strong><span>開關控制另加編號；{n} 可獨立使用</span></div><label class="toggle"><input id="rule-number-enabled" type="checkbox"><span class="toggle-track"></span></label></div>
             <div id="number-details" class="number-fields disabled-group"><div class="three-col"><label class="field"><span>起始值</span><input id="rule-number-start" type="number" value="1" min="0" max="999999"></label><label class="field"><span>遞增值</span><input id="rule-number-step" type="number" value="1" min="1" max="99999"></label><label class="field"><span>位數</span><input id="rule-number-width" type="number" value="3" min="1" max="10"></label></div>
             <div class="field-duo"><label class="field"><span>位置</span><select id="rule-number-position"><option value="suffix">檔名後方</option><option value="prefix">檔名前方</option></select></label><label class="field"><span>分隔符號</span><input id="rule-number-separator" value="_" type="text" maxlength="12"></label></div></div>
           </div>
           <div class="rule-group"><div class="group-title"><div class="rule-symbol blue">Aa</div><div><strong>文字整理</strong><span>統一大小寫及空白</span></div></div>
+            <div class="field-duo"><label class="field"><span>移除開頭字元數</span><input id="rule-remove-start" type="number" min="0" max="500" value="0"></label><label class="field"><span>移除尾端字元數</span><input id="rule-remove-end" type="number" min="0" max="500" value="0"></label></div>
+            <label class="field"><span>清除頭尾指定字元（留空不處理）</span><input id="rule-trim-characters" type="text" placeholder="例如： _-（包含空白）"></label>
             <div class="field-duo"><label class="field"><span>大小寫</span><select id="rule-case-mode"><option value="none">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="title">每字首字大寫</option></select></label><label class="field"><span>空白處理</span><select id="rule-whitespace"><option value="none">保持不變</option><option value="underscore">轉為底線 _</option><option value="dash">轉為連字號 -</option></select></label></div>
             <label class="check-row subtle"><input id="rule-trim" type="checkbox"> <span>移除名稱前後空白</span></label>
             <label class="check-row subtle"><input id="rule-include-extension" type="checkbox"> <span>規則也套用到副檔名（.jpg / .pdf）</span></label>
           </div>
+          <div class="rule-group"><div class="group-title"><div class="rule-symbol teal">.ext</div><div><strong>副檔名整理</strong><span>獨立設定，不影響主檔名</span></div></div><div class="field-duo"><label class="field"><span>處理方式</span><select id="rule-extension-mode"><option value="keep">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="replace">改為指定副檔名</option></select></label><label class="field"><span>指定副檔名</span><input id="rule-extension-value" type="text" placeholder="例如 jpg"></label></div><p class="rule-hint">只更改名稱，不會轉換檔案格式。若使用此功能，請取消上方「規則也套用到副檔名」。</p></div>
           <div class="help-card"><strong>✧ 安全提示</strong><p>預設保留副檔名；如果有重複檔名、無效字元或已存在目標，程式會阻止整批操作，避免意外覆蓋。</p></div>
         </div>
       </aside>
@@ -112,7 +123,9 @@
   <div id="drop-overlay" class="drop-overlay hidden"><div class="drop-overlay-inner"><div>⇧</div><strong>放開以加入檔案</strong><span>支援多個檔案及資料夾</span></div></div>
   <dialog id="confirm-modal" class="modal" aria-labelledby="modal-title" aria-describedby="modal-description modal-note"><div class="modal-icon">✦</div><h2 id="modal-title">確認重新命名？</h2><p id="modal-description">即將更改所選檔案名稱。</p><div id="modal-note" class="modal-note">所有衝突必須先解決；成功後可使用「復原上一批」。</div><div class="modal-buttons"><button class="btn btn-secondary" id="btn-cancel" autofocus>取消</button><button class="btn btn-primary" id="btn-confirm">確認並執行</button></div></dialog>
   <dialog id="error-dialog" class="modal error-dialog" aria-labelledby="error-title"><h2 id="error-title">操作未完成</h2><p>請核對以下原因後再處理。程式不會強制覆蓋其他檔案；復原紀錄會保留。</p><pre id="error-details"></pre><button id="btn-error-close" class="btn btn-secondary" autofocus>關閉</button></dialog>
+  <dialog id="preset-dialog" class="modal" aria-labelledby="preset-dialog-title"><form id="preset-form"><h2 id="preset-dialog-title">儲存目前規則</h2><label class="field preset-name-field"><span>範本名稱</span><input id="preset-name" type="text" required maxlength="60" placeholder="例如：每月報表整理" autofocus></label><p class="rule-hint">最多儲存 30 個範本；同名範本會更新。只保存命名規則，不保存檔案清單。</p><div class="modal-buttons"><button id="btn-preset-cancel" type="button" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">儲存範本</button></div></form></dialog>
   <div id="toast-container" aria-live="polite"></div>
+  <script src="presets.js" defer></script>
   <script src="renderer.js" defer></script>
 </body>
 </html>

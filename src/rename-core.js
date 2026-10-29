@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 
 const MAX_FILES = 5000;
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
+const segmenter = new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' });
 
 function splitName(name) {
   const ext = path.extname(name);
@@ -29,11 +30,32 @@ function normalizeOptions(input = {}) {
     numberSeparator: safe(input.numberSeparator).slice(0, 12),
     numberPosition: input.numberPosition === 'prefix' ? 'prefix' : 'suffix',
     caseMode: mode, whitespace,
-    trim: Boolean(input.trim), includeExtension: Boolean(input.includeExtension)
+    trim: Boolean(input.trim), includeExtension: Boolean(input.includeExtension),
+    nameTemplate: safe(input.nameTemplate), dateValue: safe(input.dateValue),
+    dateFormat: ['YYYY-MM-DD','YYYYMMDD','DD-MM-YYYY'].includes(input.dateFormat) ? input.dateFormat : 'YYYY-MM-DD',
+    removeStart: Math.min(500, Math.max(0, Math.trunc(Number(input.removeStart) || 0))),
+    removeEnd: Math.min(500, Math.max(0, Math.trunc(Number(input.removeEnd) || 0))),
+    trimCharacters: safe(input.trimCharacters),
+    extensionMode: ['keep','lower','upper','replace'].includes(input.extensionMode) ? input.extensionMode : 'keep',
+    extensionValue: safe(input.extensionValue).replace(/^\./, ''),
+    sortBy: ['path','name','modified'].includes(input.sortBy) ? input.sortBy : 'path',
+    sortDirection: input.sortDirection === 'desc' ? 'desc' : 'asc'
   };
 }
 
-function renameOne(name, input, sequence = 0) {
+function formatDate(value, format) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+  if (!match) throw new Error('請選擇有效的指定日期');
+  const [,year,month,day] = match;
+  if (+year < 1000 || +month < 1 || +month > 12 || +day < 1 || +day > new Date(Date.UTC(+year,+month,0)).getUTCDate()) throw new Error('指定日期不存在');
+  return format === 'YYYYMMDD' ? year+month+day : format === 'DD-MM-YYYY' ? `${day}-${month}-${year}` : value;
+}
+function localDate(date) {
+  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) throw new Error('無法讀取檔案修改日期');
+  return `${String(date.getFullYear()).padStart(4,'0')}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+function renameOne(name, input, sequence = 0, context = {}) {
   const opts = normalizeOptions(input);
   const { stem, ext } = splitName(name);
   let newName = opts.includeExtension ? name : stem;
@@ -50,6 +72,16 @@ function renameOne(name, input, sequence = 0) {
     }
   }
 
+  const chars = Array.from(segmenter.segment(newName), part => part.segment);
+  newName = chars.slice(opts.removeStart, Math.max(opts.removeStart, chars.length - opts.removeEnd)).join('');
+  if (opts.trimCharacters) {
+    const trimSet = new Set(Array.from(opts.trimCharacters));
+    const text = Array.from(newName);
+    let start = 0, end = text.length;
+    while (start < end && trimSet.has(text[start])) start++;
+    while (end > start && trimSet.has(text[end-1])) end--;
+    newName = text.slice(start,end).join('');
+  }
   if (opts.trim) newName = newName.trim();
   if (opts.whitespace !== 'none') {
     newName = newName.replace(/\s+/g, opts.whitespace === 'dash' ? '-' : '_');
@@ -59,13 +91,34 @@ function renameOne(name, input, sequence = 0) {
   if (opts.caseMode === 'title') {
     newName = newName.toLocaleLowerCase().replace(/(^|[\s_\-.])([^\s_\-.])/gu, (_, sep, ch) => sep + ch.toLocaleUpperCase());
   }
+  const num = String(opts.numberStart + sequence * opts.numberStep).padStart(opts.numberWidth, '0');
+  if (opts.nameTemplate) {
+    if (/[{}]/.test(opts.nameTemplate.replace(/\{(?:name|folder|n|date|modified)\}/g, ''))) throw new Error('命名格式包含未知或不完整的標籤；可用 {name}、{folder}、{n}、{date}、{modified}');
+    const values = { name:newName, n:num };
+    newName = opts.nameTemplate.replace(/\{(name|folder|n|date|modified)\}/g, (_, tag) => {
+      if (tag === 'date') return formatDate(opts.dateValue, opts.dateFormat);
+      if (tag === 'modified') return formatDate(localDate(context.modified), opts.dateFormat);
+      if (tag === 'folder') {
+        if (!context.folder) throw new Error('無法取得上層資料夾名稱');
+        return context.folder;
+      }
+      return values[tag];
+    });
+  }
   newName = opts.prefix + newName + opts.suffix;
   if (opts.numberEnabled) {
-    const num = String(opts.numberStart + sequence * opts.numberStep).padStart(opts.numberWidth, '0');
     if (opts.numberPosition === 'prefix') newName = num + opts.numberSeparator + newName;
     else newName = newName + opts.numberSeparator + num;
   }
-  return opts.includeExtension ? newName : newName + ext;
+  if (opts.includeExtension && opts.extensionMode !== 'keep') throw new Error('請先取消「規則也套用到副檔名」，再使用獨立的副檔名整理');
+  let extension = ext;
+  if (opts.extensionMode === 'lower') extension = ext.toLowerCase();
+  if (opts.extensionMode === 'upper') extension = ext.toUpperCase();
+  if (opts.extensionMode === 'replace') {
+    if (!/^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(opts.extensionValue) || /[.]$/.test(opts.extensionValue)) throw new Error('請輸入有效的新副檔名，例如 jpg 或 tar.gz');
+    extension = '.' + opts.extensionValue;
+  }
+  return opts.includeExtension ? newName : newName + extension;
 }
 
 function filenameProblem(name) {
@@ -89,8 +142,16 @@ function pathExists(p) {
 function createPreview(filePaths, inputOptions, options = {}) {
   const rules = normalizeOptions(inputOptions);
   const unique = [...new Map((filePaths || []).filter(p => typeof p === 'string').map(p => [key(p), path.resolve(p)])).values()];
-  unique.sort((a, b) => collator.compare(a, b));
   if (unique.length > MAX_FILES) throw new Error(`每次最多處理 ${MAX_FILES} 個檔案`);
+  const stats = new Map();
+  if (!options.skipStat) for (const source of unique) {
+    try { stats.set(source, fs.lstatSync(source)); } catch { stats.set(source, null); }
+  }
+  unique.sort((a,b) => {
+    const order = rules.sortBy === 'name' ? collator.compare(path.basename(a),path.basename(b)) :
+      rules.sortBy === 'modified' ? ((stats.get(a)?.mtimeMs || 0) - (stats.get(b)?.mtimeMs || 0)) : collator.compare(a,b);
+    return (order || collator.compare(a,b)) * (rules.sortDirection === 'desc' ? -1 : 1);
+  });
   const rows = [];
   let sequence = 0;
   let regexProblem = null;
@@ -104,14 +165,14 @@ function createPreview(filePaths, inputOptions, options = {}) {
     let targetName = name;
     let error = regexProblem;
     if (!error) {
-      try { targetName = renameOne(name, rules, sequence); }
+      try { targetName = renameOne(name, rules, sequence, { folder:path.basename(dir), modified:stats.get(source)?.mtime }); }
       catch (e) { error = e.message; }
     }
     if (!error) error = filenameProblem(targetName);
     const destination = path.join(dir, targetName);
     if (!error && !options.skipStat) {
       try {
-        if (!fs.lstatSync(source).isFile()) error = '原始檔案不存在或不是一般檔案';
+        if (!stats.get(source)?.isFile()) error = '原始檔案不存在或不是一般檔案';
       } catch { error = '原始檔案已不存在或無法讀取'; }
     }
     rows.push({ source, name, dir, targetName, destination,

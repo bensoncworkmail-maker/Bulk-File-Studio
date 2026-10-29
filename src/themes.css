@@ -1,10 +1,10 @@
 /* Shared controls and native HTML dialogs. */
-.theme-picker { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:11px; }
+.theme-picker { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:calc(var(--font-scale,1)*11px); }
 .theme-picker select { width:94px; }
 dialog.modal { color:var(--text); margin:auto; max-height:85vh; overflow:auto; }
 dialog.modal::backdrop { background:#030712b8; }
 .error-dialog { width:min(620px,calc(100% - 40px)); text-align:left; }
-.error-dialog pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:12px; line-height:1.8; max-height:40vh; overflow:auto; background:var(--bg); border:1px solid var(--line); padding:14px; border-radius:8px; margin:18px 0; user-select:text; }
+.error-dialog pre { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:calc(var(--font-scale,1)*12px); line-height:1.8; max-height:40vh; overflow:auto; background:var(--bg); border:1px solid var(--line); padding:14px; border-radius:8px; margin:18px 0; user-select:text; }
 .error-dialog > button { display:block; margin-left:auto; }
 
 :root[data-theme="light"] {
@@ -16,7 +16,7 @@ dialog.modal::backdrop { background:#030712b8; }
   --shadow:0 12px 32px rgba(43,58,89,.06);
 }
 :root[data-theme="light"] body { background:radial-gradient(ellipse at 48% -20%,#e8e4fc 0%,transparent 42%),var(--bg); }
-:root[data-theme="light"] :is(input[type=text],input[type=number],input[type=search],select) { background:#fff; border-color:#cbd4e3; }
+:root[data-theme="light"] :is(input[type=text],input[type=number],input[type=search],input[type=date],select) { background:#fff; border-color:#cbd4e3; }
 :root[data-theme="light"] input::placeholder { color:#6b7890; }
 :root[data-theme="light"] :is(input:focus,select:focus) { border-color:var(--accent); }
 :root[data-theme="light"] .app-header { background:#ffffffd9; }

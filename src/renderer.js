@@ -3,24 +3,25 @@
 const api = window.renameAPI;
 const $ = (id) => document.getElementById(id);
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
+const { DEFAULT_RULES, BUILTIN_PRESETS, todayISO, presetRules, sanitizeSavedPresets } = window.renamePresets;
 const fieldIds = [
   'find','replace','regex','match-case','replace-all','prefix','suffix',
   'number-enabled','number-start','number-step','number-width',
-  'number-position','number-separator','case-mode','whitespace','trim','include-extension'
+  'number-position','number-separator','case-mode','whitespace','trim','include-extension',
+  'name-template','date-value','date-format','remove-start','remove-end','trim-characters',
+  'extension-mode','extension-value','sort-by','sort-direction'
 ];
-const defaults = {
-  find:'', replace:'', regex:false, matchCase:false, replaceAll:true,
-  prefix:'', suffix:'', numberEnabled:false, numberStart:1, numberStep:1,
-  numberWidth:3, numberPosition:'suffix', numberSeparator:'_',
-  caseMode:'none', whitespace:'none', trim:false, includeExtension:false
-};
+const defaults = { ...DEFAULT_RULES, dateValue:todayISO() };
 const optionsMap = {
   'find':'find', 'replace':'replace', 'regex':'regex', 'match-case':'matchCase',
   'replace-all':'replaceAll', 'prefix':'prefix', 'suffix':'suffix',
   'number-enabled':'numberEnabled', 'number-start':'numberStart', 'number-step':'numberStep',
   'number-width':'numberWidth', 'number-position':'numberPosition',
   'number-separator':'numberSeparator', 'case-mode':'caseMode',
-  'whitespace':'whitespace', 'trim':'trim', 'include-extension':'includeExtension'
+  'whitespace':'whitespace', 'trim':'trim', 'include-extension':'includeExtension',
+  'name-template':'nameTemplate','date-value':'dateValue','date-format':'dateFormat',
+  'remove-start':'removeStart','remove-end':'removeEnd','trim-characters':'trimCharacters',
+  'extension-mode':'extensionMode','extension-value':'extensionValue','sort-by':'sortBy','sort-direction':'sortDirection'
 };
 
 let files = [];
@@ -33,6 +34,8 @@ let debounceTimer = null;
 let revision = 0;
 let noticeTimeout;
 let pendingAction = 'rename';
+let previewPending = false;
+let savedPresets = [];
 
 const norm = (s) => s.normalize('NFC').toLocaleLowerCase('en-US');
 const basename = (p) => p.split(/[\\/]/).pop();
@@ -54,12 +57,16 @@ function getRules() {
 function applyRules(r) {
   for (const id of fieldIds) {
     const el = $('rule-' + id), key = optionsMap[id];
-    const value = r[key] ?? defaults[key];
+    const value = key === 'dateValue' ? (r[key] || defaults[key]) : (r[key] ?? defaults[key]);
     if (el.type === 'checkbox') el.checked = Boolean(value);
     else el.value = value;
   }
-  $('number-details').classList.toggle('disabled-group', !$('rule-number-enabled').checked);
   rules = getRules();
+  updateRuleControls();
+}
+function updateRuleControls() {
+  $('number-details').classList.toggle('disabled-group', !rules.numberEnabled && !rules.nameTemplate.includes('{n}'));
+  $('rule-extension-value').disabled = rules.extensionMode !== 'replace';
 }
 function showToast(message, type = '') {
   const node = document.createElement('div');
@@ -80,29 +87,101 @@ function applyTheme(theme) {
   try { localStorage.setItem('brs-theme', value); } catch { /* Session-only choice. */ }
   api.setTheme(value).catch(e => showToast('原生視窗主題未能更新：' + withoutPrefix(e), 'error'));
 }
+function applyFontSize(value) {
+  const size = ['12','13','15','17','19'].includes(String(value)) ? String(value) : '13';
+  document.documentElement.dataset.fontSize = size;
+  $('font-size-select').value = size;
+  try { localStorage.setItem('brs-font-size', size); } catch { /* Session-only choice. */ }
+}
+function renderSavedPresets(selectedId = $('saved-preset-select').value) {
+  const select = $('saved-preset-select');
+  select.replaceChildren();
+  for (const preset of savedPresets) {
+    const option = element('option','',preset.name); option.value = preset.id; select.appendChild(option);
+  }
+  if (!savedPresets.length) {
+    const option = element('option','','尚未儲存範本'); option.value=''; select.appendChild(option);
+  } else if (savedPresets.some(preset=>preset.id===selectedId)) select.value=selectedId;
+  $('saved-presets-summary').textContent = `我的範本（${savedPresets.length}）`;
+  select.disabled = !savedPresets.length;
+  $('btn-load-preset').disabled = !savedPresets.length;
+  $('btn-delete-preset').disabled = !savedPresets.length;
+}
+function storeSavedPresets(next, selectedId) {
+  try { localStorage.setItem('brs-presets-v1',JSON.stringify(next)); }
+  catch (e) { showFailure('無法儲存範本',e); return false; }
+  savedPresets=next; renderSavedPresets(selectedId); return true;
+}
+function initPresets() {
+  const select=$('preset-select');
+  for (const preset of BUILTIN_PRESETS) {
+    const option=element('option','',preset.name); option.value=preset.id; select.appendChild(option);
+  }
+  const describe=()=>{ $('preset-description').textContent=BUILTIN_PRESETS.find(item=>item.id===select.value)?.description || ''; };
+  select.addEventListener('change',describe); describe();
+  try { savedPresets=sanitizeSavedPresets(JSON.parse(localStorage.getItem('brs-presets-v1')||'[]')); }
+  catch { savedPresets=[]; }
+  renderSavedPresets();
+  $('btn-apply-preset').addEventListener('click',()=>{
+    if (busy) return;
+    applyRules(presetRules(select.value,rules.dateValue||defaults.dateValue)); enqueuePreview();
+  });
+  $('btn-load-preset').addEventListener('click',()=>{
+    if (busy) return;
+    const preset=savedPresets.find(item=>item.id===$('saved-preset-select').value);
+    if (preset) { applyRules({...defaults,...preset.rules}); enqueuePreview(); showToast('已套用範本：'+preset.name); }
+  });
+  $('btn-delete-preset').addEventListener('click',()=>{
+    if (busy) return;
+    const id=$('saved-preset-select').value;
+    if (storeSavedPresets(savedPresets.filter(item=>item.id!==id))) showToast('已刪除選取的範本');
+  });
+  $('btn-save-preset').addEventListener('click',()=>{
+    if (busy) return;
+    $('preset-name').value=''; $('preset-dialog').showModal();
+  });
+  $('btn-preset-cancel').addEventListener('click',()=>$('preset-dialog').close());
+  $('preset-form').addEventListener('submit',event=>{
+    event.preventDefault();
+    const name=$('preset-name').value.trim();
+    if (!name) { $('preset-name').setCustomValidity('請輸入範本名稱'); $('preset-name').reportValidity(); return; }
+    const existing=savedPresets.find(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase());
+    if (!existing && savedPresets.length>=30) { $('preset-dialog').close();showFailure('範本數量已達上限','最多儲存 30 個範本，請先刪除不需要的範本。');return; }
+    const preset={id:existing?.id||crypto.randomUUID(),name,rules:getRules()};
+    const next=existing?savedPresets.map(item=>item.id===existing.id?preset:item):[...savedPresets,preset];
+    $('preset-dialog').close();
+    if (storeSavedPresets(next,preset.id)) showToast('已儲存範本：'+name,'success');
+  });
+  $('preset-name').addEventListener('input',()=>$('preset-name').setCustomValidity(''));
+}
 function saveRulePreferences() {
   try { localStorage.setItem('brs-rules-v1', JSON.stringify(rules)); } catch {} 
 }
 function enqueuePreview() {
   rules = getRules(); saveRulePreferences();
-  $('number-details').classList.toggle('disabled-group', !rules.numberEnabled);
+  updateRuleControls();
+  previewPending = true;
   revision++;
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(updatePreview, 140);
+  render();
 }
 async function updatePreview() {
   const request = ++revision;
   const paths = files.filter(p => selected.has(norm(p)));
   if (!paths.length) {
+    previewPending = false;
     latest = { rows: [], counts: { total:0, ready:0, same:0, error:0 } };
     render(); return;
   }
   try {
     const data = await api.preview(paths, rules);
     if (request !== revision) return;
-    latest = data; render();
+    previewPending = false; latest = data; render();
   } catch (e) {
     if (request !== revision) return;
+    previewPending = false;
+    latest = {rows:[],counts:{total:0,ready:0,same:0,error:0}};render();
     showToast('預覽失敗：' + withoutPrefix(e), 'error');
   }
 }
@@ -142,11 +221,11 @@ function clearFiles() {
 }
 function filterFiles() {
   const q = $('search').value.trim().toLocaleLowerCase();
-  const byPath = new Map(latest.rows.map(row => [norm(row.source), row]));
-  const filtered = files.map(p => {
-    const row = byPath.get(norm(p));
-    return row || { source:p, name:basename(p), dir:dirname(p), targetName:basename(p), status:'off', message:'未選取' };
-  }).filter(row => !q || row.name.toLocaleLowerCase().includes(q) || row.targetName.toLocaleLowerCase().includes(q) || row.dir.toLocaleLowerCase().includes(q));
+  const current=new Set(files.map(norm));
+  const active=latest.rows.filter(row=>current.has(norm(row.source))&&selected.has(norm(row.source)));
+  const shown=new Set(active.map(row=>norm(row.source)));
+  const filtered = [...active,...files.filter(p=>!shown.has(norm(p))).map(p=>({ source:p, name:basename(p), dir:dirname(p), targetName:basename(p), status:'off', message:selected.has(norm(p))?'等待預覽':'未選取' }))]
+    .filter(row => !q || row.name.toLocaleLowerCase().includes(q) || row.targetName.toLocaleLowerCase().includes(q) || row.dir.toLocaleLowerCase().includes(q));
   return filtered;
 }
 function element(tag, className, text, title) {
@@ -226,7 +305,7 @@ function render() {
   $('stat-ready').textContent = counts.ready;
   $('stat-error').textContent = counts.error;
   const selCount = selected.size;
-  const canRun = !busy && counts.ready > 0 && counts.error === 0;
+  const canRun = !busy && !previewPending && counts.ready > 0 && counts.error === 0;
   const blocker = counts.error > 0;
   $('btn-run').disabled = !canRun;
   $('btn-undo').disabled = busy || !history;
@@ -244,6 +323,9 @@ function render() {
   if (busy) {
     $('footer-title').textContent = '正在處理檔案…';
     $('footer-desc').textContent = '請勿在操作期間移動或修改相關檔案';
+  } else if (previewPending) {
+    $('footer-title').textContent = '正在更新預覽…';
+    $('footer-desc').textContent = '新檔名確認完成後才可執行';
   } else if (blocker) {
     $('footer-title').textContent = `發現 ${counts.error} 個衝突`;
     $('footer-desc').textContent = '請修改規則或取消選取有衝突的檔案';
@@ -275,7 +357,7 @@ function selectFiltered(all) {
   enqueuePreview();render();
 }
 function confirmRename() {
-  if (busy || $('confirm-modal').open || $('error-dialog').open || !latest.counts.ready || latest.counts.error) return;
+  if (busy || previewPending || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || !latest.counts.ready || latest.counts.error) return;
   pendingAction = 'rename';
   const ready = latest.counts.ready;
   $('modal-title').textContent = '確認重新命名？';
@@ -289,7 +371,8 @@ async function executeRename() {
   if (busy) return;
   setBusy(true);
   try {
-    const result = await api.rename(files.filter(p => selected.has(norm(p))), rules);
+    const plan=latest.rows.filter(row=>row.status==='ready').map(({source,destination})=>({source,destination}));
+    const result = await api.rename(files.filter(p => selected.has(norm(p))), rules, plan);
     const map = new Map(result.moves.map(m => [norm(m.source),m.destination]));
     if (result.changed) {
       files = [...new Set(files.map(p => map.get(norm(p)) || p))].sort((a,b)=>collator.compare(a,b));
@@ -303,7 +386,7 @@ async function executeRename() {
   finally { busy = false; history = await api.history().catch(() => null); await updatePreview(); }
 }
 function undo() {
-  if (busy || !history || $('confirm-modal').open || $('error-dialog').open) return;
+  if (busy || !history || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open) return;
   pendingAction = 'undo';
   $('modal-title').textContent = '復原上一批命名？';
   $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的名稱。復原只會更改名稱，不會還原檔案內容。`;
@@ -332,6 +415,7 @@ async function exportCSV() {
   catch(e) {showToast(withoutPrefix(e),'error');}
 }
 function wireEvents() {
+  $('font-size-select').addEventListener('change', e => applyFontSize(e.target.value));
   $('theme-select').addEventListener('change', e => applyTheme(e.target.value));
   $('btn-error-close').addEventListener('click', () => $('error-dialog').close());
   $('btn-add-files').addEventListener('click',chooseFiles);
@@ -344,13 +428,11 @@ function wireEvents() {
   $('btn-select-none').addEventListener('click',()=>selectFiltered(false));
   $('check-all').addEventListener('change',e=>selectFiltered(e.target.checked));
   $('btn-reset').addEventListener('click',()=>{applyRules(defaults);saveRulePreferences();enqueuePreview();});
-  document.querySelectorAll('[data-preset]').forEach(btn => btn.addEventListener('click', () => {
-    const presets = {
-      photo: { ...defaults, prefix:'Photo_', numberEnabled:true, numberWidth:3, numberPosition:'prefix' },
-      clean: { ...defaults, trim:true, whitespace:'underscore', caseMode:'lower' },
-      copy: { ...defaults, find:'\\s*\\(\\d+\\)$', regex:true, replace:'' }
-    };
-    applyRules(presets[btn.dataset.preset]); saveRulePreferences(); enqueuePreview();
+  document.querySelectorAll('[data-token]').forEach(btn=>btn.addEventListener('click',()=>{
+    if (busy) return;
+    const input=$('rule-name-template');
+    input.setRangeText(`{${btn.dataset.token}}`,input.selectionStart??input.value.length,input.selectionEnd??input.value.length,'end');
+    input.focus();enqueuePreview();
   }));
   $('btn-run').addEventListener('click',confirmRename);
   $('btn-confirm').addEventListener('click',()=>pendingAction === 'undo' ? executeUndo() : executeRename());
@@ -363,7 +445,7 @@ function wireEvents() {
     el.addEventListener(el.type === 'checkbox' || el.tagName==='SELECT' ? 'change':'input',enqueuePreview);
   }
   document.addEventListener('keydown',e=>{
-    if ($('confirm-modal').open || $('error-dialog').open) return;
+    if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open) return;
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='o') {e.preventDefault();e.shiftKey?chooseFolder():chooseFiles();}
     if((e.ctrlKey||e.metaKey) && e.key==='Enter') {e.preventDefault();confirmRename();}
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && document.activeElement?.tagName!=='INPUT') {e.preventDefault();undo();}
@@ -387,9 +469,10 @@ function wireEvents() {
 }
 async function init() {
   applyTheme(document.documentElement.dataset.theme);
+  applyFontSize(document.documentElement.dataset.fontSize);
   try { const saved=JSON.parse(localStorage.getItem('brs-rules-v1') || 'null');applyRules(saved && typeof saved==='object' ? {...defaults,...saved}:defaults); }
   catch {applyRules(defaults);}
-  wireEvents();render();
+  initPresets();wireEvents();render();
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
 }
 init();

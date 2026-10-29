@@ -83,3 +83,15 @@ test('theme IPC accepts only light or dark', t => {
   handlers.get('set-theme')(null, 'dark'); assert.equal(nativeTheme.themeSource, 'dark');
   assert.throws(() => handlers.get('set-theme')(null, 'unknown'), /不支援/);
 });
+
+test('a stale displayed preview cancels rename before writing history or files', t => {
+  const {dir,handlers,historyPath}=harness(t);
+  const source=path.join(dir,'a.txt');fs.writeFileSync(source,'A');
+  const rules={nameTemplate:'{n}_{name}'};
+  const plan=[{source,destination:path.join(dir,'outdated.txt')}];
+  assert.throws(()=>handlers.get('rename')(null,[source],rules,plan),/預覽結果已變更/);
+  assert.equal(fs.readFileSync(source,'utf8'),'A');assert.equal(fs.existsSync(historyPath),false);
+  const preview=handlers.get('preview')(null,[source],rules);
+  const correct=preview.rows.map(({source,destination})=>({source,destination}));
+  assert.equal(handlers.get('rename')(null,[source],rules,correct).changed,1);
+});

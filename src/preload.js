@@ -5,7 +5,7 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   chooseFolder: (recursive) => ipcRenderer.invoke('choose-folder', recursive),
   addPaths: (paths, recursive) => ipcRenderer.invoke('add-paths', paths, recursive),
   preview: (paths, rules) => ipcRenderer.invoke('preview', paths, rules),
-  rename: (paths, rules) => ipcRenderer.invoke('rename', paths, rules),
+  rename: (paths, rules, plan) => ipcRenderer.invoke('rename', paths, rules, plan),
   undo: () => ipcRenderer.invoke('undo'),
   history: () => ipcRenderer.invoke('history'),
   setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),

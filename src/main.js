@@ -57,10 +57,13 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('add-paths', (_, paths, recursive) => listPaths(paths, Boolean(recursive)));
   ipcMain.handle('preview', (_, paths, rules) => createPreview(paths, rules));
-  ipcMain.handle('rename', (_, paths, rules) => {
+  ipcMain.handle('rename', (_, paths, rules, expectedPlan) => {
     const preview = createPreview(paths, rules);
     if (preview.counts.error) throw new Error(`${preview.counts.error} 個檔案存在衝突或名稱錯誤。請先修正，再重新執行。`);
     let moves = preview.rows.filter(x => x.status === 'ready').map(x => ({ source: x.source, destination: x.destination }));
+    if (expectedPlan !== undefined && JSON.stringify(expectedPlan) !== JSON.stringify(moves)) {
+      throw new Error('預覽結果已變更（檔案名稱、日期或排序可能已改動），操作已取消。請檢查更新後的預覽，再重新確認。');
+    }
     if (!moves.length) return { changed: 0, moves: [], history: Boolean(readHistory()) };
     moves = snapshotMoves(moves);
     const record = { version: 2, state: 'pending', createdAt: new Date().toISOString(), moves };
