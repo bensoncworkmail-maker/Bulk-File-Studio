@@ -2,13 +2,13 @@
 (() => {
   const KEY='brs-settings-v1';
   const DEFAULTS=Object.freeze({theme:'dark',fontSize:'13',density:'compact',pageSize:100,
-    tagPanelWidth:220,tagSort:'name',tagDirection:'asc',favoriteSort:'recent',favoriteDirection:'desc',favoriteOpenMode:'double',showFileIcons:true,showTips:true,favoriteColumns:['name','location','tags','status'],rulesWidth:'420',showSource:false,showRules:true,showPaths:false,recursiveDefault:false,startPage:'rename',
+    tagPanelWidth:220,tagSort:'name',tagDirection:'asc',favoriteView:'list',favoriteSort:'recent',favoriteDirection:'desc',favoriteOpenMode:'double',showFileIcons:true,showTips:true,favoriteColumns:['name','location','tags','status'],rulesWidth:'420',showSource:false,showRules:true,showPaths:false,recursiveDefault:false,startPage:'rename',
     rememberRules:true,resetRulesAfterRename:true,defaultSortBy:'path',defaultSortDirection:'asc'});
   function normalize(input={}) {
     if(!input||typeof input!=='object')input={};
     const out={...DEFAULTS};
     const choices={theme:['light','dark'],fontSize:['12','13','15','17','19'],density:['compact','comfortable'],
-      tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],pageSize:[100,250,500],startPage:['rename','favorites'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
+      tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteView:['list','icons'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],pageSize:[100,250,500],startPage:['rename','favorites'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
     for(const [key,value] of Object.entries(DEFAULTS)) {
       if(key==='rulesWidth'){const width=typeof input[key]==='number'?input[key]:typeof input[key]==='string'&&/^\d+$/.test(input[key])?Number(input[key]):NaN;if(Number.isFinite(width))out[key]=String(Math.round(Math.max(280,Math.min(720,width))));}
       else if(key==='tagPanelWidth'){if(typeof input[key]==='number'&&Number.isFinite(input[key]))out[key]=Math.round(Math.max(140,Math.min(480,input[key])));}

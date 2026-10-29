@@ -79,6 +79,9 @@
     $('tag-panel-resizer').setAttribute('aria-valuenow',String(window.settingsUI.get().tagPanelWidth));
     $('favorite-count').textContent=loaded?items.length:'—';
     const settings=window.settingsUI.get(),keys=model.columns(settings.favoriteColumns);renderColumns(keys);
+    $('favorite-table-scroll').dataset.view=settings.favoriteView;
+    $('favorite-columns').hidden=settings.favoriteView==='icons';
+    for(const mode of ['list','icons']){const el=$('favorite-view-'+mode);el.setAttribute('aria-pressed',String(settings.favoriteView===mode));el.disabled=busy;}
     $('favorite-sort').value=settings.favoriteSort;$('favorite-direction').textContent=settings.favoriteDirection==='asc'?'↑':'↓';
     $('btn-fav-select-all').disabled=busy||!loaded||!visible.length;
     for(const id of ['btn-fav-add-files','btn-fav-add-folders','btn-fav-import-paths','btn-fav-refresh'])$(id).disabled=busy;
@@ -106,6 +109,7 @@
         else if(key==='type')cell=node('div','favorite-metadata',model.typeLabel(item));
         else if(key==='size'){cell=node('div','favorite-metadata',model.sizeLabel(item.size));cell.title=item.type==='folder'?'不掃描資料夾大小':item.size==null?'無法讀取':item.size.toLocaleString()+' bytes';}
         else {cell=node('div','favorite-metadata',item.modifiedMs==null?'—':new Date(item.modifiedMs).toLocaleString('zh-Hant',{hour12:false}));}
+        cell.dataset.column=key;cell.dataset.label=model.COLUMNS[key].label;
         row.appendChild(cell);
       }
       const actions=node('div','favorite-row-actions'),more=button('⋯',event=>showItemMenu(event,item));more.disabled=busy;more.setAttribute('aria-label','更多操作：'+(item.label||basename(item.path)));actions.append(more);row.appendChild(actions);
@@ -230,6 +234,7 @@
     window.desktopAPI.onChanged(payload=>{if(payload.settings?.explorerTagPrompt===false){pendingPromptIds.clear();clearTimeout(promptTimer);}});
     $('favorite-columns').addEventListener('contextmenu',event=>{event.preventDefault();openColumns();});
     $('btn-fav-columns').addEventListener('click',openColumns);
+    for(const mode of ['list','icons'])$('favorite-view-'+mode).addEventListener('click',()=>{if(!busy){closeMenu();window.settingsUI.update({favoriteView:mode});}});
     $('btn-columns-cancel').addEventListener('click',()=>$('favorite-columns-dialog').close());
     $('btn-columns-default').addEventListener('click',()=>{columnDraft=[...model.DEFAULT_COLUMNS,...Object.keys(model.COLUMNS).filter(key=>!model.DEFAULT_COLUMNS.includes(key))].map(key=>({key,checked:model.DEFAULT_COLUMNS.includes(key)}));renderColumnEditor();});
     $('btn-columns-save').addEventListener('click',()=>{window.settingsUI.update({favoriteColumns:columnDraft.filter(entry=>entry.checked||entry.key==='name').map(entry=>entry.key)});$('favorite-columns-dialog').close();});

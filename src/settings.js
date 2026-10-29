@@ -4,7 +4,7 @@
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
   const controls={theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
-    tagPanelWidth:'settings-tag-panel-width',showTips:'settings-tips',favoriteOpenMode:'settings-favorite-open',showFileIcons:'settings-file-icons',favoriteSort:'settings-favorite-sort',favoriteDirection:'settings-favorite-direction',rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
+    tagPanelWidth:'settings-tag-panel-width',showTips:'settings-tips',favoriteView:'settings-favorite-view',favoriteOpenMode:'settings-favorite-open',showFileIcons:'settings-file-icons',favoriteSort:'settings-favorite-sort',favoriteDirection:'settings-favorite-direction',rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
     startPage:'settings-start-page',rememberRules:'settings-remember-rules',resetRulesAfterRename:'settings-reset-rules',
     defaultSortBy:'settings-sort-by',defaultSortDirection:'settings-sort-direction'};
   function syncControls() {
