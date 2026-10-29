@@ -14,13 +14,15 @@ function harness(t, overrides = {}) {
   const main = path.resolve(__dirname, '../src/main.js');
   const realRequire = createRequire(main);
   const nativeTheme = {};
+  const events=new Map();
   class Window {
-    constructor() { this.webContents = { setWindowOpenHandler() {} }; }
+    constructor() { this.webContents = { setWindowOpenHandler() {},send() {} }; }
     loadFile() {}
     setBackgroundColor(value) { this.background = value; }
+    isMinimized(){return false;}show(){}focus(){}restore(){}
   }
   const electron = {
-    app: { getPath:()=>dir, whenReady:()=>({ then:callback=>callback() }), on() {}, isPackaged:false },
+    app: { getPath:()=>dir, requestSingleInstanceLock:()=>true, whenReady:()=>({ then:callback=>callback() }), on:(name,callback)=>events.set(name,callback), isPackaged:false },
     BrowserWindow:Window, nativeTheme,
     ipcMain:{ handle:(name,handler)=>handlers.set(name,handler) }, dialog:{}, shell:{}
   };
@@ -28,7 +30,7 @@ function harness(t, overrides = {}) {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
     __dirname:path.dirname(main), process
   }, { filename:main });
-  return { dir, handlers, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
+  return { dir, handlers, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
 test('IPC persists verified history, blocks edited files, and allows retry', t => {
@@ -94,4 +96,33 @@ test('a stale displayed preview cancels rename before writing history or files',
   const preview=handlers.get('preview')(null,[source],rules);
   const correct=preview.rows.map(({source,destination})=>({source,destination}));
   assert.equal(handlers.get('rename')(null,[source],rules,correct).changed,1);
+});
+
+test('favorites IPC keeps collections independent and updates paths on rename and undo',t=>{
+  const {dir,handlers}=harness(t),source=path.join(dir,'a.txt');fs.writeFileSync(source,'A');
+  handlers.get('favorites-add')(null,[source],['工作']);
+  const original=handlers.get('favorites-list')().items[0];
+  handlers.get('rename')(null,[source],{prefix:'new_'});
+  const changed=handlers.get('favorites-list')().items[0];
+  assert.equal(changed.path,path.join(dir,'new_a.txt'));assert.equal(changed.status,'ready');assert.equal(changed.id,original.id);
+  handlers.get('undo')();assert.equal(handlers.get('favorites-list')().items[0].path,source);
+  assert.equal(handlers.get('favorites-remove')(null,[original.id]).removed,1);assert.equal(fs.readFileSync(source,'utf8'),'A');
+});
+test('folder bookmarks expand contents only when added to rename, respecting recursion',t=>{
+  const {dir,handlers}=harness(t),folder=path.join(dir,'folder');fs.mkdirSync(folder);fs.mkdirSync(path.join(folder,'nested'));
+  fs.writeFileSync(path.join(folder,'one.txt'),'1');fs.writeFileSync(path.join(folder,'nested','two.txt'),'2');
+  handlers.get('favorites-add')(null,[folder]);const items=handlers.get('favorites-list')().items;
+  assert.equal(items.length,1);assert.equal(items[0].type,'folder');
+  assert.equal(handlers.get('favorites-to-rename')(null,[items[0].id],false).paths.length,1);
+  assert.equal(handlers.get('favorites-to-rename')(null,[items[0].id],true).paths.length,2);
+});
+test('second-instance Explorer requests collect files once and activate favorites',t=>{
+  const {dir,handlers,events}=harness(t),source=path.join(dir,'報表 & notes.txt');fs.writeFileSync(source,'A');
+  const argv=['Studio.exe','--favorite','--',source];
+  events.get('second-instance')(null,argv);events.get('second-instance')(null,argv);
+  const result=handlers.get('favorites-list')();assert.equal(result.items.length,1);assert.equal(result.activate,true);
+  assert.equal(handlers.get('favorites-list')().activate,false);
+  const second=path.join(dir,'transferred.txt');fs.writeFileSync(second,'B');
+  events.get('second-instance')(null,['reordered-argv'],dir,{favoritePaths:[second,'relative.txt']});
+  assert.equal(handlers.get('favorites-list')().items.length,2);
 });

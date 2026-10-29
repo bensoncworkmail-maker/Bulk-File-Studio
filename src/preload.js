@@ -13,3 +13,22 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   showInFolder: (p) => ipcRenderer.invoke('show-in-folder', p),
   pathForFile: (file) => webUtils.getPathForFile(file)
 }));
+contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
+  list:()=>ipcRenderer.invoke('favorites-list'),
+  add:(paths,tags=[])=>ipcRenderer.invoke('favorites-add',paths,tags),
+  choose:kind=>ipcRenderer.invoke('favorites-choose',kind),
+  update:(ids,changes)=>ipcRenderer.invoke('favorites-update',ids,changes),
+  remove:ids=>ipcRenderer.invoke('favorites-remove',ids),
+  open:id=>ipcRenderer.invoke('favorites-open',id),
+  show:id=>ipcRenderer.invoke('favorites-show',id),
+  copy:id=>ipcRenderer.invoke('favorites-copy',id),
+  chooseLink:id=>ipcRenderer.invoke('favorites-choose-link',id),
+  toRename:(ids,recursive)=>ipcRenderer.invoke('favorites-to-rename',ids,recursive),
+  contextStatus:()=>ipcRenderer.invoke('context-menu-status'),
+  setContext:enabled=>ipcRenderer.invoke('context-menu-set',enabled),
+  onChanged:callback=>{
+    const listener=(_,payload)=>callback(payload);
+    ipcRenderer.on('favorites-changed',listener);
+    return ()=>ipcRenderer.removeListener('favorites-changed',listener);
+  }
+}));

@@ -1,10 +1,35 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createPreview, executeMoves, listPaths, snapshotMoves, prepareUndo } = require('./rename-core');
+const { FavoritesStore } = require('./favorites-store');
+const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('./windows-context-menu');
 
 let win;
+let favorites;
+let contextMenu;
+let queuedFavorites = favoriteArguments(process.argv);
+let favoriteActivation = queuedFavorites.length > 0;
+let favoriteNotice = null;
+function notifyFavorites(payload = {}) { win?.webContents.send('favorites-changed', payload); }
+function receiveFavorites(argv, transferredPaths) {
+  queuedFavorites.push(...(transferredPaths===undefined?favoriteArguments(argv):validFavoritePaths(transferredPaths)));
+  if (queuedFavorites.length && favorites) {
+    favoriteActivation = true;
+    try {
+      const result = favorites.addPaths(queuedFavorites);
+      queuedFavorites = [];
+      favoriteNotice = {message:`已收藏 ${result.added} 項，${result.existing} 項已在收藏中。`,issues:result.issues};
+    } catch (e) { favoriteNotice = {message:'右鍵收藏未完成',issues:[e.message]}; }
+    notifyFavorites({activate:true});
+  }
+  if (win) { if(win.isMinimized())win.restore();win.show();win.focus(); }
+}
+function syncFavoriteMoves(moves) {
+  try { favorites.applyMoves(moves);notifyFavorites();return ''; }
+  catch(e) { return `檔名已更改，但收藏位置未能同步；請在「我的收藏」重新連結：${e.message}`; }
+}
 const historyFile = () => path.join(app.getPath('userData'), 'last-rename.json');
 const readHistory = () => {
   try {
@@ -41,7 +66,40 @@ function createWindow() {
   });
 }
 
+if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites})) {
+app.on('second-instance', (_, argv, workingDirectory, additionalData) => receiveFavorites(argv,additionalData?.favoritePaths));
 app.whenReady().then(() => {
+  favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
+  contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
+  ipcMain.handle('favorites-list', () => {
+    const result={items:favorites.list(),activate:favoriteActivation,notice:favoriteNotice};
+    favoriteActivation=false;favoriteNotice=null;return result;
+  });
+  ipcMain.handle('favorites-add', (_, paths, tags) => {
+    const result=favorites.addPaths(paths,tags);notifyFavorites();return result;
+  });
+  ipcMain.handle('favorites-choose', async (_, kind) => {
+    if(!['file','folder'].includes(kind))throw new Error('不支援的收藏類型');
+    const result=await dialog.showOpenDialog(win,{title:kind==='folder'?'收藏資料夾位置':'收藏檔案',properties:[kind==='folder'?'openDirectory':'openFile','multiSelections']});
+    if(result.canceled)return {canceled:true,added:0,existing:0,issues:[]};
+    const added=favorites.addPaths(result.filePaths);notifyFavorites();return added;
+  });
+  ipcMain.handle('favorites-update', (_, ids, changes) => {const result=favorites.update(ids,changes);notifyFavorites();return result;});
+  ipcMain.handle('favorites-remove', (_, ids) => {const result=favorites.remove(ids);notifyFavorites();return result;});
+  ipcMain.handle('favorites-open', async (_, id) => {
+    const item=favorites.get(id,true),error=await shell.openPath(item.path);
+    if(error)throw new Error(error);
+  });
+  ipcMain.handle('favorites-show', (_, id) => shell.showItemInFolder(favorites.get(id,true).path));
+  ipcMain.handle('favorites-copy', (_, id) => clipboard.writeText(favorites.get(id).path));
+  ipcMain.handle('favorites-choose-link', async (_, id) => {
+    const item=favorites.get(id);
+    const result=await dialog.showOpenDialog(win,{title:'重新連結收藏（儲存後生效）',defaultPath:item.path,properties:[item.type==='folder'?'openDirectory':'openFile']});
+    return result.canceled ? null : result.filePaths[0];
+  });
+  ipcMain.handle('favorites-to-rename', (_, ids, recursive) => listPaths(favorites.readyPaths(ids),Boolean(recursive)));
+  ipcMain.handle('context-menu-status', () => contextMenu.status());
+  ipcMain.handle('context-menu-set', (_, enabled) => contextMenu.setEnabled(enabled));
   ipcMain.handle('set-theme', (_, theme) => {
     if (!['light', 'dark'].includes(theme)) throw new Error('不支援的主題');
     nativeTheme.themeSource = theme;
@@ -70,12 +128,13 @@ app.whenReady().then(() => {
     // Persist evidence before changing any names; incomplete operations fail closed.
     saveHistory(record);
     executeMoves(moves);
+    const favoriteWarning=syncFavoriteMoves(moves);
     try { saveHistory({ ...record, state: 'completed' }); }
     catch (e) {
       // Files were renamed; report success but make undo unavailability explicit.
-      return { changed: moves.length, moves, history: false, warning: `重新命名成功，但無法完成復原紀錄；自動復原已停用。請手動核對檔案：${e.message}` };
+      return { changed: moves.length, moves, history: false, warning: [favoriteWarning,`重新命名成功，但無法完成復原紀錄；自動復原已停用。請手動核對檔案：${e.message}`].filter(Boolean).join('\n') };
     }
-    return { changed: moves.length, moves, history: true };
+    return { changed: moves.length, moves, history: true, warning:favoriteWarning };
   });
   ipcMain.handle('undo', () => {
     const h = readHistory();
@@ -84,9 +143,10 @@ app.whenReady().then(() => {
     // Keep interrupted undo from being replayed against a partially restored batch.
     saveHistory({ ...h, state: 'undoing' });
     executeMoves(reversed);
+    const favoriteWarning=syncFavoriteMoves(reversed);
     try { saveHistory(null); }
-    catch (e) { return { changed: reversed.length, moves: reversed, warning: `檔案已還原，但清除復原紀錄時發生錯誤：${e.message}` }; }
-    return { changed: reversed.length, moves: reversed };
+    catch (e) { return { changed: reversed.length, moves: reversed, warning: [favoriteWarning,`檔案已還原，但清除復原紀錄時發生錯誤：${e.message}`].filter(Boolean).join('\n') }; }
+    return { changed: reversed.length, moves: reversed, warning:favoriteWarning };
   });
   ipcMain.handle('history', () => {
     const h = readHistory();
@@ -116,6 +176,10 @@ app.whenReady().then(() => {
     shell.showItemInFolder(filePath);
   });
   createWindow();
+  receiveFavorites([]);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+} else {
+  app.quit();
+}

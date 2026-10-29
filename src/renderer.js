@@ -194,7 +194,7 @@ function addFromResult(result) {
   const seen = new Set(files.map(norm));
   let count = 0;
   for (const p of paths) {
-    if (seen.has(norm(p))) continue;
+    if (seen.has(norm(p))) {selected.add(norm(p));continue;}
     if (seen.size >= 5000) { showToast("已達 5,000 個檔案上限，無法繼續加入", "error"); break; }
     files.push(p); selected.add(norm(p)); seen.add(norm(p)); count++;
   }
@@ -202,7 +202,7 @@ function addFromResult(result) {
   if (count) {
     enqueuePreview();
     showToast(`已加入 ${count} 個檔案`, 'success');
-  } else if (paths.length) showToast('這些檔案已經在清單中');
+  } else if (paths.length) {enqueuePreview();showToast('已選取清單中現有的檔案');}
   if (result?.capped) showToast('已達 5,000 個檔案上限，部分檔案未加入', 'error');
   else if (result?.ignored) showToast(`有 ${result.ignored} 個項目因無法存取或不是一般檔案而略過`);
   render();
@@ -253,6 +253,7 @@ function renderFiles() {
     const label = element('div','file-item-text');
     label.append(element('div','file-name',name), element('div','file-dir', shortDir(p)));
     row.append(label); row.addEventListener('click', ev => { if (ev.target !== check) selectOne(p, !selected.has(norm(p))); });
+    row.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,p);});
     fragment.appendChild(row);
   }
   if (files.length > list.length) fragment.appendChild(element('div','list-empty',`檔案清單只展示前 ${list.length} 筆，預覽與改名仍會處理全部選取檔案`));
@@ -282,6 +283,7 @@ function renderTable() {
   for (const row of visible) {
     const on = selected.has(norm(row.source));
     const tr = element('tr', on ? '' : 'row-off');
+    tr.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,row.source);});
     const checkTd = document.createElement('td');
     const checkbox = element('input');checkbox.type='checkbox';checkbox.checked=on;checkbox.setAttribute('aria-label','選取 ' + row.name);
     checkbox.addEventListener('change',() => selectOne(row.source, checkbox.checked));checkTd.appendChild(checkbox);
@@ -310,6 +312,7 @@ function render() {
   $('btn-run').disabled = !canRun;
   $('btn-undo').disabled = busy || !history;
   $('btn-export').disabled = busy || !selCount;
+  $('btn-favorite-selected').disabled = busy || !selCount;
   $('btn-clear').disabled = busy || !files.length;
   $('btn-select-all').disabled = busy || !files.length;
   $('btn-select-none').disabled = busy || !selCount;
@@ -357,7 +360,7 @@ function selectFiltered(all) {
   enqueuePreview();render();
 }
 function confirmRename() {
-  if (busy || previewPending || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || !latest.counts.ready || latest.counts.error) return;
+  if (busy || previewPending || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog() || !latest.counts.ready || latest.counts.error) return;
   pendingAction = 'rename';
   const ready = latest.counts.ready;
   $('modal-title').textContent = '確認重新命名？';
@@ -386,7 +389,7 @@ async function executeRename() {
   finally { busy = false; history = await api.history().catch(() => null); await updatePreview(); }
 }
 function undo() {
-  if (busy || !history || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open) return;
+  if (busy || !history || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog()) return;
   pendingAction = 'undo';
   $('modal-title').textContent = '復原上一批命名？';
   $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的名稱。復原只會更改名稱，不會還原檔案內容。`;
@@ -445,7 +448,11 @@ function wireEvents() {
     el.addEventListener(el.type === 'checkbox' || el.tagName==='SELECT' ? 'change':'input',enqueuePreview);
   }
   document.addEventListener('keydown',e=>{
-    if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open) return;
+    if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog()) return;
+    if(window.favoritesUI.isActive()) {
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='o'){e.preventDefault();$('btn-fav-add-files').click();}
+      return;
+    }
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='o') {e.preventDefault();e.shiftKey?chooseFolder():chooseFiles();}
     if((e.ctrlKey||e.metaKey) && e.key==='Enter') {e.preventDefault();confirmRename();}
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && document.activeElement?.tagName!=='INPUT') {e.preventDefault();undo();}
@@ -462,7 +469,7 @@ function wireEvents() {
     if(busy)return;
     try {
       const paths=Array.from(e.dataTransfer.files).map(f=>api.pathForFile(f)).filter(Boolean);
-      if(paths.length)addFromResult(await api.addPaths(paths,$('recursive').checked));
+      if(paths.length){if(window.favoritesUI.isActive())await window.favoritesUI.addPaths(paths);else addFromResult(await api.addPaths(paths,$('recursive').checked));}
       else showToast('無法讀取拖放路徑，請使用「加入檔案」按鈕','error');
     } catch(error) {showToast(withoutPrefix(error),'error');}
   });
@@ -473,6 +480,8 @@ async function init() {
   try { const saved=JSON.parse(localStorage.getItem('brs-rules-v1') || 'null');applyRules(saved && typeof saved==='object' ? {...defaults,...saved}:defaults); }
   catch {applyRules(defaults);}
   initPresets();wireEvents();render();
+  const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
+  await favoriteReady;
 }
 init();
