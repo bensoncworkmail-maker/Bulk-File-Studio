@@ -7,6 +7,7 @@ const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
 const {Buffer}=require('node:buffer');
 const {NotesStore}=require('./notes-store');
+const {NotesToolsStore}=require('./notes-tools-store');
 const {NotesShare}=require('./notes-share');
 const {readPackageFile,writePackageFile}=require('./notes-files');
 const {DesktopShell}=require('./desktop-shell');
@@ -40,9 +41,12 @@ const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 let favorites,everything;
-let notes,notesImportDocument,notesShare;
+let notes,notesImportDocument,notesShare,notesTools,pendingNotesNavigation=null;
+function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(app.getPath('userData'),'workspace-tools.json'));return notesTools;}
+function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});return result;}
+function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
-function notesChanged(result){send(win,'notes-changed',{revision:result.revision});return result;}
+function notesChanged(result){send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});return result;}
 let batchOpening=false;
 async function confirmBatch(ids,kind,parent){
  if(batchOpening)throw new Error('另一項批次開啟仍在處理');
@@ -148,7 +152,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
+    const floatingAllowed=['floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
     if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
@@ -162,6 +166,18 @@ app.whenReady().then(() => {
   handle('notes-share-check',()=>notesShare.check());
   handle('notes-share-publish',()=>notesShare.publish());
   handle('notes-share-load',async(_,name)=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;return {name,canceled:false};});
+  handle('notes-tools-get',()=>toolsStore().get());
+  handle('notes-view-save',(_,name,state)=>{toolsStore().saveView(name,state);return toolsChanged();});
+  handle('notes-tool-remove',(_,kind,id)=>{toolsStore().remove(kind,id);return toolsChanged();});
+  handle('notes-template-save',(_,name,areaId)=>{toolsStore().saveTemplate(name,notesStore().get().document,areaId);return toolsChanged();});
+  handle('notes-template-apply',(_,id,revision)=>{const template=toolsStore().get().templates.find(item=>item.id===id);if(!template)throw new Error('範本已移除');return notesChanged(notesStore().applyCustomTemplate(template.document,revision));});
+  handle('notes-pin',(_,id)=>{toolsStore().pin(notesStore().get().document,id);return toolsChanged();});
+  handle('notes-batch-sheets',(_,entries,revision)=>notesChanged(notesStore().batchSheets(entries,revision)));
+  handle('notes-batch-areas',(_,ids,revision)=>notesChanged(notesStore().batchAreas(ids,revision)));
+  handle('notes-grid-save',(_,entries,revision)=>notesChanged(notesStore().updateCells(entries,revision)));
+  handle('notes-navigation',()=>{const next=pendingNotesNavigation;pendingNotesNavigation=null;return next;});
+  handle('floating-workspace-list',(_,query='')=>require('./notes-tools-store').workspaceItems(notesStore().get().document,toolsStore().get().pins,query));
+  handle('floating-workspace-open',(_,id,action='open')=>{if(action==='home'&&id===null){pendingNotesNavigation={home:true};focusMain();send(win,'notes-navigate',{});return;}const M=require('./notes-model'),doc=notesStore().get().document,record=doc.records.find(record=>record.id===id&&M.live(doc,record)&&doc.areas.some(area=>area.masterSheetId===record.sheetId));if(!record)throw new Error('主紀錄已移除');if(action==='open'){navigateWorkspace(id);return;}if(action!=='menu')throw new Error('操作無效');const area=doc.areas.find(area=>area.masterSheetId===record.sheetId);popupFloatingMenu([{label:record.title,enabled:false},{label:'在工作區開啟',click:()=>navigateWorkspace(id)},{label:toolsStore().get().pins.includes(id)?'取消釘選':'釘選到浮動工具',click:floatingAction(()=>{toolsStore().pin(notesStore().get().document,id);toolsChanged();})},...M.detailSheets(doc,area.id).map(sheet=>({label:'＋ 新增'+sheet.name,click:()=>navigateWorkspace(id,sheet.id)}))]);});
   handle('notes-get',()=>notesStore().get());
   handle('notes-template',(_,kind)=>notesChanged(notesStore().addTemplate(kind)));
   handle('notes-area-save',(_,input)=>notesChanged(notesStore().saveArea(input)));
@@ -273,7 +289,7 @@ app.whenReady().then(() => {
       {label:settings.floatingCollapsed?'展開浮動工具':'收合浮動工具',click:command(()=>setFloatingCollapsed(!desktop.settings.floatingCollapsed))},
       {label:'保持置頂',type:'checkbox',checked:settings.floatingOnTop,click:command(()=>{const next=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});floating.setAlwaysOnTop(next.floatingOnTop);})},
       {label:'精簡工具列',type:'checkbox',checked:settings.floatingCompact,click:command(()=>desktop.update({floatingCompact:!desktop.settings.floatingCompact}))},
-      {label:'檢視模式',submenu:[['list','清單'],['icons','圖示'],['tags','標籤']].map(([mode,label])=>({label,type:'radio',checked:settings.floatingView===mode,click:command(()=>desktop.update({floatingView:mode}))}))},
+      {label:'檢視模式',submenu:[['list','清單'],['icons','圖示'],['tags','標籤'],['workspace','工作區']].map(([mode,label])=>({label,type:'radio',checked:settings.floatingView===mode,click:command(()=>desktop.update({floatingView:mode}))}))},
       {type:'separator'},
       {label:`展開並套用預設大小（${settings.floatingDefaultWidth} × ${settings.floatingDefaultHeight}）`,click:command(()=>floatingWindow.restoreDefaultSize())},
       {label:`將目前展開大小存為預設（${size.width} × ${size.height}）`,click:command(()=>floatingWindow.saveDefaultSize())},
@@ -325,7 +341,7 @@ app.whenReady().then(() => {
     if(!known)throw new Error('標籤已不存在，請重新整理後再試');return [known];
   };
   handle('floating-view',(_,mode)=>{
-    if(!['list','icons','tags'].includes(mode))throw new Error('不支援的浮動檢視模式');
+    if(!['list','icons','tags','workspace'].includes(mode))throw new Error('不支援的浮動檢視模式');
     const settings=desktop.update({floatingView:mode}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-tools',(_,compact)=>{

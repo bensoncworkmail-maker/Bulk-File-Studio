@@ -1,0 +1,25 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),M=require('./notes-model');
+const {assertLocalPath}=require('./offline-policy');
+const LIMIT=4*1024*1024;
+function view(input){
+ if(!input||typeof input!=='object')throw new Error('檢視設定無效');const scopes=['sheet','master','area','all','masters'];if(!scopes.includes(input.scope))throw new Error('搜尋範圍無效');
+ const out={scope:input.scope,query:M.text(input.query||'',256,'搜尋文字'),tag:M.text(input.tag||'',32,'標籤'),sort:input.sort==='title'?'title':'updated',mode:['list','cards','grid'].includes(input.mode)?input.mode:'list',due:['all','overdue','7','30','90'].includes(input.due)?input.due:'all',dateField:input.dateField==='updatedAt'?'updatedAt':input.dateField?M.id(input.dateField):''};
+ for(const key of ['sheetId','masterId'])out[key]=input[key]?M.id(input[key]):null;out.areaId=['all','ungrouped'].includes(input.areaId)?input.areaId:M.id(input.areaId);return out;
+}
+class NotesToolsStore{
+ constructor(filename){assertLocalPath(filename);this.filename=filename;this.data={version:1,pins:[],views:[],templates:[]};try{const stat=fs.statSync(filename);if(stat.size>LIMIT)throw new Error('工作區工具設定過大');const data=JSON.parse(fs.readFileSync(filename,'utf8'));if(data.version!==1||!Array.isArray(data.pins)||data.pins.length>100||!Array.isArray(data.views)||data.views.length>50||!Array.isArray(data.templates)||data.templates.length>20)throw new Error('工作區工具設定無效');this.data={version:1,pins:[...new Set(data.pins.map(M.id))],views:data.views.map(item=>({id:M.id(item.id),name:M.text(item.name,100,'檢視名稱',true),state:view(item.state)})),templates:data.templates.map(item=>({id:M.id(item.id),name:M.text(item.name,100,'範本名稱',true),document:this.cleanTemplate(item.document)}))};}catch(error){if(error.code!=='ENOENT')throw error;}}
+ cleanTemplate(input){const doc=M.normalizeDocument(input);if(doc.records.length||doc.areas.length!==1||doc.sheets.some(sheet=>sheet.deletedAt))throw new Error('範本只可包含一個群組的空白表格');return doc;}
+ get(){return M.clone(this.data);}
+ change(task){const next=this.get(),result=task(next),text=JSON.stringify(next);if(Buffer.byteLength(text)>LIMIT)throw new Error('工作區工具設定超過 4 MB');fs.mkdirSync(path.dirname(this.filename),{recursive:true});const temp=this.filename+'.'+crypto.randomUUID()+'.tmp';try{fs.writeFileSync(temp,text,{encoding:'utf8',mode:0o600,flag:'wx'});fs.renameSync(temp,this.filename);}finally{try{fs.unlinkSync(temp);}catch(error){if(error.code!=='ENOENT')throw error;}}this.data=next;return result??this.get();}
+ saveView(name,state){name=M.text(name,100,'檢視名稱',true).trim();state=view(state);return this.change(data=>{if(data.views.length>=50)throw new Error('最多 50 個儲存檢視');data.views.push({id:crypto.randomUUID(),name,state});});}
+ saveTemplate(name,doc,areaId){M.id(areaId);name=M.text(name,100,'範本名稱',true).trim();const data=M.exportPackage(doc,{scope:'area',id:areaId});data.document.records=[];const cleaned=this.cleanTemplate(data.document);return this.change(data=>{if(data.templates.length>=20)throw new Error('最多 20 個自訂範本');data.templates.push({id:crypto.randomUUID(),name,document:cleaned});});}
+ remove(kind,id){if(!['views','templates'].includes(kind))throw new Error('工具類型無效');M.id(id);return this.change(data=>{data[kind]=data[kind].filter(item=>item.id!==id);});}
+ pin(doc,id){const record=doc.records.find(record=>record.id===id&&M.live(doc,record)&&doc.areas.some(area=>area.masterSheetId===record.sheetId));if(!record)throw new Error('請選擇可用的主紀錄');return this.change(data=>{if(data.pins.includes(id))data.pins=data.pins.filter(value=>value!==id);else{if(data.pins.length>=100)throw new Error('最多釘選 100 筆');data.pins.push(id);}});}
+}
+function workspaceItems(doc,pins,query=''){
+ const matches=M.searchRecords(doc,{scope:'all',query}),found=new Set(matches.map(record=>record.id));for(const record of matches){const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),parent=M.parentField(doc,sheet);if(parent)for(const id of record.values[parent.id]||[])found.add(id);}
+ const records=doc.records.filter(record=>found.has(record.id)&&M.live(doc,record)&&doc.areas.some(area=>area.masterSheetId===record.sheetId)).sort((a,b)=>Number(pins.includes(b.id))-Number(pins.includes(a.id))||b.updatedAt.localeCompare(a.updatedAt));
+ return {total:records.length,items:records.slice(0,50).map(record=>{const context=M.recordContext(doc,record),related=M.linked(doc,record.id),details=[record,...related].flatMap(item=>doc.sheets.find(sheet=>sheet.id===item.sheetId).fields.filter(field=>['phone','email'].includes(field.type)).map(field=>field.label+'：'+M.cell(doc,field,item.values[field.id]))).filter(value=>!value.endsWith('：')).slice(0,5);return {id:record.id,title:record.title,group:context.area,pinned:pins.includes(record.id),summary:details.join(' · '),details:related.length};})};
+}
+module.exports={NotesToolsStore,normalizeView:view,workspaceItems};

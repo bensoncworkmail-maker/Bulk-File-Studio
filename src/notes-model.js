@@ -108,9 +108,9 @@
  }
  function recordContext(doc,record){const records=new Map(doc.records.map(record=>[record.id,record])),sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),area=doc.areas.find(area=>area.id===sheet.areaId),parent=parentField(doc,sheet);return {sheet:sheet.name,area:area?.name||'未分組',masters:parent?(record.values[parent.id]||[]).slice(0,5).map(id=>records.get(id)).filter(Boolean).map(record=>record.title):[],isMaster:area?.masterSheetId===sheet.id};}
  function searchRecords(doc,{query='',scope='sheet',sheetId=null,areaId='all',masterId=null,tag='',searchFields=true,searchNotes=true,searchTags=true,searchPaths=true,searchParent=true,caseSensitive=false,match='all'}={}){
-  if(!['sheet','master','area','all'].includes(scope))fail('搜尋範圍無效');text(query,256,'搜尋文字');const fold=value=>caseSensitive?value:value.toLocaleLowerCase(),tokens=fold(query.trim()).split(/\s+/).filter(Boolean),sheets=new Map(doc.sheets.map(sheet=>[sheet.id,sheet])),records=new Map(doc.records.map(record=>[record.id,record])),own=new Map(),areaNames=new Map(doc.areas.map(area=>[area.id,area.name]));
+  if(!['sheet','master','area','all','masters'].includes(scope))fail('搜尋範圍無效');text(query,256,'搜尋文字');const fold=value=>caseSensitive?value:value.toLocaleLowerCase(),tokens=fold(query.trim()).split(/\s+/).filter(Boolean),sheets=new Map(doc.sheets.map(sheet=>[sheet.id,sheet])),records=new Map(doc.records.map(record=>[record.id,record])),own=new Map(),areaNames=new Map(doc.areas.map(area=>[area.id,area.name]));
   const searchable=record=>{if(own.has(record.id))return own.get(record.id);const sheet=sheets.get(record.sheetId),fields=searchFields?sheet.fields.filter(field=>searchParent||field.id!==parentField(doc,sheet)?.id).map(field=>field.type==='relation'?(record.values[field.id]||[]).map(id=>records.get(id)?.title||'').join(' '):cell(doc,field,record.values[field.id])):[];const value=fold([record.title,searchNotes?record.notes:'',...(searchTags?record.tags:[]),...fields,...(searchPaths?record.fileLinks.flatMap(link=>[link.path,link.label]):[]),...(searchPaths?(record.favoriteTagLinks||[]).map(link=>link.tag):[])].join(' '));own.set(record.id,value);return value;};
-  const scoped=scope==='all'?doc.records:scope==='sheet'?(masterId?scopedRecords(doc,{areaId,masterId}):doc.records).filter(record=>record.sheetId===sheetId):scope==='master'?(masterId?scopedRecords(doc,{areaId,masterId}):[]):scopedRecords(doc,{areaId});
+  const scoped=scope==='masters'?doc.records.filter(record=>doc.areas.some(area=>area.masterSheetId===record.sheetId)):scope==='all'?doc.records:scope==='sheet'?(masterId?scopedRecords(doc,{areaId,masterId}):doc.records).filter(record=>record.sheetId===sheetId):scope==='master'?(masterId?scopedRecords(doc,{areaId,masterId}):[]):scopedRecords(doc,{areaId});
   return scoped.filter(record=>{if(!live(doc,record)||tag&&!record.tags.includes(tag))return false;const sheet=sheets.get(record.sheetId),parent=parentField(doc,sheet),parents=parent?(record.values[parent.id]||[]).map(id=>records.get(id)).filter(Boolean):[],value=searchable(record)+' '+fold(areaNames.get(sheet.areaId)||'未分組')+' '+fold(sheet.name);const matches=token=>value.includes(token)||searchParent&&parents.some(parent=>searchable(parent).includes(token));return !tokens.length||(match==='any'?tokens.some(matches):tokens.every(matches));});
  }
  function clipboardText(doc,{kind,ids,sheetId}={}){
@@ -156,6 +156,19 @@
   for(const area of next.areas)if(area.masterSheetId&&next.sheets.find(sheet=>sheet.id===area.masterSheetId)?.areaId!==area.id)area.masterSheetId=null;
   return {document:normalizeDocument(next),summary:{added,updated,skipped,sheets:doc.sheets.length}};
  }
- const api={recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ function filterDue(doc,records,fieldId,period,now=new Date()){
+  if(!period||period==='all')return records;const day=new Date(now.getFullYear(),now.getMonth(),now.getDate()),today=day.getTime(),end=new Date(day);end.setDate(end.getDate()+Number(period||0));const upper=end.getTime();
+  return records.filter(record=>{const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),values=fieldId==='updatedAt'?[record.updatedAt.slice(0,10)]:fieldId?[record.values[fieldId]]:sheet.fields.filter(field=>field.type==='date').map(field=>record.values[field.id]);return values.some(value=>{if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [y,m,d]=value.split('-').map(Number),date=new Date(y,m-1,d).getTime();return period==='overdue'?date<today:date>=today&&date<=upper;});});
+ }
+ function parseTSV(text){
+  if(typeof text!=='string'||text.length>2*1024*1024)fail('貼上內容超過 2 MB');const rows=[[]];let cell='',quoted=false,closed=false,count=0;
+  const push=()=>{if(++count>500)fail('每次最多貼上 500 格');rows[rows.length-1].push(cell);cell='';closed=false;};
+  for(let i=0;i<text.length;i++){const ch=text[i];if(quoted){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++;}else{quoted=false;closed=true;}}else cell+=ch;continue;}if(ch==='"'&&!cell&&!closed){quoted=true;continue;}if(ch==='\t'){push();continue;}if(ch==='\r'||ch==='\n'){if(ch==='\r'&&text[i+1]==='\n')i++;push();rows.push([]);continue;}if(closed)fail('貼上格式無效');cell+=ch;}
+  if(quoted)fail('貼上內容的引號未結束');if(cell||rows[rows.length-1].length||!rows[rows.length-1].length&&rows.length===1)push();else rows.pop();return rows;
+ }
+ function gridValue(field,value){
+  if(!field||['relation','multiselect'].includes(field.type))fail('關聯與多選欄位請使用完整表單');if(typeof value!=='string')fail('儲存格內容無效');if(field.type==='number'){if(!value.trim())return null;const number=Number(value);if(!Number.isFinite(number))fail('請輸入有效數字');return number;}if(field.type==='checkbox'){if(['true','1','✓','是'].includes(value.toLowerCase()))return true;if(['false','0','','—','否'].includes(value.toLowerCase()))return false;fail('勾選欄位請輸入 true／false');}return value;
+ }
+ const api={filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();
