@@ -106,6 +106,13 @@
   if(includeDetails){const roots=new Set([...selected].filter(id=>doc.areas.some(area=>area.masterSheetId===byId.get(id).sheetId)));for(const record of doc.records){if(!live(doc,record)||targets.has(record.id))continue;const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),field=parentField(doc,sheet),parents=field?(record.values[field.id]||[]):[];if(parents.some(id=>roots.has(id))){if(parents.every(id=>roots.has(id)))targets.add(record.id);else sharedRetained++;}}}
   return {ids:[...targets],selected:selected.size,details:targets.size-selected.size,sharedRetained};
  }
+ function recordContext(doc,record){const records=new Map(doc.records.map(record=>[record.id,record])),sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),area=doc.areas.find(area=>area.id===sheet.areaId),parent=parentField(doc,sheet);return {sheet:sheet.name,area:area?.name||'未分組',masters:parent?(record.values[parent.id]||[]).slice(0,5).map(id=>records.get(id)).filter(Boolean).map(record=>record.title):[],isMaster:area?.masterSheetId===sheet.id};}
+ function searchRecords(doc,{query='',scope='sheet',sheetId=null,areaId='all',masterId=null,tag=''}={}){
+  if(!['sheet','master','area','all'].includes(scope))fail('搜尋範圍無效');text(query,256,'搜尋文字');const tokens=query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean),sheets=new Map(doc.sheets.map(sheet=>[sheet.id,sheet])),records=new Map(doc.records.map(record=>[record.id,record])),own=new Map(),areaNames=new Map(doc.areas.map(area=>[area.id,area.name]));
+  const searchable=record=>{if(own.has(record.id))return own.get(record.id);const sheet=sheets.get(record.sheetId),fields=sheet.fields.map(field=>field.type==='relation'?(record.values[field.id]||[]).map(id=>records.get(id)?.title||'').join(' '):cell(doc,field,record.values[field.id]));const value=[record.title,record.notes,...record.tags,...fields,...record.fileLinks.flatMap(link=>[link.path,link.label]),...(record.favoriteTagLinks||[]).map(link=>link.tag)].join(' ').toLocaleLowerCase();own.set(record.id,value);return value;};
+  const scoped=scope==='all'?doc.records:scope==='sheet'?(masterId?scopedRecords(doc,{areaId,masterId}):doc.records).filter(record=>record.sheetId===sheetId):scope==='master'?(masterId?scopedRecords(doc,{areaId,masterId}):[]):scopedRecords(doc,{areaId});
+  return scoped.filter(record=>{if(!live(doc,record)||tag&&!record.tags.includes(tag))return false;const sheet=sheets.get(record.sheetId),parent=parentField(doc,sheet),parents=parent?(record.values[parent.id]||[]).map(id=>records.get(id)).filter(Boolean):[],value=searchable(record)+' '+(areaNames.get(sheet.areaId)||'未分組').toLocaleLowerCase()+' '+sheet.name.toLocaleLowerCase();return tokens.every(token=>value.includes(token)||parents.some(parent=>searchable(parent).includes(token)));});
+ }
  function clipboardText(doc,{kind,ids,sheetId}={}){
   if(!['table','overview'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.records||new Set(ids).size!==ids.length)fail('複製範圍無效');
   const records=ids.map(value=>{id(value);const record=doc.records.find(record=>record.id===value&&live(doc,record));if(!record)fail('紀錄已變更或刪除');return record;});
@@ -149,6 +156,6 @@
   for(const area of next.areas)if(area.masterSheetId&&next.sheets.find(sheet=>sheet.id===area.masterSheetId)?.areaId!==area.id)area.masterSheetId=null;
   return {document:normalizeDocument(next),summary:{added,updated,skipped,sheets:doc.sheets.length}};
  }
- const api={missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();

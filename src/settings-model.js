@@ -2,12 +2,12 @@
 (() => {
   const KEY='brs-settings-v1';
   const DEFAULTS=Object.freeze({theme:'dark',fontSize:'13',density:'compact',pageSize:100,
-    notesPanelWidth:220,notesDetailWidth:400,notesPageSize:100,notesRowHeight:36,notesOpenAfterSave:false,notesOpenMode:'single',notesShowQuickBar:true,notesShowContextHelp:true,notesShowCounts:true,notesCascadeDetails:false,notesLinkMode:'paths',sourcePanelWidth:220,settingsTab:'appearance',favoriteIconSize:'medium',tagPanelWidth:220,tagSort:'name',tagDirection:'asc',favoriteView:'list',favoriteSort:'recent',favoriteDirection:'desc',favoriteOpenMode:'double',showFileIcons:true,showTips:true,favoriteColumns:['name','location','tags','status'],rulesWidth:'420',showSource:false,showRules:true,showPaths:false,recursiveDefault:false,startPage:'rename',
+    notesView:'list',notesCompact:true,notesCardSize:'medium',notesPanelWidth:220,notesDetailWidth:400,notesPageSize:100,notesRowHeight:36,notesOpenAfterSave:false,notesOpenMode:'single',notesShowQuickBar:true,notesShowContextHelp:true,notesShowCounts:true,notesCascadeDetails:false,notesLinkMode:'paths',sourcePanelWidth:220,settingsTab:'appearance',favoriteIconSize:'medium',tagPanelWidth:220,tagSort:'name',tagDirection:'asc',favoriteView:'list',favoriteSort:'recent',favoriteDirection:'desc',favoriteOpenMode:'double',showFileIcons:true,showTips:true,favoriteColumns:['name','location','tags','status'],rulesWidth:'420',showSource:false,showRules:true,showPaths:false,recursiveDefault:false,startPage:'rename',
     rememberRules:true,resetRulesAfterRename:true,defaultSortBy:'path',defaultSortDirection:'asc'});
   function normalize(input={}) {
     if(!input||typeof input!=='object')input={};
     const out={...DEFAULTS};
-    const choices={notesPageSize:[25,50,100,250],notesOpenMode:['single','double'],notesLinkMode:['paths','tags'],settingsTab:['appearance','workspace','notes','favorites','floating','system','data'],favoriteIconSize:['small','medium','large'],theme:['light','dark'],fontSize:['12','13','15','17','19'],density:['compact','comfortable'],
+    const choices={notesView:['list','cards'],notesCardSize:['small','medium','large'],notesPageSize:[25,50,100,250],notesOpenMode:['single','double'],notesLinkMode:['paths','tags'],settingsTab:['appearance','workspace','notes','favorites','floating','system','data'],favoriteIconSize:['small','medium','large'],theme:['light','dark'],fontSize:['12','13','15','17','19'],density:['compact','comfortable'],
       tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteView:['list','icons'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],pageSize:[100,250,500],startPage:['rename','favorites','notes'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
     for(const [key,value] of Object.entries(DEFAULTS)) {
       if(['notesPanelWidth','notesDetailWidth','notesRowHeight'].includes(key)){const bounds={notesPanelWidth:[160,480],notesDetailWidth:[280,680],notesRowHeight:[28,64]}[key];if(typeof input[key]==='number'&&Number.isFinite(input[key]))out[key]=Math.round(Math.max(bounds[0],Math.min(bounds[1],input[key])));}
@@ -28,6 +28,7 @@
     } catch {return {...DEFAULTS};}
   }
   function applyRoot(root,settings) {
+    root.dataset.notesCompact=String(settings.notesCompact);root.dataset.notesCardSize=settings.notesCardSize;
     root.style.setProperty('--notes-panel-width',settings.notesPanelWidth+'px');root.style.setProperty('--notes-detail-width',settings.notesDetailWidth+'px');root.style.setProperty('--notes-row-height',settings.notesRowHeight+'px');
     root.style.setProperty('--source-panel-width',settings.sourcePanelWidth+'px');
     root.dataset.favoriteIconSize=settings.favoriteIconSize;

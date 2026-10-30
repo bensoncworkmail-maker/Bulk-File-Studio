@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage, utilityProcess } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
 const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
@@ -7,6 +7,7 @@ const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
 const {Buffer}=require('node:buffer');
 const {NotesStore}=require('./notes-store');
+const {NotesShare}=require('./notes-share');
 const {readPackageFile,writePackageFile}=require('./notes-files');
 const {DesktopShell}=require('./desktop-shell');
 const {FloatingWindow,windowDefaults}=require('./floating-window');
@@ -39,7 +40,7 @@ const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 let favorites,everything;
-let notes,notesImportDocument;
+let notes,notesImportDocument,notesShare;
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
 function notesChanged(result){send(win,'notes-changed',{revision:result.revision});return result;}
 let batchOpening=false;
@@ -154,6 +155,13 @@ app.whenReady().then(() => {
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
+  notesShare=new NotesShare(path.join(app.getPath('userData'),'workspace-share.json'),{snapshot:()=>{const current=notesStore().get();return {revision:current.revision,data:require('./notes-model').exportPackage(current.document,{scope:'all'})};},createWorker:()=>utilityProcess.fork(path.join(__dirname,'notes-share-worker.js'),[],{stdio:'ignore',serviceName:'Studio Workspace Share'}),onChange:value=>send(win,'notes-share-changed',value)});
+  handle('notes-share-status',()=>notesShare.status());
+  handle('notes-share-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取共享資料包資料夾（啟用後可能透過區域網路存取）',properties:['openDirectory']});return result.canceled?{canceled:true}:notesShare.choose(result.filePaths[0]);});
+  handle('notes-share-configure',(_,patch)=>notesShare.configure(patch));
+  handle('notes-share-check',()=>notesShare.check());
+  handle('notes-share-publish',()=>notesShare.publish());
+  handle('notes-share-load',async(_,name)=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;return {name,canceled:false};});
   handle('notes-get',()=>notesStore().get());
   handle('notes-template',(_,kind)=>notesChanged(notesStore().addTemplate(kind)));
   handle('notes-area-save',(_,input)=>notesChanged(notesStore().saveArea(input)));
@@ -364,7 +372,7 @@ app.whenReady().then(() => {
     return {opened:paths.length-failures.length,failures};
   });
   handle('favorites-copy-many',(_,ids)=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')));
-  handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),offline:true}));
+  handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),offline:!notesShare?.config.enabled}));
   handle('choose-move-folder',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇搬移目標（同一磁碟）',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
   handle('move-preview',(_,paths,folder)=>planMove(paths,folder));
   handle('move-files',(_,paths,folder,expected)=>{
@@ -467,7 +475,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',()=>{if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{everything?.cancel();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

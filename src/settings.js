@@ -3,7 +3,7 @@
   const {KEY,DEFAULTS,normalize,applyRoot}=window.studioSettingsModel;
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
-  const controls={notesPanelWidth:'settings-notes-panel-width',notesDetailWidth:'settings-notes-detail-width',notesPageSize:'settings-notes-page-size',notesRowHeight:'settings-notes-row-height',notesOpenAfterSave:'settings-notes-open-save',notesOpenMode:'settings-notes-open-mode',notesShowQuickBar:'settings-notes-quick',notesShowContextHelp:'settings-notes-help',notesShowCounts:'settings-notes-counts',notesCascadeDetails:'settings-notes-cascade',notesLinkMode:'settings-notes-link-mode',theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
+  const controls={notesView:'settings-notes-view',notesCompact:'settings-notes-compact',notesCardSize:'settings-notes-card-size',notesPanelWidth:'settings-notes-panel-width',notesDetailWidth:'settings-notes-detail-width',notesPageSize:'settings-notes-page-size',notesRowHeight:'settings-notes-row-height',notesOpenAfterSave:'settings-notes-open-save',notesOpenMode:'settings-notes-open-mode',notesShowQuickBar:'settings-notes-quick',notesShowContextHelp:'settings-notes-help',notesShowCounts:'settings-notes-counts',notesCascadeDetails:'settings-notes-cascade',notesLinkMode:'settings-notes-link-mode',theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
     sourcePanelWidth:'settings-source-panel-width',favoriteIconSize:'settings-favorite-icon-size',tagPanelWidth:'settings-tag-panel-width',showTips:'settings-tips',favoriteView:'settings-favorite-view',favoriteOpenMode:'settings-favorite-open',showFileIcons:'settings-file-icons',favoriteSort:'settings-favorite-sort',favoriteDirection:'settings-favorite-direction',rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
     startPage:'settings-start-page',rememberRules:'settings-remember-rules',resetRulesAfterRename:'settings-reset-rules',
     defaultSortBy:'settings-sort-by',defaultSortDirection:'settings-sort-direction'};
@@ -70,6 +70,7 @@
     for(const id of ['notes-panel-width','notes-detail-width','notes-row-height'])$('settings-'+id).addEventListener('input',event=>{$('settings-'+id+'-value').textContent=event.target.value+' px';});
     $('settings-source-panel-width').addEventListener('input',event=>{$('settings-source-width-value').textContent=event.target.value+' px';});
     $('btn-window-reset').addEventListener('click',()=>window.desktopAPI.resetWindow().catch(e=>callbacks.showFailure('無法還原視窗',e)));
+    $('settings-notes-share-manage').addEventListener('click',()=>{window.favoritesUI.show('notes');window.notesUI.openShare();});
     $('btn-settings-columns').addEventListener('click',()=>window.favoritesUI.openColumns());
     $('settings-rules-width').addEventListener('input',event=>{$('settings-rules-width-value').textContent=event.target.value+' px';});
     $('settings-tag-panel-width').addEventListener('input',event=>{$('settings-tag-width-value').textContent=event.target.value+' px';});
