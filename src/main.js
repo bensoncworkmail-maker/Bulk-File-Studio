@@ -107,6 +107,8 @@ function showFloating(toggle=false){
   secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen);
   floating.on('closed',()=>{floating=null;floatingWindow=null;});floating.loadFile(path.join(__dirname,'floating.html'));
 }
+function setFloatingCollapsed(collapsed){const settings=desktop.update({floatingCollapsed:collapsed});if(floating&&!floating.isDestroyed())floatingWindow.apply();const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;}
+function toggleFloatingCollapse(){try{if(!floating||floating.isDestroyed()){setFloatingCollapsed(false);showFloating();return;}if(!floating.isVisible()){setFloatingCollapsed(false);floating.showInactive();return;}setFloatingCollapsed(!desktop.settings.floatingCollapsed);}catch(error){send(win,'desktop-settings-changed',{error:error.message});}}
 function registerShortcut(){return desktopShell.registerShortcuts();}
 
 
@@ -121,7 +123,7 @@ app.whenReady().then(() => {
     return handler(event,...args);
   });
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
-  desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
+  desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
@@ -155,9 +157,9 @@ app.whenReady().then(() => {
   handle('desktop-settings-set',(_,patch)=>{
     const previous=desktop.settings;
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
-    for(const key of ['mainShortcut','floatingShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
+    for(const key of ['mainShortcut','floatingShortcut','collapseShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
     const candidate=normalizeDesktop({...previous,...patch});globalShortcuts.validatePair(candidate);
-    const changed=previous.floatingShortcut!==candidate.floatingShortcut||previous.mainShortcut!==candidate.mainShortcut;
+    const changed=previous.floatingShortcut!==candidate.floatingShortcut||previous.mainShortcut!==candidate.mainShortcut||previous.collapseShortcut!==candidate.collapseShortcut;
     if(changed){const warning=desktopShell.registerShortcuts(candidate);if(warning){shortcutWarning=desktopShell.registerShortcuts(previous);throw new Error(warning+' 已保留原設定。'+shortcutWarning);}}
     let settings;try{settings=desktop.update(patch);}catch(e){if(changed)shortcutWarning=desktopShell.registerShortcuts(previous);throw e;}
     if(changed)shortcutWarning='';
@@ -171,7 +173,7 @@ app.whenReady().then(() => {
   handle('floating-show',()=>showFloating());
   handle('floating-hide',()=>floating?.hide());
   handle('floating-compact-size',()=>{showFloating();floatingWindow.compactSize();});
-  handle('floating-collapse',(_,collapsed)=>{if(typeof collapsed!=='boolean')throw new Error('收合設定無效');const settings=desktop.update({floatingCollapsed:collapsed});if(floating&&!floating.isDestroyed())floatingWindow.apply();const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;});
+  handle('floating-collapse',(_,collapsed)=>{if(typeof collapsed!=='boolean')throw new Error('收合設定無效');return setFloatingCollapsed(collapsed);});
   handle('floating-copy-paths',(_,ids)=>{const paths=favorites.recordedPaths(ids);clipboard.writeText(paths.join('\r\n'));return {count:paths.length};});
   handle('floating-main',(_,tag)=>{
     if(tag!==null&&(typeof tag!=='string'||tag.length>32))throw new Error('標籤無效');
@@ -185,7 +187,7 @@ app.whenReady().then(() => {
     if(!known)throw new Error('標籤已不存在，請重新整理後再試');return [known];
   };
   handle('floating-view',(_,mode)=>{
-    if(!['list','icons'].includes(mode))throw new Error('不支援的浮動檢視模式');
+    if(!['list','icons','tags'].includes(mode))throw new Error('不支援的浮動檢視模式');
     const settings=desktop.update({floatingView:mode}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-tools',(_,compact)=>{

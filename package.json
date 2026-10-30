@@ -1,6 +1,6 @@
 {
   "name": "bulk-rename-studio",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "離線收藏、標籤、批次重新命名與檔案搬移工具",
   "main": "src/main.js",
   "author": "Bulk File Studio",

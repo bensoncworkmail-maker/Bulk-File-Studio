@@ -20,11 +20,12 @@ class DesktopShell {
    tray.on('click',()=>this.showMain());tray.on('double-click',()=>this.showMain());return true;
   }catch(e){this.tray?.destroy();this.tray=null;this.onWarning('無法建立系統匣，主視窗會保持可見：'+e.message);return false;}
  }
- hideToTray(){if(!this.ensureTray())return false;this.hideMain();this.hideFloating();return true;}
- onClose(event){if(this.quitting||!this.getSettings().closeToTray)return false;if(!this.ensureTray())return false;event.preventDefault();this.hideMain();this.hideFloating();return true;}
+ hideFloatingForTray(){const settings=this.getSettings();if(!(settings.floatingKeepPinnedOnTray&&settings.floatingOnTop))this.hideFloating();}
+ hideToTray(){if(!this.ensureTray())return false;this.hideMain();this.hideFloatingForTray();return true;}
+ onClose(event){if(this.quitting||!this.getSettings().closeToTray)return false;if(!this.ensureTray())return false;event.preventDefault();this.hideMain();this.hideFloatingForTray();return true;}
  registerShortcuts(settings=this.getSettings()){
   this.globalShortcut.unregisterAll();const warnings=[];
-  for(const [key,label,callback] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)]]){
+  for(const [key,label,callback] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','收合／展開浮動工具',()=>this.toggleFloatingCollapse()]]){
    const accelerator=settings[key];if(!accelerator)continue;
    try{if(!this.globalShortcut.register(accelerator,callback))warnings.push(label+'快捷鍵已被其他程式使用，請在設定選擇另一組。');}
    catch(e){warnings.push('無法註冊'+label+'快捷鍵：'+e.message);}
