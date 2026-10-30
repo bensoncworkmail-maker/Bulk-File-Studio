@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  openFloatingTagMenu:(tag,query)=>ipcRenderer.invoke('floating-tag-menu',tag,query),
+ openFloatingItemMenu:id=>ipcRenderer.invoke('floating-item-menu',id),
  floatingTagOptions:()=>ipcRenderer.invoke('floating-tag-options'),
  setFloatingCollapsed:value=>ipcRenderer.invoke('floating-collapse',value),compactFloatingSize:()=>ipcRenderer.invoke('floating-compact-size'),
  setFloatingCompact:value=>ipcRenderer.invoke('floating-tools',value),
