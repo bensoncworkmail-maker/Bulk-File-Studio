@@ -5,6 +5,7 @@ const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
+const {Buffer}=require('node:buffer');
 const {NotesStore}=require('./notes-store');
 const {readPackageFile,writePackageFile}=require('./notes-files');
 const {DesktopShell}=require('./desktop-shell');
@@ -154,7 +155,11 @@ app.whenReady().then(() => {
   desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
   handle('notes-get',()=>notesStore().get());
-  handle('notes-template',()=>notesChanged(notesStore().addTemplate()));
+  handle('notes-template',(_,kind)=>notesChanged(notesStore().addTemplate(kind)));
+  handle('notes-area-save',(_,input)=>notesChanged(notesStore().saveArea(input)));
+  handle('notes-area-remove',(_,id,revision)=>notesChanged(notesStore().removeArea(id,revision)));
+  handle('notes-record-duplicate',(_,id,version)=>notesChanged(notesStore().duplicateRecord(id,version)));
+  handle('notes-copy',(_,input)=>{const value=require('./notes-model').clipboardText(notesStore().get().document,input);if(Buffer.byteLength(value)>2*1024*1024)throw new Error('複製內容超過 2 MB，請改用資料包匯出');clipboard.writeText(value);});
   handle('notes-sheet-save',(_,input)=>notesChanged(notesStore().saveSheet(input)));
   handle('notes-record-save',(_,input)=>{
     if(!input||!Array.isArray(input.favoriteIds)||input.favoriteIds.length>100||!Array.isArray(input.keepUnlinked)||input.keepUnlinked.length>100)throw new Error('檔案連結資料無效');
@@ -184,7 +189,7 @@ app.whenReady().then(() => {
   });
   handle('notes-import-choose',async()=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};notesImportDocument=readPackageFile(result.filePaths[0]);return {canceled:false,name:path.basename(result.filePaths[0])};});
   handle('notes-import-preview',(_,mode)=>{if(!notesImportDocument)throw new Error('請先選取資料包');return notesStore().importPreview(notesImportDocument,mode);});
-  handle('notes-backup-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取本程式的匯入前／還原前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']});if(result.canceled)return {canceled:true};return notesStore().restorePreview(result.filePaths[0]);});
+  handle('notes-backup-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取本程式的匯入前／還原前／升級前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']});if(result.canceled)return {canceled:true};return notesStore().restorePreview(result.filePaths[0]);});
   handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
   handle('notes-import-commit',(_,token)=>notesChanged(notesStore().importCommit(token)));
   handle('everything-status',()=>everything.status());
