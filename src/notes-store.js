@@ -11,7 +11,7 @@ class NotesStore {
    this.db.exec('PRAGMA trusted_schema=OFF; PRAGMA busy_timeout=3000;');
    const version=this.db.prepare('PRAGMA user_version').get().user_version;if(version>2)throw new Error('資料工作區來自較新版本，請更新 Studio');
    this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;');
-   this.db.exec('CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, document TEXT NOT NULL); CREATE TABLE IF NOT EXISTS record_history (id TEXT PRIMARY KEY, record_id TEXT NOT NULL, saved_at TEXT NOT NULL, document TEXT NOT NULL);');
+   this.db.exec('CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, document TEXT NOT NULL); CREATE TABLE IF NOT EXISTS record_history (id TEXT PRIMARY KEY, record_id TEXT NOT NULL, saved_at TEXT NOT NULL, document TEXT NOT NULL); CREATE INDEX IF NOT EXISTS history_by_record ON record_history(record_id,saved_at);');
    if(!this.db.prepare('SELECT id FROM workspace WHERE id=1').get()){if(version>=1)throw new Error('工作區主資料遺失，已停止寫入；請保留檔案並使用備份還原');const document={schemaVersion:2,id:crypto.randomUUID(),name:'我的資料工作區',sheets:[],records:[]};this.db.prepare('INSERT INTO workspace VALUES (1,0,?)').run(JSON.stringify(document));}
    this.get();if(version===1)this.backup('before-upgrade');this.db.exec('PRAGMA user_version=2;');
   }catch(error){this.db.close();throw error;}
@@ -29,6 +29,7 @@ class NotesStore {
   }catch(error){this.db.exec('ROLLBACK');throw error;}
  }
  addTemplate(kind='clients'){return this.change(doc=>{const sample=model.template(()=>crypto.randomUUID(),new Date().toISOString(),kind);doc.areas.push(...sample.areas);doc.sheets.push(...sample.sheets);return {areaId:sample.areas[0].id};});}
+ completeClientDetails(areaId,revision){if(!Number.isSafeInteger(revision))throw new Error('請重新整理群組');return this.change(doc=>{const area=doc.areas.find(area=>area.id===areaId),root=doc.sheets.find(sheet=>sheet.id===area?.masterSheetId&&!sheet.deletedAt);if(!root||!['客戶','客戶清單','客戶列表'].includes(root.name))throw new Error('請選擇客戶主表群組');const missing=new Set(model.missingClientDetails(doc,areaId)),sample=model.template(()=>crypto.randomUUID(),new Date().toISOString()),templateRoot=sample.sheets[0].id;for(const sheet of sample.sheets.filter(sheet=>missing.has(sheet.name))){sheet.areaId=area.id;for(const field of sheet.fields)if(field.targetSheetId===templateRoot)field.targetSheetId=root.id;doc.sheets.push(sheet);}return {added:[...missing]};},revision);}
  saveArea(input){if(!input||typeof input!=='object')throw new Error('群組設定無效');return this.change(doc=>{const old=input.id?doc.areas.find(area=>area.id===input.id):null;if(input.id&&!old)throw new Error('群組已移除');const area={id:old?.id||crypto.randomUUID(),name:input.name,masterSheetId:input.masterSheetId||null};if(old)Object.assign(old,area);else doc.areas.push(area);if(input.includeUngrouped===true)for(const sheet of doc.sheets)if(!sheet.areaId){sheet.areaId=area.id;sheet.version++;sheet.updatedAt=new Date().toISOString();}return {areaId:area.id};},input.baseRevision);}
  removeArea(id,revision){return this.change(doc=>{if(!doc.areas.some(area=>area.id===id))throw new Error('群組已移除');doc.areas=doc.areas.filter(area=>area.id!==id);for(const sheet of doc.sheets)if(sheet.areaId===id){sheet.areaId=null;sheet.version++;sheet.updatedAt=new Date().toISOString();}},revision);}
  duplicateRecord(id,version){return this.change(doc=>{const old=doc.records.find(record=>record.id===id&&model.live(doc,record));if(!old||old.version!==version)throw new Error('紀錄已變更，請重新整理');const now=new Date().toISOString(),copy={...model.clone(old),id:crypto.randomUUID(),title:(old.title+'（副本）').slice(0,200),version:1,createdAt:now,updatedAt:now};doc.records.push(copy);return {id:copy.id};});}
@@ -46,10 +47,12 @@ class NotesStore {
   return this.change(doc=>{
    const old=input.id?doc.records.find(record=>record.id===input.id):null;if(input.id&&(!old||old.deletedAt||old.version!==input.expectedVersion))throw new Error('紀錄已變更或刪除，請重新開啟');
    const sheet=doc.sheets.find(sheet=>sheet.id===(old?.sheetId||input.sheetId)&&!sheet.deletedAt);if(!sheet)throw new Error('表格已刪除');
+   const parent=model.parentField(doc,sheet),parents=parent?input.values?.[parent.id]:null;if(parent&&(!Array.isArray(parents)||parents.length!==1||!doc.records.some(record=>record.id===parents[0]&&record.sheetId===parent.targetSheetId&&model.live(doc,record)))&&(!old||JSON.stringify(parents)!==JSON.stringify(old.values[parent.id])))throw new Error('明細必須關聯一筆可用的主紀錄；請先選擇客戶或其他主紀錄');
    const now=new Date().toISOString(),record={id:old?.id||crypto.randomUUID(),sheetId:sheet.id,title:input.title,notes:input.notes,tags:input.tags,values:input.values,fileLinks:input.fileLinks,createdAt:old?.createdAt||now,updatedAt:now,deletedAt:null,version:(old?.version||0)+1};
    if(old)doc.records[doc.records.indexOf(old)]=record;else doc.records.push(record);return {id:record.id};
   });
  }
+ batchTrash(entries,includeDetails,revision){if(!Number.isSafeInteger(revision))throw new Error('請重新整理批次選取');return this.change(doc=>{const plan=model.deletionPlan(doc,entries,includeDetails),now=new Date().toISOString(),targets=new Set(plan.ids);for(const record of doc.records)if(targets.has(record.id)){record.deletedAt=now;record.updatedAt=now;record.version++;}return {count:plan.ids.length,details:plan.details,sharedRetained:plan.sharedRetained};},revision);}
  trash(kind,id,expectedVersion,restore=false){
   if(!['sheet','record'].includes(kind))throw new Error('回收筒操作無效');
   return this.change(doc=>{const list=kind==='sheet'?doc.sheets:doc.records,item=list.find(item=>item.id===id);if(!item||item.version!==expectedVersion)throw new Error('項目已變更，請重新整理');if(restore&&kind==='record'&&!doc.sheets.some(sheet=>sheet.id===item.sheetId&&!sheet.deletedAt))throw new Error('請先還原所屬表格');item.deletedAt=restore?null:new Date().toISOString();item.updatedAt=new Date().toISOString();item.version++;});

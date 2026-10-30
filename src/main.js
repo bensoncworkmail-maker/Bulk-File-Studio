@@ -168,6 +168,8 @@ app.whenReady().then(() => {
     const fileLinks=[...(input.favoriteIds.length?favorites.selection(catalog,input.favoriteIds).map(item=>({favoriteId:item.id,path:item.path,label:item.label,type:item.type})):[]),...unlinked.filter(link=>input.keepUnlinked.includes(link.path))];
     return notesChanged(notesStore().saveRecord({...input,fileLinks}));
   });
+  handle('notes-client-details',(_,areaId,revision)=>notesChanged(notesStore().completeClientDetails(areaId,revision)));
+  handle('notes-batch-trash',(_,entries,includeDetails,revision)=>notesChanged(notesStore().batchTrash(entries,includeDetails,revision)));
   handle('notes-trash',(_,kind,id,version,restore)=>{if(typeof restore!=='boolean')throw new Error('回收筒操作無效');return notesChanged(notesStore().trash(kind,id,version,restore));});
   handle('notes-history',(_,id)=>notesStore().history(id));
   handle('notes-history-restore',(_,id,historyId,version)=>notesChanged(notesStore().restoreHistory(id,historyId,version)));

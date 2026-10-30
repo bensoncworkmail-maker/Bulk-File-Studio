@@ -321,7 +321,7 @@
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
     hasOpenDialog:()=>$('everything-dialog').open||$('tag-manage-dialog').open||$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),
-    openColumns,show:view=>setView(view),
+    openColumns,show:view=>setView(view),showTag:tag=>{if(typeof tag!=='string'||!tag.trim()||busy)return;setView('favorites');if(!active)return;activeTag=tag.trim().toLocaleLowerCase();$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;selected.clear();render();},
     showSourceMenu:(event,filepath)=>{
       if(busy||!callbacks)return;
       const paths=callbacks.getSelectedPaths(),actions=[{label:'☆ 收藏此檔案',run:()=>addPaths([filepath])}];

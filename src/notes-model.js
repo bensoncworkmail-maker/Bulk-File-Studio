@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const TYPES={text:'文字',longtext:'長文字',number:'數字',date:'日期',checkbox:'勾選',select:'單選',multiselect:'多選',phone:'電話',email:'Email',relation:'關聯紀錄'};
- const TEMPLATES={clients:{name:'客戶管理',description:'客戶、聯絡人、合約、跟進紀錄'},projects:{name:'專案管理',description:'專案、任務、會議紀錄'},assets:{name:'設備管理',description:'設備、維修紀錄、供應商'},knowledge:{name:'知識筆記',description:'主題、筆記、參考資料'},inventory:{name:'物品管理',description:'物品、出入紀錄、存放位置'}};
+ const TEMPLATES={clients:{name:'客戶管理',description:'客戶主檔；聯絡人、文件／位置、紀錄及合約明細'},projects:{name:'專案管理',description:'專案、任務、會議紀錄'},assets:{name:'設備管理',description:'設備、維修紀錄、供應商'},knowledge:{name:'知識筆記',description:'主題、筆記、參考資料'},inventory:{name:'物品管理',description:'物品、出入紀錄、存放位置'}};
  const LIMITS={areas:50,sheets:100,fields:50,records:5000,bytes:20*1024*1024};
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  const fail=message=>{throw new Error(message);};
@@ -69,8 +69,9 @@
   if(kind==='clients'){
    const clients=sheet('客戶',[['客戶代號','text'],['狀態','select',['合作中','待跟進','已結束']],['地址','text']]);
    sheet('聯絡人',[['相關客戶','relation',[],clients.id],['職位','text'],['電話','phone'],['Email','email']]);
+   sheet('文件／位置',[['相關客戶','relation',[],clients.id],['類型','select',['檔案','資料夾','標籤','其他']],['位置路徑（文字）','longtext'],['版本','text'],['日期','date']]);
+   sheet('紀錄',[['相關客戶','relation',[],clients.id],['跟進日期','date'],['下次跟進','date'],['已完成','checkbox']]);
    sheet('合約',[['相關客戶','relation',[],clients.id],['開始日期','date'],['到期日期','date'],['金額','number'],['狀態','select',['草稿','生效','到期','已結束']]]);
-   sheet('跟進紀錄',[['相關客戶','relation',[],clients.id],['跟進日期','date'],['下次跟進','date'],['已完成','checkbox']]);
   }else if(kind==='projects'){
    const root=sheet('專案',[['代號','text'],['負責人','text'],['截止日期','date'],['狀態','select',['規劃中','進行中','已完成','暫停']]]);
    sheet('任務',[['相關專案','relation',[],root.id],['負責人','text'],['到期日期','date'],['優先度','select',['低','中','高']],['已完成','checkbox']]);
@@ -92,7 +93,17 @@
  }
  function scopedRecords(doc,{areaId='all',masterId=null}={}){
   const related=masterId?new Set([masterId,...linked(doc,masterId).map(record=>record.id)]):null;
-  return doc.records.filter(record=>live(doc,record)&&(areaId==='all'||(doc.sheets.find(sheet=>sheet.id===record.sheetId).areaId||'ungrouped')===areaId)&&(!related||related.has(record.id)));
+  return doc.records.filter(record=>{const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),parent=parentField(doc,sheet);return live(doc,record)&&(areaId==='all'||(sheet.areaId||'ungrouped')===areaId)&&(!related||related.has(record.id))&&(!masterId||!parent||(record.values[parent.id]||[]).includes(masterId));});
+ }
+ function parentField(doc,sheet){const area=doc.areas.find(area=>area.id===sheet.areaId);return area?.masterSheetId&&area.masterSheetId!==sheet.id?sheet.fields.find(field=>field.type==='relation'&&field.targetSheetId===area.masterSheetId):undefined;}
+ function detailSheets(doc,areaId){return doc.sheets.filter(sheet=>sheet.areaId===areaId&&!sheet.deletedAt&&parentField(doc,sheet));}
+ function missingClientDetails(doc,areaId){const sheets=doc.sheets.filter(sheet=>sheet.areaId===areaId),names=new Set(sheets.map(sheet=>sheet.name==='跟進紀錄'?'紀錄':sheet.name));return ['聯絡人','文件／位置','紀錄','合約'].filter(name=>!names.has(name));}
+ function deletionPlan(doc,entries,includeDetails=false){
+  if(!Array.isArray(entries)||!entries.length||entries.length>LIMITS.records||typeof includeDetails!=='boolean')fail('批次刪除範圍無效');const byId=new Map(doc.records.map(record=>[record.id,record])),selected=new Set();
+  for(const entry of entries){if(!isObject(entry))fail('批次選取無效');id(entry.id);const record=byId.get(entry.id);if(selected.has(entry.id))fail('批次選取重複');if(!record||!live(doc,record)||record.version!==entry.version)fail('選取紀錄已變更或刪除，請重新整理');selected.add(entry.id);}
+  const targets=new Set(selected);let sharedRetained=0;
+  if(includeDetails){const roots=new Set([...selected].filter(id=>doc.areas.some(area=>area.masterSheetId===byId.get(id).sheetId)));for(const record of doc.records){if(!live(doc,record)||targets.has(record.id))continue;const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),field=parentField(doc,sheet),parents=field?(record.values[field.id]||[]):[];if(parents.some(id=>roots.has(id))){if(parents.every(id=>roots.has(id)))targets.add(record.id);else sharedRetained++;}}}
+  return {ids:[...targets],selected:selected.size,details:targets.size-selected.size,sharedRetained};
  }
  function clipboardText(doc,{kind,ids,sheetId}={}){
   if(!['table','overview'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.records||new Set(ids).size!==ids.length)fail('複製範圍無效');
@@ -137,6 +148,6 @@
   for(const area of next.areas)if(area.masterSheetId&&next.sheets.find(sheet=>sheet.id===area.masterSheetId)?.areaId!==area.id)area.masterSheetId=null;
   return {document:normalizeDocument(next),summary:{added,updated,skipped,sheets:doc.sheets.length}};
  }
- const api={TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();
