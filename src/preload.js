@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
 contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
   previewImport:(text,tags)=>ipcRenderer.invoke('favorites-import-preview',text,tags),
   importPaths:(text,tags,token)=>ipcRenderer.invoke('favorites-import-paths',text,tags,token),
+  copyFloatingPaths:ids=>ipcRenderer.invoke('floating-copy-paths',ids),
   collectFloating:(paths,tag)=>ipcRenderer.invoke('floating-collect',paths,tag),
   manageTag:(name,replacement,count)=>ipcRenderer.invoke('favorites-manage-tag',name,replacement,count),
   addTags:(ids,tags)=>ipcRenderer.invoke('favorites-add-tags',ids,tags),
@@ -49,6 +50,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ setFloatingCollapsed:value=>ipcRenderer.invoke('floating-collapse',value),compactFloatingSize:()=>ipcRenderer.invoke('floating-compact-size'),
  setFloatingCompact:value=>ipcRenderer.invoke('floating-tools',value),
  startup:()=>ipcRenderer.invoke('startup-get'),setStartup:enabled=>ipcRenderer.invoke('startup-set',enabled),hideToTray:()=>ipcRenderer.invoke('app-hide-to-tray'),
  setFloatingView:mode=>ipcRenderer.invoke('floating-view',mode),
