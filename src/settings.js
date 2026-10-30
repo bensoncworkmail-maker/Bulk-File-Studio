@@ -3,14 +3,14 @@
   const {KEY,DEFAULTS,normalize,applyRoot}=window.studioSettingsModel;
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
-  const controls={theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
+  const controls={notesPanelWidth:'settings-notes-panel-width',notesDetailWidth:'settings-notes-detail-width',notesPageSize:'settings-notes-page-size',notesRowHeight:'settings-notes-row-height',notesOpenAfterSave:'settings-notes-open-save',notesOpenMode:'settings-notes-open-mode',notesShowQuickBar:'settings-notes-quick',notesShowContextHelp:'settings-notes-help',notesShowCounts:'settings-notes-counts',notesCascadeDetails:'settings-notes-cascade',notesLinkMode:'settings-notes-link-mode',theme:'theme-select',fontSize:'font-size-select',density:'settings-density',pageSize:'settings-page-size',
     sourcePanelWidth:'settings-source-panel-width',favoriteIconSize:'settings-favorite-icon-size',tagPanelWidth:'settings-tag-panel-width',showTips:'settings-tips',favoriteView:'settings-favorite-view',favoriteOpenMode:'settings-favorite-open',showFileIcons:'settings-file-icons',favoriteSort:'settings-favorite-sort',favoriteDirection:'settings-favorite-direction',rulesWidth:'settings-rules-width',showSource:'settings-show-source',showRules:'settings-show-rules',showPaths:'settings-show-paths',recursiveDefault:'settings-recursive',
     startPage:'settings-start-page',rememberRules:'settings-remember-rules',resetRulesAfterRename:'settings-reset-rules',
     defaultSortBy:'settings-sort-by',defaultSortDirection:'settings-sort-direction'};
-  const tabs=['appearance','workspace','favorites','floating','system','data'];
+  const tabs=['appearance','workspace','notes','favorites','floating','system','data'];
   function syncControls() {
     for(const tab of tabs){const current=settings.settingsTab===tab;const button=$('settings-tab-'+tab);button.setAttribute('aria-selected',String(current));button.tabIndex=current?0:-1;$('settings-panel-'+tab).hidden=!current;}
-    applyRoot(document.documentElement,settings);
+    applyRoot(document.documentElement,settings);for(const [key,id] of [['notesPanelWidth','settings-notes-panel-width-value'],['notesDetailWidth','settings-notes-detail-width-value'],['notesRowHeight','settings-notes-row-height-value']])$(id).textContent=settings[key]+' px';
     $('settings-source-width-value').textContent=settings.sourcePanelWidth+' px';
     $('settings-rules-width-value').textContent=settings.rulesWidth+' px';
     $('settings-tag-width-value').textContent=settings.tagPanelWidth+' px';
@@ -67,6 +67,7 @@
     $('settings-login-startup').addEventListener('change',async()=>{const el=$('settings-login-startup');el.disabled=true;try{syncLogin(await window.desktopAPI.setStartup(el.checked));}catch(e){$('settings-login-status').textContent=String(e.message||e);try{const status=await window.desktopAPI.startup();el.checked=status.enabled;el.disabled=!status.supported;}catch{}}});
     $('btn-settings-hide').addEventListener('click',()=>window.desktopAPI.hideToTray().catch(e=>callbacks.showFailure('無法隱藏至系統匣',e)));
     for(const [index,tab] of tabs.entries()){const button=$('settings-tab-'+tab);button.addEventListener('click',()=>update({settingsTab:tab}));button.addEventListener('keydown',event=>{let next;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();update({settingsTab:tabs[next]});$('settings-tab-'+tabs[next]).focus();});}
+    for(const id of ['notes-panel-width','notes-detail-width','notes-row-height'])$('settings-'+id).addEventListener('input',event=>{$('settings-'+id+'-value').textContent=event.target.value+' px';});
     $('settings-source-panel-width').addEventListener('input',event=>{$('settings-source-width-value').textContent=event.target.value+' px';});
     $('btn-window-reset').addEventListener('click',()=>window.desktopAPI.resetWindow().catch(e=>callbacks.showFailure('無法還原視窗',e)));
     $('btn-settings-columns').addEventListener('click',()=>window.favoritesUI.openColumns());
@@ -75,7 +76,7 @@
     $('btn-shortcuts-reset').addEventListener('click',()=>window.studioShortcuts.reset());
     window.renameAPI.appInfo().then(info=>{$('info-version').textContent='v'+info.version;}).catch(()=>{});
     for(const [key,id] of Object.entries(controls))$(id).addEventListener('change',event=>{
-      const el=event.target;update({[key]:typeof DEFAULTS[key]==='boolean'?el.checked:['pageSize','tagPanelWidth','sourcePanelWidth'].includes(key)?Number(el.value):el.value});
+      const el=event.target;update({[key]:typeof DEFAULTS[key]==='boolean'?el.checked:['pageSize','tagPanelWidth','sourcePanelWidth','notesPanelWidth','notesDetailWidth','notesPageSize','notesRowHeight'].includes(key)?Number(el.value):el.value});
     });
     $('btn-settings-reset').addEventListener('click',()=>$('settings-reset-dialog').showModal());
     $('btn-settings-reset-cancel').addEventListener('click',()=>$('settings-reset-dialog').close());

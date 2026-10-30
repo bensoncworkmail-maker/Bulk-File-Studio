@@ -14,8 +14,8 @@
  const activeSheet=(doc,sheetId)=>doc.sheets.find(sheet=>sheet.id===sheetId&&!sheet.deletedAt);
  const live=(doc,record)=>!record.deletedAt&&Boolean(activeSheet(doc,record.sheetId));
  function normalizeDocument(input){
-  if(!isObject(input)||![1,2].includes(input.schemaVersion)||!Array.isArray(input.sheets)||input.sheets.length>LIMITS.sheets||!Array.isArray(input.records)||input.records.length>LIMITS.records)fail('資料工作區格式或數量無效');
-  const doc={schemaVersion:2,id:id(input.id),name:text(input.name,100,'工作區名稱',true),areas:[],sheets:[],records:[]};
+  if(!isObject(input)||![1,2,3].includes(input.schemaVersion)||!Array.isArray(input.sheets)||input.sheets.length>LIMITS.sheets||!Array.isArray(input.records)||input.records.length>LIMITS.records)fail('資料工作區格式或數量無效');
+  const doc={schemaVersion:3,id:id(input.id),name:text(input.name,100,'工作區名稱',true),areas:[],sheets:[],records:[]};
   const used=new Set();const unique=value=>{id(value);if(used.has(value))fail('識別碼重複');used.add(value);return value;};
   if(input.areas!==undefined&&(!Array.isArray(input.areas)||input.areas.length>LIMITS.areas))fail('工作區群組數量無效');
   for(const area of input.areas||[]){if(!isObject(area))fail('工作區群組無效');doc.areas.push({id:unique(area.id),name:text(area.name,100,'群組名稱',true).trim(),masterSheetId:area.masterSheetId==null?null:id(area.masterSheetId)});}
@@ -35,7 +35,7 @@
   for(const sheet of doc.sheets)for(const field of sheet.fields)if(field.type==='relation'&&!sheets.has(field.targetSheetId))fail('關聯目標表格不存在');
   for(const source of input.records){
    if(!isObject(source)||!sheets.has(source.sheetId)||!isObject(source.values))fail('紀錄所屬表格或欄位資料無效');
-   const record={id:unique(source.id),sheetId:source.sheetId,title:text(source.title,200,'紀錄標題',true).trim(),notes:text(source.notes,100000,'筆記'),tags:strings(source.tags,32,20,'標籤'),values:{},fileLinks:[],...meta(source)};
+   const record={id:unique(source.id),sheetId:source.sheetId,title:text(source.title,200,'紀錄標題',true).trim(),notes:text(source.notes,100000,'筆記'),tags:strings(source.tags,32,20,'標籤'),values:{},fileLinks:[],favoriteTagLinks:[],...meta(source)};
    const sheet=sheets.get(record.sheetId),fields=new Map(sheet.fields.map(field=>[field.id,field]));
    for(const key of Object.keys(source.values))if(!fields.has(key))fail('紀錄包含不存在的欄位');
    for(const field of sheet.fields){
@@ -50,6 +50,7 @@
    }
    if(!Array.isArray(source.fileLinks)||source.fileLinks.length>100)fail('檔案連結數量無效');
    for(const link of source.fileLinks){if(!isObject(link)||!['file','folder'].includes(link.type))fail('檔案連結無效');record.fileLinks.push({favoriteId:link.favoriteId===null?null:id(link.favoriteId),path:text(link.path,4096,'檔案位置',true),label:text(link.label,200,'檔案名稱'),type:link.type});}
+   if(source.favoriteTagLinks!==undefined&&(!Array.isArray(source.favoriteTagLinks)||source.favoriteTagLinks.length>20))fail('收藏標籤連結數量無效');const linkedTags=new Set();for(const link of source.favoriteTagLinks||[]){if(!isObject(link)||typeof link.authorized!=='boolean')fail('收藏標籤連結無效');const tag=text(link.tag,32,'收藏標籤',true).trim(),key=tag.toLocaleLowerCase();if(linkedTags.has(key))fail('收藏標籤連結重複');linkedTags.add(key);record.favoriteTagLinks.push({tag,authorized:link.authorized});}
    doc.records.push(record);
   }
   const records=new Map(doc.records.map(record=>[record.id,record]));
@@ -64,7 +65,7 @@
  function cell(doc,field,value){if(value===null||value===undefined)return '';if(field.type==='checkbox')return value?'✓':'—';if(field.type==='relation')return value.map(id=>{const record=doc.records.find(record=>record.id===id);return record?(live(doc,record)?record.title:record.title+'（已刪除）'):'（未提供）';}).join('、');return Array.isArray(value)?value.join('、'):String(value);}
  function template(makeId,now,kind='clients'){
   if(!Object.hasOwn(TEMPLATES,kind))fail('範本不存在');
-  const area={id:makeId(),name:TEMPLATES[kind].name,masterSheetId:null},doc={schemaVersion:2,id:makeId(),name:'我的資料工作區',areas:[area],sheets:[],records:[]};
+  const area={id:makeId(),name:TEMPLATES[kind].name,masterSheetId:null},doc={schemaVersion:3,id:makeId(),name:'我的資料工作區',areas:[area],sheets:[],records:[]};
   const sheet=(name,definitions)=>{const value={id:makeId(),name,areaId:area.id,fields:definitions.map(([label,type,options=[],targetSheetId=null])=>({id:makeId(),label,type,options,targetSheetId})),version:1,createdAt:now,updatedAt:now,deletedAt:null};doc.sheets.push(value);if(!area.masterSheetId)area.masterSheetId=value.id;return value;};
   if(kind==='clients'){
    const clients=sheet('客戶',[['客戶代號','text'],['狀態','select',['合作中','待跟進','已結束']],['地址','text']]);
@@ -110,7 +111,7 @@
   const records=ids.map(value=>{id(value);const record=doc.records.find(record=>record.id===value&&live(doc,record));if(!record)fail('紀錄已變更或刪除');return record;});
   if(kind==='overview'){
    if(records.length!==1)fail('請選擇一筆紀錄');const record=records[0],sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId);
-   return [record.title,'表格：'+sheet.name,...sheet.fields.map(field=>field.label+'：'+cell(doc,field,record.values[field.id])),'標籤：'+record.tags.join('、'),'筆記：',record.notes,'相關位置：',...record.fileLinks.map(link=>link.path),'相關資料：',...linked(doc,record.id).map(item=>item.title)].join('\n');
+   return [record.title,'表格：'+sheet.name,...sheet.fields.map(field=>field.label+'：'+cell(doc,field,record.values[field.id])),'標籤：'+record.tags.join('、'),'筆記：',record.notes,'相關位置：',...record.fileLinks.map(link=>link.path),'收藏標籤連結：',...(record.favoriteTagLinks||[]).map(link=>link.tag),'相關資料：',...linked(doc,record.id).map(item=>item.title)].join('\n');
   }
   const sheet=sheetId?activeSheet(doc,sheetId):null;if(sheetId&&(!sheet||records.some(record=>record.sheetId!==sheetId)))fail('表格範圍已變更');
   const clean=value=>{let text=String(value??'').replace(/[\t\r\n]/g,' ');if(/^[\s]*[=+@-]/.test(text)||/^0\d+$/.test(text))text="'"+text;return text;};
@@ -127,10 +128,10 @@
   selected=doc.records.filter(record=>selectedIds.has(record.id)&&live(doc,record));const sheetIds=new Set(selected.map(record=>record.sheetId));if(scope==='all')doc.sheets.filter(sheet=>!sheet.deletedAt).forEach(sheet=>sheetIds.add(sheet.id));if(scope==='sheet')sheetIds.add(scopeId);if(scope==='area')doc.sheets.filter(sheet=>sheet.areaId===scopeId&&!sheet.deletedAt).forEach(sheet=>sheetIds.add(sheet.id));
   let changed=true;while(changed){changed=false;for(const area of doc.areas||[])if((scope==='all'||scope==='area'&&area.id===scopeId||doc.sheets.some(sheet=>sheetIds.has(sheet.id)&&sheet.areaId===area.id))&&area.masterSheetId&&!sheetIds.has(area.masterSheetId)){sheetIds.add(area.masterSheetId);changed=true;}for(const sheet of doc.sheets.filter(sheet=>sheetIds.has(sheet.id)))for(const field of sheet.fields)if(field.type==='relation'&&!sheetIds.has(field.targetSheetId)){sheetIds.add(field.targetSheetId);changed=true;}}
   let omittedRelations=0;const data={...clone(doc),areas:clone((doc.areas||[]).filter(area=>scope==='all'||scope==='area'&&area.id===scopeId||doc.sheets.some(sheet=>sheetIds.has(sheet.id)&&sheet.areaId===area.id))),sheets:clone(doc.sheets.filter(sheet=>sheetIds.has(sheet.id))),records:clone(selected)};
-  for(const record of data.records){record.fileLinks=record.fileLinks.map(link=>({...link,favoriteId:null}));for(const field of data.sheets.find(sheet=>sheet.id===record.sheetId).fields)if(field.type==='relation'&&record.values[field.id]){const before=record.values[field.id];record.values[field.id]=before.filter(id=>selectedIds.has(id)&&activeRecords.has(id));omittedRelations+=before.length-record.values[field.id].length;}}
-  return {format:'BulkFileStudio.Workspace',packageVersion:2,exportedAt:new Date().toISOString(),omittedRelations,document:normalizeDocument(data)};
+  for(const record of data.records){record.fileLinks=record.fileLinks.map(link=>({...link,favoriteId:null}));record.favoriteTagLinks=record.favoriteTagLinks.map(link=>({...link,authorized:false}));for(const field of data.sheets.find(sheet=>sheet.id===record.sheetId).fields)if(field.type==='relation'&&record.values[field.id]){const before=record.values[field.id];record.values[field.id]=before.filter(id=>selectedIds.has(id)&&activeRecords.has(id));omittedRelations+=before.length-record.values[field.id].length;}}
+  return {format:'BulkFileStudio.Workspace',packageVersion:3,exportedAt:new Date().toISOString(),omittedRelations,document:normalizeDocument(data)};
  }
- function readPackage(input){if(!isObject(input)||input.format!=='BulkFileStudio.Workspace'||![1,2].includes(input.packageVersion))fail('不是支援的 Studio 資料包');const doc=normalizeDocument(input.document);for(const record of doc.records)for(const link of record.fileLinks)link.favoriteId=null;return doc;}
+ function readPackage(input){if(!isObject(input)||input.format!=='BulkFileStudio.Workspace'||![1,2,3].includes(input.packageVersion))fail('不是支援的 Studio 資料包');const doc=normalizeDocument(input.document);for(const record of doc.records){for(const link of record.fileLinks)link.favoriteId=null;for(const link of record.favoriteTagLinks)link.authorized=false;}return doc;}
  function mergeDocument(current,incoming,mode,makeId,now){
   if(!['copy','skip','update'].includes(mode))fail('匯入方式無效');
   const next=normalizeDocument(current),doc=normalizeDocument(incoming);let added=0,updated=0,skipped=0;

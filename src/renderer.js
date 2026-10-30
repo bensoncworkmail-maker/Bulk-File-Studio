@@ -539,7 +539,7 @@ async function init() {
     if(changed.includes('pageSize')){sourcePage=0;previewPage=0;window.favoritesUI.resetPage();}
     if(changed.some(key=>key==='favoriteSort'||key==='favoriteDirection'))window.favoritesUI.resetPage();
     if(changed.includes('rememberRules')&&settings.rememberRules)saveRulePreferences();
-    render();window.favoritesUI.render();
+    if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
   }});
   setRuleTab('presets');initPresets();wireEvents();render();
   window.movingUI.init({showFailure,onMoved:async result=>{
@@ -550,6 +550,7 @@ async function init() {
   window.sidebarResize.initRules({getWidth:()=>Number(window.settingsUI.get().rulesWidth),save:value=>window.settingsUI.update({rulesWidth:String(value)}),isBusy:()=>busy});
   $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
   window.notesUI.init({showToast,showFailure});
+  window.sidebarResize.initNotes({getWidth:()=>window.settingsUI.get().notesPanelWidth,save:value=>window.settingsUI.update({notesPanelWidth:value}),isBusy:()=>busy||window.notesUI.isBusy()||window.notesUI.hasOpenDialog()});
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;
