@@ -54,7 +54,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  openFloatingHeaderMenu:()=>ipcRenderer.invoke('floating-header-menu'),
  headerDoubleClick:()=>ipcRenderer.invoke('floating-header-double-click'),
- beginFloatingDrag:()=>ipcRenderer.invoke('floating-drag-start'),moveFloatingDrag:(token,dx,dy)=>ipcRenderer.invoke('floating-drag-move',token,dx,dy),endFloatingDrag:token=>ipcRenderer.invoke('floating-drag-end',token),
+ beginFloatingDrag:mode=>ipcRenderer.invoke('floating-drag-start',mode),moveFloatingDrag:(token,dx,dy)=>ipcRenderer.invoke('floating-drag-move',token,dx,dy),endFloatingDrag:token=>ipcRenderer.invoke('floating-drag-end',token),
  openFloatingTagMenu:(tag,query)=>ipcRenderer.invoke('floating-tag-menu',tag,query),
  openFloatingItemMenu:id=>ipcRenderer.invoke('floating-item-menu',id),
  floatingTagOptions:()=>ipcRenderer.invoke('floating-tag-options'),

@@ -7,7 +7,7 @@
   const move=(session,event)=>{
    const dx=event.screenX-session.x,dy=event.screenY-session.y;
    if(!Number.isFinite(dx)||!Number.isFinite(dy)||!session.moved&&Math.hypot(dx,dy)<4)return;
-   if(!session.moved){session.moved=true;session.queue=finished;queue(session,async()=>{session.token=(await api.beginFloatingDrag()).token;});}
+   if(!session.moved){session.moved=true;session.queue=finished;queue(session,async()=>{session.token=(await api.beginFloatingDrag(session.mode)).token;});}
    queue(session,()=>api.moveFloatingDrag(session.token,dx,dy));lastDrag=now();
   };
   const finish=(event,finalPosition=false)=>{
@@ -18,7 +18,8 @@
   };
   header.addEventListener('pointerdown',event=>{
    if(event.button!==0||event.isPrimary===false||control(event)||active)return;
-   active={id:event.pointerId,x:event.screenX,y:event.screenY,moved:false,failed:false};
+   const side=event.target?.closest?.('[data-resize]')?.dataset?.resize;
+   active={id:event.pointerId,x:event.screenX,y:event.screenY,moved:false,failed:false,mode:side==='left'||side==='right'?'resize-'+side:'move'};
    // Do not cancel pointerdown: browser dblclick events must remain available.
    try{header.setPointerCapture(event.pointerId);}catch{/* The pointer may have left the window. */}
   });
@@ -26,7 +27,7 @@
   header.addEventListener('pointerup',event=>finish(event,true));
   for(const event of ['pointercancel','lostpointercapture'])header.addEventListener(event,value=>finish(value));
   header.addEventListener('dblclick',event=>{
-   if(control(event)||getSettings().floatingHeaderDoubleClick===false||now()-lastDrag<350)return;
+   if(event.target?.closest?.('[data-resize]')?.dataset?.resize||control(event)||getSettings().floatingHeaderDoubleClick===false||now()-lastDrag<350)return;
    event.preventDefault();api.headerDoubleClick().catch(onError);
   });
   const menu=event=>{if(control(event))return;event.preventDefault();event.stopPropagation();finish();return finished.then(()=>api.openFloatingHeaderMenu()).catch(onError);};

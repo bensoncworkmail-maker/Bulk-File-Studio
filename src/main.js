@@ -197,9 +197,9 @@ app.whenReady().then(() => {
   handle('floating-show',()=>showFloating());
   handle('floating-hide',()=>floating?.hide());
   handle('floating-compact-size',()=>{showFloating();floatingWindow.compactSize();});
-  handle('floating-drag-start',()=>{closeFloatingMenu();if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.startDrag();});
+  handle('floating-drag-start',(_,mode='move')=>{closeFloatingMenu();if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.startDrag(mode);});
   handle('floating-drag-move',(_,token,dx,dy)=>{if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.moveDrag(token,dx,dy);});
-  handle('floating-drag-end',(_,token)=>floatingWindow?.endDrag(token));
+  handle('floating-drag-end',(_,token)=>{const result=floatingWindow?.endDrag(token);if(result){send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);}return result;});
   handle('floating-header-menu',()=>{
     if(!floatingWindow)throw new Error('浮動工具未顯示');
     const settings=desktop.settings,size=floatingWindow.savedBounds();
