@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ openFloatingTagMenu:(tag,query)=>ipcRenderer.invoke('floating-tag-menu',tag,query),
+ floatingTagOptions:()=>ipcRenderer.invoke('floating-tag-options'),
  setFloatingCollapsed:value=>ipcRenderer.invoke('floating-collapse',value),compactFloatingSize:()=>ipcRenderer.invoke('floating-compact-size'),
  setFloatingCompact:value=>ipcRenderer.invoke('floating-tools',value),
  startup:()=>ipcRenderer.invoke('startup-get'),setStartup:enabled=>ipcRenderer.invoke('startup-set',enabled),hideToTray:()=>ipcRenderer.invoke('app-hide-to-tray'),
