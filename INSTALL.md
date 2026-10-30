@@ -6,8 +6,8 @@
 
 | 版本 | 檔名範例 | 使用方式 |
 |---|---|---|
-| 完整安裝版 | `BulkFileStudio-Setup-1.17.0-x64.exe` | 雙擊並完成安裝，可於設定啟用 Windows 右鍵收藏 |
-| 可攜版 | `BulkFileStudio-Portable-1.17.0-x64.exe` | 雙擊直接執行，不提供 Windows 右鍵註冊 |
+| 完整安裝版 | `BulkFileStudio-Setup-1.18.0-x64.exe` | 雙擊並完成安裝，可於設定啟用 Windows 右鍵收藏 |
+| 可攜版 | `BulkFileStudio-Portable-1.18.0-x64.exe` | 雙擊直接執行，不提供 Windows 右鍵註冊 |
 
 架構需符合你的電腦；上表是 x64 範例。GitHub 的「Source code ZIP」是開發原始碼，並非已建置的安裝檔。若尚未有人提供 EXE，需先由開發者依 README 在 Windows 完成建置及驗證。
 

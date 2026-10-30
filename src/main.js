@@ -6,7 +6,7 @@ const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
 const {DesktopShell}=require('./desktop-shell');
-const {FloatingWindow,DEFAULTS:floatingDefaults}=require('./floating-window');
+const {FloatingWindow,windowDefaults}=require('./floating-window');
 const {tagMenu}=require('./floating-tag-menu');
 const {tagList,basename}=require('./favorites-model');
 const globalShortcuts=require('./global-shortcuts');
@@ -112,8 +112,8 @@ function showFloating(toggle=false){
     if(toggle&&floating.isVisible()){floating.hide();return;}
     floating.show();floating.focus();return;
   }
-  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),floatingDefaults),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · 浮動收藏',autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
-  secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen,{onHeaderDoubleClick:()=>{try{setFloatingCollapsed(!desktop.settings.floatingCollapsed);}catch(error){send(floating,'desktop-settings-changed',{error:String(error.message||error)});}}});
+  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · 浮動收藏',autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
+  secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen);
   floating.on('hide',closeFloatingMenu);floating.on('close',closeFloatingMenu);
   floating.on('closed',()=>{floatingMenu=null;floating=null;floatingWindow=null;});floating.loadFile(path.join(__dirname,'floating.html'));
 }
@@ -128,7 +128,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu'];
+    const floatingAllowed=['favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end'];
     if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
@@ -184,6 +184,18 @@ app.whenReady().then(() => {
   handle('floating-show',()=>showFloating());
   handle('floating-hide',()=>floating?.hide());
   handle('floating-compact-size',()=>{showFloating();floatingWindow.compactSize();});
+  handle('floating-drag-start',()=>{closeFloatingMenu();if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.startDrag();});
+  handle('floating-drag-move',(_,token,dx,dy)=>{if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.moveDrag(token,dx,dy);});
+  handle('floating-drag-end',(_,token)=>floatingWindow?.endDrag(token));
+  handle('floating-header-double-click',()=>{
+    if(!floating||floating.isDestroyed()||!floating.isVisible())throw new Error('浮動工具未顯示');
+    if(!desktop.settings.floatingHeaderDoubleClick)return {disabled:true};
+    const action=desktop.settings.floatingHeaderAction;
+    if(action==='collapse')return setFloatingCollapsed(!desktop.settings.floatingCollapsed);
+    if(action==='main'){focusMain();return {};}
+    const settings=desktop.update(action==='pin'?{floatingOnTop:!desktop.settings.floatingOnTop}:{floatingCompact:!desktop.settings.floatingCompact});
+    floating.setAlwaysOnTop(settings.floatingOnTop);const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+  });
   handle('floating-collapse',(_,collapsed)=>{if(typeof collapsed!=='boolean')throw new Error('收合設定無效');return setFloatingCollapsed(collapsed);});
   handle('floating-copy-paths',(_,ids)=>{const paths=favorites.recordedPaths(ids);clipboard.writeText(paths.join('\r\n'));return {count:paths.length};});
   handle('floating-item-menu',(_,id)=>{
