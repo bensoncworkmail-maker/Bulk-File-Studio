@@ -45,3 +45,29 @@ dialog.notes-record-dialog .notes-form-footer .btn{height:auto;min-height:34px;w
 #notes-card-dialog .notes-choice-list{max-height:40vh;}
 #notes-card-dialog .notes-hint{margin:8px 0;line-height:1.6;}
 @media(max-height:520px){dialog.notes-record-dialog .notes-form-header{padding:7px 12px;}dialog.notes-record-dialog .notes-form-tabs{padding:4px 12px;}dialog.notes-record-dialog .notes-form-footer{padding:6px 12px;}dialog.notes-record-dialog .notes-form-footer small{display:none;}}
+
+/* Master actions share the name row; detail tabs are a separate sibling. */
+.notes-master-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0;}
+.notes-master-title-row #notes-master-heading{flex:1;min-width:140px;}
+.notes-master-title-row .notes-tools{flex-shrink:0;flex-wrap:wrap;}
+.notes-master-context>.notes-hint{margin:0;line-height:1.5;overflow-wrap:anywhere;}
+.notes-detail-tabs{flex-shrink:0;background:var(--panel);margin-top:0;}
+.notes-layout[data-scope=all] .notes-content>.notes-detail-tabs{display:none;}
+.notes-card-grid{align-items:start;gap:7px;padding:7px;}
+.notes-card{height:var(--notes-card-height,auto);gap:6px;padding:9px;min-height:0;overflow:hidden;}
+.notes-card-top{flex:0 0 auto;gap:6px;}
+.notes-card-top .notes-card-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;}
+.notes-card-top small,.notes-card-top .notes-current-chip{flex-shrink:0;}
+.notes-card-body{display:flex;flex-direction:column;gap:5px;min-height:0;}
+:root[data-notes-card-fixed=true] .notes-card-body{overflow:auto;overscroll-behavior:contain;flex:1 1 auto;}
+.notes-card-body>p{margin:0;}
+.notes-card-body dl{flex:0 0 auto;}
+.notes-card-footer{flex:0 0 auto;min-height:25px;}
+.notes-card-footer>.btn{margin-left:auto;}
+.notes-card-tags{line-height:1.2;}
+#notes-card-display{margin:10px 0 14px;padding:10px;border:1px solid var(--line);border-radius:7px;}
+#notes-card-display summary{cursor:pointer;font-weight:700;margin-bottom:10px;}
+.notes-card-display-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:10px 0;}
+.notes-card-display-options .check-row{margin:0;font-size:11px;}
+#notes-card-dialog .notes-choice-list{max-height:24vh;}
+@media(max-width:650px){.notes-card-display-options{grid-template-columns:1fr;}.notes-master-title-row{gap:7px;}}
