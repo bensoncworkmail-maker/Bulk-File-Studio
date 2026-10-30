@@ -549,6 +549,7 @@ async function init() {
   window.sidebarResize.initSource({getWidth:()=>window.settingsUI.get().sourcePanelWidth,save:value=>window.settingsUI.update({sourcePanelWidth:value}),isBusy:()=>busy});
   window.sidebarResize.initRules({getWidth:()=>Number(window.settingsUI.get().rulesWidth),save:value=>window.settingsUI.update({rulesWidth:String(value)}),isBusy:()=>busy});
   $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
+  window.notesUI.init({showToast,showFailure});
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;

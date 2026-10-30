@@ -17,7 +17,9 @@
   }
   function setView(view) {
     if(callbacks?.isBusy())return;
-    active=view==='favorites';settingsActive=view==='settings'||view==='info';closeMenu();
+    if(window.notesUI&&!window.notesUI.canLeave())return;
+    active=view==='favorites';settingsActive=view==='settings'||view==='info'||view==='notes';closeMenu();
+    $('notes-page').classList.toggle('hidden',view!=='notes');$('tab-notes').classList.toggle('active',view==='notes');$('tab-notes').setAttribute('aria-pressed',String(view==='notes'));if(view==='notes')window.notesUI?.activate();
     $('info-page').classList.toggle('hidden',view!=='info');$('tab-info').classList.toggle('active',view==='info');$('tab-info').setAttribute('aria-pressed',String(view==='info'));
     $('btn-undo').classList.toggle('hidden',settingsActive);
     $('favorites-page').classList.toggle('hidden',!active);

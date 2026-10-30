@@ -8,7 +8,7 @@
     if(!input||typeof input!=='object')input={};
     const out={...DEFAULTS};
     const choices={settingsTab:['appearance','workspace','favorites','floating','system','data'],favoriteIconSize:['small','medium','large'],theme:['light','dark'],fontSize:['12','13','15','17','19'],density:['compact','comfortable'],
-      tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteView:['list','icons'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],pageSize:[100,250,500],startPage:['rename','favorites'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
+      tagSort:['name','count','recent'],tagDirection:['asc','desc'],favoriteView:['list','icons'],favoriteSort:['recent','name','path','type','size','modified'],favoriteDirection:['asc','desc'],favoriteOpenMode:['double','single'],pageSize:[100,250,500],startPage:['rename','favorites','notes'],defaultSortBy:['path','name','modified'],defaultSortDirection:['asc','desc']};
     for(const [key,value] of Object.entries(DEFAULTS)) {
       if(key==='sourcePanelWidth'){if(typeof input[key]==='number'&&Number.isFinite(input[key]))out[key]=Math.round(Math.max(160,Math.min(480,input[key])));}
       else if(key==='rulesWidth'){const width=typeof input[key]==='number'?input[key]:typeof input[key]==='string'&&/^\d+$/.test(input[key])?Number(input[key]):NaN;if(Number.isFinite(width))out[key]=String(Math.round(Math.max(280,Math.min(720,width))));}

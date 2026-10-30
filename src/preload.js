@@ -69,3 +69,11 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>ipcRenderer.invoke('everything-status'),configure:(enabled,instance)=>ipcRenderer.invoke('everything-configure',enabled,instance),choose:()=>ipcRenderer.invoke('everything-choose'),search:input=>ipcRenderer.invoke('everything-search',input),cancel:()=>ipcRenderer.invoke('everything-cancel'),favorite:(token,indices,tags)=>ipcRenderer.invoke('everything-favorite',token,indices,tags),toRename:(token,indices)=>ipcRenderer.invoke('everything-to-rename',token,indices)}));
+
+contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
+ chooseBackup:()=>ipcRenderer.invoke('notes-backup-choose'),restoreBackup:token=>ipcRenderer.invoke('notes-backup-restore',token),
+ get:()=>ipcRenderer.invoke('notes-get'),template:()=>ipcRenderer.invoke('notes-template'),saveSheet:input=>ipcRenderer.invoke('notes-sheet-save',input),saveRecord:input=>ipcRenderer.invoke('notes-record-save',input),trash:(kind,id,version,restore)=>ipcRenderer.invoke('notes-trash',kind,id,version,restore),
+ history:id=>ipcRenderer.invoke('notes-history',id),restoreHistory:(id,historyId,version)=>ipcRenderer.invoke('notes-history-restore',id,historyId,version),favorites:()=>ipcRenderer.invoke('notes-favorites'),openLink:(id,index,action)=>ipcRenderer.invoke('notes-open-link',id,index,action),
+ exportPreview:options=>ipcRenderer.invoke('notes-export-preview',options),exportSave:token=>ipcRenderer.invoke('notes-export-save',token),chooseImport:()=>ipcRenderer.invoke('notes-import-choose'),importPreview:mode=>ipcRenderer.invoke('notes-import-preview',mode),importCommit:token=>ipcRenderer.invoke('notes-import-commit',token),
+ onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('notes-changed',listener);return ()=>ipcRenderer.removeListener('notes-changed',listener);}
+}));

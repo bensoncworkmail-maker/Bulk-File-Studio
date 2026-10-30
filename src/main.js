@@ -5,6 +5,8 @@ const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
+const {NotesStore}=require('./notes-store');
+const {readPackageFile,writePackageFile}=require('./notes-files');
 const {DesktopShell}=require('./desktop-shell');
 const {FloatingWindow,windowDefaults}=require('./floating-window');
 const {tagMenu}=require('./floating-tag-menu');
@@ -36,6 +38,9 @@ const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 let favorites,everything;
+let notes,notesImportDocument;
+function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
+function notesChanged(result){send(win,'notes-changed',{revision:result.revision});return result;}
 let batchOpening=false;
 async function confirmBatch(ids,kind,parent){
  if(batchOpening)throw new Error('另一項批次開啟仍在處理');
@@ -148,6 +153,40 @@ app.whenReady().then(() => {
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
+  handle('notes-get',()=>notesStore().get());
+  handle('notes-template',()=>notesChanged(notesStore().addTemplate()));
+  handle('notes-sheet-save',(_,input)=>notesChanged(notesStore().saveSheet(input)));
+  handle('notes-record-save',(_,input)=>{
+    if(!input||!Array.isArray(input.favoriteIds)||input.favoriteIds.length>100||!Array.isArray(input.keepUnlinked)||input.keepUnlinked.length>100)throw new Error('檔案連結資料無效');
+    const old=notesStore().get().document.records.find(record=>record.id===input.id),catalog=favorites.read(),knownIds=new Set(catalog.items.map(item=>item.id)),unlinked=(old?.fileLinks||[]).filter(link=>link.favoriteId===null||!knownIds.has(link.favoriteId)).map(link=>({...link,favoriteId:null}));
+    if(input.keepUnlinked.some(value=>typeof value!=='string'||!unlinked.some(link=>link.path===value)))throw new Error('匯入位置連結已變更');
+    const fileLinks=[...(input.favoriteIds.length?favorites.selection(catalog,input.favoriteIds).map(item=>({favoriteId:item.id,path:item.path,label:item.label,type:item.type})):[]),...unlinked.filter(link=>input.keepUnlinked.includes(link.path))];
+    return notesChanged(notesStore().saveRecord({...input,fileLinks}));
+  });
+  handle('notes-trash',(_,kind,id,version,restore)=>{if(typeof restore!=='boolean')throw new Error('回收筒操作無效');return notesChanged(notesStore().trash(kind,id,version,restore));});
+  handle('notes-history',(_,id)=>notesStore().history(id));
+  handle('notes-history-restore',(_,id,historyId,version)=>notesChanged(notesStore().restoreHistory(id,historyId,version)));
+  handle('notes-favorites',()=>({items:favorites.list()}));
+  handle('notes-open-link',async(_,recordId,index,action)=>{
+    const document=notesStore().get().document,record=document.records.find(record=>record.id===recordId&&!record.deletedAt&&document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt));
+    if(!record||!Number.isInteger(index)||index<0||index>=record.fileLinks.length||!['open','show','copy'].includes(action))throw new Error('檔案連結操作無效');
+    const link=record.fileLinks[index];
+    if(action==='copy'){clipboard.writeText(link.favoriteId?favorites.get(link.favoriteId).path:link.path);return;}
+    if(!link.favoriteId)throw new Error('分享包只保留位置，請先編輯紀錄並重新連結本機收藏');
+    const item=favorites.get(link.favoriteId,true);
+    if(action==='show'){shell.showItemInFolder(assertLocalPath(item.path));return;}
+    assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);
+  });
+  handle('notes-export-preview',(_,options)=>notesStore().exportPreview(options));
+  handle('notes-export-save',async(_,token)=>{
+    notesStore().takePreview(token,'export');const result=await dialog.showSaveDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});
+    if(result.canceled||!result.filePath)return {canceled:true};const pending=notesStore().takePreview(token,'export');writePackageFile(result.filePath,pending.data);return {canceled:false,path:result.filePath};
+  });
+  handle('notes-import-choose',async()=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};notesImportDocument=readPackageFile(result.filePaths[0]);return {canceled:false,name:path.basename(result.filePaths[0])};});
+  handle('notes-import-preview',(_,mode)=>{if(!notesImportDocument)throw new Error('請先選取資料包');return notesStore().importPreview(notesImportDocument,mode);});
+  handle('notes-backup-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取本程式的匯入前／還原前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']});if(result.canceled)return {canceled:true};return notesStore().restorePreview(result.filePaths[0]);});
+  handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
+  handle('notes-import-commit',(_,token)=>notesChanged(notesStore().importCommit(token)));
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
   handle('everything-choose',async()=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const result=await dialog.showOpenDialog(win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']});return result.canceled?{canceled:true}:everything.choose(result.filePaths[0]);});
@@ -411,7 +450,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',()=>{if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{everything?.cancel();desktopShell?.destroy();});
+app.on('will-quit',()=>{everything?.cancel();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();
