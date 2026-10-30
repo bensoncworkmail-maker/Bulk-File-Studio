@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
   choose:kind=>ipcRenderer.invoke('favorites-choose',kind),
   update:(ids,changes)=>ipcRenderer.invoke('favorites-update',ids,changes),
   remove:ids=>ipcRenderer.invoke('favorites-remove',ids),
+  openLocations:ids=>ipcRenderer.invoke('favorites-open-locations',ids),
+  batchOpenConfirmed:ids=>ipcRenderer.invoke('favorites-batch-open-confirmed',ids),
   bulkOpen:ids=>ipcRenderer.invoke('favorites-bulk-open',ids),
   copyMany:ids=>ipcRenderer.invoke('favorites-copy-many',ids),
   open:id=>ipcRenderer.invoke('favorites-open',id),
@@ -50,6 +52,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ openFloatingHeaderMenu:()=>ipcRenderer.invoke('floating-header-menu'),
  headerDoubleClick:()=>ipcRenderer.invoke('floating-header-double-click'),
  beginFloatingDrag:()=>ipcRenderer.invoke('floating-drag-start'),moveFloatingDrag:(token,dx,dy)=>ipcRenderer.invoke('floating-drag-move',token,dx,dy),endFloatingDrag:token=>ipcRenderer.invoke('floating-drag-end',token),
  openFloatingTagMenu:(tag,query)=>ipcRenderer.invoke('floating-tag-menu',tag,query),

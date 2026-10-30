@@ -2,7 +2,7 @@
 const {fitBounds,validBounds}=require('./desktop-state');
 const {randomUUID}=require('node:crypto');
 const DEFAULTS={width:320,height:400,minWidth:220,minHeight:120};
-function windowDefaults(settings={}){return {...DEFAULTS,minWidth:settings.floatingMinWidth||220,minHeight:settings.floatingMinHeight||120};}
+function windowDefaults(settings={}){return {...DEFAULTS,width:settings.floatingDefaultWidth||320,height:settings.floatingDefaultHeight||400,minWidth:settings.floatingMinWidth||220,minHeight:settings.floatingMinHeight||120};}
 class FloatingWindow {
  constructor(window,desktop,screen){
   this.window=window;this.desktop=desktop;this.screen=screen;this.collapsed=false;this.transitioning=false;this.expanded=this.liveBounds();this.drag=null;
@@ -37,6 +37,8 @@ class FloatingWindow {
   }
   this.opacity();
  }
+ saveDefaultSize(){this.captureExpanded();const settings=this.desktop.update({floatingDefaultWidth:this.expanded.width,floatingDefaultHeight:this.expanded.height,floatingCollapsed:false});this.apply();this.record();return settings;}
+ restoreDefaultSize(){this.desktop.update({floatingCollapsed:false});this.apply();const defaults=windowDefaults(this.desktop.settings);this.expanded={...this.liveBounds(),width:defaults.width,height:defaults.height};this.place(this.expanded,defaults);this.captureExpanded();this.record();return this.desktop.settings;}
  compactSize(){this.expanded={...this.liveBounds(),width:260,height:300};this.transitioning=true;try{this.place({...this.expanded,width:this.collapsed?92:260,height:this.collapsed?40:300},this.collapsed?{width:92,minWidth:92,height:40,minHeight:40}:windowDefaults(this.desktop.settings));}finally{this.transitioning=false;}this.captureExpanded();this.record();}
 }
 module.exports={FloatingWindow,DEFAULTS,windowDefaults};

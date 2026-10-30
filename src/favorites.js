@@ -43,7 +43,7 @@
     if(activeTag&&!tags.some(tag=>tag.key===activeTag))activeTag=null;
     for(const tag of [{key:null,name:'全部收藏',count:items.length},{key:'',name:'未分類',count:items.filter(item=>!item.tags.length).length},...tags]){
       const el=button('',()=>{activeTag=tag.key;pageIndex=0;render();},'favorite-tag-filter'+(activeTag===tag.key?' active':''));
-      el.addEventListener('contextmenu',event=>{event.preventDefault();if(busy)return;const found=items.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));const actions=[{label:'顯示此分類',run:()=>{activeTag=tag.key;pageIndex=0;render();}},{label:'複製此分類全部路徑（'+found.length+' 項）',disabled:!found.length,run:()=>run(async()=>{await api.copyMany(found.map(item=>item.id));callbacks.showToast('已複製 '+found.length+' 項完整路徑（包含跨頁）');})},{label:'選取此分類全部項目',run:()=>{activeTag=tag.key;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set(found.map(item=>item.id));pageIndex=0;render();}}];if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},{label:'刪除標籤（保留收藏與檔案）',run:()=>manageTag(tag,true)});menuAt(event,actions);});
+      el.addEventListener('contextmenu',event=>{event.preventDefault();if(busy)return;const found=items.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));const actions=[{label:'顯示此分類',run:()=>{activeTag=tag.key;pageIndex=0;render();}},{label:'複製此分類全部路徑（'+found.length+' 項）',disabled:!found.length,run:()=>run(async()=>{await api.copyMany(found.map(item=>item.id));callbacks.showToast('已複製 '+found.length+' 項完整路徑（包含跨頁）');})},{label:'選取此分類全部項目',run:()=>{activeTag=tag.key;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set(found.map(item=>item.id));pageIndex=0;render();}}];actions.splice(2,0,{label:'批次開啟此分類可用項目',disabled:!found.some(item=>item.status==='ready'),run:()=>batchFromMenu(found.filter(item=>item.status==='ready').map(item=>item.id),'open')},{label:'批次開啟此分類所在資料夾（去重）',disabled:!found.some(item=>item.status==='ready'),run:()=>batchFromMenu(found.filter(item=>item.status==='ready').map(item=>item.id),'locations')});if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},{label:'刪除標籤（保留收藏與檔案）',run:()=>manageTag(tag,true)});menuAt(event,actions);});
       el.setAttribute('aria-pressed',String(activeTag===tag.key));el.title=tag.name+' · '+tag.count+' 項 · 右鍵開啟分類管理';el.append(node('span','',tag.name),node('span','count-pill',String(tag.count)));container.appendChild(el);
     }
   }
@@ -154,6 +154,7 @@
       callbacks.addToRename(result);setView('rename');
     });
   }
+  async function batchFromMenu(ids,kind){await run(async()=>{const result=await (kind==='locations'?api.openLocations(ids):api.batchOpenConfirmed(ids));if(result.canceled)return;callbacks.showToast(`已開啟 ${result.opened} 項`);if(result.failures.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));});}
   function requestBulkOpen(){if(busy||!selected.size)return;if(selected.size>20){callbacks.showFailure('開啟項目過多','每次最多開啟 20 項，請縮小選取範圍。');return;}openingIds=[...selected];$('favorite-open-description').textContent=`將使用系統預設程式開啟 ${openingIds.length} 個檔案／資料夾，包含跨頁選取。外部程式可能有自己的網路行為。`;$('favorite-open-dialog').showModal();}
   function moveSelected(){if(busy||!selected.size)return;const found=items.filter(item=>selected.has(item.id));if(found.some(item=>item.type!=='file'||item.status!=='ready')){callbacks.showFailure('無法搬移','只可搬移可使用的一般檔案；資料夾請先加入工作台。');return;}window.movingUI.start(found.map(item=>item.path));}
   async function open(item) {await run(()=>api.open(item.id));}
@@ -193,6 +194,7 @@
       {label:'開啟',disabled:item.status!=='ready',run:()=>open(item)},
       {label:'顯示所在位置',disabled:item.status!=='ready',run:()=>run(()=>api.show(item.id))},
       {label:`批次開啟所選（${ids.length} 項）`,run:()=>{selected=new Set(ids);requestBulkOpen();}},
+      {label:`批次開啟所選的所在資料夾（去重）`,run:()=>batchFromMenu(ids,'locations')},
       {label:`搬移所選檔案（${ids.length} 項）`,run:()=>{selected=new Set(ids);moveSelected();}},
       {label:'複製完整路徑',run:()=>run(async()=>{await api.copy(item.id);callbacks.showToast('已複製路徑');})},
       {label:ids.length===1?'編輯標籤／重新連結':`編輯 ${ids.length} 項的標籤`,run:()=>edit(ids)},

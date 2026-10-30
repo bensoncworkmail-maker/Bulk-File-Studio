@@ -29,6 +29,9 @@
    if(control(event)||getSettings().floatingHeaderDoubleClick===false||now()-lastDrag<350)return;
    event.preventDefault();api.headerDoubleClick().catch(onError);
   });
+  const menu=event=>{if(control(event))return;event.preventDefault();event.stopPropagation();finish();return finished.then(()=>api.openFloatingHeaderMenu()).catch(onError);};
+  header.addEventListener('contextmenu',menu);
+  header.addEventListener('keydown',event=>{if((event.shiftKey&&event.key==='F10')||event.key==='ContextMenu')return menu(event);});
   return {cancel:()=>finish(),settled:()=>finished};
  }
  if(typeof module!=='undefined'&&module.exports)module.exports={init};else window.floatingHeader=Object.freeze({init});
