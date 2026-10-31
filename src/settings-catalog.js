@@ -133,6 +133,8 @@ const config={
     "homeColumns": "settings-home-columns",
     "homeItemLimit": "settings-home-limit",
     "notesSidebarMode": "settings-notes-sidebar-mode",
+    "notesSidebarCompact": "settings-notes-sidebar-compact",
+    "notesSidebarShowDetails": "settings-notes-sidebar-details",
     "notesSidebarSections": "settings-notes-sidebar-sections",
     "searchFileActions": "settings-search-file-actions"
   },
@@ -322,6 +324,8 @@ const config={
     "homeColumns": "home",
     "homeItemLimit": "home",
     "notesSidebarMode": "notes",
+    "notesSidebarCompact": "notes",
+    "notesSidebarShowDetails": "notes",
     "notesSidebarSections": "notes",
     "searchFileActions": "search",
     "homeWidgets": "home",

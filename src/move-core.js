@@ -50,6 +50,26 @@ function validate(moves){
   for(const move of moves){if(sources.has(key(move.destination)))throw new Error('來源與目標重疊');for(const dir of roots)if(inside(dir.source,move.destination))throw new Error('目標不可位於來源資料夾內');}
   assertSourceTrees(moves);
 }
+function resolveMoveSources(paths,scope='selected'){
+  if(!['selected','folders'].includes(scope))throw new Error('搬移來源範圍無效');
+  if(!Array.isArray(paths)||!paths.length||paths.length>5000)throw new Error('請選取 1–5000 個檔案／資料夾');
+  const unique=new Map(),directoryKeys=new Set();
+  for(const input of paths){
+    const source=path.resolve(assertLocalPath(input)),stat=fs.lstatSync(source);
+    if(!stat.isFile()&&!stat.isDirectory())throw new Error('只支援一般檔案與資料夾，不接受連結');
+    const resolved=scope==='folders'&&stat.isFile()?path.dirname(source):source;
+    if(resolved===path.parse(resolved).root)throw new Error('不可搬移整個磁碟根目錄；請改用已選項目，或選取磁碟內的資料夾');
+    unique.set(key(resolved),resolved);
+    if(scope==='folders'||stat.isDirectory())directoryKeys.add(key(resolved));
+  }
+  const sources=[...unique.values()];
+  return sources.filter(source=>{
+    for(let parent=path.dirname(source);;){
+      if(directoryKeys.has(key(parent)))return false;
+      const next=path.dirname(parent);if(next===parent)return true;parent=next;
+    }
+  });
+}
 function planMove(paths,folder,options={}){
   const conflict=options?.conflict??'stop';if(!['stop','number'].includes(conflict))throw new Error('同名處理方式無效');
   const reserved=new Set();
@@ -60,9 +80,7 @@ function planMove(paths,folder,options={}){
     reserved.add(key(destination));return destination;
   }
   assertLocalPath(folder);if(!fs.lstatSync(folder).isDirectory())throw new Error('請選擇目標資料夾');
-  if(!Array.isArray(paths)||!paths.length||paths.length>5000)throw new Error('請選取 1–5000 個檔案／資料夾');
-  const selected=[...new Set(paths.map(input=>path.resolve(assertLocalPath(input))))];
-  const roots=selected.filter(input=>!selected.some(other=>other!==input&&inside(other,input)&&fs.lstatSync(other).isDirectory()));
+  const roots=resolveMoveSources(paths,options?.scope??'selected');
   const moves=[];
   function add(source,destination){
     assertLocalPath(source);const stat=fs.lstatSync(source),kind=stat.isDirectory()?'folder':'file';
@@ -140,4 +158,4 @@ function prepareMoveUndo(history){
   const moves=history.moves.map(move=>({source:move.destination,destination:move.source,kind:move.kind||'file',expectedFingerprint:history.version===3?move.destinationFingerprint:move.expectedFingerprint}));
   validate(moves);return moves;
 }
-module.exports={planMove,executeRelocation,prepareMoveUndo};
+module.exports={resolveMoveSources,planMove,executeRelocation,prepareMoveUndo};

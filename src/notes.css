@@ -144,3 +144,14 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 .notes-nav-options summary { cursor:pointer; padding:4px 0; }
 .notes-nav-options .notes-nav-filters { margin-top:7px; }
 .notes-sheet-button[data-role=detail] { padding-left:18px; }
+
+.notes-sidebar[data-compact=true] { gap:5px; padding:7px; }
+.notes-sidebar[data-compact=true] .notes-sidebar-head .btn { height:28px; min-height:28px; padding:2px 6px; }
+.notes-sidebar[data-compact=true] .notes-nav-search input,.notes-sidebar[data-compact=true] select { height:32px; }
+.notes-sidebar[data-compact=true] .notes-sheet-button { min-height:30px; padding:5px 6px; margin:1px 0; }
+.notes-sidebar[data-compact=true] .notes-nav-category { margin:7px 2px 3px; padding:4px 6px; }
+.notes-sidebar[data-compact=true] .notes-nav-group-head { margin-top:4px; }
+.notes-flat-context { grid-column:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:10px; color:var(--muted); }
+.notes-sheet-button:has(.notes-flat-context) { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1px 6px; }
+.notes-sheet-button:has(.notes-flat-context) .count-pill { grid-column:2; grid-row:1 / span 2; }
+.notes-sidebar>.notes-nav-options[open] { max-height:45%; overflow:auto; }

@@ -51,9 +51,9 @@ function expandGroups(expand){
  for(const row of filterFiles()){const key=locationGroups.collapseKey(row.source,groupMode);if(expand)collapsedLocations.delete(key);else collapsedLocations.add(key);}
  saveCollapsedLocations();render();
 }
-function moveListedSelection(paths,sourceLabel='下方清單已選項目'){
+function moveListedSelection(paths,sourceLabel='下方清單已選項目',options={}){
  if(busy||window.movingUI.hasOpenDialog()||!paths.length)return;
- return window.movingUI.start(paths,{sourceLabel});
+ return window.movingUI.start(paths,{sourceLabel,...options});
 }
 function groupHeader(rows,source,table=false){
  const group=locationGroups.location(source,groupMode),members=locationGroups.members(rows,source,groupMode);
@@ -73,7 +73,7 @@ function groupHeader(rows,source,table=false){
  const move=element('button','text-action','搬移已選（'+marked.length+'）');move.type='button';move.disabled=busy||!marked.length;move.title='直接使用此位置已勾選的搜尋結果，不需重新選取來源';move.addEventListener('click',()=>moveListedSelection(marked,'此位置已勾選項目'));
  actions.append(move);
  if(groupMode==='folder'&&!/^(?:[a-z]:\/?|\/)$/i.test(group.label)){
-  const folder=element('button','text-action','搬移整個資料夾');folder.type='button';folder.disabled=busy;folder.title='直接使用此來源資料夾，包含未載入清單的全部子項目，先預覽再搬移';folder.addEventListener('click',()=>moveListedSelection([group.label],'完整來源資料夾（包含未載入清單的子項目）'));actions.append(folder);
+  const folder=element('button','text-action','搬移整個資料夾');folder.type='button';folder.disabled=busy;folder.title='直接使用此來源資料夾，包含未載入清單的全部子項目，先預覽再搬移';folder.addEventListener('click',()=>moveListedSelection([group.label],'完整來源資料夾（包含未載入清單的子項目）',{scope:'folders'}));actions.append(folder);
  }
  content.append(check,toggle,actions);return header;
 }

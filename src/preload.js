@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   chooseMoveFolder:()=>ipcRenderer.invoke('choose-move-folder'),
   chooseMoveSources:()=>ipcRenderer.invoke('choose-move-sources'),
   movePreview:(paths,folder,options)=>ipcRenderer.invoke('move-preview',paths,folder,options),
+  moveSources:(paths,scope)=>ipcRenderer.invoke('move-sources',paths,scope),
   moveFiles:(paths,folder,expected,options)=>ipcRenderer.invoke('move-files',paths,folder,expected,options),
   chooseFiles: () => ipcRenderer.invoke('choose-files'),
   chooseFolder: (recursive) => ipcRenderer.invoke('choose-folder', recursive),

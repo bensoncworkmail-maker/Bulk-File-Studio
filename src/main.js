@@ -1,7 +1,7 @@
 'use strict';
 const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage, utilityProcess } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
-const {planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
+const {resolveMoveSources,planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
@@ -420,6 +420,7 @@ app.whenReady().then(() => {
   handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),history:require('./release-history'),offline:!notesShare?.config.enabled}));
   handle('choose-move-folder',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇搬移目標（可選另一個本機磁碟）',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
   handle('choose-move-sources',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇要搬移的完整資料夾（包含所有子檔案）',properties:['openDirectory','multiSelections']});return result.canceled?[]:result.filePaths.map(assertLocalPath);});
+  handle('move-sources',(_,paths,scope)=>resolveMoveSources(paths,scope));
   handle('move-preview',(_,paths,folder,options)=>planMove(paths,folder,options));
   handle('move-files',(_,paths,folder,expected,options)=>{
     const moves=planMove(paths,folder,options);

@@ -289,3 +289,16 @@ div.file-location-group, tr.file-location-group td { padding: 10px 12px; border-
 .move-source-details { text-align:left; border:1px solid var(--line); border-radius:7px; padding:8px 10px; margin:10px 0; }
 .move-source-details summary { cursor:pointer; font-weight:600; }
 #move-source-list { white-space:pre-wrap; overflow-wrap:anywhere; max-height:150px; overflow:auto; font:inherit; font-size:12px; margin:8px 0 0; }
+
+#move-dialog { width:min(900px,calc(100% - 32px)); max-height:90vh; overflow:auto; text-align:left; }
+#move-dialog h2 { margin-bottom:10px; }
+#move-dialog .field { margin:12px 0 6px; }
+.move-locations { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+.move-location { padding:12px; border:1px solid var(--line); border-radius:8px; min-width:0; background:var(--surface); }
+.move-location h3 { font-size:13px; margin:0 0 8px; }
+.move-location code { display:block; margin-top:8px; white-space:pre-wrap; overflow-wrap:anywhere; }
+#move-preview-list { max-height:27vh; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; font-size:12px; }
+#move-dialog .modal-buttons { position:sticky; bottom:-1px; padding:10px 0; background:var(--panel); }
+.move-operation-help { font-size:12px; color:var(--muted); margin:10px 0; }
+.move-operation-help summary { cursor:pointer; }
+@media(max-width:640px) { .move-locations { grid-template-columns:1fr; } }

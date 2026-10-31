@@ -13,3 +13,6 @@ test('failed settings replacement keeps the previous file and removes the tempor
 test('settings export includes workspace display preferences without workspace record data',()=>{
  const {createSettingsExport}=require('../src/settings-export');const exported=createSettingsExport({settings:{notesPanelWidth:350,notesOpenAfterSave:true,notesPageSize:25},rules:{},presets:[],shortcuts:{}},{},'1.24.0');assert.equal(exported.settings.notesPanelWidth,350);assert.equal(exported.settings.notesOpenAfterSave,true);assert.equal(exported.settings.notesPageSize,25);assert.ok(exported.excluded.includes('dataWorkspace'));assert.equal(exported.records,undefined);
 });
+test('compact sidebar configuration supports all master layouts and round-trips without workspace data',()=>{
+ const {normalize}=require('../src/settings-model');for(const mode of ['flat','masters','groups']){const result=createSettingsExport({settings:{notesSidebarMode:mode,notesSidebarCompact:true,notesSidebarShowDetails:false},rules:{},presets:[]},{},'1.37.0');const loaded=normalize(JSON.parse(JSON.stringify(result.settings)));assert.equal(loaded.notesSidebarMode,mode);assert.equal(loaded.notesSidebarCompact,true);assert.equal(loaded.notesSidebarShowDetails,false);assert.equal(result.document,undefined);}assert.equal(normalize({notesSidebarMode:'invalid'}).notesSidebarMode,'masters');
+});

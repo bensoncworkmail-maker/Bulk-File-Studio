@@ -14,6 +14,7 @@
     for(const [key,id] of Object.entries(controls)){
       const el=$(id);if(typeof settings[key]==='boolean')el.checked=settings[key];else el.value=settings[key];
     }
+    $('settings-notes-sidebar-details').disabled=settings.notesSidebarMode!=='masters';
   }
   function update(patch,{skipNative=false}={}) {
     if(callbacks?.isBusy())return;
