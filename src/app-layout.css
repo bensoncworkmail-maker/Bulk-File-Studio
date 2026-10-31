@@ -120,3 +120,32 @@
 .app-search-file-actions .btn{min-height:28px;height:28px;padding:4px 8px;font-size:11px;}
 .app-search-item>small{display:block;margin:5px 0;}
 @media(max-width:800px){.settings-layout{grid-template-columns:170px minmax(0,1fr);gap:12px;}.settings-categories{padding:3px 8px 6px 0;}.settings-categories .settings-tabs>button{padding:9px;gap:7px;}.settings-category-icon{flex-basis:22px;width:22px;font-size:18px;}}
+/* Solid navigation colors: text contrast must not depend on a faint accent tint. */
+:root{--settings-nav-bg:#172337;--settings-nav-text:#f1f5fc;--settings-nav-secondary:#c3d0e2;--settings-nav-selected-bg:#c8dcff;--settings-nav-selected-text:#142d52;--settings-nav-selected-secondary:#29466e;--settings-nav-border:#526783;}
+:root[data-theme="light"]{--settings-nav-bg:#ffffff;--settings-nav-text:#18314f;--settings-nav-secondary:#3f526b;--settings-nav-selected-bg:#1f406a;--settings-nav-selected-text:#ffffff;--settings-nav-selected-secondary:#e2edff;--settings-nav-border:#acbbce;}
+#settings-page .settings-tabs>button{background:var(--settings-nav-bg);color:var(--settings-nav-text);border-color:var(--settings-nav-border);opacity:1;}
+#settings-page .settings-tabs>button .settings-category-copy strong,#settings-page .settings-tabs>button .settings-category-icon{color:var(--settings-nav-text);}
+#settings-page .settings-tabs>button .settings-category-copy small{color:var(--settings-nav-secondary);}
+#settings-page .settings-tabs>button:hover{background:var(--settings-nav-bg);border-color:var(--settings-nav-text);}
+#settings-page .settings-tabs>button[aria-selected=true]{background:var(--settings-nav-selected-bg);border-color:var(--settings-nav-selected-text);box-shadow:inset 4px 0 var(--settings-nav-selected-text);}
+#settings-page .settings-tabs>button[aria-selected=true] .settings-category-copy strong,#settings-page .settings-tabs>button[aria-selected=true] .settings-category-icon{color:var(--settings-nav-selected-text);}
+#settings-page .settings-tabs>button[aria-selected=true] .settings-category-copy small{color:var(--settings-nav-selected-secondary);}
+.notes-nav-search{display:flex;gap:4px;align-items:center;margin:6px 0;}
+.notes-nav-search>input{width:100%;min-width:0;min-height:32px;padding:6px 8px;font:inherit;font-size:12px;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:7px;}
+.notes-nav-search>.btn{flex-shrink:0;padding:3px 6px;min-height:29px;height:29px;}
+.notes-nav-actions{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 5px;}
+.notes-nav-actions .btn{height:27px;min-height:27px;padding:3px 6px;font-size:10px;}
+.notes-nav-current{font-size:10px;color:var(--muted);margin:0 0 7px;line-height:1.5;overflow-wrap:anywhere;}
+.notes-master-field[hidden]{display:none;}
+.notes-nav-group-head{display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:7px;background:var(--surface);margin:8px 0 4px;padding:3px;}
+.notes-nav-group-head[data-current=true]{border-color:var(--accent);box-shadow:inset 3px 0 var(--accent);}
+.notes-nav-group-head button{font:inherit;color:var(--text);background:transparent;border:0;cursor:pointer;padding:5px 3px;}
+.notes-nav-group-head>.notes-nav-disclosure{flex:0 0 24px;min-width:24px;font-size:13px;}
+.notes-nav-group-head>.notes-nav-group-name{flex:1;min-width:0;overflow-wrap:anywhere;text-align:left;font-weight:750;font-size:12px;}
+.notes-nav-group-head small{font-size:10px;color:var(--muted);padding:0 4px;white-space:nowrap;}
+.notes-nav-group-head button:focus-visible,.notes-nav-master-result:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px;}
+.notes-nav-master-result{display:block;width:100%;margin:3px 0;padding:8px 10px;text-align:left;font:inherit;font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:7px;color:var(--text);cursor:pointer;overflow-wrap:anywhere;}
+.notes-nav-master-result:hover,.notes-nav-master-result[aria-pressed=true]{border-color:var(--accent);color:var(--accent);}
+#notes-sheets>.notes-sheet-button[hidden]{display:none;}
+#notes-sheets>.notes-sheet-button[data-role=detail]{padding-left:17px;}
+@media(forced-colors:active){#settings-page .settings-tabs>button{background:Canvas;color:CanvasText;}#settings-page .settings-tabs>button :is(strong,small,.settings-category-icon){color:CanvasText;}#settings-page .settings-tabs>button[aria-selected=true]{background:Highlight;color:HighlightText;}#settings-page .settings-tabs>button[aria-selected=true] :is(strong,small,.settings-category-icon){color:HighlightText;}}

@@ -177,7 +177,8 @@ const config={
     "floatingView": "settings-floating-view",
     "floatingOnTop": "settings-floating-top",
     "floatingStartup": "settings-floating-startup",
-    "floatingShortcut": "settings-floating-shortcut"
+    "floatingShortcut": "settings-floating-shortcut",
+    "floatingShowCaption": "settings-floating-caption"
   },
   "buttonLabels": {
     "collapse": "收合／展開按鈕",
@@ -321,7 +322,9 @@ const config={
     "homeItemLimit": "home",
     "notesSidebarSections": "notes",
     "searchFileActions": "search",
-    "homeWidgets": "home"
+    "homeWidgets": "home",
+    "floatingShowCaption": "floating",
+    "notesCollapsedGroups": "notes"
   },
   "numericKeys": [
     "searchPageSize",

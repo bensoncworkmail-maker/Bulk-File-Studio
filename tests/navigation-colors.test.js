@@ -1,0 +1,6 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const css=fs.readFileSync(path.join(__dirname,'../src/app-layout.css'),'utf8').split('/* Solid navigation colors:')[1];
+function luminance(hex){const values=hex.slice(1).match(/../g).map(pair=>parseInt(pair,16)/255).map(v=>v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4);return values[0]*0.2126+values[1]*0.7152+values[2]*0.0722;}
+function ratio(a,b){const x=luminance(a),y=luminance(b);return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05);}
+for(const match of css.matchAll(/:root([^{}]*)\{([^{}]*--settings-nav-bg[^{}]*)\}/g)){const theme=match[1].includes('light')?'light':'dark',colors=Object.fromEntries([...match[2].matchAll(/--settings-nav-([\w-]+):\s*(#[0-9a-f]{6})/gi)].map(m=>[m[1],m[2]]));test('settings category '+theme+' palette exceeds WCAG AA text contrast in selected and unselected states',()=>{for(const [text,bg] of [['text','bg'],['secondary','bg'],['selected-text','selected-bg'],['selected-secondary','selected-bg']])assert.ok(ratio(colors[text],colors[bg])>=4.5,theme+' '+text+': '+ratio(colors[text],colors[bg]));assert.ok(ratio(colors.bg,colors['selected-bg'])>=3);});}

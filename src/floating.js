@@ -5,6 +5,7 @@
  async function action(task,message='名稱開啟 · ⌖ 定位 · ⧉ 複製路徑 · Esc 隱藏'){if(busy)return;busy=true;try{const result=await task();$('mini-status').textContent=typeof message==='function'?message(result):message;$('mini-status').title=result?.issues?.join('\n')||'';$('mini-status').className=result?.issues?.length?'error':'';}catch(e){$('mini-status').textContent=String(e.message||e);$('mini-status').className='error';}finally{busy=false;}}
  async function copyPaths(){if(!filteredIds.length||busy)return;await action(()=>window.favoritesAPI.copyFloatingPaths(filteredIds),result=>{const message=`已複製 ${result.count} 項路徑（包含跨頁）`;$('mini-copy-paths').title=message;return message;});}
  function render(){
+  $('mini-caption-bar').hidden=settings.floatingShowCaption===false;
   document.documentElement.dataset.collapsed=String(Boolean(settings.floatingCollapsed));
   const headerActions={collapse:'收合／展開',tools:'精簡／還原工具列',pin:'切換置頂',main:'顯示主視窗'};$('mini-header').title='拖曳移動浮動工具 · 右鍵開啟工具選單'+(settings.floatingHeaderDoubleClick===false?'':' · 雙擊：'+headerActions[settings.floatingHeaderAction||'collapse']);
   document.documentElement.dataset.listActions=settings.floatingListActions||'menu';
@@ -21,8 +22,8 @@
   $('mini-list').dataset.view=settings.floatingView||'list';
   $('mini-view-list').setAttribute('aria-pressed',String(!settings.floatingView||settings.floatingView==='list'));$('mini-view-icons').setAttribute('aria-pressed',String(settings.floatingView==='icons'));$('mini-view-tags').setAttribute('aria-pressed',String(settings.floatingView==='tags'));if(settings.floatingView==='tags')$('mini-tags').hidden=true;
   document.documentElement.dataset.theme=settings.theme||'dark';document.documentElement.style.fontSize=(settings.fontSize||'13')+'px';
-  $('mini-view-mixed').setAttribute('aria-pressed',String(settings.floatingView==='mixed'));$('mini-view-workspace').setAttribute('aria-pressed',String(settings.floatingView==='workspace'));$('mini-heading').textContent=settings.floatingView==='mixed'?'▦ 浮動工作台':settings.floatingView==='workspace'?'▣ 浮動工作區':'☆ 浮動工具';$('mini-search').placeholder=settings.floatingView==='mixed'?'搜尋收藏、標籤、主檔…':settings.floatingView==='workspace'?'搜尋主檔、電話、筆記…':'搜尋收藏…';
-  const tags=model.tagList(items,settings.tagSort,settings.tagDirection);if(tag&&!tags.some(t=>t.key===tag))tag=null;
+  $('mini-view-mixed').setAttribute('aria-pressed',String(settings.floatingView==='mixed'));$('mini-view-workspace').setAttribute('aria-pressed',String(settings.floatingView==='workspace'));$('mini-search').placeholder=settings.floatingView==='mixed'?'搜尋收藏、標籤、主檔…':settings.floatingView==='workspace'?'搜尋主檔、電話、筆記…':'搜尋收藏…';
+  const tags=model.tagList(items,settings.tagSort,settings.tagDirection);if(tag&&!tags.some(t=>t.key===tag))tag=null;$('mini-heading').textContent=settings.floatingView==='mixed'?'混合檢視':settings.floatingView==='workspace'?'資料工作區':settings.floatingView==='tags'?'收藏標籤':tag===null?'全部收藏':tag===''?'未分類':tags.find(item=>item.key===tag)?.name||tag;
   $('mini-pin').textContent='⌖';$('mini-pin').setAttribute('aria-pressed',String(settings.floatingOnTop));$('mini-pin').title=settings.floatingOnTop?'目前置頂，點選取消':'目前未置頂，點選啟用';
   if(settings.floatingView==='mixed'){renderMixed();return;}if(settings.floatingView==='workspace'){renderWorkspace();return;}
   if(settings.floatingView==='tags'){

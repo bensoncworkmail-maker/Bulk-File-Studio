@@ -117,8 +117,17 @@
               <button id="notes-edit-area" class="btn btn-ghost" title="群組名稱與主表">⚙</button>
               <button id="notes-group-menu" class="btn btn-ghost" title="群組選單（亦可右鍵或 Shift+F10）" aria-haspopup="menu">⋯</button>
             </div>
+            <div class="notes-nav-search">
+              <input id="notes-nav-search" type="search" maxlength="120" placeholder="找群組、表格或主紀錄…" aria-label="搜尋全部群組、表格或主紀錄">
+              <button id="notes-nav-clear" class="btn btn-ghost" aria-label="清除側欄搜尋" hidden>✕</button>
+            </div>
+            <div class="notes-nav-actions">
+              <button id="notes-nav-focus" class="btn btn-ghost">只看目前群組</button>
+              <button id="notes-nav-collapse-all" class="btn btn-ghost">收合全部</button>
+            </div>
+            <p id="notes-nav-current" class="notes-nav-current" role="status"></p>
             <select id="notes-area-select" aria-label="工作區群組"></select>
-            <label class="notes-master-field">
+            <label id="notes-master-picker" class="notes-master-field">
               <span id="notes-master-label">主紀錄</span>
               <select id="notes-master-select" aria-label="依主紀錄篩選"></select>
             </label>
@@ -974,6 +983,11 @@
                     <span>精簡顯示（隱藏下列控制列）</span>
                   </label>
                   <label class="check-row">
+                    <input id="settings-floating-caption" type="checkbox">
+                    <span>顯示內容標題列（目前標籤／模式）</span>
+                  </label>
+                  <p class="notes-hint">內容標題只是目前分類，沒有開啟功能；隱藏後可從標題列右鍵叫出主視窗或切換工具列。</p>
+                  <label class="check-row">
                     <input id="settings-floating-search" type="checkbox" checked>
                     <span>顯示搜尋列</span>
                   </label>
@@ -1064,7 +1078,7 @@
                   <label class="field">
                     <span>啟動時開啟</span>
                     <select id="settings-start-page">
-                      <option value="home">首頁工作台</option>
+                      <option value="home">首頁工作台（預設）</option>
                       <option value="rename">批次重新命名</option>
                       <option value="favorites">我的收藏</option>
                       <option value="notes">資料工作區</option>
