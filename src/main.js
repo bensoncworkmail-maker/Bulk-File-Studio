@@ -136,7 +136,7 @@ function showFloating(toggle=false){
     if(toggle&&floating.isVisible()){floating.hide();return;}
     floating.show();floating.focus();return;
   }
-  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · 浮動收藏',autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
+  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · 浮動工具',autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
   secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen);
   floating.on('hide',closeFloatingMenu);floating.on('close',closeFloatingMenu);
   floating.on('closed',()=>{floatingMenu=null;floating=null;floatingWindow=null;});floating.loadFile(path.join(__dirname,'floating.html'));
@@ -259,6 +259,7 @@ app.whenReady().then(() => {
     if(result.canceled||!result.filePath)return {canceled:true};
     writeSettingsExport(result.filePath,data);return {canceled:false,path:result.filePath};
   });
+  handle('desktop-settings-defaults',()=>JSON.parse(JSON.stringify(require('./desktop-state').DEFAULTS)));
   handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning:[shortcutWarning,shellWarning].filter(Boolean).join('\n')}));
   handle('floating-tag-options',()=>tagList(favorites.read().items));
   handle('startup-get',()=>desktopShell.loginStatus());

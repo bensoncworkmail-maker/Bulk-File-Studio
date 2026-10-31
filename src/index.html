@@ -1,217 +1,2150 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; media-src 'none'; worker-src 'none'">
-  <title>Bulk File Studio</title>
-  <script src="global-shortcuts.js"></script>
-  <script src="favorites-model.js"></script>
-  <script src="settings-model.js"></script>
-  <script src="theme.js"></script>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="themes.css">
-  <link rel="stylesheet" href="upgrades.css">
-  <link rel="stylesheet" href="favorites.css">
-  <link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="notes.css">
-</head>
-<body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div class="brand-wrap">
-        <div class="brand-icon">↗</div>
-        <div><div class="brand-name">Bulk File <span>Studio</span></div><div class="brand-sub">收藏位置 · 標籤分類 · 批次重新命名</div></div>
-        <span id="app-version" class="version">…</span>
-      </div>
-      <nav class="studio-tabs" aria-label="工作區"><button id="tab-rename" class="studio-tab active" aria-pressed="true">↗ 批次重新命名</button><button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button><button id="tab-notes" class="studio-tab" aria-pressed="false">▦ 資料工作區</button><button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button><button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button><button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button></nav>
-      <div class="header-right">
-        <span class="local-state"><span class="state-dot"></span><span id="app-connection-label">完全離線 · 僅處理本機檔案</span></span>
-        <button class="btn btn-ghost" id="btn-undo" title="復原上一批重新命名或搬移" disabled>↶ <span>復原上一批</span></button>
-        <button class="btn btn-ghost" id="btn-export" title="匯出預覽為 CSV" disabled>↓ 匯出 CSV</button>
-        <button id="btn-floating" class="btn btn-secondary" title="叫出浮動收藏，可在設定更改全域快捷鍵">▣ 浮動收藏</button>
-        <button id="btn-favorite-selected" class="btn btn-ghost" disabled>☆ 收藏選取</button>
-      </div>
-    </header>
-
-
-<section id="search-page" class="settings-page app-search-page hidden" aria-labelledby="app-search-title"><div class="settings-heading"><div><h1 id="app-search-title">全域搜尋</h1><p class="notes-hint">搜尋已加入本機應用程式的資料與位置；不讀取檔案內容、不掃描磁碟。</p></div><button id="app-search-settings" class="btn btn-ghost">搜尋設定</button></div><div class="app-search-input"><input id="app-search-query" type="search" maxlength="256" placeholder="客戶名稱、電話、Email、檔案／資料夾路徑、標籤…" aria-label="搜尋所有本機應用程式資料"><button id="app-search-run" class="btn btn-primary">搜尋</button><button id="app-search-clear" class="btn btn-ghost">清除</button></div><div id="app-search-types" class="notes-tools" role="group" aria-label="搜尋結果類型"></div><p id="app-search-status" class="notes-hint" role="status" aria-live="polite">輸入客戶名稱找聯絡人與文件，或輸入位置查看哪些主檔正在引用。</p><div id="app-search-results" class="app-search-results"></div></section>
-<section id="notes-page" class="notes-page hidden" aria-labelledby="notes-title">
- <div class="notes-top"><div><h1 id="notes-title">資料工作區</h1><span class="notes-sub">主檔與明細 · 全域搜尋</span></div><div class="notes-tools"><button id="notes-back-search" class="btn btn-ghost" hidden>← 返回搜尋</button><button id="notes-share-open" class="btn btn-ghost">共享資料包</button><details id="notes-tools-menu" class="notes-overflow"><summary class="btn btn-secondary">更多操作 ▾</summary><div class="notes-overflow-menu"><button id="notes-template" class="btn btn-secondary">範本庫</button><button id="notes-new-sheet" class="btn btn-secondary">＋ 表格</button><button id="notes-add-detail-sheet" class="btn btn-ghost">＋ 明細表</button><button id="notes-trash-view" class="btn btn-ghost">回收筒</button><button id="notes-import" class="btn btn-ghost">匯入</button><button id="notes-export" class="btn btn-ghost">匯出</button><button id="notes-restore-backup" class="btn btn-ghost">還原備份</button><button id="notes-refresh" class="btn btn-ghost" title="重新讀取本機資料">↻</button></div></details></div></div>
-<div class="notes-searchbar"><input id="notes-search" type="search" maxlength="256" placeholder="搜尋主檔、明細、欄位、筆記、標籤或位置…" aria-label="搜尋資料工作區"><select id="notes-search-scope" aria-label="搜尋範圍"><option value="sheet">目前表格</option><option id="notes-scope-master" value="master">目前主紀錄與明細</option><option value="area">目前群組的全部表格</option><option value="all">全域：所有群組、主檔與明細</option><option value="masters">全域：只搜尋主檔</option></select><div id="notes-filters" class="notes-filters"><label hidden><input id="notes-global-search" type="checkbox">跨表搜尋</label><select id="notes-tag-filter" aria-label="依標籤篩選"><option value="">全部標籤</option></select><select id="notes-sort" aria-label="資料排序"><option value="updated">最近修改</option><option value="title">名稱</option><option id="notes-sort-column" value="column" hidden disabled>欄位排序</option></select></div><div class="notes-view-toggle"><button id="notes-view-list" class="btn btn-ghost" aria-pressed="true" title="清單檢視">☷ 清單</button><button id="notes-view-cards" class="btn btn-ghost" aria-pressed="false" title="卡片檢視">▦ 卡片</button><button id="notes-tabular-open" class="btn btn-ghost" title="貼上 Excel 清單或選擇 .xlsx，對應欄位後建立新紀錄">貼上／Excel 建立</button><button id="notes-view-grid" class="btn btn-ghost" aria-pressed="false" title="儲存格編輯，支援多格貼上">▦ 儲存格</button><button id="notes-card-config" class="btn btn-ghost" title="調整卡片高度、顯示內容與各表格欄位">卡片設定</button></div></div>
-<div class="notes-workbar"><label id="notes-grid-paste-label" hidden>儲存格貼上：<select id="notes-grid-paste-mode"><option value="create">建立新紀錄</option><option value="update">更新既有儲存格</option></select></label><select id="notes-saved-views" aria-label="儲存檢視"><option value="">儲存檢視…</option></select><button id="notes-manage-tools" class="btn btn-ghost">儲存檢視／範本</button><select id="notes-date-field" aria-label="日期篩選欄位"><option value="">所有日期欄位</option><option value="updatedAt">修改日期</option></select><select id="notes-due" aria-label="日期篩選"><option value="all">不限日期</option><option value="overdue">已逾期</option><option value="7">未來 7 日</option><option value="30">未來 30 日</option><option value="90">未來 90 日</option></select></div>
-<p id="notes-status" class="notes-status" role="status">開啟後讀取本機資料。</p>
- <div id="notes-layout" class="notes-layout"><aside id="notes-sidebar" class="notes-sidebar"><div class="notes-sidebar-head"><strong>工作區群組</strong><button id="notes-new-area" class="btn btn-ghost" title="新增工作區群組">＋</button><button id="notes-edit-area" class="btn btn-ghost" title="群組名稱與主表">⚙</button><button id="notes-group-menu" class="btn btn-ghost" title="群組選單（亦可右鍵或 Shift+F10）" aria-haspopup="menu">⋯</button></div><select id="notes-area-select" aria-label="工作區群組"></select><label class="notes-master-field"><span id="notes-master-label">主紀錄</span><select id="notes-master-select" aria-label="依主紀錄篩選"></select></label><div class="notes-sidebar-head"><strong>主檔與明細表</strong><button id="notes-organize" class="btn btn-ghost" title="批次管理群組及表格">批次</button><button id="notes-panel-view" class="btn btn-ghost" title="切換側欄清單／卡片" aria-pressed="false">▦</button></div><div id="notes-sheets"></div><small>▣ 主檔清單 · ↳ 明細表</small><button id="notes-open-storage" class="btn btn-ghost" title="目前使用本機 workspace.sqlite；不支援在共享磁碟直接多人編輯">本機資料位置 ↗</button><details class="notes-storage-help"><summary>儲存與分享</summary><p>主資料庫 workspace.sqlite 留在本機。可選用「共享資料包」，在明確指定的資料夾定期檢查或發佈快照，預設關閉；此功能可經區域網路存取共享磁碟。收到資料包仍須先預覽再匯入，不會自動合併。一般收藏、改名與檔案操作仍拒絕 UNC 路徑。</p></details></aside><div id="notes-panel-resizer" class="notes-panel-resizer" role="separator" aria-label="調整工作區群組側欄寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" tabindex="0"></div>
- <main class="notes-content"><div id="notes-master-context" class="notes-master-context" hidden><small id="notes-master-badge">目前主檔</small><div class="notes-master-title-row"><button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button><strong id="notes-master-heading"></strong><div class="notes-tools"><button id="notes-master-edit" class="btn btn-ghost">編輯主檔</button><button id="notes-pin-master" class="btn btn-ghost" aria-pressed="false">☆ 釘選浮動工具</button><button id="notes-master-overview" class="btn btn-ghost">主檔總覽</button><button id="notes-complete-client" class="btn btn-ghost" hidden>補齊客戶明細表</button></div></div><p id="notes-master-info" class="notes-hint"></p></div><div id="notes-detail-tabs" class="notes-detail-tabs" role="tablist" aria-label="目前主紀錄的明細表" hidden></div><div class="notes-content-top"><div><p id="notes-context" class="notes-context"></p><h2 id="notes-sheet-title">選取或新增表格</h2><span id="notes-count" class="notes-sub"></span></div><div class="notes-tools"><button id="notes-edit-sheet" class="btn btn-ghost">欄位與表格</button><button id="notes-delete-sheet" class="btn btn-ghost">移至回收筒</button><button id="notes-new-record" class="btn btn-primary">＋ 紀錄</button></div></div>
- <div id="notes-quickbar" class="notes-quickbar notes-tools"><button id="notes-copy-table" class="btn btn-ghost">複製篩選表格</button><button id="notes-export-area" class="btn btn-ghost">匯出此群組</button><button id="notes-clear-filters" class="btn btn-ghost">清除篩選</button><span class="notes-hint">複製的表格可貼到 Excel；資料仍存於本機。</span></div>
- <div class="notes-selection-top"><div class="notes-current-bar"><strong id="notes-current-record">尚未選取紀錄</strong><button id="notes-inspect-current" class="btn btn-ghost" disabled>查看目前紀錄</button><small>目前紀錄與批次勾選分開標示</small></div><div id="notes-selection-bar" class="notes-selection-bar"><small id="notes-card-select-hint" hidden>單擊開啟 · 勾選框選取 · Shift 範圍／Ctrl 增減</small><span id="notes-selected-count">已選 0 筆</span><button id="notes-select-filtered" class="btn btn-ghost">選取全部篩選結果</button><button id="notes-unselect" class="btn btn-ghost" disabled>取消選取</button><button id="notes-batch-delete" class="btn btn-ghost" disabled>批次移至回收筒</button></div></div><div id="notes-table" class="notes-table" role="region" aria-label="紀錄列表"></div><div id="notes-pagination" class="notes-pagination"><button id="notes-prev" class="btn btn-ghost">‹ 上一頁</button><span id="notes-page-info"></span><button id="notes-next" class="btn btn-ghost">下一頁 ›</button></div></main>
- <aside id="notes-detail" class="notes-detail" hidden><div class="notes-detail-head"><strong>紀錄總覽</strong><button id="notes-detail-close" class="btn btn-ghost" aria-label="關閉紀錄總覽">✕</button></div><div id="notes-detail-body"></div></aside></div>
-</section>
-
-    <section id="settings-page" class="settings-page hidden" aria-labelledby="settings-title">
-      <div class="settings-heading"><div><h1 id="settings-title">設定</h1><p>外觀、清單版面及預設操作；變更會自動儲存。</p></div><span id="settings-save-status" role="status">設定會保留至下次啟動</span></div>
-<nav class="settings-tabs" role="tablist" aria-label="設定分類"><button id="settings-tab-appearance" class="btn btn-ghost" role="tab" aria-controls="settings-panel-appearance" aria-selected="true" tabindex="0">外觀</button><button id="settings-tab-search" class="btn btn-ghost" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1">全域搜尋</button><button id="settings-tab-workspace" class="btn btn-ghost" role="tab" aria-controls="settings-panel-workspace" aria-selected="false" tabindex="-1">工作區</button><button id="settings-tab-notes" class="btn btn-ghost" role="tab" aria-controls="settings-panel-notes" aria-selected="false" tabindex="-1">資料工作區</button><button id="settings-tab-favorites" class="btn btn-ghost" role="tab" aria-controls="settings-panel-favorites" aria-selected="false" tabindex="-1">收藏</button><button id="settings-tab-floating" class="btn btn-ghost" role="tab" aria-controls="settings-panel-floating" aria-selected="false" tabindex="-1">浮動工具</button><button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">啟動</button><button id="settings-tab-data" class="btn btn-ghost" role="tab" aria-controls="settings-panel-data" aria-selected="false" tabindex="-1">資料</button></nav>
-<div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance"><section class="settings-card"><h2>外觀與閱讀</h2><label class="check-row"><input id="settings-tips" type="checkbox" checked><span>顯示精簡操作提示</span></label><label class="field"><span>外觀主題</span><select id="theme-select"><option value="light">☀ 淺色</option><option value="dark">☾ 深色</option></select></label><label class="field"><span>字體大小</span><select id="font-size-select"><option value="12">12 px 小</option><option value="13">13 px 標準</option><option value="15">15 px 中</option><option value="17">17 px 大</option><option value="19">19 px 特大</option></select></label><label class="field"><span>清單密度</span><select id="settings-density"><option value="compact">精簡：同時顯示更多項目</option><option value="comfortable">舒適：較大的行距</option></select></label><label class="check-row"><input id="settings-show-paths" type="checkbox"><span>在來源／改名預覽顯示路徑第二行（收藏固定分欄）</span></label><p class="rule-hint">關閉第二行時，將滑鼠移到檔名仍可查看完整路徑。</p></section></div>
-<div id="settings-panel-search" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-search" hidden><section class="settings-card"><h2>搜尋來源</h2><label class="check-row"><input id="settings-search-records" type="checkbox"><span>工作區紀錄</span></label><label class="check-row"><input id="settings-search-paths" type="checkbox"><span>檔案／資料夾位置與引用</span></label><label class="check-row"><input id="settings-search-favorites" type="checkbox"><span>收藏</span></label><label class="check-row"><input id="settings-search-tags" type="checkbox"><span>標籤</span></label><label class="check-row"><input id="settings-search-structure" type="checkbox"><span>群組／表格／欄位名稱</span></label><label class="check-row"><input id="settings-search-tools" type="checkbox"><span>儲存檢視與自訂範本</span></label><label class="check-row"><input id="settings-search-presets" type="checkbox"><span>命名規則範本</span></label><label class="check-row"><input id="settings-search-sources" type="checkbox"><span>目前改名工作台清單</span></label></section><section class="settings-card"><h2>搜尋與關聯</h2><label class="check-row"><input id="settings-search-related" type="checkbox"><span>展開主從關聯資料</span></label><label class="check-row"><input id="settings-search-case" type="checkbox"><span>區分英文大小寫</span></label><label class="check-row"><input id="settings-search-empty" type="checkbox"><span>未輸入文字時也顯示資料</span></label><label class="field"><span>多個關鍵字（空格分隔）</span><select id="settings-search-match"><option value="all">符合全部</option><option value="any">符合任一</option></select></label><label class="field"><span>每類結果每頁筆數</span><select id="settings-search-size"><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="200">200</option></select></label><label class="field"><span>紀錄摘要字數</span><input id="settings-search-snippet" type="number" min="80" max="400" value="180"></label><p class="notes-hint">位置引用以完整路徑去重，主檔數也去重。文字路徑、分享待確認連結仍可列出關係，但搜尋不會自動開啟或授權它們。搜尋文字不寫入持久紀錄。</p></section></div><div id="settings-panel-workspace" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-workspace" hidden><section class="settings-card"><h2>工作區與清單</h2><label class="field"><span>來源面板寬度 <output id="settings-source-width-value">220 px</output></span><input id="settings-source-panel-width" type="range" min="160" max="480" step="1" value="220"></label><p class="rule-hint">拖曳來源面板右邊界亦可調整，雙擊還原。窄視窗會限制實際寬度。</p><label class="check-row"><input id="settings-remember-window" type="checkbox" checked><span>記住視窗大小、位置與最大化狀態</span></label><button id="btn-window-reset" class="btn btn-ghost" title="恢復預設視窗大小並移回可見螢幕">還原視窗大小</button><label class="field"><span>命名規則面板寬度 <output id="settings-rules-width-value">420 px</output></span><input id="settings-rules-width" type="range" min="280" max="720" step="1" value="420"></label><p class="rule-hint">亦可拖曳命名規則左邊界；雙擊還原。窄視窗會限制實際寬度。</p><label class="field"><span>每頁顯示筆數（來源、預覽與收藏共用）</span><select id="settings-page-size"><option value="100">100 筆</option><option value="250">250 筆</option><option value="500">500 筆</option></select></label><label class="field"><span>啟動時開啟</span><select id="settings-start-page"><option value="rename">批次重新命名</option><option value="favorites">我的收藏</option><option value="notes">資料工作區</option><option value="search">全域搜尋</option></select></label><label class="check-row"><input id="settings-show-source" type="checkbox"><span>顯示來源清單面板</span></label><label class="check-row"><input id="settings-show-rules" type="checkbox"><span>顯示命名規則面板</span></label><p class="rule-hint">也可在工作台直接收合面板，或使用「專注清單」擴大預覽區。分頁只改變顯示，不改變實際處理的選取範圍。</p></section><section class="settings-card"><h2>重新命名預設</h2><label class="check-row"><input id="settings-recursive" type="checkbox"><span>加入資料夾時預設包含子資料夾檔案</span></label><label class="check-row"><input id="settings-remember-rules" type="checkbox"><span>重開程式後保留上次命名規則</span></label><label class="check-row"><input id="settings-reset-rules" type="checkbox"><span>完成改名／復原後重設命名規則</span></label><label class="field"><span>預設編號排序（下次重設規則時使用）</span><select id="settings-sort-by"><option value="path">完整路徑</option><option value="name">檔案名稱</option><option value="modified">修改時間</option></select></label><label class="field"><span>預設排序方向</span><select id="settings-sort-direction"><option value="asc">遞增／舊至新</option><option value="desc">遞減／新至舊</option></select></label></section><section class="settings-card"><h2>副檔名與檔案格式</h2><p>可以批次修改副檔名，例如 <strong>.jpeg → .jpg</strong>、<strong>.TXT → .txt</strong>；入口在工作台上方的「副檔名」。</p><p class="rule-hint">更改副檔名只會改名稱，不會轉換內容。將 .jpg 改成 .png 並不會產生 PNG 圖片；真正的格式轉換需使用對應的轉換工具。</p></section></div>
-<div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden><section class="settings-card"><h2>資料工作區版面</h2><label class="field"><span>左側表格導覽</span><select id="settings-notes-panel-view"><option value="list">精簡清單</option><option value="cards">摘要卡片</option></select></label><label class="field"><span>預設檢視</span><select id="settings-notes-view"><option value="list">清單</option><option value="cards">卡片</option><option value="grid">儲存格</option></select></label><label class="check-row"><input id="settings-notes-compact" type="checkbox" checked><span>精簡工作區工具列與間距</span></label><label class="field"><span>卡片大小</span><select id="settings-notes-card-size"><option value="small">小</option><option value="medium">中</option><option value="large">大</option></select></label><label class="field"><span>群組側欄寬度 <output id="settings-notes-panel-width-value">220 px</output></span><input id="settings-notes-panel-width" type="range" min="160" max="480" value="220"></label><p class="rule-hint">亦可拖曳側欄右邊界；雙擊還原 220 px，方向鍵微調，窄視窗會限制顯示寬度。</p><label class="field"><span>紀錄總覽寬度 <output id="settings-notes-detail-width-value">400 px</output></span><input id="settings-notes-detail-width" type="range" min="280" max="680" value="400"></label><label class="field"><span>最小列高 <output id="settings-notes-row-height-value">36 px</output></span><input id="settings-notes-row-height" type="range" min="28" max="64" value="36"></label><label class="field"><span>工作區每頁紀錄數</span><select id="settings-notes-page-size"><option value="25">25 筆</option><option value="50">50 筆</option><option value="100">100 筆</option><option value="250">250 筆</option></select></label></section><section class="settings-card"><h2>卡片顯示內容</h2><label class="field"><span>卡片高度（px；0 為自動）</span><input id="settings-notes-card-height" type="number" min="0" max="600" step="1" value="0"></label><p class="notes-hint">自動依內容縮放；固定高度為 120–600 px。內容過多時可在卡片內捲動，底部編輯保留。</p><label class="check-row"><input id="settings-notes-card-type" type="checkbox"><span>紀錄類型（主檔／明細）</span></label><label class="check-row"><input id="settings-notes-card-relations" type="checkbox"><span>自訂關聯欄位</span></label><label class="check-row"><input id="settings-notes-card-empty-links" type="checkbox"><span>連結數為 0 時仍顯示</span></label><p class="rule-hint">標題與選取操作固定保留；資料欄位可依每張表格個別選擇，不會改動資料。</p><label class="check-row"><input id="settings-notes-card-context" type="checkbox"><span>群組／表格</span></label><label class="check-row"><input id="settings-notes-card-parent" type="checkbox"><span>所屬主檔</span></label><label class="check-row"><input id="settings-notes-card-notes" type="checkbox"><span>筆記摘要</span></label><label class="check-row"><input id="settings-notes-card-tags" type="checkbox"><span>分類標籤</span></label><label class="check-row"><input id="settings-notes-card-date" type="checkbox"><span>修改日期</span></label><label class="check-row"><input id="settings-notes-card-links" type="checkbox"><span>連結位置數量</span></label><button id="settings-notes-card-config" class="btn btn-secondary">設定各表格卡片欄位</button></section><section class="settings-card"><h2>工作區搜尋</h2><label class="field"><span>開啟工作區時的預設搜尋範圍</span><select id="settings-notes-search-scope"><option value="sheet">目前表格</option><option value="master">目前主紀錄與明細（未選主檔時使用目前表格）</option><option value="area">目前群組</option><option value="all">全域：所有群組、主檔與明細</option><option value="masters">全域：只搜尋主檔</option></select></label><label class="field"><span>多個關鍵字（以空格分隔）</span><select id="settings-notes-search-match"><option value="all">符合全部關鍵字</option><option value="any">符合任一關鍵字</option></select></label><label class="check-row"><input id="settings-notes-search-case" type="checkbox"><span>區分英文大小寫</span></label><p class="rule-hint">標題、群組與表格名稱一律搜尋；可額外包含：</p><label class="check-row"><input id="settings-notes-search-fields" type="checkbox"><span>自訂欄位</span></label><label class="check-row"><input id="settings-notes-search-notes" type="checkbox"><span>筆記</span></label><label class="check-row"><input id="settings-notes-search-tags" type="checkbox"><span>分類標籤</span></label><label class="check-row"><input id="settings-notes-search-paths" type="checkbox"><span>檔案位置與收藏標籤連結</span></label><label class="check-row"><input id="settings-notes-search-parent" type="checkbox"><span>相關主檔內容</span></label></section><section class="settings-card"><h2>紀錄操作</h2><label class="field"><span>清單：開啟主從明細／紀錄總覽</span><select id="settings-notes-open-mode"><option value="single">單擊選取並開啟</option><option value="double">單擊選取、雙擊開啟</option></select></label><label class="check-row"><input id="settings-notes-open-save" type="checkbox"><span>儲存新紀錄後自動開啟總覽（預設關閉）</span></label><p class="rule-hint">關閉時會留在清單並標示剛儲存的紀錄；已開啟總覽的紀錄編輯後仍保留總覽。</p><label class="check-row"><input id="settings-notes-cascade" type="checkbox"><span>刪除主紀錄時預先勾選連同明細（仍須確認）</span></label><label class="field"><span>開啟連結選擇器時顯示</span><select id="settings-notes-link-mode"><option value="paths">檔案／資料夾位置</option><option value="tags">收藏標籤</option></select></label></section><section class="settings-card"><h2>顯示項目</h2><label class="check-row"><input id="settings-notes-quick" type="checkbox" checked><span>顯示複製、匯出與清除篩選快捷列</span></label><label class="check-row"><input id="settings-notes-help" type="checkbox" checked><span>顯示主從關係與未選主檔的操作說明</span></label><label class="check-row"><input id="settings-notes-counts" type="checkbox" checked><span>顯示側欄與明細分頁紀錄數量</span></label><p class="rule-hint">資料工作區偏好包含於「匯出設定 JSON」；資料本身請使用工作區資料包匯出。</p></section><section class="settings-card"><h2>共享資料包</h2><p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；其他資料包仍需先預覽再匯入。</p><p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p><button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button></section></div>
-<div id="settings-panel-favorites" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-favorites" hidden><section class="settings-card"><h2>收藏清單</h2><label class="field"><span>圖示模式尺寸</span><select id="settings-favorite-icon-size"><option value="small">小：顯示更多項目</option><option value="medium">中</option><option value="large">大</option></select></label><label class="field"><span>檢視模式</span><select id="settings-favorite-view"><option value="list">清單</option><option value="icons">圖示</option></select></label><label class="field"><span>標籤面板寬度 <output id="settings-tag-width-value">220 px</output></span><input id="settings-tag-panel-width" type="range" min="140" max="480" step="1" value="220"></label><label class="field"><span>檔案／資料夾開啟方式（收藏與浮動工具）</span><select id="settings-favorite-open"><option value="double">雙擊（單擊選取）</option><option value="single">單擊直接開啟／定位</option></select></label><label class="check-row"><input id="settings-file-icons" type="checkbox" checked><span>顯示檔案／資料夾圖示</span></label><label class="field"><span>收藏排序</span><select id="settings-favorite-sort"><option value="recent">收藏時間</option><option value="name">名稱</option><option value="path">位置</option><option value="size">大小</option><option value="modified">修改時間</option><option value="type">類型</option></select></label><label class="field"><span>排序方向</span><select id="settings-favorite-direction"><option value="asc">遞增</option><option value="desc">遞減</option></select></label><button id="btn-settings-columns" class="btn btn-secondary">管理顯示欄位及順序</button><p>欄位設定與標籤排序會保留。資料夾大小顯示 —，不會掃描整個資料夾。</p></section><section class="settings-card"><h2>收藏快捷鍵</h2><p>點選欄位後按新組合；Backspace 清除。只在收藏頁生效，輸入文字及開啟對話框時不攔截。</p><div id="shortcut-settings"></div><p id="shortcut-status" role="status"></p><button id="btn-shortcuts-reset" class="btn btn-secondary">還原預設快捷鍵</button></section></div>
-<div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden><section class="settings-card"><h2>浮動收藏工具</h2><label class="check-row"><input id="settings-floating-keep-tray" type="checkbox" checked><span>主視窗隱藏至系統匣時，保留已置頂的浮動工具</span></label><p class="rule-hint">請先於「啟動」勾選關閉主視窗後保留在系統匣。此選項只保留目前可見的置頂工具，不會叫出已隱藏的視窗；完全結束程式仍會關閉浮動工具。項目開啟方式共用「收藏 → 檔案／資料夾開啟方式」，預設雙擊。</p><label class="field"><span>全域收合／展開快捷鍵（預設停用）</span><input type="text" id="settings-collapse-shortcut" readonly placeholder="點此後按組合鍵，例如 Ctrl+Alt+Space" aria-label="全域收合展開快捷鍵"><span class="shortcut-buttons"><button id="btn-collapse-shortcut-clear" type="button" class="btn btn-ghost">停用</button><button id="btn-collapse-shortcut-default" type="button" class="btn btn-ghost">還原預設（停用）</button></span><small>在其他程式工作時也生效；主程式須仍執行。Tab 離開、Esc 取消、Backspace 清除。避免使用其他軟件常用組合。</small></label><p>預設展開尺寸：<output id="settings-floating-default-size">320 × 400 px</output></p><p class="rule-hint">浮動工具標題列按右鍵，可儲存目前展開大小為預設、展開並套用預設大小，或還原為 320 × 400。預設尺寸與最小尺寸、最後視窗大小分開儲存；套用時仍受最小尺寸及螢幕範圍限制。</p><button id="btn-floating-small" class="btn btn-secondary">套用精簡尺寸（260 × 300）</button><p class="rule-hint">預設展開最小尺寸為 220 × 120 px，可在下方調整。小於最小尺寸時只放大到設定的下限，不會重設為 320 × 400。收合仍為 92 × 40 px；展開記住最後寬高。</p><label class="field"><span>展開視窗最小寬度（160–800 px）</span><input id="settings-floating-min-width" type="number" min="160" max="800" step="1" value="220"></label><label class="field"><span>展開視窗最小高度（80–800 px）</span><input id="settings-floating-min-height" type="number" min="80" max="800" step="1" value="120"></label><p class="rule-hint">調低下限後，可拖曳邊緣縮小視窗。160 × 80 是操作下限；太小時建議隱藏工具列。螢幕空間不足會限制在可見範圍內，重啟記憶需啟用「記住視窗大小」。</p><label class="field"><span>不透明度 <output id="settings-floating-opacity-value">100%</output></span><input id="settings-floating-opacity" type="range" min="40" max="100" step="5" value="100"></label><label class="check-row"><input id="settings-floating-opaque-focus" type="checkbox" checked><span>操作浮動工具時恢復完全不透明</span></label><label class="check-row"><input id="settings-floating-collapsed" type="checkbox"><span>收合浮動工具為標題列（記住狀態）</span></label><label class="field"><span>收合寬度（92–800 px）</span><input id="settings-floating-collapsed-width" type="number" min="92" max="800" step="1" value="92"></label><p class="rule-hint">收合後可拖曳左右邊緣調寬，放開即儲存；高度固定 40 px。展開寬高與收合寬度分開記憶，重新啟動亦保留收合寬度。停用「記住視窗大小」只影響重啟時的展開尺寸與位置。</p><label class="check-row"><input id="settings-floating-header-double" type="checkbox" checked><span>啟用浮動工具標題列雙擊動作</span></label><p class="rule-hint">標題列指最上方「浮動收藏」所在的一列；雙擊標題、空白區或收合後的握柄即可，按鈕區不觸發。拖曳標題列仍可移動；停用雙擊後可用 ▴／▾、F8 或全域快捷鍵收合。</p><label class="field"><span>標題列雙擊動作</span><select id="settings-floating-header-action"><option value="collapse">收合／展開（預設）</option><option value="tools">精簡／還原工具列</option><option value="pin">切換置頂</option><option value="main">顯示主視窗</option></select></label><details><summary>各模式項目高度與操作按鈕</summary><label class="field"><span>清單模式最小項目高度（24–160 px）</span><input id="settings-floating-list-height" type="number" min="24" max="160" step="1" value="32"></label><label class="field"><span>圖示模式最小項目高度（24–160 px）</span><input id="settings-floating-icon-height" type="number" min="24" max="160" step="1" value="32"></label><label class="check-row"><input id="settings-floating-tag-follow-list" type="checkbox" checked><span>標籤列使用與清單列相同高度（建議）</span></label><label class="field"><span>標籤模式最小項目高度（24–160 px）</span><input id="settings-floating-tag-height" type="number" min="24" max="160" step="1" value="32"></label><label class="field"><span>清單模式的操作按鈕</span><select id="settings-floating-list-actions"><option value="normal">一般按鈕</option><option value="compact">縮小按鈕</option><option value="menu">⋯ 選單（建議）</option><option value="hidden">隱藏（右鍵或 Shift+F10 開啟）</option></select></label><label class="field"><span>圖示模式的 ⋯ 操作按鈕</span><select id="settings-floating-icon-actions"><option value="menu">顯示</option><option value="hidden">隱藏（按右鍵仍可開啟）</option></select></label><label class="field"><span>標籤模式的 ⋯ 操作按鈕</span><select id="settings-floating-tag-actions"><option value="menu">顯示（標籤及展開後的項目）</option><option value="hidden">隱藏（按右鍵仍可開啟）</option></select></label><p class="rule-hint">三種模式預設最小高度均為 32 px；圖示模式低於 60 px 使用橫向小圖示，60 px 起改用上下排列。字體較大、換行或顯示路徑時可自動增高。高度只影響工具內項目，原生彈出選單列高由系統決定。無論 ⋯ 是否顯示，右鍵或 Shift+F10 都會開啟視窗外選單。</p></details><label class="check-row"><input id="settings-floating-paths" type="checkbox"><span>清單顯示路徑第二行</span></label><p class="rule-hint">F8 收合／展開，Ctrl+1／2／3 切換清單／圖示／標籤，Ctrl+F 搜尋，Ctrl+Shift+C 複製篩選結果全部路徑（跨頁）。Esc 先關選單或暫時搜尋，再隱藏視窗。</p><label class="field"><span>底部分頁列</span><select id="settings-floating-pager"><option value="auto">自動：只有一頁時隱藏（建議）</option><option value="always">永遠顯示</option><option value="hidden">永遠隱藏（PageUp／PageDown 換頁）</option></select></label><label class="field"><span>圖示模式尺寸</span><select id="settings-floating-icon-size"><option value="small">小：14 px，適合緊湊工具</option><option value="medium">中：18 px</option><option value="large">大：24 px</option></select></label><label class="check-row"><input id="settings-floating-compact" type="checkbox"><span>精簡顯示（隱藏下列控制列）</span></label><label class="check-row"><input id="settings-floating-search" type="checkbox" checked><span>顯示搜尋列</span></label><label class="check-row"><input id="settings-floating-tools" type="checkbox" checked><span>顯示檢視／匯入工具列</span></label><label class="check-row"><input id="settings-floating-tags" type="checkbox" checked><span>顯示標籤列</span></label><label class="check-row"><input id="settings-floating-status" type="checkbox"><span>顯示底部操作提示及成功訊息</span></label><p class="rule-hint">小視窗標題列的「▤」可一鍵精簡／還原。錯誤訊息仍會顯示，分頁列依上方設定；Ctrl+F 可暫時叫出搜尋列。圖示右上角 ⋯ 可定位及複製路徑。</p><label class="field"><span>標籤檔案選單</span><select id="settings-floating-tag-presentation"><option value="popup">視窗外彈出選單（建議）</option><option value="inline">視窗內展開清單</option></select></label><p class="rule-hint">彈出選單不佔小視窗高度；選單指令一按開啟，不使用雙擊。每組超過 40 項會分段為子選單；大量項目建議用搜尋或主視窗。視窗內清單沿用單擊／雙擊偏好。</p><details><summary>自訂浮動工具按鈕</summary><fieldset id="settings-floating-buttons"><legend>勾選要顯示的按鈕／提示</legend></fieldset><p class="rule-hint">收合／展開、關閉及拖曳區保留。控制列的顯示與精簡設定優先；隱藏按鈕後仍可從設定切換模式，Ctrl+1／2／3、Ctrl+F、Ctrl+Shift+C 仍可使用。</p></details><details><summary>自訂標籤模式顯示分類</summary><label class="check-row"><input id="settings-floating-all-tag" type="checkbox" checked><span>顯示「全部收藏」</span></label><label class="check-row"><input id="settings-floating-untagged" type="checkbox" checked><span>顯示「未分類」</span></label><label class="field"><span>自訂標籤範圍</span><select id="settings-floating-tag-scope"><option value="all">全部標籤（包含以後新增）</option><option value="selected">只顯示下方勾選的標籤</option></select></label><fieldset id="settings-floating-tag-choices"><legend>顯示的自訂標籤</legend><div id="settings-floating-tag-options"></div></fieldset><p class="rule-hint">只影響浮動工具的標籤模式，不刪除標籤或收藏。改名／合併標籤後請重新勾選新名稱；只選部分標籤時，新增標籤預設隱藏。</p></details><label class="field"><span>檢視模式</span><select id="settings-floating-view"><option value="list">清單</option><option value="icons">圖示</option><option value="tags">標籤選單</option><option value="workspace">工作區主檔</option><option value="mixed">混合：收藏／標籤／工作區</option></select></label><label class="check-row"><input id="settings-mixed-files" type="checkbox" checked><span>混合模式顯示最近收藏</span></label><label class="check-row"><input id="settings-mixed-tags" type="checkbox" checked><span>混合模式顯示收藏標籤</span></label><label class="check-row"><input id="settings-mixed-workspace" type="checkbox" checked><span>混合模式顯示釘選／最近主檔</span></label><label class="field"><span>混合模式每區最多項目</span><input id="settings-mixed-limit" type="number" min="3" max="30" value="8"></label><p>在小視窗切換標籤、搜尋、開啟、複製路徑及拖放收藏；標題列可切換置頂。主程式執行期間可使用全域快捷鍵顯示／隱藏；系統匣及退出行為可於「啟動」設定。</p><button id="btn-settings-floating" class="btn btn-primary">顯示浮動收藏</button><label class="check-row"><input id="settings-floating-top" type="checkbox" checked><span>浮動收藏保持置頂</span></label><label class="check-row"><input id="settings-floating-startup" type="checkbox"><span>啟動程式時顯示浮動收藏</span></label><label class="field"><span>全域快捷鍵（程式執行期間）</span><input id="settings-floating-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵" aria-label="自訂浮動工具全域快捷鍵"><span class="shortcut-buttons"><button type="button" id="btn-floating-shortcut-clear" class="btn btn-ghost">停用</button><button type="button" id="btn-floating-shortcut-default" class="btn btn-ghost">還原預設</button></span><small>點選後直接按組合鍵；Tab 離開、Esc 取消、Backspace 清除。支援 Ctrl／Alt 組合或 F1–F24。</small></label><p id="desktop-settings-status" role="status"></p></section></div>
-<div id="settings-panel-system" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-system" hidden><section class="settings-card"><h2>啟動與系統匣</h2><label class="check-row"><input id="settings-login-startup" type="checkbox" disabled><span>登入 Windows 後自動啟動</span></label><p id="settings-login-status" role="status">正在檢查…</p><label class="check-row"><input id="settings-start-hidden" type="checkbox"><span>啟動程式後隱藏至系統匣</span></label><label class="check-row"><input id="settings-close-to-tray" type="checkbox"><span>關閉主視窗時保留在系統匣</span></label><label class="field"><span>快速叫回主視窗（程式執行期間）</span><input id="settings-main-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵" aria-label="自訂主視窗全域快捷鍵"><span class="shortcut-buttons"><button type="button" id="btn-main-shortcut-clear" class="btn btn-ghost">停用</button><button type="button" id="btn-main-shortcut-default" class="btn btn-ghost">還原預設</button></span><small>點選後直接按組合鍵；Tab 離開、Esc 取消、Backspace 清除。支援 Ctrl／Alt 組合或 F1–F24。</small></label><button id="btn-settings-hide" class="btn btn-secondary">現在隱藏至系統匣</button><p class="rule-hint">以上選項預設關閉，只有快捷鍵預設啟用。點系統匣圖示或快捷鍵可叫回主視窗，右鍵選單可結束程式。完整結束後快捷鍵不會啟動程式。開機啟動只提供 Windows 安裝版；Windows 系統也可停用它。右鍵收藏會直接顯示主視窗。</p><p id="desktop-shell-status" role="status"></p></section><section class="settings-card"><h2>Windows 右鍵收藏</h2><label class="check-row"><input id="settings-explorer-tag" type="checkbox" checked><span>右鍵收藏後立即選標籤（保留原標籤）</span></label><p id="favorite-context-status">正在檢查…</p><button id="btn-context-menu" class="btn btn-secondary" disabled>啟用右鍵收藏</button><p class="rule-hint">檔案總管選取項目後，Shift+F10 開啟選單；Studio 項目顯示時可按 B。Windows 11 可能先要按「顯示更多選項」。升級後停用再啟用可更新快捷字母。</p></section><section class="settings-card"><h2>Everything 本機搜尋</h2><label class="check-row"><input id="settings-everything-enabled" type="checkbox" disabled><span>允許 Studio 使用 Everything（預設停用）</span></label><p id="settings-everything-status" role="status">正在讀取…</p><label class="field"><span>官方 ES 命令列工具</span><input type="text" id="settings-everything-path" readonly placeholder="尚未選取 es.exe"></label><button id="btn-everything-choose" class="btn btn-secondary">選取 es.exe</button><label class="field"><span>Everything 執行個體名稱（通常留空；1.5 Alpha 常用 1.5a）</span><input type="text" id="settings-everything-instance" maxlength="64" placeholder="預設執行個體"></label><button id="btn-everything-save" class="btn btn-secondary">儲存整合設定</button><button id="btn-everything-test" class="btn btn-ghost" disabled>測試本機查詢</button><p class="rule-hint">第一次先從 voidtools 官方下載 Everything 及 ES 工具，啟動 Everything，再選取 es.exe 並開啟上方開關。Studio 不會下載或啟動外部工具；選取 ES 後需手動啟用。每次查詢核對所選工具的 SHA-256，檔案變更需重新選取。</p><p class="rule-hint">僅 Windows。使用 ES 的本機 IPC，不使用 HTTP／ETP；停用會取消查詢並清除結果，不影響原有收藏與檔案。Everything 自己的更新檢查、網路索引與伺服器需另外關閉；其連線不受 Studio 控制。只接受本機磁碟結果；映射磁碟仍請自行確認為本機。</p></section></div>
-<div id="settings-panel-data" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-data" hidden><section class="settings-card"><h2>資料與設定</h2><button id="btn-settings-export" class="btn btn-secondary">匯出設定 JSON</button><p class="rule-hint">包含介面、面板、欄位、排序、快捷鍵、浮動工具、目前命名規則與自訂範本；不含資料工作區、收藏清單、檔案內容、復原紀錄、視窗位置或 Windows 右鍵註冊；資料工作區請使用自己的匯出功能。</p><p id="settings-export-status" role="status"></p><p>收藏與復原紀錄保存在目前使用者的本機資料位置。收藏標籤不會寫入原檔案。</p><code id="settings-data-path">正在讀取…</code><button id="btn-settings-open-data" class="btn btn-secondary">開啟資料位置</button><button id="btn-settings-reset" class="btn btn-ghost">還原此頁預設設定</button></section></div>
-    </section>
-<section id="info-page" class="settings-page hidden" aria-labelledby="info-title"><div class="settings-heading"><h1 id="info-title">Bulk File Studio</h1><strong id="info-version">…</strong></div><div class="settings-grid"><section class="settings-card"><h2>本機檔案工作台</h2><p>收藏位置、標籤分類、自訂資料工作區、批次重新命名與搬移。原名 Bulk Rename Studio；沿用原有資料、設定與應用程式識別。</p><h2>離線與資料保護</h2><p>程式不提供登入、遙測、廣告或自動更新。預設離線，封鎖網頁網路請求、外部連結、網頁導向、下載及權限請求。選用共享資料包後，會例外存取你明確指定的分享資料夾，可能透過區域網路；主資料庫仍留在本機。</p><p>一般收藏、改名與搬移不接受 UNC 網路路徑或符號連結；不能識別作業系統已掛載成磁碟的遠端儲存。請使用本機磁碟。開啟文件會交給預設程式，其網路行為及雲端資料夾同步由作業系統／外部程式控制。</p><p>衝突時停止、不覆寫既有目標；復原會比對檔案身分與 SHA-256。只保留上一批成功操作，無法還原檔案內容；意外斷電或外部程式同時修改仍需手動核對及備份。</p></section><section class="settings-card"><h2>更新紀錄</h2><div id="info-history"></div></section></div></section>
-    <section id="favorites-page" class="favorites-page hidden" aria-labelledby="favorites-title">
-      <h1 id="favorites-title" class="sr-only">我的收藏</h1>
-      <div class="favorites-layout">
-        <aside id="favorite-tags-panel" class="panel favorites-sidebar"><h2>標籤分類</h2><div class="tag-sort-tools"><select id="tag-sort" aria-label="標籤排序"><option value="name">名稱</option><option value="count">收藏數量</option><option value="recent">最近變更</option></select><button id="tag-direction" class="btn btn-ghost" title="反轉標籤排序">↑</button></div><div id="favorite-tags" class="favorite-tags"></div><div class="favorite-context-settings"><button id="btn-fav-settings" class="btn btn-secondary">⚙ 收藏與外觀設定</button></div></aside>
-        <div id="tag-panel-resizer" class="tag-panel-resizer" role="separator" aria-label="標籤面板寬度" aria-orientation="vertical" aria-valuemin="140" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整標籤寬度；雙擊還原；方向鍵微調"></div>
-        <section class="panel favorites-content" aria-label="收藏項目">
-          <div class="favorites-filters"><div class="favorites-add-actions"><button id="btn-fav-add-files" class="btn btn-primary" title="收藏檔案位置，不改變原檔案">＋ 檔案</button><button id="btn-fav-add-folders" class="btn btn-secondary" title="只收藏資料夾位置，不展開內容">＋ 資料夾</button><button id="btn-everything-favorite" class="btn btn-secondary" hidden disabled title="請先在設定 → 啟動啟用 Everything">Everything 搜尋</button><button id="btn-fav-import-paths" class="btn btn-secondary" title="每行貼上一個完整路徑，批次收藏並套用標籤（Ctrl+Shift+I）">匯入路徑</button><button id="btn-fav-refresh" class="btn btn-ghost" title="重新讀取檔案狀態（F5）">↻</button></div><input id="favorite-search" type="search" placeholder="搜尋名稱、完整路徑或標籤…" aria-label="搜尋收藏"><select id="favorite-type" aria-label="收藏類型"><option value="all">所有類型</option><option value="file">檔案</option><option value="folder">資料夾</option></select><select id="favorite-status" aria-label="收藏狀態"><option value="all">所有狀態</option><option value="ready">可使用</option><option value="problem">需要處理</option></select><select id="favorite-sort" aria-label="收藏排序"><option value="recent">收藏時間</option><option value="name">名稱</option><option value="path">位置</option><option value="size">大小</option><option value="modified">修改時間</option><option value="type">類型</option></select><button id="favorite-direction" class="btn btn-ghost" title="反轉收藏排序">↓</button><div class="favorite-view-switch" role="group" aria-label="收藏檢視模式"><button id="favorite-view-list" class="btn btn-ghost" aria-pressed="true" title="分欄清單模式">清單</button><button id="favorite-view-icons" class="btn btn-ghost" aria-pressed="false" title="圖示卡片模式">圖示</button></div><button id="btn-fav-columns" class="btn btn-secondary" title="選擇、排列檔案資訊欄位">欄位</button><details class="compact-help"><summary title="顯示操作提示">？</summary><div class="help-popover"><strong>收藏操作</strong><p>清單／圖示模式共用選取與篩選。單擊儲存格或卡片空白處選取，雙擊名稱開啟、位置定位。Ctrl／Shift 可多選；Ctrl+A 選取跨頁搜尋結果。</p><p>📁 資料夾、📄 檔案；這是類型圖示。大小只計算一般檔案，不掃描資料夾內容。標籤面板右邊界可拖曳調寬。</p><p>可按「匯入路徑」貼上每行一個完整路徑。F2 編輯，Ctrl+T 快速加入標籤；Delete 只移除收藏。更多快捷鍵可在設定修改。</p></div></details></div>
-          <div class="favorite-selection-actions">
-            <span id="favorite-selection-count" role="status">先選取項目以使用批次操作</span>
-            <div class="toolbar-group"><button id="btn-fav-select-all" class="btn btn-ghost" title="只選取目前頁面；Ctrl+A 可選取跨頁篩選結果">選取本頁</button><button id="btn-fav-select-none" class="btn btn-ghost" title="取消包含隱藏項目的全部選取">取消</button></div>
-            <div class="toolbar-group"><button id="btn-fav-open" class="btn btn-secondary" title="確認後開啟所選項目，最多 20 項" disabled>開啟所選</button><button id="btn-fav-quick-tag" class="btn btn-secondary" title="加入標籤並保留原標籤（Ctrl+T）" disabled>加標籤</button><button id="btn-fav-rename" class="btn btn-primary" title="把所選檔案或資料夾內容加入改名工作台" disabled>加入改名 →</button></div>
-            <details id="favorite-more" class="toolbar-more"><summary>更多操作 ▾</summary><div class="toolbar-popover"><button id="btn-fav-copy" class="btn btn-ghost" disabled>複製完整路徑</button><button id="btn-fav-edit" class="btn btn-ghost" disabled>編輯名稱／標籤</button><button id="btn-fav-move" class="btn btn-ghost" disabled>搬移檔案</button><button id="btn-fav-remove" class="btn btn-ghost" disabled>移除收藏紀錄</button><label class="check-row"><input id="favorite-recursive" type="checkbox"><span>加入改名時包含子資料夾檔案</span></label></div></details>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; media-src 'none'; worker-src 'none'">
+    <title>Bulk File Studio</title>
+    <script src="global-shortcuts.js"></script>
+    <script src="favorites-model.js"></script>
+    <script src="settings-catalog.js"></script>
+    <script src="settings-model.js"></script>
+    <script src="theme.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="themes.css">
+    <link rel="stylesheet" href="upgrades.css">
+    <link rel="stylesheet" href="favorites.css">
+    <link rel="stylesheet" href="workspace.css">
+    <link rel="stylesheet" href="notes.css">
+    <link rel="stylesheet" href="app-layout.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand-wrap">
+          <div class="brand-icon">↗</div>
+          <div>
+            <div class="brand-name">Bulk File <span>Studio</span></div>
+            <div class="brand-sub">收藏位置 · 標籤分類 · 批次重新命名</div>
           </div>
-          <div class="inline-tip">單擊選取 · 雙擊名稱開啟／位置定位 · Ctrl+A 跨頁全選 <span>詳見右上角「？」</span></div>
-          <div id="favorite-table-scroll" class="favorite-table-scroll"><div id="favorite-columns" class="favorite-columns"></div><div id="favorite-list" class="favorite-list"><div class="list-empty">正在載入收藏…</div></div></div>
-          <div class="table-footer list-pager"><span id="favorite-results">收藏只記錄位置，不會複製檔案。</span><div class="pager-buttons"><button id="favorite-page-prev" class="btn btn-ghost" aria-label="收藏上一頁">‹</button><span id="favorite-page-info">1 / 1</span><button id="favorite-page-next" class="btn btn-ghost" aria-label="收藏下一頁">›</button></div></div>
-        </section>
+          <span id="app-version" class="version">…</span>
+        </div>
+        <nav class="studio-tabs" aria-label="工作區">
+          <button id="tab-rename" class="studio-tab active" aria-pressed="true">↗ 批次重新命名</button>
+          <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
+          <button id="tab-notes" class="studio-tab" aria-pressed="false">▦ 資料工作區</button>
+          <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button>
+          <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
+          <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
+        </nav>
+        <div class="header-right">
+          <span class="local-state">
+            <span class="state-dot"></span>
+            <span id="app-connection-label">完全離線 · 僅處理本機檔案</span>
+          </span>
+          <button id="btn-floating" class="btn btn-secondary" title="叫出浮動工具，可在設定更改全域快捷鍵">▣ 浮動工具</button>
+        </div>
+      </header>
+      <section id="search-page" class="settings-page app-search-page hidden" aria-labelledby="app-search-title">
+        <div class="settings-heading">
+          <div>
+            <h1 id="app-search-title">全域搜尋</h1>
+            <p class="notes-hint">搜尋已加入本機應用程式的資料與位置；不讀取檔案內容、不掃描磁碟。</p>
+          </div>
+          <button id="app-search-settings" class="btn btn-ghost">搜尋設定</button>
+        </div>
+        <div class="app-search-input">
+          <input id="app-search-query" type="search" maxlength="256" placeholder="客戶名稱、電話、Email、檔案／資料夾路徑、標籤…" aria-label="搜尋所有本機應用程式資料">
+          <button id="app-search-run" class="btn btn-primary">搜尋</button>
+          <button id="app-search-clear" class="btn btn-ghost">清除</button>
+        </div>
+        <div id="app-search-types" class="notes-tools" role="group" aria-label="搜尋結果類型"></div>
+        <p id="app-search-status" class="notes-hint" role="status" aria-live="polite">輸入客戶名稱找聯絡人與文件，或輸入位置查看哪些主檔正在引用。</p>
+        <div id="app-search-results" class="app-search-results"></div>
+      </section>
+      <section id="notes-page" class="notes-page hidden" aria-labelledby="notes-title">
+        <div class="notes-top">
+          <div>
+            <h1 id="notes-title">資料工作區</h1>
+            <span class="notes-sub">主檔與明細 · 全域搜尋</span>
+          </div>
+          <div class="notes-tools">
+            <button id="notes-settings-open" class="btn btn-ghost" title="資料工作區設定" aria-label="資料工作區設定">⚙</button>
+            <button id="notes-back-search" class="btn btn-ghost" hidden>← 返回搜尋</button>
+            <button id="notes-share-open" class="btn btn-ghost">共享資料包</button>
+            <details id="notes-tools-menu" class="notes-overflow">
+              <summary class="btn btn-secondary">更多操作 ▾</summary>
+              <div class="notes-overflow-menu">
+                <button id="notes-template" class="btn btn-secondary">範本庫</button>
+                <button id="notes-new-sheet" class="btn btn-secondary">＋ 表格</button>
+                <button id="notes-add-detail-sheet" class="btn btn-ghost">＋ 明細表</button>
+                <button id="notes-trash-view" class="btn btn-ghost">回收筒</button>
+                <button id="notes-import" class="btn btn-ghost">匯入</button>
+                <button id="notes-export" class="btn btn-ghost">匯出</button>
+                <button id="notes-restore-backup" class="btn btn-ghost">還原備份</button>
+                <button id="notes-refresh" class="btn btn-ghost" title="重新讀取本機資料">↻</button>
+              </div>
+            </details>
+          </div>
+        </div>
+        <p id="notes-status" class="notes-status" role="status">開啟後讀取本機資料。</p>
+        <div id="notes-layout" class="notes-layout">
+          <aside id="notes-sidebar" class="notes-sidebar">
+            <div class="notes-sidebar-head">
+              <strong>工作區群組</strong>
+              <button id="notes-new-area" class="btn btn-ghost" title="新增工作區群組">＋</button>
+              <button id="notes-edit-area" class="btn btn-ghost" title="群組名稱與主表">⚙</button>
+              <button id="notes-group-menu" class="btn btn-ghost" title="群組選單（亦可右鍵或 Shift+F10）" aria-haspopup="menu">⋯</button>
+            </div>
+            <select id="notes-area-select" aria-label="工作區群組"></select>
+            <label class="notes-master-field">
+              <span id="notes-master-label">主紀錄</span>
+              <select id="notes-master-select" aria-label="依主紀錄篩選"></select>
+            </label>
+            <div class="notes-sidebar-head">
+              <strong>主檔與明細表</strong>
+              <button id="notes-organize" class="btn btn-ghost" title="批次管理群組及表格">批次</button>
+              <button id="notes-panel-view" class="btn btn-ghost" title="切換側欄清單／卡片" aria-pressed="false">▦</button>
+            </div>
+            <div id="notes-sheets"></div>
+            <small>▣ 主檔清單 · ↳ 明細表</small>
+            <button id="notes-open-storage" class="btn btn-ghost" title="目前使用本機 workspace.sqlite；不支援在共享磁碟直接多人編輯">本機資料位置 ↗</button>
+            <details class="notes-storage-help">
+              <summary>儲存與分享</summary>
+              <p>主資料庫 workspace.sqlite 留在本機。可選用「共享資料包」，在明確指定的資料夾定期檢查或發佈快照，預設關閉；此功能可經區域網路存取共享磁碟。收到資料包仍須先預覽再匯入，不會自動合併。一般收藏、改名與檔案操作仍拒絕 UNC 路徑。</p>
+            </details>
+          </aside>
+          <div id="notes-panel-resizer" class="notes-panel-resizer" role="separator" aria-label="調整工作區群組側欄寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" tabindex="0"></div>
+          <main class="notes-content">
+            <div id="notes-master-context" class="notes-master-context" hidden>
+              <small id="notes-master-badge">目前主檔</small>
+              <div class="notes-master-title-row">
+                <button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button>
+                <strong id="notes-master-heading"></strong>
+                <div class="notes-tools">
+                  <button id="notes-master-edit" class="btn btn-ghost">編輯主檔</button>
+                  <button id="notes-pin-master" class="btn btn-ghost" aria-pressed="false">☆ 釘選浮動工具</button>
+                  <button id="notes-master-overview" class="btn btn-ghost">主檔總覽</button>
+                  <button id="notes-complete-client" class="btn btn-ghost" hidden>補齊客戶明細表</button>
+                </div>
+              </div>
+              <p id="notes-master-info" class="notes-hint"></p>
+            </div>
+            <div id="notes-detail-tabs" class="notes-detail-tabs" role="tablist" aria-label="目前主紀錄的明細表" hidden></div>
+            <div class="notes-searchbar">
+              <input id="notes-search" type="search" maxlength="256" placeholder="搜尋主檔、明細、欄位、筆記、標籤或位置…" aria-label="搜尋資料工作區">
+              <select id="notes-search-scope" aria-label="搜尋範圍">
+                <option value="sheet">目前表格</option>
+                <option id="notes-scope-master" value="master">目前主紀錄與明細</option>
+                <option value="area">目前群組的全部表格</option>
+                <option value="all">全域：所有群組、主檔與明細</option>
+                <option value="masters">全域：只搜尋主檔</option>
+              </select>
+              <div id="notes-filters" class="notes-filters">
+                <label hidden><input id="notes-global-search" type="checkbox">跨表搜尋</label>
+                <select id="notes-tag-filter" aria-label="依標籤篩選">
+                  <option value="">全部標籤</option>
+                </select>
+                <select id="notes-sort" aria-label="資料排序">
+                  <option value="updated">最近修改</option>
+                  <option value="title">名稱</option>
+                  <option id="notes-sort-column" value="column" hidden disabled>欄位排序</option>
+                </select>
+              </div>
+              <div class="notes-view-toggle">
+                <button id="notes-view-list" class="btn btn-ghost" aria-pressed="true" title="清單檢視">☷ 清單</button>
+                <button id="notes-view-cards" class="btn btn-ghost" aria-pressed="false" title="卡片檢視">▦ 卡片</button>
+                <button id="notes-view-grid" class="btn btn-ghost" aria-pressed="false" title="儲存格編輯，支援多格貼上">▦ 儲存格</button>
+                <button id="notes-card-config" class="btn btn-ghost" title="調整卡片高度、顯示內容與各表格欄位">卡片設定</button>
+              </div>
+            </div>
+            <details id="notes-view-tools" class="notes-view-tools">
+              <summary>檢視與日期篩選 <span id="notes-view-tools-summary"></span></summary>
+              <div class="notes-workbar">
+                <select id="notes-saved-views" aria-label="儲存檢視">
+                  <option value="">儲存檢視…</option>
+                </select>
+                <button id="notes-manage-tools" class="btn btn-ghost">儲存檢視／範本</button>
+                <select id="notes-date-field" aria-label="日期篩選欄位">
+                  <option value="">所有日期欄位</option>
+                  <option value="updatedAt">修改日期</option>
+                </select>
+                <select id="notes-due" aria-label="日期篩選">
+                  <option value="all">不限日期</option>
+                  <option value="overdue">已逾期</option>
+                  <option value="7">未來 7 日</option>
+                  <option value="30">未來 30 日</option>
+                  <option value="90">未來 90 日</option>
+                </select>
+              </div>
+            </details>
+            <div class="notes-content-top">
+              <div>
+                <p id="notes-context" class="notes-context"></p>
+                <h2 id="notes-sheet-title">選取或新增表格</h2>
+                <span id="notes-count" class="notes-sub"></span>
+              </div>
+              <div class="notes-tools">
+                <button id="notes-edit-sheet" class="btn btn-ghost">欄位與表格</button>
+                <button id="notes-delete-sheet" class="btn btn-ghost">移至回收筒</button>
+                <label id="notes-grid-paste-label" hidden>儲存格貼上：<select id="notes-grid-paste-mode"><option value="create">建立新紀錄</option><option value="update">更新既有儲存格</option></select></label>
+                <button id="notes-tabular-open" class="btn btn-ghost" title="貼上 Excel 清單或選擇 .xlsx，對應欄位後建立新紀錄">貼上／Excel 建立</button>
+                <button id="notes-new-record" class="btn btn-primary">＋ 紀錄</button>
+              </div>
+            </div>
+            <div id="notes-quickbar" class="notes-quickbar notes-tools">
+              <button id="notes-copy-table" class="btn btn-ghost">複製篩選表格</button>
+              <button id="notes-export-area" class="btn btn-ghost">匯出此群組</button>
+              <button id="notes-clear-filters" class="btn btn-ghost">清除篩選</button>
+              <span class="notes-hint">複製的表格可貼到 Excel；資料仍存於本機。</span>
+            </div>
+            <div class="notes-selection-top">
+              <div class="notes-current-bar">
+                <strong id="notes-current-record">尚未選取紀錄</strong>
+                <button id="notes-inspect-current" class="btn btn-ghost" disabled>查看目前紀錄</button>
+                <small>目前紀錄與批次勾選分開標示</small>
+              </div>
+              <div id="notes-selection-bar" class="notes-selection-bar">
+                <small id="notes-card-select-hint" hidden>單擊開啟 · 勾選框選取 · Shift 範圍／Ctrl 增減</small>
+                <span id="notes-selected-count">已選 0 筆</span>
+                <button id="notes-select-filtered" class="btn btn-ghost">選取全部篩選結果</button>
+                <button id="notes-unselect" class="btn btn-ghost" disabled>取消選取</button>
+                <button id="notes-batch-delete" class="btn btn-ghost" disabled>批次移至回收筒</button>
+              </div>
+            </div>
+            <div id="notes-table" class="notes-table" role="region" aria-label="紀錄列表"></div>
+            <div id="notes-pagination" class="notes-pagination">
+              <button id="notes-prev" class="btn btn-ghost">‹ 上一頁</button>
+              <span id="notes-page-info"></span>
+              <button id="notes-next" class="btn btn-ghost">下一頁 ›</button>
+            </div>
+          </main>
+          <aside id="notes-detail" class="notes-detail" hidden>
+            <div class="notes-detail-head">
+              <strong>紀錄總覽</strong>
+              <button id="notes-detail-close" class="btn btn-ghost" aria-label="關閉紀錄總覽">✕</button>
+            </div>
+            <div id="notes-detail-body"></div>
+          </aside>
+        </div>
+      </section>
+      <section id="settings-page" class="settings-page hidden" aria-labelledby="settings-title">
+        <div class="settings-heading">
+          <div>
+            <h1 id="settings-title">設定</h1>
+            <p>依功能分類，搜尋即可定位設定；變更會自動儲存。</p>
+          </div>
+          <div class="settings-save-state">
+            <span id="settings-save-status" role="status">設定會保留至下次啟動</span>
+            <p id="desktop-settings-status" role="status"></p>
+          </div>
+        </div>
+        <div class="settings-findbar">
+          <input id="settings-query" type="search" maxlength="120" placeholder="搜尋設定：卡片高度、浮動工具、快捷鍵…" aria-label="搜尋設定">
+          <button id="settings-query-clear" class="btn btn-ghost">清除</button>
+        </div>
+        <div class="settings-layout">
+          <aside class="settings-categories">
+            <nav class="settings-tabs" aria-orientation="vertical" role="tablist" aria-label="設定分類">
+              <button id="settings-tab-appearance" class="btn btn-ghost" role="tab" aria-controls="settings-panel-appearance" aria-selected="true" tabindex="0">顯示與閱讀</button>
+              <button id="settings-tab-search" class="btn btn-ghost" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1">全域搜尋</button>
+              <button id="settings-tab-workspace" class="btn btn-ghost" role="tab" aria-controls="settings-panel-workspace" aria-selected="false" tabindex="-1">檔案工具</button>
+              <button id="settings-tab-notes" class="btn btn-ghost" role="tab" aria-controls="settings-panel-notes" aria-selected="false" tabindex="-1">資料工作區</button>
+              <button id="settings-tab-favorites" class="btn btn-ghost" role="tab" aria-controls="settings-panel-favorites" aria-selected="false" tabindex="-1">收藏與標籤</button>
+              <button id="settings-tab-floating" class="btn btn-ghost" role="tab" aria-controls="settings-panel-floating" aria-selected="false" tabindex="-1">浮動工具</button>
+              <button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">啟動與系統</button>
+              <button id="settings-tab-data" class="btn btn-ghost" role="tab" aria-controls="settings-panel-data" aria-selected="false" tabindex="-1">資料與備份</button>
+            </nav>
+            <button id="settings-about" class="btn btn-ghost">關於與更新紀錄</button>
+          </aside>
+          <main class="settings-content">
+            <div class="settings-section-head">
+              <div>
+                <h2 id="settings-group-title">顯示與閱讀</h2>
+                <p id="settings-group-description" class="notes-hint"></p>
+              </div>
+              <button id="settings-reset-category" class="btn btn-ghost">還原此分類</button>
+            </div>
+            <div id="settings-query-results" class="settings-query-results" hidden aria-label="設定搜尋結果"></div>
+            <div id="settings-panels">
+              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance">
+                <section class="settings-card">
+                  <h2>外觀與閱讀</h2>
+                  <label class="check-row">
+                    <input id="settings-tips" type="checkbox" checked>
+                    <span>顯示精簡操作提示</span>
+                  </label>
+                  <label class="field">
+                    <span>外觀主題</span>
+                    <select id="theme-select">
+                      <option value="light">☀ 淺色</option>
+                      <option value="dark">☾ 深色</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>字體大小</span>
+                    <select id="font-size-select">
+                      <option value="12">12 px 小</option>
+                      <option value="13">13 px 標準</option>
+                      <option value="15">15 px 中</option>
+                      <option value="17">17 px 大</option>
+                      <option value="19">19 px 特大</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>清單密度</span>
+                    <select id="settings-density">
+                      <option value="compact">精簡：同時顯示更多項目</option>
+                      <option value="comfortable">舒適：較大的行距</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-show-paths" type="checkbox">
+                    <span>在來源／改名預覽顯示路徑第二行（收藏固定分欄）</span>
+                  </label>
+                  <p class="rule-hint">關閉第二行時，將滑鼠移到檔名仍可查看完整路徑。</p>
+                </section>
+              </div>
+              <div id="settings-panel-workspace" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-workspace" hidden>
+                <section class="settings-card">
+                  <h2>工作區與清單</h2>
+                  <label class="field">
+                    <span>來源面板寬度 <output id="settings-source-width-value">220 px</output></span>
+                    <input id="settings-source-panel-width" type="range" min="160" max="480" step="1" value="220">
+                  </label>
+                  <p class="rule-hint">拖曳來源面板右邊界亦可調整，雙擊還原。窄視窗會限制實際寬度。</p>
+                  <button id="btn-window-reset" class="btn btn-ghost" title="恢復預設視窗大小並移回可見螢幕">還原視窗大小</button>
+                  <label class="field">
+                    <span>命名規則面板寬度 <output id="settings-rules-width-value">420 px</output></span>
+                    <input id="settings-rules-width" type="range" min="280" max="720" step="1" value="420">
+                  </label>
+                  <p class="rule-hint">亦可拖曳命名規則左邊界；雙擊還原。窄視窗會限制實際寬度。</p>
+                  <label class="field">
+                    <span>每頁顯示筆數（來源、預覽與收藏共用）</span>
+                    <select id="settings-page-size">
+                      <option value="100">100 筆</option>
+                      <option value="250">250 筆</option>
+                      <option value="500">500 筆</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-show-source" type="checkbox">
+                    <span>顯示來源清單面板</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-show-rules" type="checkbox">
+                    <span>顯示命名規則面板</span>
+                  </label>
+                  <p class="rule-hint">也可在工作台直接收合面板，或使用「專注清單」擴大預覽區。分頁只改變顯示，不改變實際處理的選取範圍。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>重新命名預設</h2>
+                  <label class="check-row">
+                    <input id="settings-recursive" type="checkbox">
+                    <span>加入資料夾時預設包含子資料夾檔案</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-remember-rules" type="checkbox">
+                    <span>重開程式後保留上次命名規則</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-reset-rules" type="checkbox">
+                    <span>完成改名／復原後重設命名規則</span>
+                  </label>
+                  <label class="field">
+                    <span>預設編號排序（下次重設規則時使用）</span>
+                    <select id="settings-sort-by">
+                      <option value="path">完整路徑</option>
+                      <option value="name">檔案名稱</option>
+                      <option value="modified">修改時間</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>預設排序方向</span>
+                    <select id="settings-sort-direction">
+                      <option value="asc">遞增／舊至新</option>
+                      <option value="desc">遞減／新至舊</option>
+                    </select>
+                  </label>
+                </section>
+                <section class="settings-card">
+                  <h2>副檔名與檔案格式</h2>
+                  <p>可以批次修改副檔名，例如 <strong>.jpeg → .jpg</strong>、<strong>.TXT → .txt</strong>；入口在工作台上方的「副檔名」。</p>
+                  <p class="rule-hint">更改副檔名只會改名稱，不會轉換內容。將 .jpg 改成 .png 並不會產生 PNG 圖片；真正的格式轉換需使用對應的轉換工具。</p>
+                </section>
+              </div>
+              <div id="settings-panel-favorites" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-favorites" hidden>
+                <section class="settings-card">
+                  <h2>收藏清單</h2>
+                  <label class="field">
+                    <span>圖示模式尺寸</span>
+                    <select id="settings-favorite-icon-size">
+                      <option value="small">小：顯示更多項目</option>
+                      <option value="medium">中</option>
+                      <option value="large">大</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>檢視模式</span>
+                    <select id="settings-favorite-view">
+                      <option value="list">清單</option>
+                      <option value="icons">圖示</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>標籤面板寬度 <output id="settings-tag-width-value">220 px</output></span>
+                    <input id="settings-tag-panel-width" type="range" min="140" max="480" step="1" value="220">
+                  </label>
+                  <label class="field">
+                    <span>檔案／資料夾開啟方式（收藏與浮動工具）</span>
+                    <select id="settings-favorite-open">
+                      <option value="double">雙擊（單擊選取）</option>
+                      <option value="single">單擊直接開啟／定位</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-file-icons" type="checkbox" checked>
+                    <span>顯示檔案／資料夾圖示</span>
+                  </label>
+                  <label class="field">
+                    <span>收藏排序</span>
+                    <select id="settings-favorite-sort">
+                      <option value="recent">收藏時間</option>
+                      <option value="name">名稱</option>
+                      <option value="path">位置</option>
+                      <option value="size">大小</option>
+                      <option value="modified">修改時間</option>
+                      <option value="type">類型</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>排序方向</span>
+                    <select id="settings-favorite-direction">
+                      <option value="asc">遞增</option>
+                      <option value="desc">遞減</option>
+                    </select>
+                  </label>
+                  <button id="btn-settings-columns" class="btn btn-secondary">管理顯示欄位及順序</button>
+                  <p>欄位設定與標籤排序會保留。資料夾大小顯示 —，不會掃描整個資料夾。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>收藏快捷鍵</h2>
+                  <p>點選欄位後按新組合；Backspace 清除。只在收藏頁生效，輸入文字及開啟對話框時不攔截。</p>
+                  <div id="shortcut-settings"></div>
+                  <p id="shortcut-status" role="status"></p>
+                  <button id="btn-shortcuts-reset" class="btn btn-secondary">還原預設快捷鍵</button>
+                </section>
+              </div>
+              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
+                <section class="settings-card">
+                  <h2>資料工作區版面</h2>
+                  <label class="field">
+                    <span>左側表格導覽</span>
+                    <select id="settings-notes-panel-view">
+                      <option value="list">精簡清單</option>
+                      <option value="cards">摘要卡片</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>預設檢視</span>
+                    <select id="settings-notes-view">
+                      <option value="list">清單</option>
+                      <option value="cards">卡片</option>
+                      <option value="grid">儲存格</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-expand-filters" type="checkbox">
+                    <span>預設展開檢視與日期篩選</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-compact" type="checkbox" checked>
+                    <span>精簡工作區工具列與間距</span>
+                  </label>
+                  <label class="field">
+                    <span>卡片大小</span>
+                    <select id="settings-notes-card-size">
+                      <option value="small">小</option>
+                      <option value="medium">中</option>
+                      <option value="large">大</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>群組側欄寬度 <output id="settings-notes-panel-width-value">220 px</output></span>
+                    <input id="settings-notes-panel-width" type="range" min="160" max="480" value="220">
+                  </label>
+                  <p class="rule-hint">亦可拖曳側欄右邊界；雙擊還原 220 px，方向鍵微調，窄視窗會限制顯示寬度。</p>
+                  <label class="field">
+                    <span>紀錄總覽寬度 <output id="settings-notes-detail-width-value">400 px</output></span>
+                    <input id="settings-notes-detail-width" type="range" min="280" max="680" value="400">
+                  </label>
+                  <label class="field">
+                    <span>最小列高 <output id="settings-notes-row-height-value">36 px</output></span>
+                    <input id="settings-notes-row-height" type="range" min="28" max="64" value="36">
+                  </label>
+                  <label class="field">
+                    <span>工作區每頁紀錄數</span>
+                    <select id="settings-notes-page-size">
+                      <option value="25">25 筆</option>
+                      <option value="50">50 筆</option>
+                      <option value="100">100 筆</option>
+                      <option value="250">250 筆</option>
+                    </select>
+                  </label>
+                </section>
+                <section class="settings-card">
+                  <h2>卡片顯示內容</h2>
+                  <label class="field">
+                    <span>卡片高度（px；0 為自動）</span>
+                    <input id="settings-notes-card-height" type="number" min="0" max="600" step="1" value="0">
+                  </label>
+                  <p class="notes-hint">自動依內容縮放；固定高度為 120–600 px。內容過多時可在卡片內捲動，底部編輯保留。</p>
+                  <label class="check-row">
+                    <input id="settings-notes-card-type" type="checkbox">
+                    <span>紀錄類型（主檔／明細）</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-relations" type="checkbox">
+                    <span>自訂關聯欄位</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-empty-links" type="checkbox">
+                    <span>連結數為 0 時仍顯示</span>
+                  </label>
+                  <p class="rule-hint">標題與選取操作固定保留；資料欄位可依每張表格個別選擇，不會改動資料。</p>
+                  <label class="check-row">
+                    <input id="settings-notes-card-context" type="checkbox">
+                    <span>群組／表格</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-parent" type="checkbox">
+                    <span>所屬主檔</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-notes" type="checkbox">
+                    <span>筆記摘要</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-tags" type="checkbox">
+                    <span>分類標籤</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-date" type="checkbox">
+                    <span>修改日期</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-card-links" type="checkbox">
+                    <span>連結位置數量</span>
+                  </label>
+                  <button id="settings-notes-card-config" class="btn btn-secondary">設定各表格卡片欄位</button>
+                </section>
+                <section class="settings-card">
+                  <h2>工作區搜尋</h2>
+                  <label class="field">
+                    <span>開啟工作區時的預設搜尋範圍</span>
+                    <select id="settings-notes-search-scope">
+                      <option value="sheet">目前表格</option>
+                      <option value="master">目前主紀錄與明細（未選主檔時使用目前表格）</option>
+                      <option value="area">目前群組</option>
+                      <option value="all">全域：所有群組、主檔與明細</option>
+                      <option value="masters">全域：只搜尋主檔</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>多個關鍵字（以空格分隔）</span>
+                    <select id="settings-notes-search-match">
+                      <option value="all">符合全部關鍵字</option>
+                      <option value="any">符合任一關鍵字</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-search-case" type="checkbox">
+                    <span>區分英文大小寫</span>
+                  </label>
+                  <p class="rule-hint">標題、群組與表格名稱一律搜尋；可額外包含：</p>
+                  <label class="check-row">
+                    <input id="settings-notes-search-fields" type="checkbox">
+                    <span>自訂欄位</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-search-notes" type="checkbox">
+                    <span>筆記</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-search-tags" type="checkbox">
+                    <span>分類標籤</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-search-paths" type="checkbox">
+                    <span>檔案位置與收藏標籤連結</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-search-parent" type="checkbox">
+                    <span>相關主檔內容</span>
+                  </label>
+                </section>
+                <section class="settings-card">
+                  <h2>紀錄操作</h2>
+                  <label class="field">
+                    <span>清單：開啟主從明細／紀錄總覽</span>
+                    <select id="settings-notes-open-mode">
+                      <option value="single">單擊選取並開啟</option>
+                      <option value="double">單擊選取、雙擊開啟</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-open-save" type="checkbox">
+                    <span>儲存新紀錄後自動開啟總覽（預設關閉）</span>
+                  </label>
+                  <p class="rule-hint">關閉時會留在清單並標示剛儲存的紀錄；已開啟總覽的紀錄編輯後仍保留總覽。</p>
+                  <label class="check-row">
+                    <input id="settings-notes-cascade" type="checkbox">
+                    <span>刪除主紀錄時預先勾選連同明細（仍須確認）</span>
+                  </label>
+                  <label class="field">
+                    <span>開啟連結選擇器時顯示</span>
+                    <select id="settings-notes-link-mode">
+                      <option value="paths">檔案／資料夾位置</option>
+                      <option value="tags">收藏標籤</option>
+                    </select>
+                  </label>
+                </section>
+                <section class="settings-card">
+                  <h2>顯示項目</h2>
+                  <label class="check-row">
+                    <input id="settings-notes-quick" type="checkbox" checked>
+                    <span>顯示複製、匯出與清除篩選快捷列</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-help" type="checkbox" checked>
+                    <span>顯示主從關係與未選主檔的操作說明</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-notes-counts" type="checkbox" checked>
+                    <span>顯示側欄與明細分頁紀錄數量</span>
+                  </label>
+                  <p class="rule-hint">資料工作區偏好包含於「匯出設定 JSON」；資料本身請使用工作區資料包匯出。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>共享資料包</h2>
+                  <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；其他資料包仍需先預覽再匯入。</p>
+                  <p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
+                  <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button>
+                </section>
+              </div>
+              <div id="settings-panel-search" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-search" hidden>
+                <section class="settings-card">
+                  <h2>搜尋來源</h2>
+                  <label class="check-row">
+                    <input id="settings-search-records" type="checkbox">
+                    <span>工作區紀錄</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-paths" type="checkbox">
+                    <span>檔案／資料夾位置與引用</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-favorites" type="checkbox">
+                    <span>收藏</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-tags" type="checkbox">
+                    <span>標籤</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-structure" type="checkbox">
+                    <span>群組／表格／欄位名稱</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-tools" type="checkbox">
+                    <span>儲存檢視與自訂範本</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-presets" type="checkbox">
+                    <span>命名規則範本</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-sources" type="checkbox">
+                    <span>目前改名工作台清單</span>
+                  </label>
+                </section>
+                <section class="settings-card">
+                  <h2>搜尋與關聯</h2>
+                  <label class="check-row">
+                    <input id="settings-search-related" type="checkbox">
+                    <span>展開主從關聯資料</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-case" type="checkbox">
+                    <span>區分英文大小寫</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-empty" type="checkbox">
+                    <span>未輸入文字時也顯示資料</span>
+                  </label>
+                  <label class="field">
+                    <span>多個關鍵字（空格分隔）</span>
+                    <select id="settings-search-match">
+                      <option value="all">符合全部</option>
+                      <option value="any">符合任一</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>每類結果每頁筆數</span>
+                    <select id="settings-search-size">
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                      <option value="200">200</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>紀錄摘要字數</span>
+                    <input id="settings-search-snippet" type="number" min="80" max="400" value="180">
+                  </label>
+                  <p class="notes-hint">位置引用以完整路徑去重，主檔數也去重。文字路徑、分享待確認連結仍可列出關係，但搜尋不會自動開啟或授權它們。搜尋文字不寫入持久紀錄。</p>
+                </section>
+              </div>
+              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden>
+                <section class="settings-card">
+                  <h2>視窗與快速入口</h2>
+                  <label class="field">
+                    <span>檢視模式</span>
+                    <select id="settings-floating-view">
+                      <option value="list">清單</option>
+                      <option value="icons">圖示</option>
+                      <option value="tags">標籤選單</option>
+                      <option value="workspace">工作區主檔</option>
+                      <option value="mixed">混合：收藏／標籤／工作區</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-top" type="checkbox" checked>
+                    <span>浮動工具保持置頂</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-startup" type="checkbox">
+                    <span>啟動程式時顯示浮動工具</span>
+                  </label>
+                  <label class="field">
+                    <span>全域快捷鍵（程式執行期間）</span>
+                    <input id="settings-floating-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵" aria-label="自訂浮動工具全域快捷鍵">
+                    <span class="shortcut-buttons">
+                      <button type="button" id="btn-floating-shortcut-clear" class="btn btn-ghost">停用</button>
+                      <button type="button" id="btn-floating-shortcut-default" class="btn btn-ghost">還原預設</button>
+                    </span>
+                    <small>點選後直接按組合鍵；Tab 離開、Esc 取消、Backspace 清除。支援 Ctrl／Alt 組合或 F1–F24。</small>
+                  </label>
+                  <button id="btn-settings-floating" class="btn btn-primary">顯示浮動工具</button>
+                  <label class="check-row">
+                    <input id="settings-floating-keep-tray" type="checkbox" checked>
+                    <span>主視窗隱藏至系統匣時，保留已置頂的浮動工具</span>
+                  </label>
+                  <p class="rule-hint">請先於「啟動」勾選關閉主視窗後保留在系統匣。此選項只保留目前可見的置頂工具，不會叫出已隱藏的視窗；完全結束程式仍會關閉浮動工具。項目開啟方式共用「收藏 → 檔案／資料夾開啟方式」，預設雙擊。</p>
+                  <label class="field">
+                    <span>全域收合／展開快捷鍵（預設停用）</span>
+                    <input type="text" id="settings-collapse-shortcut" readonly placeholder="點此後按組合鍵，例如 Ctrl+Alt+Space" aria-label="全域收合展開快捷鍵">
+                    <span class="shortcut-buttons">
+                      <button id="btn-collapse-shortcut-clear" type="button" class="btn btn-ghost">停用</button>
+                      <button id="btn-collapse-shortcut-default" type="button" class="btn btn-ghost">還原預設（停用）</button>
+                    </span>
+                    <small>在其他程式工作時也生效；主程式須仍執行。Tab 離開、Esc 取消、Backspace 清除。避免使用其他軟件常用組合。</small>
+                  </label>
+                  <p>預設展開尺寸：<output id="settings-floating-default-size">320 × 400 px</output></p>
+                  <p class="rule-hint">浮動工具標題列按右鍵，可儲存目前展開大小為預設、展開並套用預設大小，或還原為 320 × 400。預設尺寸與最小尺寸、最後視窗大小分開儲存；套用時仍受最小尺寸及螢幕範圍限制。</p>
+                  <button id="btn-floating-small" class="btn btn-secondary">套用精簡尺寸（260 × 300）</button>
+                  <p class="rule-hint">預設展開最小尺寸為 220 × 120 px，可在下方調整。小於最小尺寸時只放大到設定的下限，不會重設為 320 × 400。收合仍為 92 × 40 px；展開記住最後寬高。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>尺寸與項目密度</h2>
+                  <label class="field">
+                    <span>展開視窗最小寬度（160–800 px）</span>
+                    <input id="settings-floating-min-width" type="number" min="160" max="800" step="1" value="220">
+                  </label>
+                  <label class="field">
+                    <span>展開視窗最小高度（80–800 px）</span>
+                    <input id="settings-floating-min-height" type="number" min="80" max="800" step="1" value="120">
+                  </label>
+                  <p class="rule-hint">調低下限後，可拖曳邊緣縮小視窗。160 × 80 是操作下限；太小時建議隱藏工具列。螢幕空間不足會限制在可見範圍內，重啟記憶需啟用「記住視窗大小」。</p>
+                  <label class="field">
+                    <span>不透明度 <output id="settings-floating-opacity-value">100%</output></span>
+                    <input id="settings-floating-opacity" type="range" min="40" max="100" step="5" value="100">
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-opaque-focus" type="checkbox" checked>
+                    <span>操作浮動工具時恢復完全不透明</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-collapsed" type="checkbox">
+                    <span>收合浮動工具為標題列（記住狀態）</span>
+                  </label>
+                  <label class="field">
+                    <span>收合寬度（92–800 px）</span>
+                    <input id="settings-floating-collapsed-width" type="number" min="92" max="800" step="1" value="92">
+                  </label>
+                  <p class="rule-hint">收合後可拖曳左右邊緣調寬，放開即儲存；高度固定 40 px。展開寬高與收合寬度分開記憶，重新啟動亦保留收合寬度。停用「記住視窗大小」只影響重啟時的展開尺寸與位置。</p>
+                  <label class="check-row">
+                    <input id="settings-floating-header-double" type="checkbox" checked>
+                    <span>啟用浮動工具標題列雙擊動作</span>
+                  </label>
+                  <p class="rule-hint">標題列指最上方「浮動工具」所在的一列；雙擊標題、空白區或收合後的握柄即可，按鈕區不觸發。拖曳標題列仍可移動；停用雙擊後可用 ▴／▾、F8 或全域快捷鍵收合。</p>
+                  <label class="field">
+                    <span>標題列雙擊動作</span>
+                    <select id="settings-floating-header-action">
+                      <option value="collapse">收合／展開（預設）</option>
+                      <option value="tools">精簡／還原工具列</option>
+                      <option value="pin">切換置頂</option>
+                      <option value="main">顯示主視窗</option>
+                    </select>
+                  </label>
+                  <details>
+                    <summary>各模式項目高度與操作按鈕</summary>
+                    <label class="field">
+                      <span>清單模式最小項目高度（24–160 px）</span>
+                      <input id="settings-floating-list-height" type="number" min="24" max="160" step="1" value="32">
+                    </label>
+                    <label class="field">
+                      <span>圖示模式最小項目高度（24–160 px）</span>
+                      <input id="settings-floating-icon-height" type="number" min="24" max="160" step="1" value="32">
+                    </label>
+                    <label class="check-row">
+                      <input id="settings-floating-tag-follow-list" type="checkbox" checked>
+                      <span>標籤列使用與清單列相同高度（建議）</span>
+                    </label>
+                    <label class="field">
+                      <span>標籤模式最小項目高度（24–160 px）</span>
+                      <input id="settings-floating-tag-height" type="number" min="24" max="160" step="1" value="32">
+                    </label>
+                    <label class="field">
+                      <span>清單模式的操作按鈕</span>
+                      <select id="settings-floating-list-actions">
+                        <option value="normal">一般按鈕</option>
+                        <option value="compact">縮小按鈕</option>
+                        <option value="menu">⋯ 選單（建議）</option>
+                        <option value="hidden">隱藏（右鍵或 Shift+F10 開啟）</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>圖示模式的 ⋯ 操作按鈕</span>
+                      <select id="settings-floating-icon-actions">
+                        <option value="menu">顯示</option>
+                        <option value="hidden">隱藏（按右鍵仍可開啟）</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      <span>標籤模式的 ⋯ 操作按鈕</span>
+                      <select id="settings-floating-tag-actions">
+                        <option value="menu">顯示（標籤及展開後的項目）</option>
+                        <option value="hidden">隱藏（按右鍵仍可開啟）</option>
+                      </select>
+                    </label>
+                    <p class="rule-hint">三種模式預設最小高度均為 32 px；圖示模式低於 60 px 使用橫向小圖示，60 px 起改用上下排列。字體較大、換行或顯示路徑時可自動增高。高度只影響工具內項目，原生彈出選單列高由系統決定。無論 ⋯ 是否顯示，右鍵或 Shift+F10 都會開啟視窗外選單。</p>
+                  </details>
+                  <label class="check-row">
+                    <input id="settings-floating-paths" type="checkbox">
+                    <span>清單顯示路徑第二行</span>
+                  </label>
+                  <p class="rule-hint">F8 收合／展開，Ctrl+1／2／3 切換清單／圖示／標籤，Ctrl+F 搜尋，Ctrl+Shift+C 複製篩選結果全部路徑（跨頁）。Esc 先關選單或暫時搜尋，再隱藏視窗。</p>
+                  <label class="field">
+                    <span>底部分頁列</span>
+                    <select id="settings-floating-pager">
+                      <option value="auto">自動：只有一頁時隱藏（建議）</option>
+                      <option value="always">永遠顯示</option>
+                      <option value="hidden">永遠隱藏（PageUp／PageDown 換頁）</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>圖示模式尺寸</span>
+                    <select id="settings-floating-icon-size">
+                      <option value="small">小：14 px，適合緊湊工具</option>
+                      <option value="medium">中：18 px</option>
+                      <option value="large">大：24 px</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-compact" type="checkbox">
+                    <span>精簡顯示（隱藏下列控制列）</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-search" type="checkbox" checked>
+                    <span>顯示搜尋列</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-tools" type="checkbox" checked>
+                    <span>顯示檢視／匯入工具列</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-tags" type="checkbox" checked>
+                    <span>顯示標籤列</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-floating-status" type="checkbox">
+                    <span>顯示底部操作提示及成功訊息</span>
+                  </label>
+                  <p class="rule-hint">小視窗標題列的「▤」可一鍵精簡／還原。錯誤訊息仍會顯示，分頁列依上方設定；Ctrl+F 可暫時叫出搜尋列。圖示右上角 ⋯ 可定位及複製路徑。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>標籤選單</h2>
+                  <label class="field">
+                    <span>標籤檔案選單</span>
+                    <select id="settings-floating-tag-presentation">
+                      <option value="popup">視窗外彈出選單（建議）</option>
+                      <option value="inline">視窗內展開清單</option>
+                    </select>
+                  </label>
+                  <p class="rule-hint">彈出選單不佔小視窗高度；選單指令一按開啟，不使用雙擊。每組超過 40 項會分段為子選單；大量項目建議用搜尋或主視窗。視窗內清單沿用單擊／雙擊偏好。</p>
+                  <details>
+                    <summary>自訂浮動工具按鈕</summary>
+                    <fieldset id="settings-floating-buttons">
+                      <legend>勾選要顯示的按鈕／提示</legend>
+                    </fieldset>
+                    <p class="rule-hint">收合／展開、關閉及拖曳區保留。控制列的顯示與精簡設定優先；隱藏按鈕後仍可從設定切換模式，Ctrl+1／2／3、Ctrl+F、Ctrl+Shift+C 仍可使用。</p>
+                  </details>
+                  <details>
+                    <summary>自訂標籤模式顯示分類</summary>
+                    <label class="check-row">
+                      <input id="settings-floating-all-tag" type="checkbox" checked>
+                      <span>顯示「全部收藏」</span>
+                    </label>
+                    <label class="check-row">
+                      <input id="settings-floating-untagged" type="checkbox" checked>
+                      <span>顯示「未分類」</span>
+                    </label>
+                    <label class="field">
+                      <span>自訂標籤範圍</span>
+                      <select id="settings-floating-tag-scope">
+                        <option value="all">全部標籤（包含以後新增）</option>
+                        <option value="selected">只顯示下方勾選的標籤</option>
+                      </select>
+                    </label>
+                    <fieldset id="settings-floating-tag-choices">
+                      <legend>顯示的自訂標籤</legend>
+                      <div id="settings-floating-tag-options"></div>
+                    </fieldset>
+                    <p class="rule-hint">只影響浮動工具的標籤模式，不刪除標籤或收藏。改名／合併標籤後請重新勾選新名稱；只選部分標籤時，新增標籤預設隱藏。</p>
+                  </details>
+                </section>
+                <section class="settings-card">
+                  <h2>檢視與混合來源</h2>
+                  <label class="check-row">
+                    <input id="settings-mixed-files" type="checkbox" checked>
+                    <span>混合模式顯示最近收藏</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-mixed-tags" type="checkbox" checked>
+                    <span>混合模式顯示收藏標籤</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-mixed-workspace" type="checkbox" checked>
+                    <span>混合模式顯示釘選／最近主檔</span>
+                  </label>
+                  <label class="field">
+                    <span>混合模式每區最多項目</span>
+                    <input id="settings-mixed-limit" type="number" min="3" max="30" value="8">
+                  </label>
+                  <p>在小視窗切換標籤、搜尋、開啟、複製路徑及拖放收藏；標題列可切換置頂。主程式執行期間可使用全域快捷鍵顯示／隱藏；系統匣及退出行為可於「啟動」設定。</p>
+                </section>
+              </div>
+              <div id="settings-panel-system" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-system" hidden>
+                <section class="settings-card">
+                  <h2>啟動與系統匣</h2>
+                  <label class="check-row">
+                    <input id="settings-remember-window" type="checkbox" checked>
+                    <span>記住視窗大小、位置與最大化狀態</span>
+                  </label>
+                  <label class="field">
+                    <span>啟動時開啟</span>
+                    <select id="settings-start-page">
+                      <option value="rename">批次重新命名</option>
+                      <option value="favorites">我的收藏</option>
+                      <option value="notes">資料工作區</option>
+                      <option value="search">全域搜尋</option>
+                    </select>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-login-startup" type="checkbox" disabled>
+                    <span>登入 Windows 後自動啟動</span>
+                  </label>
+                  <p id="settings-login-status" role="status">正在檢查…</p>
+                  <label class="check-row">
+                    <input id="settings-start-hidden" type="checkbox">
+                    <span>啟動程式後隱藏至系統匣</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-close-to-tray" type="checkbox">
+                    <span>關閉主視窗時保留在系統匣</span>
+                  </label>
+                  <label class="field">
+                    <span>快速叫回主視窗（程式執行期間）</span>
+                    <input id="settings-main-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵" aria-label="自訂主視窗全域快捷鍵">
+                    <span class="shortcut-buttons">
+                      <button type="button" id="btn-main-shortcut-clear" class="btn btn-ghost">停用</button>
+                      <button type="button" id="btn-main-shortcut-default" class="btn btn-ghost">還原預設</button>
+                    </span>
+                    <small>點選後直接按組合鍵；Tab 離開、Esc 取消、Backspace 清除。支援 Ctrl／Alt 組合或 F1–F24。</small>
+                  </label>
+                  <button id="btn-settings-hide" class="btn btn-secondary">現在隱藏至系統匣</button>
+                  <p class="rule-hint">以上選項預設關閉，只有快捷鍵預設啟用。點系統匣圖示或快捷鍵可叫回主視窗，右鍵選單可結束程式。完整結束後快捷鍵不會啟動程式。開機啟動只提供 Windows 安裝版；Windows 系統也可停用它。右鍵收藏會直接顯示主視窗。</p>
+                  <p id="desktop-shell-status" role="status"></p>
+                </section>
+                <section class="settings-card">
+                  <h2>Windows 右鍵收藏</h2>
+                  <label class="check-row">
+                    <input id="settings-explorer-tag" type="checkbox" checked>
+                    <span>右鍵收藏後立即選標籤（保留原標籤）</span>
+                  </label>
+                  <p id="favorite-context-status">正在檢查…</p>
+                  <button id="btn-context-menu" class="btn btn-secondary" disabled>啟用右鍵收藏</button>
+                  <p class="rule-hint">檔案總管選取項目後，Shift+F10 開啟選單；Studio 項目顯示時可按 B。Windows 11 可能先要按「顯示更多選項」。升級後停用再啟用可更新快捷字母。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>Everything 本機搜尋</h2>
+                  <label class="check-row">
+                    <input id="settings-everything-enabled" type="checkbox" disabled>
+                    <span>允許 Studio 使用 Everything（預設停用）</span>
+                  </label>
+                  <p id="settings-everything-status" role="status">正在讀取…</p>
+                  <label class="field">
+                    <span>官方 ES 命令列工具</span>
+                    <input type="text" id="settings-everything-path" readonly placeholder="尚未選取 es.exe">
+                  </label>
+                  <button id="btn-everything-choose" class="btn btn-secondary">選取 es.exe</button>
+                  <label class="field">
+                    <span>Everything 執行個體名稱（通常留空；1.5 Alpha 常用 1.5a）</span>
+                    <input type="text" id="settings-everything-instance" maxlength="64" placeholder="預設執行個體">
+                  </label>
+                  <button id="btn-everything-save" class="btn btn-secondary">儲存整合設定</button>
+                  <button id="btn-everything-test" class="btn btn-ghost" disabled>測試本機查詢</button>
+                  <p class="rule-hint">第一次先從 voidtools 官方下載 Everything 及 ES 工具，啟動 Everything，再選取 es.exe 並開啟上方開關。Studio 不會下載或啟動外部工具；選取 ES 後需手動啟用。每次查詢核對所選工具的 SHA-256，檔案變更需重新選取。</p>
+                  <p class="rule-hint">僅 Windows。使用 ES 的本機 IPC，不使用 HTTP／ETP；停用會取消查詢並清除結果，不影響原有收藏與檔案。Everything 自己的更新檢查、網路索引與伺服器需另外關閉；其連線不受 Studio 控制。只接受本機磁碟結果；映射磁碟仍請自行確認為本機。</p>
+                </section>
+              </div>
+              <div id="settings-panel-data" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-data" hidden>
+                <section class="settings-card">
+                  <h2>資料與設定</h2>
+                  <button id="btn-settings-export" class="btn btn-secondary">匯出設定 JSON</button>
+                  <p class="rule-hint">包含介面、面板、欄位、排序、快捷鍵、浮動工具、目前命名規則與自訂範本；不含資料工作區、收藏清單、檔案內容、復原紀錄、視窗位置或 Windows 右鍵註冊；資料工作區請使用自己的匯出功能。</p>
+                  <p id="settings-export-status" role="status"></p>
+                  <p>收藏與復原紀錄保存在目前使用者的本機資料位置。收藏標籤不會寫入原檔案。</p>
+                  <code id="settings-data-path">正在讀取…</code>
+                  <button id="btn-settings-open-data" class="btn btn-secondary">開啟資料位置</button>
+                  <button id="btn-settings-reset" class="btn btn-ghost">還原此頁預設設定</button>
+                </section>
+              </div>
+            </div>
+          </main>
+        </div>
+      </section>
+      <section id="info-page" class="settings-page hidden" aria-labelledby="info-title">
+        <div class="settings-heading">
+          <h1 id="info-title">Bulk File Studio</h1>
+          <strong id="info-version">…</strong>
+        </div>
+        <div class="settings-grid">
+          <section class="settings-card">
+            <h2>本機檔案工作台</h2>
+            <p>收藏位置、標籤分類、自訂資料工作區、批次重新命名與搬移。原名 Bulk Rename Studio；沿用原有資料、設定與應用程式識別。</p>
+            <h2>離線與資料保護</h2>
+            <p>程式不提供登入、遙測、廣告或自動更新。預設離線，封鎖網頁網路請求、外部連結、網頁導向、下載及權限請求。選用共享資料包後，會例外存取你明確指定的分享資料夾，可能透過區域網路；主資料庫仍留在本機。</p>
+            <p>一般收藏、改名與搬移不接受 UNC 網路路徑或符號連結；不能識別作業系統已掛載成磁碟的遠端儲存。請使用本機磁碟。開啟文件會交給預設程式，其網路行為及雲端資料夾同步由作業系統／外部程式控制。</p>
+            <p>衝突時停止、不覆寫既有目標；復原會比對檔案身分與 SHA-256。只保留上一批成功操作，無法還原檔案內容；意外斷電或外部程式同時修改仍需手動核對及備份。</p>
+          </section>
+          <section class="settings-card">
+            <h2>更新紀錄</h2>
+            <div id="info-history"></div>
+          </section>
+        </div>
+      </section>
+      <section id="favorites-page" class="favorites-page hidden" aria-labelledby="favorites-title">
+        <h1 id="favorites-title" class="sr-only">我的收藏</h1>
+        <div class="favorites-layout">
+          <aside id="favorite-tags-panel" class="panel favorites-sidebar">
+            <h2>標籤分類</h2>
+            <div class="tag-sort-tools">
+              <select id="tag-sort" aria-label="標籤排序">
+                <option value="name">名稱</option>
+                <option value="count">收藏數量</option>
+                <option value="recent">最近變更</option>
+              </select>
+              <button id="tag-direction" class="btn btn-ghost" title="反轉標籤排序">↑</button>
+            </div>
+            <div id="favorite-tags" class="favorite-tags"></div>
+            <div class="favorite-context-settings">
+              <button id="btn-fav-settings" class="btn btn-secondary">⚙ 收藏與外觀設定</button>
+            </div>
+          </aside>
+          <div id="tag-panel-resizer" class="tag-panel-resizer" role="separator" aria-label="標籤面板寬度" aria-orientation="vertical" aria-valuemin="140" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整標籤寬度；雙擊還原；方向鍵微調"></div>
+          <section class="panel favorites-content" aria-label="收藏項目">
+            <div class="favorites-filters">
+              <div class="favorites-add-actions">
+                <button id="btn-fav-add-files" class="btn btn-primary" title="收藏檔案位置，不改變原檔案">＋ 檔案</button>
+                <button id="btn-fav-add-folders" class="btn btn-secondary" title="只收藏資料夾位置，不展開內容">＋ 資料夾</button>
+                <button id="btn-everything-favorite" class="btn btn-secondary" hidden disabled title="請先在設定 → 啟動啟用 Everything">Everything 搜尋</button>
+                <button id="btn-fav-import-paths" class="btn btn-secondary" title="每行貼上一個完整路徑，批次收藏並套用標籤（Ctrl+Shift+I）">匯入路徑</button>
+                <button id="btn-fav-refresh" class="btn btn-ghost" title="重新讀取檔案狀態（F5）">↻</button>
+              </div>
+              <input id="favorite-search" type="search" placeholder="搜尋名稱、完整路徑或標籤…" aria-label="搜尋收藏">
+              <select id="favorite-type" aria-label="收藏類型">
+                <option value="all">所有類型</option>
+                <option value="file">檔案</option>
+                <option value="folder">資料夾</option>
+              </select>
+              <select id="favorite-status" aria-label="收藏狀態">
+                <option value="all">所有狀態</option>
+                <option value="ready">可使用</option>
+                <option value="problem">需要處理</option>
+              </select>
+              <select id="favorite-sort" aria-label="收藏排序">
+                <option value="recent">收藏時間</option>
+                <option value="name">名稱</option>
+                <option value="path">位置</option>
+                <option value="size">大小</option>
+                <option value="modified">修改時間</option>
+                <option value="type">類型</option>
+              </select>
+              <button id="favorite-direction" class="btn btn-ghost" title="反轉收藏排序">↓</button>
+              <div class="favorite-view-switch" role="group" aria-label="收藏檢視模式">
+                <button id="favorite-view-list" class="btn btn-ghost" aria-pressed="true" title="分欄清單模式">清單</button>
+                <button id="favorite-view-icons" class="btn btn-ghost" aria-pressed="false" title="圖示卡片模式">圖示</button>
+              </div>
+              <button id="btn-fav-columns" class="btn btn-secondary" title="選擇、排列檔案資訊欄位">欄位</button>
+              <details class="compact-help">
+                <summary title="顯示操作提示">？</summary>
+                <div class="help-popover">
+                  <strong>收藏操作</strong>
+                  <p>清單／圖示模式共用選取與篩選。單擊儲存格或卡片空白處選取，雙擊名稱開啟、位置定位。Ctrl／Shift 可多選；Ctrl+A 選取跨頁搜尋結果。</p>
+                  <p>📁 資料夾、📄 檔案；這是類型圖示。大小只計算一般檔案，不掃描資料夾內容。標籤面板右邊界可拖曳調寬。</p>
+                  <p>可按「匯入路徑」貼上每行一個完整路徑。F2 編輯，Ctrl+T 快速加入標籤；Delete 只移除收藏。更多快捷鍵可在設定修改。</p>
+                </div>
+              </details>
+            </div>
+            <div class="favorite-selection-actions">
+              <span id="favorite-selection-count" role="status">先選取項目以使用批次操作</span>
+              <div class="toolbar-group">
+                <button id="btn-fav-select-all" class="btn btn-ghost" title="只選取目前頁面；Ctrl+A 可選取跨頁篩選結果">選取本頁</button>
+                <button id="btn-fav-select-none" class="btn btn-ghost" title="取消包含隱藏項目的全部選取">取消</button>
+              </div>
+              <div class="toolbar-group">
+                <button id="btn-fav-open" class="btn btn-secondary" title="確認後開啟所選項目，最多 20 項" disabled>開啟所選</button>
+                <button id="btn-fav-quick-tag" class="btn btn-secondary" title="加入標籤並保留原標籤（Ctrl+T）" disabled>加標籤</button>
+                <button id="btn-fav-rename" class="btn btn-primary" title="把所選檔案或資料夾內容加入改名工作台" disabled>加入改名 →</button>
+              </div>
+              <details id="favorite-more" class="toolbar-more">
+                <summary>更多操作 ▾</summary>
+                <div class="toolbar-popover">
+                  <button id="btn-fav-copy" class="btn btn-ghost" disabled>複製完整路徑</button>
+                  <button id="btn-fav-edit" class="btn btn-ghost" disabled>編輯名稱／標籤</button>
+                  <button id="btn-fav-move" class="btn btn-ghost" disabled>搬移檔案</button>
+                  <button id="btn-fav-remove" class="btn btn-ghost" disabled>移除收藏紀錄</button>
+                  <label class="check-row">
+                    <input id="favorite-recursive" type="checkbox">
+                    <span>加入改名時包含子資料夾檔案</span>
+                  </label>
+                </div>
+              </details>
+            </div>
+            <div class="inline-tip">單擊選取 · 雙擊名稱開啟／位置定位 · Ctrl+A 跨頁全選 <span>詳見右上角「？」</span></div>
+            <div id="favorite-table-scroll" class="favorite-table-scroll">
+              <div id="favorite-columns" class="favorite-columns"></div>
+              <div id="favorite-list" class="favorite-list">
+                <div class="list-empty">正在載入收藏…</div>
+              </div>
+            </div>
+            <div class="table-footer list-pager">
+              <span id="favorite-results">收藏只記錄位置，不會複製檔案。</span>
+              <div class="pager-buttons">
+                <button id="favorite-page-prev" class="btn btn-ghost" aria-label="收藏上一頁">‹</button>
+                <span id="favorite-page-info">1 / 1</span>
+                <button id="favorite-page-next" class="btn btn-ghost" aria-label="收藏下一頁">›</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+      <div id="rename-intro" class="intro-row">
+        <div class="workspace-actions">
+          <h1>批次重新命名</h1>
+          <button class="btn btn-secondary" id="btn-everything-rename" hidden disabled title="請先在設定 → 啟動啟用 Everything">Everything 搜尋</button>
+          <button class="btn btn-primary" id="btn-add-files">＋ 檔案</button>
+          <button class="btn btn-secondary" id="btn-add-folder">＋ 資料夾</button>
+          <button class="btn btn-ghost" id="btn-toggle-source" aria-pressed="false">來源清單</button>
+          <button class="btn btn-ghost" id="btn-toggle-rules" aria-pressed="true">命名規則</button>
+          <button class="btn btn-ghost" id="btn-focus-list">專注清單</button>
+          <button class="btn btn-secondary" id="btn-extension">副檔名</button>
+          <button class="btn btn-secondary" id="btn-move-selected" disabled>搬移選取檔案</button>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <span>已加入</span>
+            <strong id="stat-total">0</strong>
+            <small>個檔案</small>
+          </div>
+          <div class="stat">
+            <span>待重新命名</span>
+            <strong class="stat-good" id="stat-ready">0</strong>
+            <small>個檔案</small>
+          </div>
+          <div class="stat">
+            <span>需處理</span>
+            <strong class="stat-bad" id="stat-error">0</strong>
+            <small>項衝突</small>
+          </div>
+        </div>
+        <div class="workspace-file-actions">
+          <button class="btn btn-ghost" id="btn-undo" title="復原上一批重新命名或搬移" disabled>↶ <span>復原上一批</span></button>
+          <button class="btn btn-ghost" id="btn-export" title="匯出預覽為 CSV" disabled>↓ 匯出 CSV</button>
+          <button id="btn-favorite-selected" class="btn btn-ghost" disabled>☆ 收藏選取</button>
+        </div>
       </div>
-    </section>
-    <div id="rename-intro" class="intro-row">
-      <div class="workspace-actions"><h1>批次重新命名</h1><button class="btn btn-secondary" id="btn-everything-rename" hidden disabled title="請先在設定 → 啟動啟用 Everything">Everything 搜尋</button><button class="btn btn-primary" id="btn-add-files">＋ 檔案</button><button class="btn btn-secondary" id="btn-add-folder">＋ 資料夾</button><button class="btn btn-ghost" id="btn-toggle-source" aria-pressed="false">來源清單</button><button class="btn btn-ghost" id="btn-toggle-rules" aria-pressed="true">命名規則</button><button class="btn btn-ghost" id="btn-focus-list">專注清單</button><button class="btn btn-secondary" id="btn-extension">副檔名</button><button class="btn btn-secondary" id="btn-move-selected" disabled>搬移選取檔案</button></div>
-      <div class="stats">
-        <div class="stat"><span>已加入</span><strong id="stat-total">0</strong><small>個檔案</small></div>
-        <div class="stat"><span>待重新命名</span><strong class="stat-good" id="stat-ready">0</strong><small>個檔案</small></div>
-        <div class="stat"><span>需處理</span><strong class="stat-bad" id="stat-error">0</strong><small>項衝突</small></div>
+      <main id="rename-workspace" class="workspace">
+        <aside id="source-panel" class="panel files-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>來源清單</h2>
+            </div>
+            <button id="btn-close-source" class="text-action" aria-label="收合來源面板">✕</button>
+          </div>
+          <div class="panel-pad">
+            <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="拖放檔案，或點擊加入檔案">
+              <div class="drop-icon">⇧</div>
+              <strong>拖放檔案至此</strong>
+              <span>或按下方按鈕選取</span>
+              <div class="drop-hint">檔案只會在你的電腦上處理</div>
+            </div>
+            <label class="check-row small-check">
+              <input id="recursive" type="checkbox">
+              <span>包含子資料夾的檔案</span>
+            </label>
+          </div>
+          <div class="separator"></div>
+          <div class="file-list-heading">
+            <div>
+              <strong>檔案清單</strong>
+              <span id="file-counter" class="count-pill">0</span>
+            </div>
+          </div>
+          <div id="file-list" class="file-list">
+            <div class="list-empty">尚未加入任何檔案</div>
+          </div>
+          <div class="source-pager">
+            <button id="source-page-prev" class="btn btn-ghost" aria-label="來源上一頁">‹</button>
+            <span id="source-page-info">1 / 1</span>
+            <button id="source-page-next" class="btn btn-ghost" aria-label="來源下一頁">›</button>
+          </div>
+        </aside>
+        <div id="source-panel-resizer" class="tag-panel-resizer" role="separator" aria-label="來源面板寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整來源寬度；雙擊還原；← 縮窄、→ 加寬"></div>
+        <section class="panel preview-panel">
+          <div class="panel-heading preview-heading">
+            <div>
+              <span class="step-tag">02</span>
+              <h2>重新命名預覽</h2>
+            </div>
+            <span class="preview-live"><span class="pulse-dot"></span>即時預覽</span>
+          </div>
+          <div class="preview-toolbar">
+            <div class="search-box">
+              <span aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="10" cy="10" r="7"></circle>
+                  <path d="m15 15 6 6"></path>
+                </svg>
+              </span>
+              <input id="search" type="search" placeholder="搜尋原始或新檔名…" autocomplete="off" aria-label="搜尋檔案">
+            </div>
+            <button id="btn-select-all" class="text-action" disabled>全選</button>
+            <button id="btn-select-none" class="text-action" disabled>取消全選</button>
+            <button id="btn-clear" class="text-action" disabled>清空</button>
+          </div>
+          <div class="sort-toolbar">
+            <span>編號排序</span>
+            <select id="rule-sort-by" aria-label="編號排序依據">
+              <option value="path">完整路徑</option>
+              <option value="name">檔案名稱</option>
+              <option value="modified">檔案修改時間</option>
+            </select>
+            <select id="rule-sort-direction" aria-label="排序方向">
+              <option value="asc">↑ 遞增／舊至新</option>
+              <option value="desc">↓ 遞減／新至舊</option>
+            </select>
+            <span id="rule-summary" title="編號依預覽順序；搜尋和分頁只改變顯示">未設定命名規則</span>
+          </div>
+          <div class="table-scroll">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th class="col-check">
+                    <input id="check-all" type="checkbox" title="選取全部顯示的檔案">
+                  </th>
+                  <th>原始檔名</th>
+                  <th class="col-arrow"></th>
+                  <th>新檔名</th>
+                  <th class="col-state">狀態</th>
+                </tr>
+              </thead>
+              <tbody id="preview-body">
+                <tr>
+                  <td colspan="5">
+                    <div class="empty-preview">
+                      <div class="empty-graphic">
+                        <span>Abc</span>
+                        <span class="graphic-arrow">→</span>
+                        <span>ABC</span>
+                      </div>
+                      <h3>先加入檔案，開始整理</h3>
+                      <p>你將在這裡看到每一個檔名變更，<br>包含錯誤與重複名稱提醒。</p>
+                      <button id="btn-empty-add" class="btn btn-primary">＋ 選取檔案</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer list-pager">
+            <span id="table-showing">尚未加入檔案</span>
+            <div class="pager-buttons">
+              <button id="preview-page-first" class="btn btn-ghost" aria-label="預覽第一頁">«</button>
+              <button id="preview-page-prev" class="btn btn-ghost" aria-label="預覽上一頁">‹</button>
+              <span id="preview-page-info">1 / 1</span>
+              <button id="preview-page-next" class="btn btn-ghost" aria-label="預覽下一頁">›</button>
+              <button id="preview-page-last" class="btn btn-ghost" aria-label="預覽最後一頁">»</button>
+            </div>
+          </div>
+        </section>
+        <div id="rules-panel-resizer" class="tag-panel-resizer rules-panel-resizer" role="separator" aria-label="命名規則面板寬度" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="720" aria-valuenow="420" tabindex="0" title="拖曳調整命名規則寬度；雙擊還原；← 加寬、→ 縮窄"></div>
+        <aside id="rules-panel" class="panel rules-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>命名規則</h2>
+            </div>
+            <div class="panel-actions">
+              <button id="btn-reset" class="text-action">重設</button>
+              <button id="btn-close-rules" class="text-action" aria-label="收合命名規則面板">✕</button>
+            </div>
+          </div>
+          <nav class="rule-tabs" aria-label="命名規則分類">
+            <button id="rule-tab-presets" data-rule-tab="presets" aria-pressed="true">範本</button>
+            <button id="rule-tab-name" data-rule-tab="name" aria-pressed="false">命名</button>
+            <button id="rule-tab-text" data-rule-tab="text" aria-pressed="false">文字</button>
+            <button id="rule-tab-extension" data-rule-tab="extension" aria-pressed="false">副檔名</button>
+          </nav>
+          <div id="rules-scroll" class="rules-scroller">
+            <div class="presets" data-rule-section="presets">
+              <div class="presets-title">快速範本 <span>套用會取代目前規則</span></div>
+              <div class="preset-row">
+                <select id="preset-select" aria-label="內建快速範本"></select>
+                <button id="btn-apply-preset" class="btn btn-secondary">套用</button>
+              </div>
+              <p id="preset-description" class="preset-description"></p>
+              <details class="preset-library">
+                <summary id="saved-presets-summary">我的範本（0）</summary>
+                <div class="preset-row">
+                  <select id="saved-preset-select" aria-label="已儲存範本"></select>
+                  <button id="btn-load-preset" class="btn btn-secondary">套用</button>
+                  <button id="btn-delete-preset" class="btn btn-ghost">刪除</button>
+                </div>
+              </details>
+              <button id="btn-save-preset" class="text-action">＋ 儲存目前規則為範本</button>
+            </div>
+            <div class="rule-group" data-rule-section="name">
+              <div class="group-title">
+                <div class="rule-symbol violet">{ }</div>
+                <div>
+                  <strong>自訂命名格式</strong>
+                  <span>留空會沿用原檔名，預設保留副檔名</span>
+                </div>
+              </div>
+              <label class="field">
+                <span>格式（例如 {date}_{name}）</span>
+                <input id="rule-name-template" type="text" placeholder="{folder}_{n}_{name}" spellcheck="false">
+              </label>
+              <div class="token-buttons">
+                <button class="preset" data-token="name">{name} 檔名</button>
+                <button class="preset" data-token="folder">{folder} 資料夾</button>
+                <button class="preset" data-token="n">{n} 編號</button>
+                <button class="preset" data-token="date">{date} 指定日期</button>
+                <button class="preset" data-token="modified">{modified} 修改日期</button>
+                <button class="preset" data-token="original">{original} 原始檔名</button>
+                <button class="preset" data-token="ext">{ext} 副檔名文字</button>
+                <button class="preset" data-token="parent">{parent} 再上一層資料夾</button>
+                <button class="preset" data-token="created">{created} 建立日期</button>
+              </div>
+              <div class="field-duo">
+                <label class="field">
+                  <span>指定日期（{date}）</span>
+                  <input id="rule-date-value" type="date" min="1000-01-01" max="9999-12-31">
+                </label>
+                <label class="field">
+                  <span>日期格式</span>
+                  <select id="rule-date-format">
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    <option value="YYYYMMDD">YYYYMMDD</option>
+                    <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+                  </select>
+                </label>
+              </div>
+              <p class="rule-hint">{original} 不套用文字取代且不含副檔名；{ext} 不含小數點，原副檔名仍依設定保留。{created} 使用檔案系統建立日期，不是照片拍攝日期，複製檔案可能改變。{modified} 使用電腦本地時區的檔案修改日期，並非照片拍攝日期。{n} 沿用下方起始值、遞增值及位數。</p>
+            </div>
+            <div class="rule-group" data-rule-section="text">
+              <div class="group-title">
+                <div class="rule-symbol violet">⌕</div>
+                <div>
+                  <strong>搜尋與取代</strong>
+                  <span>尋找檔名中指定內容</span>
+                </div>
+              </div>
+              <label class="field">
+                <span>尋找文字／模式</span>
+                <input id="rule-find" placeholder="例如：IMG_ 或 (\\d+)" type="text" spellcheck="false">
+              </label>
+              <label class="field">
+                <span>取代為</span>
+                <input id="rule-replace" placeholder="輸入新文字（留空則刪除）" type="text" spellcheck="false">
+              </label>
+              <div class="switch-row">
+                <label class="check-row">
+                  <input id="rule-regex" type="checkbox">
+                  <span>正規表示式 Regex</span>
+                </label>
+                <label class="check-row">
+                  <input id="rule-match-case" type="checkbox">
+                  <span>區分大小寫</span>
+                </label>
+              </div>
+              <label class="check-row subtle">
+                <input id="rule-replace-all" type="checkbox" checked>
+                <span>取代所有符合項目</span>
+              </label>
+            </div>
+            <div class="rule-group" data-rule-section="name">
+              <div class="group-title">
+                <div class="rule-symbol teal">±</div>
+                <div>
+                  <strong>前綴與後綴</strong>
+                  <span>在檔名首尾增加文字</span>
+                </div>
+              </div>
+              <div class="field-duo">
+                <label class="field">
+                  <span>前綴 Prefix</span>
+                  <input id="rule-prefix" placeholder="例如：Project_" type="text">
+                </label>
+                <label class="field">
+                  <span>後綴 Suffix</span>
+                  <input id="rule-suffix" placeholder="例如：_final" type="text">
+                </label>
+              </div>
+            </div>
+            <div class="rule-group" data-rule-section="name">
+              <div class="group-title">
+                <div class="rule-symbol orange">#</div>
+                <div>
+                  <strong>流水編號</strong>
+                  <span>開關控制另加編號；{n} 可獨立使用</span>
+                </div>
+                <label class="toggle">
+                  <input id="rule-number-enabled" type="checkbox">
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div id="number-details" class="number-fields disabled-group">
+                <div class="three-col">
+                  <label class="field">
+                    <span>起始值</span>
+                    <input id="rule-number-start" type="number" value="1" min="0" max="999999">
+                  </label>
+                  <label class="field">
+                    <span>遞增值</span>
+                    <input id="rule-number-step" type="number" value="1" min="1" max="99999">
+                  </label>
+                  <label class="field">
+                    <span>位數</span>
+                    <input id="rule-number-width" type="number" value="3" min="1" max="10">
+                  </label>
+                </div>
+                <div class="field-duo">
+                  <label class="field">
+                    <span>位置</span>
+                    <select id="rule-number-position">
+                      <option value="suffix">檔名後方</option>
+                      <option value="prefix">檔名前方</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>分隔符號</span>
+                    <input id="rule-number-separator" value="_" type="text" maxlength="12">
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="rule-group" data-rule-section="text">
+              <div class="group-title">
+                <div class="rule-symbol blue">Aa</div>
+                <div>
+                  <strong>文字整理</strong>
+                  <span>統一大小寫及空白</span>
+                </div>
+              </div>
+              <div class="field-duo">
+                <label class="field">
+                  <span>移除開頭字元數</span>
+                  <input id="rule-remove-start" type="number" min="0" max="500" value="0">
+                </label>
+                <label class="field">
+                  <span>移除尾端字元數</span>
+                  <input id="rule-remove-end" type="number" min="0" max="500" value="0">
+                </label>
+              </div>
+              <label class="field">
+                <span>清除頭尾指定字元（留空不處理）</span>
+                <input id="rule-trim-characters" type="text" placeholder="例如： _-（包含空白）">
+              </label>
+              <div class="field-duo">
+                <label class="field">
+                  <span>大小寫</span>
+                  <select id="rule-case-mode">
+                    <option value="none">保持不變</option>
+                    <option value="lower">全部小寫</option>
+                    <option value="upper">全部大寫</option>
+                    <option value="title">每字首字大寫</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>空白處理</span>
+                  <select id="rule-whitespace">
+                    <option value="none">保持不變</option>
+                    <option value="underscore">轉為底線 _</option>
+                    <option value="dash">轉為連字號 -</option>
+                  </select>
+                </label>
+              </div>
+              <label class="check-row subtle">
+                <input id="rule-trim" type="checkbox">
+                <span>移除名稱前後空白</span>
+              </label>
+              <label class="check-row subtle">
+                <input id="rule-include-extension" type="checkbox">
+                <span>規則也套用到副檔名（.jpg / .pdf）</span>
+              </label>
+            </div>
+            <div class="rule-group" data-rule-section="extension">
+              <div class="group-title">
+                <div class="rule-symbol teal">.ext</div>
+                <div>
+                  <strong>副檔名整理</strong>
+                  <span>獨立設定，不影響主檔名</span>
+                </div>
+              </div>
+              <div class="field-duo">
+                <label class="field">
+                  <span>處理方式</span>
+                  <select id="rule-extension-mode">
+                    <option value="keep">保持不變</option>
+                    <option value="lower">全部小寫</option>
+                    <option value="upper">全部大寫</option>
+                    <option value="replace">改為指定副檔名</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>指定副檔名</span>
+                  <input id="rule-extension-value" type="text" placeholder="例如 jpg">
+                </label>
+              </div>
+              <p class="rule-hint">只更改名稱，不會轉換檔案格式。若使用此功能，請先在「文字」頁取消「規則也套用到副檔名」。</p>
+            </div>
+            <div class="help-card" data-rule-section="presets">
+              <strong>✧ 安全提示</strong>
+              <p>預設保留副檔名；如果有重複檔名、無效字元或已存在目標，程式會阻止整批操作，避免意外覆蓋。</p>
+            </div>
+          </div>
+        </aside>
+      </main>
+      <footer id="rename-footer" class="action-footer">
+        <div class="footer-info">
+          <div class="footer-check" id="footer-check">✓</div>
+          <div>
+            <strong id="footer-title">準備開始</strong>
+            <span id="footer-desc">請先選擇檔案並設定重新命名規則</span>
+          </div>
+        </div>
+        <div class="footer-actions">
+          <span id="footer-count" class="action-count">0 個檔案待處理</span>
+          <button class="btn btn-primary btn-run" id="btn-run" disabled><span>✦</span> 執行重新命名 <span class="arrow">→</span></button>
+        </div>
+      </footer>
+    </div>
+    <div id="drop-overlay" class="drop-overlay hidden">
+      <div class="drop-overlay-inner">
+        <div>⇧</div>
+        <strong>放開以加入檔案</strong>
+        <span>支援多個檔案及資料夾</span>
       </div>
     </div>
-
-    <main id="rename-workspace" class="workspace">
-      <aside id="source-panel" class="panel files-panel">
-        <div class="panel-heading"><div><h2>來源清單</h2></div><button id="btn-close-source" class="text-action" aria-label="收合來源面板">✕</button></div>
-        <div class="panel-pad">
-          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="拖放檔案，或點擊加入檔案">
-            <div class="drop-icon">⇧</div>
-            <strong>拖放檔案至此</strong>
-            <span>或按下方按鈕選取</span>
-            <div class="drop-hint">檔案只會在你的電腦上處理</div>
+    <dialog id="confirm-modal" class="modal" aria-labelledby="modal-title" aria-describedby="modal-description modal-note">
+      <div class="modal-icon">✦</div>
+      <h2 id="modal-title">確認重新命名？</h2>
+      <p id="modal-description">即將更改所選檔案名稱。</p>
+      <div id="modal-note" class="modal-note">所有衝突必須先解決；成功後可使用「復原上一批」。</div>
+      <div class="modal-buttons">
+        <button class="btn btn-secondary" id="btn-cancel" autofocus>取消</button>
+        <button class="btn btn-primary" id="btn-confirm">確認並執行</button>
+      </div>
+    </dialog>
+    <dialog id="error-dialog" class="modal error-dialog" aria-labelledby="error-title">
+      <h2 id="error-title">操作未完成</h2>
+      <p>請核對以下說明後再處理。你可以選取並複製下方的詳細資料。</p>
+      <pre id="error-details"></pre>
+      <button id="btn-error-close" class="btn btn-secondary" autofocus>關閉</button>
+    </dialog>
+    <dialog id="preset-dialog" class="modal" aria-labelledby="preset-dialog-title">
+      <form id="preset-form">
+        <h2 id="preset-dialog-title">儲存目前規則</h2>
+        <label class="field preset-name-field">
+          <span>範本名稱</span>
+          <input id="preset-name" type="text" required maxlength="60" placeholder="例如：每月報表整理" autofocus>
+        </label>
+        <p class="rule-hint">最多儲存 30 個範本；同名範本會更新。只保存命名規則，不保存檔案清單。</p>
+        <div class="modal-buttons">
+          <button id="btn-preset-cancel" type="button" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">儲存範本</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="favorite-edit-dialog" class="modal favorite-edit-dialog" aria-labelledby="favorite-edit-title">
+      <form id="favorite-edit-form">
+        <h2 id="favorite-edit-title">編輯收藏</h2>
+        <div id="favorite-single-fields">
+          <label class="field preset-name-field">
+            <span>顯示名稱（留空沿用檔名）</span>
+            <input id="favorite-label" type="text" maxlength="100">
+          </label>
+          <label class="field">
+            <span>目前連結位置</span>
+            <input id="favorite-path" type="text" readonly>
+          </label>
+          <button id="btn-fav-relink" type="button" class="btn btn-secondary">選擇新位置／確認替換的檔案</button>
+          <p class="rule-hint">重新連結只更新收藏的位置與檔案識別，不會移動檔案；按「儲存」才生效。</p>
+        </div>
+        <label class="field preset-name-field">
+          <span>標籤（使用逗號分隔）</span>
+          <input id="favorite-edit-tags" type="text" placeholder="工作, 常用, 專案 A" maxlength="1000">
+        </label>
+        <p id="favorite-edit-note" class="rule-hint">最多 20 個標籤，每個最多 32 個字元。</p>
+        <div class="modal-buttons">
+          <button id="btn-fav-edit-cancel" type="button" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="favorite-remove-dialog" class="modal" aria-labelledby="favorite-remove-title">
+      <h2 id="favorite-remove-title">移除收藏？</h2>
+      <p id="favorite-remove-description"></p>
+      <div class="modal-note">只移除收藏紀錄，實際檔案及資料夾會保留。</div>
+      <div class="modal-buttons">
+        <button id="btn-fav-remove-cancel" class="btn btn-secondary" autofocus>取消</button>
+        <button id="btn-fav-remove-confirm" class="btn btn-primary">移除收藏</button>
+      </div>
+    </dialog>
+    <div id="favorite-context-menu" class="favorite-context-menu hidden" role="menu" aria-label="收藏操作"></div>
+    <dialog id="settings-reset-dialog" class="modal" aria-labelledby="settings-reset-title">
+      <h2 id="settings-reset-title">還原偏好設定？</h2>
+      <p id="settings-reset-description">還原應用程式與浮動工具偏好；保留收藏、工作區資料、範本、視窗位置及系統整合。收藏快捷鍵使用獨立的還原按鈕。</p>
+      <div class="modal-buttons">
+        <button id="btn-settings-reset-cancel" class="btn btn-secondary" autofocus>取消</button>
+        <button id="btn-settings-reset-confirm" class="btn btn-primary">還原設定</button>
+      </div>
+    </dialog>
+    <dialog id="favorite-open-dialog" class="modal">
+      <h2>批次開啟收藏？</h2>
+      <p id="favorite-open-description"></p>
+      <div class="modal-buttons">
+        <button id="btn-fav-open-cancel" class="btn btn-secondary" autofocus>取消</button>
+        <button id="btn-fav-open-confirm" class="btn btn-primary">確認開啟</button>
+      </div>
+    </dialog>
+    <dialog id="move-dialog" class="modal favorite-edit-dialog">
+      <h2>搬移檔案</h2>
+      <p id="move-count"></p>
+      <p>只支援同一磁碟且支援硬連結的一般檔案（例如 NTFS；不支援 FAT／exFAT）；不覆寫、不搬移整個資料夾。這次操作會取代上一批復原紀錄。</p>
+      <button id="btn-move-target" class="btn btn-secondary">選擇目標資料夾</button>
+      <code id="move-target"></code>
+      <pre id="move-preview-list"></pre>
+      <div class="modal-buttons">
+        <button id="btn-move-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-move-confirm" class="btn btn-primary" disabled>確認搬移</button>
+      </div>
+    </dialog>
+    <dialog id="favorite-columns-dialog" class="modal favorite-edit-dialog">
+      <h2>管理收藏欄位</h2>
+      <p>名稱固定顯示；勾選其他資訊並用上下按鈕調整順序。清單模式分欄顯示並可水平捲動，圖示模式依序顯示於卡片中。</p>
+      <div id="favorite-columns-editor"></div>
+      <div class="modal-buttons">
+        <button id="btn-columns-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-columns-default" class="btn btn-ghost">預設欄位</button>
+        <button id="btn-columns-save" class="btn btn-primary">儲存</button>
+      </div>
+    </dialog>
+    <dialog id="quick-tag-dialog" class="modal favorite-edit-dialog">
+      <h2 id="quick-tag-title">快速加入標籤</h2>
+      <p>保留現有標籤，將下列標籤加入全部所選項目。取消只略過標籤，已收藏的位置仍會保留。</p>
+      <form id="quick-tag-form">
+        <label class="field">
+          <span>標籤（逗號分隔）</span>
+          <input type="text" id="quick-tag-input" autocomplete="off" placeholder="例如：工作, 常用">
+        </label>
+        <div id="quick-tag-suggestions" class="quick-tag-suggestions"></div>
+        <p id="quick-tag-error" role="alert"></p>
+        <div class="modal-buttons">
+          <button id="btn-quick-tag-cancel" type="button" class="btn btn-secondary">略過</button>
+          <button type="submit" id="btn-quick-tag-save" class="btn btn-primary">加入標籤</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="path-import-dialog" class="modal favorite-edit-dialog path-import-dialog" aria-labelledby="path-import-title">
+      <h2 id="path-import-title">從路徑清單匯入收藏</h2>
+      <p>每行一個檔案或資料夾的完整路徑，可直接貼上 Windows「複製路徑」的內容。只收藏位置，不展開資料夾或改動檔案。</p>
+      <label class="field">
+        <span>完整路徑（以換行分隔）</span>
+        <textarea id="path-import-text" rows="7" spellcheck="false" placeholder="C:\Work\report.pdf&#10;D:\Projects"></textarea>
+      </label>
+      <label class="field">
+        <span>共同標籤（選填，以逗號分隔）</span>
+        <input type="text" id="path-import-tags" autocomplete="off" placeholder="工作, 常用">
+      </label>
+      <p id="path-import-status" role="status">先檢查路徑，再確認匯入。</p>
+      <div id="path-import-preview" class="path-import-preview"></div>
+      <p class="rule-hint">空白行會略過，重複項目不會新增；已收藏項目合併標籤。無效路徑會列出原因，確認後只匯入有效項目。最多 10,000 行／2 MB；不接受網址或網路路徑，也不展開環境變數。</p>
+      <div class="modal-buttons">
+        <button id="btn-path-import-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-path-import-check" class="btn btn-secondary">檢查路徑</button>
+        <button id="btn-path-import-confirm" class="btn btn-primary" disabled>匯入有效路徑</button>
+      </div>
+    </dialog>
+    <dialog id="tag-manage-dialog" class="modal favorite-edit-dialog">
+      <form id="tag-manage-form">
+        <h2 id="tag-manage-title">管理標籤</h2>
+        <p id="tag-manage-description"></p>
+        <label id="tag-manage-field" class="field">
+          <span>新標籤名稱</span>
+          <input type="text" id="tag-manage-name" maxlength="32" autocomplete="off">
+        </label>
+        <div class="modal-buttons">
+          <button type="button" id="btn-tag-manage-cancel" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">確認</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="everything-dialog" class="modal everything-dialog" aria-labelledby="everything-title">
+      <h2 id="everything-title">Everything 本機搜尋</h2>
+      <p class="rule-hint">輸入檔名關鍵字或 *.pdf 等萬用字元；空格代表多個關鍵字。不接受 ext:、content: 等進階語法。只查詢，不會自動改名。</p>
+      <form id="everything-search-form" class="everything-search-tools">
+        <input id="everything-query" type="search" maxlength="256" placeholder="例如 *.pdf 或 report 2026" aria-label="Everything 檔名搜尋">
+        <select id="everything-type" aria-label="Everything 類型">
+          <option value="all">檔案及資料夾</option>
+          <option value="file">只有檔案</option>
+          <option value="folder">只有資料夾</option>
+        </select>
+        <button id="btn-everything-search" type="submit" class="btn btn-primary">搜尋</button>
+      </form>
+      <p id="everything-search-status" role="status">按搜尋讀取本機索引。</p>
+      <div class="everything-selection-tools">
+        <button id="btn-everything-select-all" class="btn btn-ghost" disabled>全選搜尋結果</button>
+        <button id="btn-everything-select-none" class="btn btn-ghost" disabled>取消選取</button>
+        <span id="everything-selection-count">已選取 0 項</span>
+      </div>
+      <div id="everything-results" class="everything-results"></div>
+      <label class="field">
+        <span>收藏時加入標籤（選填，逗號分隔）</span>
+        <input type="text" id="everything-tags" maxlength="1000" placeholder="工作, 常用">
+      </label>
+      <div class="modal-buttons">
+        <button id="btn-everything-close" class="btn btn-secondary">關閉／取消查詢</button>
+        <button id="btn-everything-add-favorite" class="btn btn-secondary" disabled>加入收藏</button>
+        <button id="btn-everything-add-rename" class="btn btn-primary" disabled>檔案加入改名 →</button>
+      </div>
+    </dialog>
+    <dialog id="notes-area-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-area-dialog-title">
+      <form id="notes-area-form">
+        <h2 id="notes-area-dialog-title">工作區群組與主表</h2>
+        <label class="field">
+          <span>群組名稱</span>
+          <input type="text" id="notes-area-name" required maxlength="100" placeholder="例如：客戶管理、工作專案">
+        </label>
+        <label class="check-row">
+          <input id="notes-area-adopt" type="checkbox">
+          <span>將所有未分組表格收納到此群組（包含回收筒表格）</span>
+        </label>
+        <label class="field">
+          <span>主表</span>
+          <select id="notes-area-master"></select>
+        </label>
+        <p class="notes-hint">主表存放客戶、專案等主紀錄。點選主表紀錄後，開啟該紀錄的明細分頁；明細表第一個連向主表的關聯欄位作為所屬主紀錄；不會自動建立或改寫關聯欄位。既有表格可在「欄位與表格」更改所屬群組。移走主表會清除該群組的主表設定。</p>
+        <div class="modal-buttons">
+          <button id="notes-area-remove" type="button" class="btn btn-ghost">移除群組（保留表格）</button>
+          <button id="notes-area-cancel" type="button" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">儲存群組</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="notes-template-dialog" class="modal notes-modal" aria-labelledby="notes-template-title">
+      <h2 id="notes-template-title">工作區範本庫</h2>
+      <p class="notes-hint">每個範本建立獨立群組、主表及相關空白表格，可繼續自訂。物品數量為手動記錄，不會自動計算庫存。</p>
+      <div id="notes-template-list" class="notes-template-list"></div>
+      <div class="modal-buttons">
+        <button id="notes-template-cancel" class="btn btn-secondary">關閉</button>
+      </div>
+    </dialog>
+    <dialog id="notes-share-dialog" class="modal notes-modal" aria-labelledby="notes-share-title">
+      <h2 id="notes-share-title">共享資料包（選用）</h2>
+      <p class="notes-hint">主資料庫留在本機。啟用後會存取指定資料夾，可能經區域網路；只分享資料包，收到資料仍須預覽匯入。資料包包含有效紀錄、筆記與路徑，可能含聯絡資訊，不包含原始檔案。</p>
+      <div class="notes-file-row">
+        <code id="notes-share-folder">尚未選取資料夾</code>
+        <button id="notes-share-choose" class="btn btn-secondary">選取資料夾</button>
+      </div>
+      <label class="check-row">
+        <input id="notes-share-enabled" type="checkbox">
+        <span>啟用指定資料夾分享與定期檢查（預設關閉）</span>
+      </label>
+      <label class="field">
+        <span>程式執行時檢查間隔</span>
+        <select id="notes-share-interval">
+          <option value="1">1 分鐘</option>
+          <option value="5">5 分鐘</option>
+          <option value="15">15 分鐘</option>
+          <option value="30">30 分鐘</option>
+          <option value="60">60 分鐘</option>
+        </select>
+      </label>
+      <label class="check-row">
+        <input id="notes-share-auto" type="checkbox">
+        <span>定期檢查後，資料有變更時自動發佈全部有效紀錄（預設關閉）</span>
+      </label>
+      <div class="notes-tools">
+        <button id="notes-share-check" class="btn btn-secondary">立即檢查</button>
+        <button id="notes-share-publish" class="btn btn-secondary">發佈目前快照</button>
+      </div>
+      <p id="notes-share-status" class="notes-hint" role="status"></p>
+      <div id="notes-share-files" class="notes-preview-list"></div>
+      <p class="notes-hint">每次發佈建立獨立資料包，避免不同電腦互相覆寫；不自動合併或刪除舊資料包。最多列出最近 50 份，請定期整理分享資料夾。停用會停止後續檢查與發佈，已發佈的資料包會保留。</p>
+      <div class="modal-buttons">
+        <button id="notes-share-close" class="btn btn-secondary">關閉</button>
+      </div>
+    </dialog>
+    <dialog id="notes-sheet-dialog" class="modal notes-modal" aria-labelledby="notes-sheet-dialog-title">
+      <form id="notes-sheet-form">
+        <h2 id="notes-sheet-dialog-title">自訂表格</h2>
+        <label class="field">
+          <span>表格名稱</span>
+          <input type="text" id="notes-sheet-name" required maxlength="100" autocomplete="off">
+        </label>
+        <p class="notes-hint">每筆紀錄都有標題、筆記、標籤及收藏連結。以下新增其他欄位；關聯欄位可連到另一張表的紀錄。</p>
+        <label class="field">
+          <span>所屬工作區群組</span>
+          <select id="notes-sheet-area"></select>
+        </label>
+        <div id="notes-field-editor"></div>
+        <button id="notes-add-field" type="button" class="btn btn-secondary">＋ 欄位</button>
+        <p class="notes-hint">有資料的欄位不能直接移除；類型與選項變更會檢查現有資料，含回收筒。每表最多 50 個欄位。</p>
+        <div class="modal-buttons">
+          <button id="notes-sheet-cancel" type="button" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">儲存表格</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="notes-table-dialog" class="modal notes-modal notes-table-dialog" aria-labelledby="notes-table-title">
+      <header class="notes-form-header">
+        <div>
+          <h2 id="notes-table-title">貼上／Excel 建立紀錄</h2>
+          <p id="notes-table-context" class="notes-hint"></p>
+        </div>
+        <button id="notes-table-close" type="button" class="btn btn-ghost" aria-label="關閉匯入">✕</button>
+      </header>
+      <div class="notes-table-import-body">
+        <p class="notes-hint">只新增紀錄，不覆蓋既有資料。每次最多 1000 筆、50,000 格。電話含前置 0 時請在 Excel 儲存成文字。關聯目前主檔會自動帶入。</p>
+        <div class="notes-tools">
+          <button id="notes-table-file" class="btn btn-secondary">選擇 Excel .xlsx</button>
+          <select id="notes-table-sheet" aria-label="Excel 工作表" hidden></select>
+          <span id="notes-table-source" class="notes-hint"></span>
+        </div>
+        <label class="field">
+          <span>或在此貼上 Excel 複製的儲存格</span>
+          <textarea id="notes-table-text" rows="4" maxlength="2097152" placeholder="Name&#9;Phone&#9;Email"></textarea>
+        </label>
+        <div class="notes-tools">
+          <button id="notes-table-read" class="btn btn-secondary">讀取貼上內容</button>
+          <label class="check-row"><input id="notes-table-header" type="checkbox" checked>第一列是欄名</label>
+          <label>文字日期順序 <select id="notes-table-date-format"><option value="ymd">年／月／日</option><option value="dmy">日／月／年</option><option value="mdy">月／日／年</option></select></label>
+        </div>
+        <p id="notes-table-warning" class="notes-hint"></p>
+        <h3>來源欄位 → 表格欄位</h3>
+        <div id="notes-table-mapping" class="notes-table-mapping"></div>
+        <div id="notes-table-preview" class="notes-preview-list"></div>
+        <p id="notes-table-status" class="notes-hint" role="status"></p>
+      </div>
+      <footer class="notes-form-footer">
+        <button id="notes-table-cancel" class="btn btn-ghost">取消</button>
+        <button id="notes-table-preview-button" class="btn btn-secondary">預覽新增紀錄</button>
+        <button id="notes-table-apply" class="btn btn-primary" disabled>確認建立</button>
+      </footer>
+    </dialog>
+    <dialog id="notes-tools-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-tools-title">
+      <h2 id="notes-tools-title">儲存檢視與自訂範本</h2>
+      <p class="notes-hint">檢視保存搜尋、範圍、日期條件及顯示模式；日期條件會隨今天滾動。範本只保存目前群組的空白表格結構，不包含紀錄。</p>
+      <label class="field">
+        <span>名稱</span>
+        <input id="notes-tool-name" type="text" maxlength="100">
+      </label>
+      <div class="notes-tools">
+        <button id="notes-tool-save-view" class="btn btn-primary">儲存目前檢視</button>
+        <button id="notes-tool-save-template" class="btn btn-secondary">將目前群組存成範本</button>
+      </div>
+      <h3>儲存檢視</h3>
+      <div id="notes-view-list-items"></div>
+      <h3>自訂範本</h3>
+      <div id="notes-custom-template-items"></div>
+      <div class="modal-buttons">
+        <button id="notes-tools-close" class="btn btn-ghost">關閉</button>
+      </div>
+    </dialog>
+    <dialog id="notes-organize-dialog" class="modal notes-modal" aria-labelledby="notes-organize-title">
+      <h2 id="notes-organize-title">群組／表格批次管理</h2>
+      <p class="notes-hint">群組勾選用於移除群組（表格保留並移至未分組）；表格勾選用於移至回收筒。兩項操作分開確認，不刪除實體檔案。</p>
+      <div class="notes-tools">
+        <button id="notes-organize-all" class="btn btn-ghost">全選表格</button>
+        <button id="notes-organize-none" class="btn btn-ghost">取消全部</button>
+      </div>
+      <div id="notes-organize-items" class="notes-preview-list"></div>
+      <p id="notes-organize-count" class="notes-hint"></p>
+      <div class="modal-buttons">
+        <button id="notes-organize-close" class="btn btn-ghost">關閉</button>
+        <button id="notes-organize-areas" class="btn btn-ghost">移除所選群組（保留表格）</button>
+        <button id="notes-organize-sheets" class="btn btn-primary">所選表格移至回收筒</button>
+      </div>
+    </dialog>
+    <dialog id="notes-card-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-card-dialog-title">
+      <h2 id="notes-card-dialog-title">卡片版面與顯示欄位</h2>
+      <details id="notes-card-display" open>
+        <summary>所有紀錄卡片的顯示設定</summary>
+        <label class="field">
+          <span>卡片高度（px；0 為自動）</span>
+          <input id="notes-card-height" type="number" min="0" max="600" step="1" value="0">
+        </label>
+        <p class="notes-hint">自動依內容縮放；固定高度為 120–600 px。內容過多時可在卡片內捲動，底部編輯保留。</p>
+        <div class="notes-card-display-options">
+          <label class="check-row">
+            <input id="notes-card-show-type" type="checkbox">
+            <span>紀錄類型（主檔／明細）</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-context" type="checkbox">
+            <span>群組／表格</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-parent" type="checkbox">
+            <span>所屬主檔</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-relations" type="checkbox">
+            <span>自訂關聯欄位</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-notes" type="checkbox">
+            <span>筆記摘要</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-tags" type="checkbox">
+            <span>分類標籤</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-date" type="checkbox">
+            <span>修改日期</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-links" type="checkbox">
+            <span>連結位置數量</span>
+          </label>
+          <label class="check-row">
+            <input id="notes-card-show-empty-links" type="checkbox">
+            <span>連結數為 0 時仍顯示</span>
+          </label>
+        </div>
+        <div class="notes-tools">
+          <button id="notes-card-compact" type="button" class="btn btn-ghost">精簡卡片預設</button>
+          <button id="notes-card-auto" type="button" class="btn btn-ghost">自動高度</button>
+        </div>
+        <p class="notes-hint">以上設定套用於所有卡片；下方資料欄位依每張表格分別設定。按「套用」後保存。</p>
+      </details>
+      <p class="notes-hint">每張表格個別儲存，套用到該表格的所有紀錄卡片及全域搜尋卡片。未設定時顯示前三個有值的一般欄位。</p>
+      <label class="field">
+        <span>表格</span>
+        <select id="notes-card-sheet"></select>
+      </label>
+      <div id="notes-card-fields" class="notes-choice-list"></div>
+      <p class="notes-hint">勾選後按「套用」，取消全部可隱藏所有資料欄位；標題仍保留。欄位顯示順序依表格定義。</p>
+      <div class="modal-buttons">
+        <button id="notes-card-cancel" class="btn btn-ghost">關閉</button>
+        <button id="notes-card-reset" class="btn btn-ghost">還原自動欄位</button>
+        <button id="notes-card-apply" class="btn btn-primary">套用</button>
+      </div>
+      <p id="notes-card-status" role="status" class="notes-hint"></p>
+    </dialog>
+    <dialog id="notes-record-dialog" class="modal notes-modal notes-record-dialog" aria-labelledby="notes-record-dialog-title">
+      <form id="notes-record-form" novalidate>
+        <header class="notes-form-header">
+          <div>
+            <h2 id="notes-record-dialog-title">紀錄詳細頁</h2>
+            <p id="notes-record-context" class="notes-hint"></p>
           </div>
-          <label class="check-row small-check"><input id="recursive" type="checkbox"> <span>包含子資料夾的檔案</span></label>
-
+          <button id="notes-record-close" type="button" class="btn btn-ghost" aria-label="關閉紀錄表單">✕</button>
+        </header>
+        <div class="notes-form-tabs" role="tablist" aria-label="紀錄輸入分頁">
+          <button id="notes-form-tab-basic" type="button" class="btn btn-ghost" role="tab" aria-controls="notes-form-basic" aria-selected="true">基本資料</button>
+          <button id="notes-form-tab-notes" type="button" class="btn btn-ghost" role="tab" aria-controls="notes-form-notes" aria-selected="false">筆記</button>
+          <button id="notes-form-tab-links" type="button" class="btn btn-ghost" role="tab" aria-controls="notes-form-links" aria-selected="false">連結 <span id="notes-form-link-count">0</span></button>
         </div>
-        <div class="separator"></div>
-        <div class="file-list-heading"><div><strong>檔案清單</strong><span id="file-counter" class="count-pill">0</span></div></div>
-        <div id="file-list" class="file-list"><div class="list-empty">尚未加入任何檔案</div></div>
-        <div class="source-pager"><button id="source-page-prev" class="btn btn-ghost" aria-label="來源上一頁">‹</button><span id="source-page-info">1 / 1</span><button id="source-page-next" class="btn btn-ghost" aria-label="來源下一頁">›</button></div>
-      </aside>
-
-      <div id="source-panel-resizer" class="tag-panel-resizer" role="separator" aria-label="來源面板寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整來源寬度；雙擊還原；← 縮窄、→ 加寬"></div>
-      <section class="panel preview-panel">
-        <div class="panel-heading preview-heading"><div><span class="step-tag">02</span><h2>重新命名預覽</h2></div><span class="preview-live"><span class="pulse-dot"></span>即時預覽</span></div>
-        <div class="preview-toolbar">
-          <div class="search-box"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"></circle><path d="m15 15 6 6"></path></svg></span><input id="search" type="search" placeholder="搜尋原始或新檔名…" autocomplete="off" aria-label="搜尋檔案"></div>
-          <button id="btn-select-all" class="text-action" disabled>全選</button>
-          <button id="btn-select-none" class="text-action" disabled>取消全選</button>
-          <button id="btn-clear" class="text-action" disabled>清空</button>
+        <div class="notes-record-panels">
+          <section id="notes-form-basic" role="tabpanel" aria-labelledby="notes-form-tab-basic">
+            <label class="field">
+              <span id="notes-record-title-label">標題／名稱（必填）</span>
+              <input id="notes-record-title" type="text" required maxlength="200" autocomplete="off">
+            </label>
+            <p id="notes-record-hint" class="notes-hint"></p>
+            <div id="notes-record-fields" class="notes-record-fields"></div>
+            <label class="field">
+              <span>分類標籤（逗號分隔）</span>
+              <input id="notes-record-tags" type="text" maxlength="1000" placeholder="例如：重要客戶, 待跟進">
+            </label>
+          </section>
+          <section id="notes-form-notes" role="tabpanel" aria-labelledby="notes-form-tab-notes" hidden>
+            <label class="field">
+              <span>筆記（純文字）</span>
+              <textarea id="notes-record-body" rows="12" maxlength="100000" placeholder="客戶資訊、會議摘要或合約詳情…"></textarea>
+            </label>
+          </section>
+          <section id="notes-form-links" role="tabpanel" aria-labelledby="notes-form-tab-links" hidden>
+            <div class="notes-tools">
+              <strong>相關位置／收藏標籤</strong>
+              <button id="notes-pick-favorites" type="button" class="btn btn-secondary">＋ 連結位置／收藏標籤</button>
+            </div>
+            <div id="notes-record-files"></div>
+            <p class="notes-hint">儲存位置與分類連結，不修改或複製原檔案；分享匯入的連結需重新確認。</p>
+          </section>
         </div>
-        <div class="sort-toolbar"><span>編號排序</span><select id="rule-sort-by" aria-label="編號排序依據"><option value="path">完整路徑</option><option value="name">檔案名稱</option><option value="modified">檔案修改時間</option></select><select id="rule-sort-direction" aria-label="排序方向"><option value="asc">↑ 遞增／舊至新</option><option value="desc">↓ 遞減／新至舊</option></select><span id="rule-summary" title="編號依預覽順序；搜尋和分頁只改變顯示">未設定命名規則</span></div>
-        <div class="table-scroll">
-          <table class="preview-table"><thead><tr><th class="col-check"><input id="check-all" type="checkbox" title="選取全部顯示的檔案"></th><th>原始檔名</th><th class="col-arrow"></th><th>新檔名</th><th class="col-state">狀態</th></tr></thead>
-          <tbody id="preview-body"><tr><td colspan="5"><div class="empty-preview"><div class="empty-graphic"><span>Abc</span><span class="graphic-arrow">→</span><span>ABC</span></div><h3>先加入檔案，開始整理</h3><p>你將在這裡看到每一個檔名變更，<br>包含錯誤與重複名稱提醒。</p><button id="btn-empty-add" class="btn btn-primary">＋ 選取檔案</button></div></td></tr></tbody></table>
+        <footer class="notes-form-footer">
+          <small>Ctrl+Enter 儲存</small>
+          <button id="notes-record-cancel" type="button" class="btn btn-ghost">取消</button>
+          <button id="notes-save-add" type="button" class="btn btn-secondary">儲存並新增</button>
+          <button id="notes-record-save" type="submit" class="btn btn-primary">儲存紀錄</button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog id="notes-favorites-dialog" class="modal notes-modal" aria-labelledby="notes-favorites-title">
+      <h2 id="notes-favorites-title">連結位置或收藏標籤</h2>
+      <div class="notes-tools">
+        <button id="notes-link-path-tab" class="btn btn-secondary" aria-pressed="true">位置</button>
+        <button id="notes-link-tag-tab" class="btn btn-secondary" aria-pressed="false">收藏標籤</button>
+      </div>
+      <section id="notes-path-choice">
+        <p class="notes-hint">選取現有收藏，或從下方加入本機位置。新增位置會加入「我的收藏」，取消編輯不會移除這些收藏。</p>
+        <div id="notes-favorite-picker"></div>
+        <div class="notes-tools">
+          <button id="notes-choose-files" class="btn btn-ghost">選取檔案並收藏</button>
+          <button id="notes-choose-folder" class="btn btn-ghost">選取資料夾並收藏</button>
         </div>
-        <div class="table-footer list-pager"><span id="table-showing">尚未加入檔案</span><div class="pager-buttons"><button id="preview-page-first" class="btn btn-ghost" aria-label="預覽第一頁">«</button><button id="preview-page-prev" class="btn btn-ghost" aria-label="預覽上一頁">‹</button><span id="preview-page-info">1 / 1</span><button id="preview-page-next" class="btn btn-ghost" aria-label="預覽下一頁">›</button><button id="preview-page-last" class="btn btn-ghost" aria-label="預覽最後一頁">»</button></div></div>
+        <label class="field">
+          <span>輸入位置（每行一個，最多 100 個）</span>
+          <textarea id="notes-path-input" rows="2" maxlength="50000" placeholder="本機完整路徑"></textarea>
+        </label>
+        <button id="notes-add-paths" class="btn btn-secondary">加入收藏並選取</button>
       </section>
-
-      <div id="rules-panel-resizer" class="tag-panel-resizer rules-panel-resizer" role="separator" aria-label="命名規則面板寬度" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="720" aria-valuenow="420" tabindex="0" title="拖曳調整命名規則寬度；雙擊還原；← 加寬、→ 縮窄"></div>
-      <aside id="rules-panel" class="panel rules-panel">
-        <div class="panel-heading"><div><h2>命名規則</h2></div><div class="panel-actions"><button id="btn-reset" class="text-action">重設</button><button id="btn-close-rules" class="text-action" aria-label="收合命名規則面板">✕</button></div></div>
-        <nav class="rule-tabs" aria-label="命名規則分類"><button id="rule-tab-presets" data-rule-tab="presets" aria-pressed="true">範本</button><button id="rule-tab-name" data-rule-tab="name" aria-pressed="false">命名</button><button id="rule-tab-text" data-rule-tab="text" aria-pressed="false">文字</button><button id="rule-tab-extension" data-rule-tab="extension" aria-pressed="false">副檔名</button></nav>
-        <div id="rules-scroll" class="rules-scroller">
-        <div class="presets" data-rule-section="presets">
-          <div class="presets-title">快速範本 <span>套用會取代目前規則</span></div>
-          <div class="preset-row"><select id="preset-select" aria-label="內建快速範本"></select><button id="btn-apply-preset" class="btn btn-secondary">套用</button></div>
-          <p id="preset-description" class="preset-description"></p>
-          <details class="preset-library"><summary id="saved-presets-summary">我的範本（0）</summary><div class="preset-row"><select id="saved-preset-select" aria-label="已儲存範本"></select><button id="btn-load-preset" class="btn btn-secondary">套用</button><button id="btn-delete-preset" class="btn btn-ghost">刪除</button></div></details>
-          <button id="btn-save-preset" class="text-action">＋ 儲存目前規則為範本</button>
-        </div>
-          <div class="rule-group" data-rule-section="name"><div class="group-title"><div class="rule-symbol violet">{ }</div><div><strong>自訂命名格式</strong><span>留空會沿用原檔名，預設保留副檔名</span></div></div>
-            <label class="field"><span>格式（例如 {date}_{name}）</span><input id="rule-name-template" type="text" placeholder="{folder}_{n}_{name}" spellcheck="false"></label>
-            <div class="token-buttons"><button class="preset" data-token="name">{name} 檔名</button><button class="preset" data-token="folder">{folder} 資料夾</button><button class="preset" data-token="n">{n} 編號</button><button class="preset" data-token="date">{date} 指定日期</button><button class="preset" data-token="modified">{modified} 修改日期</button><button class="preset" data-token="original">{original} 原始檔名</button><button class="preset" data-token="ext">{ext} 副檔名文字</button><button class="preset" data-token="parent">{parent} 再上一層資料夾</button><button class="preset" data-token="created">{created} 建立日期</button></div>
-            <div class="field-duo"><label class="field"><span>指定日期（{date}）</span><input id="rule-date-value" type="date" min="1000-01-01" max="9999-12-31"></label><label class="field"><span>日期格式</span><select id="rule-date-format"><option value="YYYY-MM-DD">YYYY-MM-DD</option><option value="YYYYMMDD">YYYYMMDD</option><option value="DD-MM-YYYY">DD-MM-YYYY</option></select></label></div>
-            <p class="rule-hint">{original} 不套用文字取代且不含副檔名；{ext} 不含小數點，原副檔名仍依設定保留。{created} 使用檔案系統建立日期，不是照片拍攝日期，複製檔案可能改變。{modified} 使用電腦本地時區的檔案修改日期，並非照片拍攝日期。{n} 沿用下方起始值、遞增值及位數。</p>
-          </div>
-          <div class="rule-group" data-rule-section="text"><div class="group-title"><div class="rule-symbol violet">⌕</div><div><strong>搜尋與取代</strong><span>尋找檔名中指定內容</span></div></div>
-            <label class="field"><span>尋找文字／模式</span><input id="rule-find" placeholder="例如：IMG_ 或 (\\d+)" type="text" spellcheck="false"></label>
-            <label class="field"><span>取代為</span><input id="rule-replace" placeholder="輸入新文字（留空則刪除）" type="text" spellcheck="false"></label>
-            <div class="switch-row"><label class="check-row"><input id="rule-regex" type="checkbox"> <span>正規表示式 Regex</span></label><label class="check-row"><input id="rule-match-case" type="checkbox"> <span>區分大小寫</span></label></div>
-            <label class="check-row subtle"><input id="rule-replace-all" type="checkbox" checked> <span>取代所有符合項目</span></label>
-          </div>
-          <div class="rule-group" data-rule-section="name"><div class="group-title"><div class="rule-symbol teal">±</div><div><strong>前綴與後綴</strong><span>在檔名首尾增加文字</span></div></div>
-            <div class="field-duo"><label class="field"><span>前綴 Prefix</span><input id="rule-prefix" placeholder="例如：Project_" type="text"></label><label class="field"><span>後綴 Suffix</span><input id="rule-suffix" placeholder="例如：_final" type="text"></label></div>
-          </div>
-          <div class="rule-group" data-rule-section="name"><div class="group-title"><div class="rule-symbol orange">#</div><div><strong>流水編號</strong><span>開關控制另加編號；{n} 可獨立使用</span></div><label class="toggle"><input id="rule-number-enabled" type="checkbox"><span class="toggle-track"></span></label></div>
-            <div id="number-details" class="number-fields disabled-group"><div class="three-col"><label class="field"><span>起始值</span><input id="rule-number-start" type="number" value="1" min="0" max="999999"></label><label class="field"><span>遞增值</span><input id="rule-number-step" type="number" value="1" min="1" max="99999"></label><label class="field"><span>位數</span><input id="rule-number-width" type="number" value="3" min="1" max="10"></label></div>
-            <div class="field-duo"><label class="field"><span>位置</span><select id="rule-number-position"><option value="suffix">檔名後方</option><option value="prefix">檔名前方</option></select></label><label class="field"><span>分隔符號</span><input id="rule-number-separator" value="_" type="text" maxlength="12"></label></div></div>
-          </div>
-          <div class="rule-group" data-rule-section="text"><div class="group-title"><div class="rule-symbol blue">Aa</div><div><strong>文字整理</strong><span>統一大小寫及空白</span></div></div>
-            <div class="field-duo"><label class="field"><span>移除開頭字元數</span><input id="rule-remove-start" type="number" min="0" max="500" value="0"></label><label class="field"><span>移除尾端字元數</span><input id="rule-remove-end" type="number" min="0" max="500" value="0"></label></div>
-            <label class="field"><span>清除頭尾指定字元（留空不處理）</span><input id="rule-trim-characters" type="text" placeholder="例如： _-（包含空白）"></label>
-            <div class="field-duo"><label class="field"><span>大小寫</span><select id="rule-case-mode"><option value="none">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="title">每字首字大寫</option></select></label><label class="field"><span>空白處理</span><select id="rule-whitespace"><option value="none">保持不變</option><option value="underscore">轉為底線 _</option><option value="dash">轉為連字號 -</option></select></label></div>
-            <label class="check-row subtle"><input id="rule-trim" type="checkbox"> <span>移除名稱前後空白</span></label>
-            <label class="check-row subtle"><input id="rule-include-extension" type="checkbox"> <span>規則也套用到副檔名（.jpg / .pdf）</span></label>
-          </div>
-          <div class="rule-group" data-rule-section="extension"><div class="group-title"><div class="rule-symbol teal">.ext</div><div><strong>副檔名整理</strong><span>獨立設定，不影響主檔名</span></div></div><div class="field-duo"><label class="field"><span>處理方式</span><select id="rule-extension-mode"><option value="keep">保持不變</option><option value="lower">全部小寫</option><option value="upper">全部大寫</option><option value="replace">改為指定副檔名</option></select></label><label class="field"><span>指定副檔名</span><input id="rule-extension-value" type="text" placeholder="例如 jpg"></label></div><p class="rule-hint">只更改名稱，不會轉換檔案格式。若使用此功能，請先在「文字」頁取消「規則也套用到副檔名」。</p></div>
-          <div class="help-card" data-rule-section="presets"><strong>✧ 安全提示</strong><p>預設保留副檔名；如果有重複檔名、無效字元或已存在目標，程式會阻止整批操作，避免意外覆蓋。</p></div>
-        </div>
-      </aside>
-    </main>
-
-    <footer id="rename-footer" class="action-footer">
-      <div class="footer-info"><div class="footer-check" id="footer-check">✓</div><div><strong id="footer-title">準備開始</strong><span id="footer-desc">請先選擇檔案並設定重新命名規則</span></div></div>
-      <div class="footer-actions"><span id="footer-count" class="action-count">0 個檔案待處理</span><button class="btn btn-primary btn-run" id="btn-run" disabled><span>✦</span> 執行重新命名 <span class="arrow">→</span></button></div>
-    </footer>
-  </div>
-  <div id="drop-overlay" class="drop-overlay hidden"><div class="drop-overlay-inner"><div>⇧</div><strong>放開以加入檔案</strong><span>支援多個檔案及資料夾</span></div></div>
-  <dialog id="confirm-modal" class="modal" aria-labelledby="modal-title" aria-describedby="modal-description modal-note"><div class="modal-icon">✦</div><h2 id="modal-title">確認重新命名？</h2><p id="modal-description">即將更改所選檔案名稱。</p><div id="modal-note" class="modal-note">所有衝突必須先解決；成功後可使用「復原上一批」。</div><div class="modal-buttons"><button class="btn btn-secondary" id="btn-cancel" autofocus>取消</button><button class="btn btn-primary" id="btn-confirm">確認並執行</button></div></dialog>
-  <dialog id="error-dialog" class="modal error-dialog" aria-labelledby="error-title"><h2 id="error-title">操作未完成</h2><p>請核對以下說明後再處理。你可以選取並複製下方的詳細資料。</p><pre id="error-details"></pre><button id="btn-error-close" class="btn btn-secondary" autofocus>關閉</button></dialog>
-  <dialog id="preset-dialog" class="modal" aria-labelledby="preset-dialog-title"><form id="preset-form"><h2 id="preset-dialog-title">儲存目前規則</h2><label class="field preset-name-field"><span>範本名稱</span><input id="preset-name" type="text" required maxlength="60" placeholder="例如：每月報表整理" autofocus></label><p class="rule-hint">最多儲存 30 個範本；同名範本會更新。只保存命名規則，不保存檔案清單。</p><div class="modal-buttons"><button id="btn-preset-cancel" type="button" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">儲存範本</button></div></form></dialog>
-  <dialog id="favorite-edit-dialog" class="modal favorite-edit-dialog" aria-labelledby="favorite-edit-title"><form id="favorite-edit-form"><h2 id="favorite-edit-title">編輯收藏</h2><div id="favorite-single-fields"><label class="field preset-name-field"><span>顯示名稱（留空沿用檔名）</span><input id="favorite-label" type="text" maxlength="100"></label><label class="field"><span>目前連結位置</span><input id="favorite-path" type="text" readonly></label><button id="btn-fav-relink" type="button" class="btn btn-secondary">選擇新位置／確認替換的檔案</button><p class="rule-hint">重新連結只更新收藏的位置與檔案識別，不會移動檔案；按「儲存」才生效。</p></div><label class="field preset-name-field"><span>標籤（使用逗號分隔）</span><input id="favorite-edit-tags" type="text" placeholder="工作, 常用, 專案 A" maxlength="1000"></label><p id="favorite-edit-note" class="rule-hint">最多 20 個標籤，每個最多 32 個字元。</p><div class="modal-buttons"><button id="btn-fav-edit-cancel" type="button" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">儲存</button></div></form></dialog>
-  <dialog id="favorite-remove-dialog" class="modal" aria-labelledby="favorite-remove-title"><h2 id="favorite-remove-title">移除收藏？</h2><p id="favorite-remove-description"></p><div class="modal-note">只移除收藏紀錄，實際檔案及資料夾會保留。</div><div class="modal-buttons"><button id="btn-fav-remove-cancel" class="btn btn-secondary" autofocus>取消</button><button id="btn-fav-remove-confirm" class="btn btn-primary">移除收藏</button></div></dialog>
-  <div id="favorite-context-menu" class="favorite-context-menu hidden" role="menu" aria-label="收藏操作"></div>
-  <dialog id="settings-reset-dialog" class="modal" aria-labelledby="settings-reset-title"><h2 id="settings-reset-title">還原預設設定？</h2><p>只重設設定頁中的外觀、版面及操作預設，不會刪除收藏、自訂範本或復原紀錄。快捷鍵使用獨立的還原按鈕。</p><div class="modal-buttons"><button id="btn-settings-reset-cancel" class="btn btn-secondary" autofocus>取消</button><button id="btn-settings-reset-confirm" class="btn btn-primary">還原設定</button></div></dialog>
-  <dialog id="favorite-open-dialog" class="modal"><h2>批次開啟收藏？</h2><p id="favorite-open-description"></p><div class="modal-buttons"><button id="btn-fav-open-cancel" class="btn btn-secondary" autofocus>取消</button><button id="btn-fav-open-confirm" class="btn btn-primary">確認開啟</button></div></dialog>
-  <dialog id="move-dialog" class="modal favorite-edit-dialog"><h2>搬移檔案</h2><p id="move-count"></p><p>只支援同一磁碟且支援硬連結的一般檔案（例如 NTFS；不支援 FAT／exFAT）；不覆寫、不搬移整個資料夾。這次操作會取代上一批復原紀錄。</p><button id="btn-move-target" class="btn btn-secondary">選擇目標資料夾</button><code id="move-target"></code><pre id="move-preview-list"></pre><div class="modal-buttons"><button id="btn-move-cancel" class="btn btn-secondary">取消</button><button id="btn-move-confirm" class="btn btn-primary" disabled>確認搬移</button></div></dialog>
-  <dialog id="favorite-columns-dialog" class="modal favorite-edit-dialog"><h2>管理收藏欄位</h2><p>名稱固定顯示；勾選其他資訊並用上下按鈕調整順序。清單模式分欄顯示並可水平捲動，圖示模式依序顯示於卡片中。</p><div id="favorite-columns-editor"></div><div class="modal-buttons"><button id="btn-columns-cancel" class="btn btn-secondary">取消</button><button id="btn-columns-default" class="btn btn-ghost">預設欄位</button><button id="btn-columns-save" class="btn btn-primary">儲存</button></div></dialog>
-  <dialog id="quick-tag-dialog" class="modal favorite-edit-dialog"><h2 id="quick-tag-title">快速加入標籤</h2><p>保留現有標籤，將下列標籤加入全部所選項目。取消只略過標籤，已收藏的位置仍會保留。</p><form id="quick-tag-form"><label class="field"><span>標籤（逗號分隔）</span><input type="text" id="quick-tag-input" autocomplete="off" placeholder="例如：工作, 常用"></label><div id="quick-tag-suggestions" class="quick-tag-suggestions"></div><p id="quick-tag-error" role="alert"></p><div class="modal-buttons"><button id="btn-quick-tag-cancel" type="button" class="btn btn-secondary">略過</button><button type="submit" id="btn-quick-tag-save" class="btn btn-primary">加入標籤</button></div></form></dialog>
-  <dialog id="path-import-dialog" class="modal favorite-edit-dialog path-import-dialog" aria-labelledby="path-import-title"><h2 id="path-import-title">從路徑清單匯入收藏</h2><p>每行一個檔案或資料夾的完整路徑，可直接貼上 Windows「複製路徑」的內容。只收藏位置，不展開資料夾或改動檔案。</p><label class="field"><span>完整路徑（以換行分隔）</span><textarea id="path-import-text" rows="7" spellcheck="false" placeholder="C:\Work\report.pdf&#10;D:\Projects"></textarea></label><label class="field"><span>共同標籤（選填，以逗號分隔）</span><input type="text" id="path-import-tags" autocomplete="off" placeholder="工作, 常用"></label><p id="path-import-status" role="status">先檢查路徑，再確認匯入。</p><div id="path-import-preview" class="path-import-preview"></div><p class="rule-hint">空白行會略過，重複項目不會新增；已收藏項目合併標籤。無效路徑會列出原因，確認後只匯入有效項目。最多 10,000 行／2 MB；不接受網址或網路路徑，也不展開環境變數。</p><div class="modal-buttons"><button id="btn-path-import-cancel" class="btn btn-secondary">取消</button><button id="btn-path-import-check" class="btn btn-secondary">檢查路徑</button><button id="btn-path-import-confirm" class="btn btn-primary" disabled>匯入有效路徑</button></div></dialog>
-  <dialog id="tag-manage-dialog" class="modal favorite-edit-dialog"><form id="tag-manage-form"><h2 id="tag-manage-title">管理標籤</h2><p id="tag-manage-description"></p><label id="tag-manage-field" class="field"><span>新標籤名稱</span><input type="text" id="tag-manage-name" maxlength="32" autocomplete="off"></label><div class="modal-buttons"><button type="button" id="btn-tag-manage-cancel" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">確認</button></div></form></dialog>
-<dialog id="everything-dialog" class="modal everything-dialog" aria-labelledby="everything-title"><h2 id="everything-title">Everything 本機搜尋</h2><p class="rule-hint">輸入檔名關鍵字或 *.pdf 等萬用字元；空格代表多個關鍵字。不接受 ext:、content: 等進階語法。只查詢，不會自動改名。</p><form id="everything-search-form" class="everything-search-tools"><input id="everything-query" type="search" maxlength="256" placeholder="例如 *.pdf 或 report 2026" aria-label="Everything 檔名搜尋"><select id="everything-type" aria-label="Everything 類型"><option value="all">檔案及資料夾</option><option value="file">只有檔案</option><option value="folder">只有資料夾</option></select><button id="btn-everything-search" type="submit" class="btn btn-primary">搜尋</button></form><p id="everything-search-status" role="status">按搜尋讀取本機索引。</p><div class="everything-selection-tools"><button id="btn-everything-select-all" class="btn btn-ghost" disabled>全選搜尋結果</button><button id="btn-everything-select-none" class="btn btn-ghost" disabled>取消選取</button><span id="everything-selection-count">已選取 0 項</span></div><div id="everything-results" class="everything-results"></div><label class="field"><span>收藏時加入標籤（選填，逗號分隔）</span><input type="text" id="everything-tags" maxlength="1000" placeholder="工作, 常用"></label><div class="modal-buttons"><button id="btn-everything-close" class="btn btn-secondary">關閉／取消查詢</button><button id="btn-everything-add-favorite" class="btn btn-secondary" disabled>加入收藏</button><button id="btn-everything-add-rename" class="btn btn-primary" disabled>檔案加入改名 →</button></div></dialog>
-<dialog id="notes-area-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-area-dialog-title"><form id="notes-area-form"><h2 id="notes-area-dialog-title">工作區群組與主表</h2><label class="field"><span>群組名稱</span><input type="text" id="notes-area-name" required maxlength="100" placeholder="例如：客戶管理、工作專案"></label><label class="check-row"><input id="notes-area-adopt" type="checkbox"><span>將所有未分組表格收納到此群組（包含回收筒表格）</span></label><label class="field"><span>主表</span><select id="notes-area-master"></select></label><p class="notes-hint">主表存放客戶、專案等主紀錄。點選主表紀錄後，開啟該紀錄的明細分頁；明細表第一個連向主表的關聯欄位作為所屬主紀錄；不會自動建立或改寫關聯欄位。既有表格可在「欄位與表格」更改所屬群組。移走主表會清除該群組的主表設定。</p><div class="modal-buttons"><button id="notes-area-remove" type="button" class="btn btn-ghost">移除群組（保留表格）</button><button id="notes-area-cancel" type="button" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">儲存群組</button></div></form></dialog>
-<dialog id="notes-template-dialog" class="modal notes-modal" aria-labelledby="notes-template-title"><h2 id="notes-template-title">工作區範本庫</h2><p class="notes-hint">每個範本建立獨立群組、主表及相關空白表格，可繼續自訂。物品數量為手動記錄，不會自動計算庫存。</p><div id="notes-template-list" class="notes-template-list"></div><div class="modal-buttons"><button id="notes-template-cancel" class="btn btn-secondary">關閉</button></div></dialog>
-<dialog id="notes-share-dialog" class="modal notes-modal" aria-labelledby="notes-share-title"><h2 id="notes-share-title">共享資料包（選用）</h2><p class="notes-hint">主資料庫留在本機。啟用後會存取指定資料夾，可能經區域網路；只分享資料包，收到資料仍須預覽匯入。資料包包含有效紀錄、筆記與路徑，可能含聯絡資訊，不包含原始檔案。</p><div class="notes-file-row"><code id="notes-share-folder">尚未選取資料夾</code><button id="notes-share-choose" class="btn btn-secondary">選取資料夾</button></div><label class="check-row"><input id="notes-share-enabled" type="checkbox"><span>啟用指定資料夾分享與定期檢查（預設關閉）</span></label><label class="field"><span>程式執行時檢查間隔</span><select id="notes-share-interval"><option value="1">1 分鐘</option><option value="5">5 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label><label class="check-row"><input id="notes-share-auto" type="checkbox"><span>定期檢查後，資料有變更時自動發佈全部有效紀錄（預設關閉）</span></label><div class="notes-tools"><button id="notes-share-check" class="btn btn-secondary">立即檢查</button><button id="notes-share-publish" class="btn btn-secondary">發佈目前快照</button></div><p id="notes-share-status" class="notes-hint" role="status"></p><div id="notes-share-files" class="notes-preview-list"></div><p class="notes-hint">每次發佈建立獨立資料包，避免不同電腦互相覆寫；不自動合併或刪除舊資料包。最多列出最近 50 份，請定期整理分享資料夾。停用會停止後續檢查與發佈，已發佈的資料包會保留。</p><div class="modal-buttons"><button id="notes-share-close" class="btn btn-secondary">關閉</button></div></dialog>
-<dialog id="notes-sheet-dialog" class="modal notes-modal" aria-labelledby="notes-sheet-dialog-title"><form id="notes-sheet-form"><h2 id="notes-sheet-dialog-title">自訂表格</h2><label class="field"><span>表格名稱</span><input type="text" id="notes-sheet-name" required maxlength="100" autocomplete="off"></label><p class="notes-hint">每筆紀錄都有標題、筆記、標籤及收藏連結。以下新增其他欄位；關聯欄位可連到另一張表的紀錄。</p><label class="field"><span>所屬工作區群組</span><select id="notes-sheet-area"></select></label><div id="notes-field-editor"></div><button id="notes-add-field" type="button" class="btn btn-secondary">＋ 欄位</button><p class="notes-hint">有資料的欄位不能直接移除；類型與選項變更會檢查現有資料，含回收筒。每表最多 50 個欄位。</p><div class="modal-buttons"><button id="notes-sheet-cancel" type="button" class="btn btn-secondary">取消</button><button type="submit" class="btn btn-primary">儲存表格</button></div></form></dialog>
-<dialog id="notes-table-dialog" class="modal notes-modal notes-table-dialog" aria-labelledby="notes-table-title"><header class="notes-form-header"><div><h2 id="notes-table-title">貼上／Excel 建立紀錄</h2><p id="notes-table-context" class="notes-hint"></p></div><button id="notes-table-close" type="button" class="btn btn-ghost" aria-label="關閉匯入">✕</button></header><div class="notes-table-import-body"><p class="notes-hint">只新增紀錄，不覆蓋既有資料。每次最多 1000 筆、50,000 格。電話含前置 0 時請在 Excel 儲存成文字。關聯目前主檔會自動帶入。</p><div class="notes-tools"><button id="notes-table-file" class="btn btn-secondary">選擇 Excel .xlsx</button><select id="notes-table-sheet" aria-label="Excel 工作表" hidden></select><span id="notes-table-source" class="notes-hint"></span></div><label class="field"><span>或在此貼上 Excel 複製的儲存格</span><textarea id="notes-table-text" rows="4" maxlength="2097152" placeholder="Name&#9;Phone&#9;Email"></textarea></label><div class="notes-tools"><button id="notes-table-read" class="btn btn-secondary">讀取貼上內容</button><label class="check-row"><input id="notes-table-header" type="checkbox" checked>第一列是欄名</label><label>文字日期順序 <select id="notes-table-date-format"><option value="ymd">年／月／日</option><option value="dmy">日／月／年</option><option value="mdy">月／日／年</option></select></label></div><p id="notes-table-warning" class="notes-hint"></p><h3>來源欄位 → 表格欄位</h3><div id="notes-table-mapping" class="notes-table-mapping"></div><div id="notes-table-preview" class="notes-preview-list"></div><p id="notes-table-status" class="notes-hint" role="status"></p></div><footer class="notes-form-footer"><button id="notes-table-cancel" class="btn btn-ghost">取消</button><button id="notes-table-preview-button" class="btn btn-secondary">預覽新增紀錄</button><button id="notes-table-apply" class="btn btn-primary" disabled>確認建立</button></footer></dialog>
-<dialog id="notes-tools-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-tools-title"><h2 id="notes-tools-title">儲存檢視與自訂範本</h2><p class="notes-hint">檢視保存搜尋、範圍、日期條件及顯示模式；日期條件會隨今天滾動。範本只保存目前群組的空白表格結構，不包含紀錄。</p><label class="field"><span>名稱</span><input id="notes-tool-name" type="text" maxlength="100"></label><div class="notes-tools"><button id="notes-tool-save-view" class="btn btn-primary">儲存目前檢視</button><button id="notes-tool-save-template" class="btn btn-secondary">將目前群組存成範本</button></div><h3>儲存檢視</h3><div id="notes-view-list-items"></div><h3>自訂範本</h3><div id="notes-custom-template-items"></div><div class="modal-buttons"><button id="notes-tools-close" class="btn btn-ghost">關閉</button></div></dialog>
-<dialog id="notes-organize-dialog" class="modal notes-modal" aria-labelledby="notes-organize-title"><h2 id="notes-organize-title">群組／表格批次管理</h2><p class="notes-hint">群組勾選用於移除群組（表格保留並移至未分組）；表格勾選用於移至回收筒。兩項操作分開確認，不刪除實體檔案。</p><div class="notes-tools"><button id="notes-organize-all" class="btn btn-ghost">全選表格</button><button id="notes-organize-none" class="btn btn-ghost">取消全部</button></div><div id="notes-organize-items" class="notes-preview-list"></div><p id="notes-organize-count" class="notes-hint"></p><div class="modal-buttons"><button id="notes-organize-close" class="btn btn-ghost">關閉</button><button id="notes-organize-areas" class="btn btn-ghost">移除所選群組（保留表格）</button><button id="notes-organize-sheets" class="btn btn-primary">所選表格移至回收筒</button></div></dialog>
-<dialog id="notes-card-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-card-dialog-title"><h2 id="notes-card-dialog-title">卡片版面與顯示欄位</h2><details id="notes-card-display" open><summary>所有紀錄卡片的顯示設定</summary><label class="field"><span>卡片高度（px；0 為自動）</span><input id="notes-card-height" type="number" min="0" max="600" step="1" value="0"></label><p class="notes-hint">自動依內容縮放；固定高度為 120–600 px。內容過多時可在卡片內捲動，底部編輯保留。</p><div class="notes-card-display-options"><label class="check-row"><input id="notes-card-show-type" type="checkbox"><span>紀錄類型（主檔／明細）</span></label><label class="check-row"><input id="notes-card-show-context" type="checkbox"><span>群組／表格</span></label><label class="check-row"><input id="notes-card-show-parent" type="checkbox"><span>所屬主檔</span></label><label class="check-row"><input id="notes-card-show-relations" type="checkbox"><span>自訂關聯欄位</span></label><label class="check-row"><input id="notes-card-show-notes" type="checkbox"><span>筆記摘要</span></label><label class="check-row"><input id="notes-card-show-tags" type="checkbox"><span>分類標籤</span></label><label class="check-row"><input id="notes-card-show-date" type="checkbox"><span>修改日期</span></label><label class="check-row"><input id="notes-card-show-links" type="checkbox"><span>連結位置數量</span></label><label class="check-row"><input id="notes-card-show-empty-links" type="checkbox"><span>連結數為 0 時仍顯示</span></label></div><div class="notes-tools"><button id="notes-card-compact" type="button" class="btn btn-ghost">精簡卡片預設</button><button id="notes-card-auto" type="button" class="btn btn-ghost">自動高度</button></div><p class="notes-hint">以上設定套用於所有卡片；下方資料欄位依每張表格分別設定。按「套用」後保存。</p></details><p class="notes-hint">每張表格個別儲存，套用到該表格的所有紀錄卡片及全域搜尋卡片。未設定時顯示前三個有值的一般欄位。</p><label class="field"><span>表格</span><select id="notes-card-sheet"></select></label><div id="notes-card-fields" class="notes-choice-list"></div><p class="notes-hint">勾選後按「套用」，取消全部可隱藏所有資料欄位；標題仍保留。欄位顯示順序依表格定義。</p><div class="modal-buttons"><button id="notes-card-cancel" class="btn btn-ghost">關閉</button><button id="notes-card-reset" class="btn btn-ghost">還原自動欄位</button><button id="notes-card-apply" class="btn btn-primary">套用</button></div><p id="notes-card-status" role="status" class="notes-hint"></p></dialog>
-<dialog id="notes-record-dialog" class="modal notes-modal notes-record-dialog" aria-labelledby="notes-record-dialog-title"><form id="notes-record-form" novalidate><header class="notes-form-header"><div><h2 id="notes-record-dialog-title">紀錄詳細頁</h2><p id="notes-record-context" class="notes-hint"></p></div><button id="notes-record-close" type="button" class="btn btn-ghost" aria-label="關閉紀錄表單">✕</button></header><div class="notes-form-tabs" role="tablist" aria-label="紀錄輸入分頁"><button id="notes-form-tab-basic" type="button" class="btn btn-ghost" role="tab" aria-controls="notes-form-basic" aria-selected="true">基本資料</button><button id="notes-form-tab-notes" type="button" class="btn btn-ghost" role="tab" aria-controls="notes-form-notes" aria-selected="false">筆記</button><button id="notes-form-tab-links" type="button" class="btn btn-ghost" role="tab" aria-controls="notes-form-links" aria-selected="false">連結 <span id="notes-form-link-count">0</span></button></div><div class="notes-record-panels"><section id="notes-form-basic" role="tabpanel" aria-labelledby="notes-form-tab-basic"><label class="field"><span id="notes-record-title-label">標題／名稱（必填）</span><input id="notes-record-title" type="text" required maxlength="200" autocomplete="off"></label><p id="notes-record-hint" class="notes-hint"></p><div id="notes-record-fields" class="notes-record-fields"></div><label class="field"><span>分類標籤（逗號分隔）</span><input id="notes-record-tags" type="text" maxlength="1000" placeholder="例如：重要客戶, 待跟進"></label></section><section id="notes-form-notes" role="tabpanel" aria-labelledby="notes-form-tab-notes" hidden><label class="field"><span>筆記（純文字）</span><textarea id="notes-record-body" rows="12" maxlength="100000" placeholder="客戶資訊、會議摘要或合約詳情…"></textarea></label></section><section id="notes-form-links" role="tabpanel" aria-labelledby="notes-form-tab-links" hidden><div class="notes-tools"><strong>相關位置／收藏標籤</strong><button id="notes-pick-favorites" type="button" class="btn btn-secondary">＋ 連結位置／收藏標籤</button></div><div id="notes-record-files"></div><p class="notes-hint">儲存位置與分類連結，不修改或複製原檔案；分享匯入的連結需重新確認。</p></section></div><footer class="notes-form-footer"><small>Ctrl+Enter 儲存</small><button id="notes-record-cancel" type="button" class="btn btn-ghost">取消</button><button id="notes-save-add" type="button" class="btn btn-secondary">儲存並新增</button><button id="notes-record-save" type="submit" class="btn btn-primary">儲存紀錄</button></footer></form></dialog>
-<dialog id="notes-favorites-dialog" class="modal notes-modal" aria-labelledby="notes-favorites-title"><h2 id="notes-favorites-title">連結位置或收藏標籤</h2><div class="notes-tools"><button id="notes-link-path-tab" class="btn btn-secondary" aria-pressed="true">位置</button><button id="notes-link-tag-tab" class="btn btn-secondary" aria-pressed="false">收藏標籤</button></div><section id="notes-path-choice"><p class="notes-hint">選取現有收藏，或從下方加入本機位置。新增位置會加入「我的收藏」，取消編輯不會移除這些收藏。</p><div id="notes-favorite-picker"></div><div class="notes-tools"><button id="notes-choose-files" class="btn btn-ghost">選取檔案並收藏</button><button id="notes-choose-folder" class="btn btn-ghost">選取資料夾並收藏</button></div><label class="field"><span>輸入位置（每行一個，最多 100 個）</span><textarea id="notes-path-input" rows="2" maxlength="50000" placeholder="本機完整路徑"></textarea></label><button id="notes-add-paths" class="btn btn-secondary">加入收藏並選取</button></section><section id="notes-tag-choice" hidden><p class="notes-hint">連結的是收藏分類，分類內新增／移除項目會自動反映，不建立固定檔案副本。可與位置連結同時使用；分享匯入後須重新選取本機標籤確認。</p><div id="notes-favorite-tag-picker"></div></section><p id="notes-link-status" class="notes-hint" role="status"></p><p class="notes-hint">每筆最多 100 個位置及 20 個收藏標籤，不會複製原始檔案。</p><div class="modal-buttons"><button id="notes-favorites-cancel" class="btn btn-secondary">取消</button><button id="notes-favorites-apply" class="btn btn-primary">套用連結</button></div></dialog>
-<dialog id="notes-confirm-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-confirm-title"><h2 id="notes-confirm-title"></h2><p id="notes-confirm-text"></p><label id="notes-delete-options" class="check-row" hidden><input id="notes-delete-details" type="checkbox"><span>連同所選主紀錄的明細一起移至回收筒（共用明細會保留）</span></label><div class="modal-buttons"><button id="notes-confirm-cancel" class="btn btn-secondary">取消</button><button id="notes-confirm-apply" class="btn btn-primary">確認</button></div></dialog>
-<dialog id="notes-transfer-dialog" class="modal notes-modal" aria-labelledby="notes-transfer-title"><h2 id="notes-transfer-title"></h2><div id="notes-export-options"><label class="field"><span>匯出範圍</span><select id="notes-export-scope"><option value="all">整個工作區（不含回收筒紀錄）</option><option value="area">目前群組</option><option value="sheet">目前表格</option><option value="record">目前紀錄</option></select></label><label class="check-row"><input id="notes-export-related" type="checkbox"><span>包含直接相關紀錄及其必要關聯（可能包含其他客戶）</span></label></div><div id="notes-import-options"><label class="field"><span>匯入方式</span><select id="notes-import-mode"><option value="copy">另存副本（建議，重新建立識別碼）</option><option value="skip">合併，略過重複紀錄</option><option value="update">合併，更新相同識別碼的紀錄</option></select></label><button id="notes-import-choose" class="btn btn-secondary">選取 Studio 資料包</button><span id="notes-import-name" class="notes-sub"></span></div><p class="notes-hint">資料包包含欄位、紀錄、筆記及關聯；檔案只包含位置，沒有原始檔案副本。匯入前會建立 SQLite 備份；不會執行包內文字或開啟檔案。不是即時多人同步。</p><button id="notes-transfer-preview" class="btn btn-secondary">預覽內容</button><p id="notes-transfer-summary" role="status"></p><input id="notes-transfer-search" type="search" placeholder="搜尋預覽中的紀錄…" aria-label="搜尋分享預覽"><div id="notes-transfer-preview-list" class="notes-preview-list"></div><div class="notes-pagination"><button id="notes-transfer-prev" class="btn btn-ghost">‹</button><span id="notes-transfer-page"></span><button id="notes-transfer-next" class="btn btn-ghost">›</button></div><div class="modal-buttons"><button id="notes-transfer-cancel" class="btn btn-secondary">取消</button><button id="notes-transfer-apply" class="btn btn-primary" disabled>確認</button></div></dialog>
-<dialog id="notes-history-dialog" class="modal notes-modal" aria-labelledby="notes-history-title"><h2 id="notes-history-title">最近 10 次修改前的版本</h2><div id="notes-history-list"></div><div class="modal-buttons"><button id="notes-history-close" class="btn btn-secondary">關閉</button></div></dialog>
-
-  <div id="toast-container" aria-live="polite"></div>
-  <script src="presets.js" defer></script>
-  <script src="list-pagination.js" defer></script>
-  <script src="settings.js" defer></script>
-  <script src="shortcuts.js" defer></script>
-  <script src="moving.js" defer></script>
-  <script src="path-import.js" defer></script>
-  <script src="sidebar-resize.js" defer></script>
-  <script src="favorites.js" defer></script>
-  <script src="everything.js" defer></script>
-  <script src="notes-model.js" defer></script><script src="notes.js" defer></script><script src="app-search.js" defer></script>
-  <script src="renderer.js" defer></script>
-</body>
+      <section id="notes-tag-choice" hidden>
+        <p class="notes-hint">連結的是收藏分類，分類內新增／移除項目會自動反映，不建立固定檔案副本。可與位置連結同時使用；分享匯入後須重新選取本機標籤確認。</p>
+        <div id="notes-favorite-tag-picker"></div>
+      </section>
+      <p id="notes-link-status" class="notes-hint" role="status"></p>
+      <p class="notes-hint">每筆最多 100 個位置及 20 個收藏標籤，不會複製原始檔案。</p>
+      <div class="modal-buttons">
+        <button id="notes-favorites-cancel" class="btn btn-secondary">取消</button>
+        <button id="notes-favorites-apply" class="btn btn-primary">套用連結</button>
+      </div>
+    </dialog>
+    <dialog id="notes-confirm-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-confirm-title">
+      <h2 id="notes-confirm-title"></h2>
+      <p id="notes-confirm-text"></p>
+      <label id="notes-delete-options" class="check-row" hidden>
+        <input id="notes-delete-details" type="checkbox">
+        <span>連同所選主紀錄的明細一起移至回收筒（共用明細會保留）</span>
+      </label>
+      <div class="modal-buttons">
+        <button id="notes-confirm-cancel" class="btn btn-secondary">取消</button>
+        <button id="notes-confirm-apply" class="btn btn-primary">確認</button>
+      </div>
+    </dialog>
+    <dialog id="notes-transfer-dialog" class="modal notes-modal" aria-labelledby="notes-transfer-title">
+      <h2 id="notes-transfer-title"></h2>
+      <div id="notes-export-options">
+        <label class="field">
+          <span>匯出範圍</span>
+          <select id="notes-export-scope">
+            <option value="all">整個工作區（不含回收筒紀錄）</option>
+            <option value="area">目前群組</option>
+            <option value="sheet">目前表格</option>
+            <option value="record">目前紀錄</option>
+          </select>
+        </label>
+        <label class="check-row">
+          <input id="notes-export-related" type="checkbox">
+          <span>包含直接相關紀錄及其必要關聯（可能包含其他客戶）</span>
+        </label>
+      </div>
+      <div id="notes-import-options">
+        <label class="field">
+          <span>匯入方式</span>
+          <select id="notes-import-mode">
+            <option value="copy">另存副本（建議，重新建立識別碼）</option>
+            <option value="skip">合併，略過重複紀錄</option>
+            <option value="update">合併，更新相同識別碼的紀錄</option>
+          </select>
+        </label>
+        <button id="notes-import-choose" class="btn btn-secondary">選取 Studio 資料包</button>
+        <span id="notes-import-name" class="notes-sub"></span>
+      </div>
+      <p class="notes-hint">資料包包含欄位、紀錄、筆記及關聯；檔案只包含位置，沒有原始檔案副本。匯入前會建立 SQLite 備份；不會執行包內文字或開啟檔案。不是即時多人同步。</p>
+      <button id="notes-transfer-preview" class="btn btn-secondary">預覽內容</button>
+      <p id="notes-transfer-summary" role="status"></p>
+      <input id="notes-transfer-search" type="search" placeholder="搜尋預覽中的紀錄…" aria-label="搜尋分享預覽">
+      <div id="notes-transfer-preview-list" class="notes-preview-list"></div>
+      <div class="notes-pagination">
+        <button id="notes-transfer-prev" class="btn btn-ghost">‹</button>
+        <span id="notes-transfer-page"></span>
+        <button id="notes-transfer-next" class="btn btn-ghost">›</button>
+      </div>
+      <div class="modal-buttons">
+        <button id="notes-transfer-cancel" class="btn btn-secondary">取消</button>
+        <button id="notes-transfer-apply" class="btn btn-primary" disabled>確認</button>
+      </div>
+    </dialog>
+    <dialog id="notes-history-dialog" class="modal notes-modal" aria-labelledby="notes-history-title">
+      <h2 id="notes-history-title">最近 10 次修改前的版本</h2>
+      <div id="notes-history-list"></div>
+      <div class="modal-buttons">
+        <button id="notes-history-close" class="btn btn-secondary">關閉</button>
+      </div>
+    </dialog>
+    <div id="toast-container" aria-live="polite"></div>
+    <script src="presets.js" defer></script>
+    <script src="list-pagination.js" defer></script>
+    <script src="settings-workbench.js" defer></script>
+    <script src="settings.js" defer></script>
+    <script src="shortcuts.js" defer></script>
+    <script src="moving.js" defer></script>
+    <script src="path-import.js" defer></script>
+    <script src="sidebar-resize.js" defer></script>
+    <script src="app-navigation.js" defer></script>
+    <script src="favorites.js" defer></script>
+    <script src="everything.js" defer></script>
+    <script src="notes-model.js" defer></script>
+    <script src="notes.js" defer></script>
+    <script src="app-search.js" defer></script>
+    <script src="renderer.js" defer></script>
+  </body>
 </html>

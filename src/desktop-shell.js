@@ -12,7 +12,7 @@ class DesktopShell {
    tray.setToolTip('Bulk File Studio');
    tray.setContextMenu(this.Menu.buildFromTemplate([
     {label:'開啟 Bulk File Studio',click:()=>this.showMain()},
-    {label:'顯示浮動收藏',click:()=>this.showFloating()},
+    {label:'顯示浮動工具',click:()=>this.showFloating()},
     {label:'隱藏至系統匣',click:()=>this.hideToTray()},
     {type:'separator'},
     {label:'結束程式',click:()=>{this.quitting=true;this.app.quit();}}

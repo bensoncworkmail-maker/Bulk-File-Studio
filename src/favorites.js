@@ -15,22 +15,8 @@
   function button(text,handler,className='btn btn-ghost') {
     const el=node('button',className,text);el.type='button';el.addEventListener('click',handler);return el;
   }
-  function setView(view) {
-    if(callbacks?.isBusy())return;
-    if(window.notesUI&&!window.notesUI.canLeave())return;
-    active=view==='favorites';settingsActive=view==='settings'||view==='info'||view==='notes'||view==='search';closeMenu();
-    if($('search-page')){$('search-page').classList.toggle('hidden',view!=='search');$('tab-search').classList.toggle('active',view==='search');$('tab-search').setAttribute('aria-pressed',String(view==='search'));if(view==='search')window.appSearchUI?.activate();}
-    $('notes-page').classList.toggle('hidden',view!=='notes');$('tab-notes').classList.toggle('active',view==='notes');$('tab-notes').setAttribute('aria-pressed',String(view==='notes'));if(view==='notes')window.notesUI?.activate();
-    $('info-page').classList.toggle('hidden',view!=='info');$('tab-info').classList.toggle('active',view==='info');$('tab-info').setAttribute('aria-pressed',String(view==='info'));
-    $('btn-undo').classList.toggle('hidden',settingsActive);
-    $('favorites-page').classList.toggle('hidden',!active);
-    $('settings-page').classList.toggle('hidden',view!=='settings');
-    for(const id of ['rename-intro','rename-workspace','rename-footer','btn-export','btn-favorite-selected'])$(id).classList.toggle('hidden',active||settingsActive);
-    $('tab-favorites').classList.toggle('active',active);$('tab-rename').classList.toggle('active',!active&&!settingsActive);$('tab-settings').classList.toggle('active',view==='settings');
-    $('tab-favorites').setAttribute('aria-pressed',String(active));$('tab-rename').setAttribute('aria-pressed',String(!active&&!settingsActive));$('tab-settings').setAttribute('aria-pressed',String(view==='settings'));
-    if(settingsActive)window.settingsUI.refreshInfo();
-    $('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';
-  }
+  let navigation;
+  function setView(view) {return navigation?.show(view)||false;}
   function visibleItems() {
     const search=$('favorite-search').value.trim().toLocaleLowerCase(),type=$('favorite-type').value,status=$('favorite-status').value;
     const result=items.filter(item=>(activeTag===null || (activeTag===''?!item.tags.length:item.tags.some(tag=>tag.toLocaleLowerCase()===activeTag))) &&
@@ -237,6 +223,7 @@
   }
   async function init(options) {
     callbacks=options;
+    navigation=window.studioNavigation.create({document,canNavigate:()=>!callbacks.isBusy()&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),onShow:view=>{active=view==='favorites';settingsActive=!['rename','favorites'].includes(view);closeMenu();if(view==='notes')window.notesUI?.activate();if(view==='search')window.appSearchUI?.activate();if(['settings','info'].includes(view))window.settingsUI.refreshInfo();$('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';}});
     window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
     window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
     $('btn-tag-manage-cancel').addEventListener('click',()=>$('tag-manage-dialog').close());
@@ -271,7 +258,7 @@
     $('tab-rename').addEventListener('click',()=>setView('rename'));
     $('tab-favorites').addEventListener('click',()=>{setView('favorites');refresh();});
     $('tab-settings').addEventListener('click',()=>setView('settings'));
-    $('btn-fav-settings').addEventListener('click',()=>setView('settings'));
+    $('btn-fav-settings').addEventListener('click',()=>window.settingsUI.openCategory('favorites'));
     $('btn-fav-add-files').addEventListener('click',()=>run(async()=>reportAdded(await api.choose('file')),true));
     $('btn-fav-add-folders').addEventListener('click',()=>run(async()=>reportAdded(await api.choose('folder')),true));
     $('btn-fav-refresh').addEventListener('click',refresh);

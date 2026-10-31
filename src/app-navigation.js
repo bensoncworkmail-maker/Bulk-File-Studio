@@ -1,0 +1,7 @@
+'use strict';
+// One owner for page visibility and active navigation. Data stays with each feature.
+(() => {
+ const PAGES=Object.freeze({rename:{tab:'tab-rename',sections:['rename-intro','rename-workspace','rename-footer']},favorites:{tab:'tab-favorites',sections:['favorites-page']},notes:{tab:'tab-notes',sections:['notes-page']},search:{tab:'tab-search',sections:['search-page']},settings:{tab:'tab-settings',sections:['settings-page']},info:{tab:'tab-info',sections:['info-page']}});
+ function create({document,canNavigate=()=>true,onShow=()=>{}}){let current=null;return Object.freeze({current:()=>current,show(view){if(!Object.hasOwn(PAGES,view)||!canNavigate(view))return false;for(const [key,page] of Object.entries(PAGES)){const active=key===view;for(const id of page.sections)document.getElementById(id)?.classList.toggle('hidden',!active);const tab=document.getElementById(page.tab);if(tab){tab.classList.toggle('active',active);tab.setAttribute('aria-pressed',String(active));if(active)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');}}for(const id of ['btn-undo','btn-export','btn-favorite-selected'])document.getElementById(id)?.classList.toggle('hidden',view!=='rename');current=view;onShow(view);return true;}});}
+ const api={PAGES,create};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.studioNavigation=Object.freeze(api);
+})();

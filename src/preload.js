@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ defaults:()=>ipcRenderer.invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>ipcRenderer.invoke('floating-header-menu'),
  headerDoubleClick:()=>ipcRenderer.invoke('floating-header-double-click'),
  beginFloatingDrag:mode=>ipcRenderer.invoke('floating-drag-start',mode),moveFloatingDrag:(token,dx,dy)=>ipcRenderer.invoke('floating-drag-move',token,dx,dy),endFloatingDrag:token=>ipcRenderer.invoke('floating-drag-end',token),
