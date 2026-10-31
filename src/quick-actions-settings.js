@@ -2,7 +2,7 @@
 (() => {
  const $=id=>document.getElementById(id),M=window.quickActionsModel;
  function init({showFailure}){
-  let actions=[],choices={sheets:[],masters:[]},editing=null,saving=false;
+  let actions=[],choices={sheets:[],masters:[]},editing=null,saving=false,dropTarget='',dropMode='favorites';
   const node=(tag,text)=>{const item=document.createElement(tag);if(text!==undefined)item.textContent=text;return item;};
   const sheet=()=>choices.sheets.find(item=>item.id===$('quick-action-sheet').value);
   function masters(value=''){
@@ -20,7 +20,12 @@
    catch(error){showFailure('無法儲存浮動快捷動作',error);return false;}finally{saving=false;render();}
   }
   function actionButton(text,run){const button=node('button',text);button.type='button';button.className='btn btn-ghost';button.disabled=saving;button.addEventListener('click',run);return button;}
-  function render(){
+  function dropOptions(){
+   const select=$('quick-action-drop-target');select.replaceChildren();const empty=node('option',dropMode==='records'?'請選擇新增紀錄快捷動作':'目前標籤／不指定表格');empty.value='';select.append(empty);
+   const allowed=actions.filter(item=>item.enabled&&item.type!=='open-sheet'&&(dropMode!=='records'||item.type==='new-record')&&(dropMode!=='import'||item.type==='import-paths'));for(const item of allowed){const option=node('option',item.label+' · '+M.TYPES[item.type]);option.value=item.id;select.append(option);}
+   if(dropTarget&&!allowed.some(item=>item.id===dropTarget)){const missing=node('option','原設定與用途不符或已停用，請重新選擇');missing.value=dropTarget;select.append(missing);}select.value=dropTarget;select.disabled=saving||['favorites','ask'].includes(dropMode);
+  }
+  function render(){dropOptions();
    const root=$('quick-action-list');root.replaceChildren();for(const [index,item] of actions.entries()){
     const row=node('div');row.className='quick-action-row';const enabled=node('input');enabled.type='checkbox';enabled.checked=item.enabled;enabled.disabled=saving;enabled.setAttribute('aria-label','啟用 '+item.label);enabled.addEventListener('change',()=>persist(actions.map(value=>value.id===item.id?{...value,enabled:enabled.checked}:value)));
     const label=node('div'),name=node('strong',item.label),target=choices.sheets.find(sheet=>sheet.id===item.sheetId);label.append(name,node('small',M.TYPES[item.type]+' · '+(item.type==='import-paths'?(item.tags.join('、')||'不預設標籤'):(target?target.area+' ／ '+target.name:'表格已移除，請重新選擇'))));
@@ -32,9 +37,10 @@
    $('quick-action-add').disabled=saving||actions.length>=M.LIMIT;$('quick-action-save').disabled=saving;$('quick-action-refresh').disabled=saving;
   }
   async function refresh(){
-   try{const [settings,data]=await Promise.all([window.desktopAPI.get(),window.desktopAPI.quickActionOptions()]);actions=settings.floatingQuickActions||[];choices=data;const selected=$('quick-action-sheet').value;const select=$('quick-action-sheet');select.replaceChildren();for(const item of choices.sheets){const option=node('option',item.area+' ／ '+item.name);option.value=item.id;select.append(option);}select.value=choices.sheets.some(item=>item.id===selected)?selected:choices.sheets[0]?.id||'';masters();render();}
+   try{const [settings,data]=await Promise.all([window.desktopAPI.get(),window.desktopAPI.quickActionOptions()]);actions=settings.floatingQuickActions||[];dropTarget=settings.floatingDropActionId||'';dropMode=settings.floatingDropMode||'favorites';choices=data;const selected=$('quick-action-sheet').value;const select=$('quick-action-sheet');select.replaceChildren();for(const item of choices.sheets){const option=node('option',item.area+' ／ '+item.name);option.value=item.id;select.append(option);}select.value=choices.sheets.some(item=>item.id===selected)?selected:choices.sheets[0]?.id||'';masters();render();}
    catch(error){$('quick-action-status').textContent=String(error.message||error);}
   }
+  $('quick-action-drop-target').addEventListener('change',async()=>{if(saving)return;try{const result=await window.desktopAPI.configure({floatingDropActionId:$('quick-action-drop-target').value});dropTarget=result.settings.floatingDropActionId||'';$('quick-action-drop-status').textContent='拖放目標已儲存。';dropOptions();}catch(error){showFailure('拖放設定未完成',error);dropOptions();}});
   $('quick-action-add').addEventListener('click',()=>edit());$('quick-action-type').addEventListener('change',fields);$('quick-action-sheet').addEventListener('change',()=>masters());$('quick-action-refresh').addEventListener('click',refresh);
   $('quick-action-save').addEventListener('click',async()=>{
    if(saving)return;const type=$('quick-action-type').value,input={id:editing||crypto.randomUUID(),label:$('quick-action-label').value,type,enabled:actions.find(item=>item.id===editing)?.enabled!==false};
@@ -43,7 +49,7 @@
    try{const clean=M.normalize([input],true)[0],next=editing?actions.map(item=>item.id===editing?clean:item):[...actions,clean];if(editing&&!next.some(item=>item.id===editing))next.push(clean);if(await persist(next)){$('quick-action-editor').open=false;editing=null;$('quick-action-status').textContent='快捷動作已儲存，浮動工具同步更新。';}}
    catch(error){showFailure('快捷動作設定未完成',error);}
   });
-  window.desktopAPI.onChanged(payload=>{if(payload.settings){actions=payload.settings.floatingQuickActions||[];render();}});render();refresh();
+  window.desktopAPI.onChanged(payload=>{if(payload.settings){actions=payload.settings.floatingQuickActions||[];dropTarget=payload.settings.floatingDropActionId||'';dropMode=payload.settings.floatingDropMode||'favorites';render();}});render();refresh();
  }
  window.quickActionsSettingsUI=Object.freeze({init});
 })();

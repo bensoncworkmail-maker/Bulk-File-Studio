@@ -139,6 +139,9 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "floatingQuickMode": "settings-floating-quick-mode",
+    "floatingKeepAfterQuick": "settings-floating-keep-quick",
+    "floatingDropMode": "settings-floating-drop-mode",
     "floatingShowQuickActions": "settings-floating-quick-enabled",
     "floatingMixedFiles": "settings-mixed-files",
     "floatingMixedTags": "settings-mixed-tags",
@@ -201,6 +204,10 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "floatingQuickMode": "floating",
+    "floatingKeepAfterQuick": "floating",
+    "floatingDropMode": "floating",
+    "floatingDropActionId": "floating",
     "floatingShowQuickActions": "floating",
     "floatingQuickActions": "floating",
     "notesExpandFilters": "notes",

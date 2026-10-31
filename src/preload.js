@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
+ dropFiles:(paths,tag)=>invoke('floating-drop',paths,tag),
  quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>invoke('floating-header-menu'),

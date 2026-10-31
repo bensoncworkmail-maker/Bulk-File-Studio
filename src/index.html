@@ -835,7 +835,10 @@
                 <section class="settings-card">
                   <h2>浮動快捷動作</h2>
                   <label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
-                  <p class="rule-hint">最多 12 項。指定表格直接開新增表單，或預填標籤及剪貼簿路徑；紀錄儲存及路徑匯入仍需確認。</p>
+                  <p class="rule-hint">快捷按鈕單擊執行，最多 12 項。可在浮動工具旁填寫及預覽，確認後才儲存。</p>
+                  <label class="field"><span>新增與匯入快捷動作的開啟位置</span><select id="settings-floating-quick-mode"><option value="popup">浮動工具旁的獨立彈出表單</option><option value="main">主視窗</option></select></label>
+                  <label class="check-row"><input id="settings-floating-keep-quick" type="checkbox"><span>快捷動作轉到主視窗後，保留浮動工具</span></label>
+                  <p class="rule-hint">「開啟指定表格」仍使用主視窗；獨立表單不會叫出主視窗，離開焦點也保留未完成輸入。</p>
                   <div id="quick-action-list"></div>
                   <div class="notes-tools"><button id="quick-action-add" type="button" class="btn btn-secondary">＋ 新增快捷動作</button><button id="quick-action-refresh" type="button" class="btn btn-ghost">重新讀取表格</button></div>
                   <details id="quick-action-editor"><summary>編輯快捷動作</summary>
@@ -845,6 +848,13 @@
                     <div id="quick-action-import-fields" hidden><label class="field"><span>預設標籤，以逗號分隔</span><input id="quick-action-tags" type="text" placeholder="工作、合約"></label><label class="check-row"><input id="quick-action-clipboard" type="checkbox"><span>按下按鈕時帶入剪貼簿文字，先預覽再匯入</span></label></div>
                     <button id="quick-action-save" type="button" class="btn btn-primary">儲存快捷動作</button>
                   </details><p id="quick-action-status" class="rule-hint" role="status"></p>
+                </section>
+                <section class="settings-card">
+                  <h2>浮動工具拖放</h2>
+                  <label class="field"><span>拖放檔案／資料夾的用途</span><select id="settings-floating-drop-mode"><option value="favorites">直接收藏，套用目前標籤（原有方式）</option><option value="import">標籤連結匯入，先在彈出表單預覽</option><option value="records">每個位置新增一筆指定表格紀錄</option><option value="ask">每次以選單選擇用途</option></select></label>
+                  <label class="field"><span>拖放預設的標籤／表格設定</span><select id="quick-action-drop-target"></select></label>
+                  <p class="rule-hint">先建立「新增指定表格紀錄」或「匯入路徑並套用標籤」快捷動作，再於此選用。表格模式每批最多 100 個位置；資料夾只建立本身的連結，不展開子檔案。預覽確認前不新增收藏或紀錄，也不搬移實體檔案。</p>
+                  <p id="quick-action-drop-status" class="rule-hint" role="status"></p>
                 </section>
                 <section class="settings-card">
                   <h2>視窗與快速入口</h2>

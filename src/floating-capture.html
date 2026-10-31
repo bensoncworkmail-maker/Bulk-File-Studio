@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; worker-src 'none'"><title>浮動快捷表單</title><link rel="stylesheet" href="floating-capture.css"><script src="floating-capture-ui.js" defer></script></head>
+<body><header><p class="eyebrow">浮動快捷</p><h1 id="capture-heading">正在開啟…</h1><p id="capture-context">在此填寫，先預覽再確認。</p></header>
+<main><form id="capture-form">
+ <section id="capture-import" hidden><label>完整檔案／資料夾路徑，每行一項<textarea id="capture-text" rows="7" maxlength="2097152" spellcheck="false" placeholder="貼上完整路徑"></textarea></label></section>
+ <section id="capture-record" hidden><label><span id="capture-title-label">紀錄名稱</span><input id="capture-title" type="text" maxlength="200"></label><div id="capture-fields"></div><label>筆記<textarea id="capture-notes" rows="3" maxlength="100000"></textarea></label></section>
+ <label>標籤，以逗號分隔<input id="capture-tags" type="text" placeholder="工作、合約"></label>
+ <details id="capture-paths" hidden><summary id="capture-path-count">拖放位置</summary><ul id="capture-path-list"></ul></details>
+ <p id="capture-status" role="status" aria-live="polite">正在讀取…</p><span id="capture-spinner" class="spinner" aria-hidden="true" hidden></span>
+ <section id="capture-preview" hidden aria-label="確認預覽"><h2>確認這次新增</h2><p id="capture-summary"></p><ul id="capture-preview-list"></ul></section>
+ <footer><button id="capture-close" type="button">取消／關閉</button><button id="capture-check" type="submit" disabled>預覽</button><button id="capture-confirm" type="button" class="primary" disabled>確認儲存</button></footer>
+</form></main></body></html>
