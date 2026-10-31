@@ -53,3 +53,18 @@ test('undo rejects an edited copied destination before recreating the source',t=
 test('real separate filesystems move and undo a nested directory',t=>{
  const {dir}=fixture(t);if(!fs.existsSync('/dev/shm')||fs.statSync('/dev/shm').dev===fs.statSync(dir).dev){t.skip('two writable filesystems are unavailable');return;}const target=fs.mkdtempSync('/dev/shm/bfs-volume-');t.after(()=>fs.rmSync(target,{recursive:true,force:true}));const root=path.join(dir,'Tree');fs.mkdirSync(path.join(root,'Empty'),{recursive:true});fs.writeFileSync(path.join(root,'data.bin'),Buffer.alloc(700000,71));const moves=core.planMove([root],target);core.executeRelocation(moves);assert.equal(fs.existsSync(root),false);assert.equal(fs.readFileSync(path.join(target,'Tree','data.bin')).length,700000);assert.notEqual(moves.find(m=>m.kind==='file').destinationFingerprint.dev,moves.find(m=>m.kind==='file').expectedFingerprint.dev);core.executeRelocation(core.prepareMoveUndo({version:3,state:'completed',moves}));assert.ok(fs.statSync(path.join(root,'Empty')).isDirectory());assert.equal(fs.readFileSync(path.join(root,'data.bin')).length,700000);
 });
+
+test('numbering resolves existing and batch duplicate names and preserves extensions',t=>{
+ const {dir,destination,sources}=fixture(t),other=path.join(dir,'other');fs.mkdirSync(other);const duplicate=path.join(other,'one.txt');fs.writeFileSync(duplicate,'dup');
+ fs.writeFileSync(path.join(destination,'one.txt'),'keep');fs.writeFileSync(path.join(destination,'one(1).txt'),'keep1');
+ const moves=core.planMove([sources[0],duplicate],destination,{conflict:'number'});assert.deepEqual(moves.map(m=>path.basename(m.destination)),['one(2).txt','one(3).txt']);core.executeRelocation(moves);
+ assert.equal(fs.readFileSync(path.join(destination,'one.txt'),'utf8'),'keep');assert.equal(fs.readFileSync(moves[1].destination,'utf8'),'dup');
+ core.executeRelocation(core.prepareMoveUndo({version:3,state:'completed',moves}));assert.equal(fs.readFileSync(duplicate,'utf8'),'dup');
+});
+test('folder numbering preserves child structure and dotted folder names',t=>{
+ const {dir,destination}=fixture(t),root=path.join(dir,'Client.v1');fs.mkdirSync(root);fs.writeFileSync(path.join(root,'a.txt'),'a');fs.mkdirSync(path.join(destination,'Client.v1'));
+ const moves=core.planMove([root],destination,{conflict:'number'});assert.equal(moves[0].destination,path.join(destination,'Client.v1(1)'));assert.equal(moves[1].destination,path.join(destination,'Client.v1(1)','a.txt'));core.executeRelocation(moves);assert.equal(fs.readFileSync(moves[1].destination,'utf8'),'a');
+});
+test('numbered targets that appear after preview are never overwritten or silently renamed',t=>{
+ const {destination,sources}=fixture(t);fs.writeFileSync(path.join(destination,'one.txt'),'keep');const moves=core.planMove(sources,destination,{conflict:'number'});fs.writeFileSync(moves[0].destination,'racer');assert.throws(()=>core.executeRelocation(moves),/絕不覆寫/);assert.equal(fs.readFileSync(sources[0],'utf8'),'bytes0');assert.throws(()=>core.planMove(sources,destination,{conflict:'replace'}),/同名處理/);
+});

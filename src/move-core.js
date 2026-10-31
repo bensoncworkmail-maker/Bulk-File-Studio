@@ -50,7 +50,15 @@ function validate(moves){
   for(const move of moves){if(sources.has(key(move.destination)))throw new Error('來源與目標重疊');for(const dir of roots)if(inside(dir.source,move.destination))throw new Error('目標不可位於來源資料夾內');}
   assertSourceTrees(moves);
 }
-function planMove(paths,folder){
+function planMove(paths,folder,options={}){
+  const conflict=options?.conflict??'stop';if(!['stop','number'].includes(conflict))throw new Error('同名處理方式無效');
+  const reserved=new Set();
+  function destinationFor(source){
+    const name=path.basename(source),ext=fs.lstatSync(source).isDirectory()?'':path.extname(name),stem=ext?name.slice(0,-ext.length):name;
+    let destination=path.join(folder,name),index=0;
+    if(conflict==='number')while(reserved.has(key(destination))||exists(destination)){if(++index>10000)throw new Error('自動編號超過上限');destination=path.join(folder,stem+'('+index+')'+ext);}
+    reserved.add(key(destination));return destination;
+  }
   assertLocalPath(folder);if(!fs.lstatSync(folder).isDirectory())throw new Error('請選擇目標資料夾');
   if(!Array.isArray(paths)||!paths.length||paths.length>5000)throw new Error('請選取 1–5000 個檔案／資料夾');
   const selected=[...new Set(paths.map(input=>path.resolve(assertLocalPath(input))))];
@@ -63,7 +71,7 @@ function planMove(paths,folder){
     moves.push({source,destination,kind,expectedFingerprint:fingerprint(source,kind==='folder')});
     if(kind==='folder')for(const name of fs.readdirSync(source).sort())add(path.join(source,name),path.join(destination,name));
   }
-  for(const source of roots){if(source===path.parse(source).root)throw new Error('不可搬移整個磁碟根目錄');if(fs.lstatSync(source).isDirectory()&&inside(source,folder))throw new Error('目標不可位於來源資料夾內');add(source,path.join(folder,path.basename(source)));}
+  for(const source of roots){if(source===path.parse(source).root)throw new Error('不可搬移整個磁碟根目錄');if(fs.lstatSync(source).isDirectory()&&inside(source,folder))throw new Error('目標不可位於來源資料夾內');add(source,destinationFor(source));}
   validate(moves);return moves;
 }
 // Claim the destination exclusively. Only remove files whose identity is still ours.

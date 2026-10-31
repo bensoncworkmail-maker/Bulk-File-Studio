@@ -272,3 +272,8 @@ html,body { height:100%; overflow:hidden; }
 #settings-panel-floating details>summary{cursor:pointer;padding:8px 0;}
 
 #tag-manage-dialog [hidden]{display:none!important;}
+
+.file-location-group { font-weight: 600; overflow-wrap: anywhere; color: var(--text); background: var(--panel); }
+div.file-location-group, tr.file-location-group td { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.file-location-group input { margin-right: 8px; vertical-align: middle; }
+.sort-toolbar { flex-wrap: wrap; }

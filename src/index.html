@@ -1381,6 +1381,7 @@
             <button id="btn-clear" class="text-action" disabled>清空</button>
           </div>
           <div class="sort-toolbar">
+            <label for="file-group-mode">顯示分組</label><select id="file-group-mode" aria-label="檔案位置分組"><option value="folder">所在資料夾</option><option value="root">磁碟／根目錄</option><option value="none">不分組</option></select>
             <span>編號排序</span>
             <select id="rule-sort-by" aria-label="編號排序依據">
               <option value="path">完整路徑</option>
@@ -1391,7 +1392,7 @@
               <option value="asc">↑ 遞增／舊至新</option>
               <option value="desc">↓ 遞減／新至舊</option>
             </select>
-            <span id="rule-summary" title="編號依預覽順序；搜尋和分頁只改變顯示">未設定命名規則</span>
+            <span id="rule-summary" title="編號依編號排序；位置分組、搜尋和分頁只改變顯示">未設定命名規則</span>
           </div>
           <div class="table-scroll">
             <table class="preview-table">
@@ -1763,7 +1764,8 @@
     <dialog id="favorite-remove-dialog" class="modal" aria-labelledby="favorite-remove-title">
       <h2 id="favorite-remove-title">移除收藏？</h2>
       <p id="favorite-remove-description"></p>
-      <div class="modal-note">只移除收藏紀錄，實際檔案及資料夾會保留。</div>
+      <label class="checkbox-field"><input id="favorite-trash-files" type="checkbox"><span>同時將實際檔案／資料夾移至系統資源回收筒（需要第二次確認）</span></label>
+      <div class="modal-note">預設只移除收藏連結。勾選後會顯示完整路徑再確認；資料夾包含所有子檔案，其他標籤下的相關收藏連結也會移除。回收失敗不會永久刪除。</div>
       <div class="modal-buttons">
         <button id="btn-fav-remove-cancel" class="btn btn-secondary" autofocus>取消</button>
         <button id="btn-fav-remove-confirm" class="btn btn-primary">移除收藏</button>
@@ -1817,7 +1819,8 @@
     <dialog id="move-dialog" class="modal favorite-edit-dialog">
       <h2>搬移檔案／資料夾</h2>
       <p id="move-count"></p>
-      <p>可搬移至另一個本機磁碟；資料夾包含所有子檔案與空資料夾，保留原有名稱與層級。目標同名時整批取消，不會合併或覆寫。跨磁碟先複製並校驗，全部成功後才移除來源；這次操作會取代上一批復原紀錄。</p>
+      <p>可搬移至另一個本機磁碟；資料夾包含所有子檔案與空資料夾，保留原有名稱與層級。同名預設停止，可改選自動加上 (1)、(2)…；不會合併或覆寫。跨磁碟先複製並校驗，全部成功後才移除來源；這次操作會取代上一批復原紀錄。</p>
+      <label class="field"><span>目標同名時</span><select id="move-conflict"><option value="stop">停止整批搬移（預設）</option><option value="number">自動編號：檔名(1).ext／資料夾(1)</option></select></label>
       <button id="btn-move-target" class="btn btn-secondary">選擇目標資料夾</button>
       <code id="move-target"></code>
       <pre id="move-preview-list"></pre>
@@ -1884,7 +1887,8 @@
           <input id="tag-remove-favorites" type="checkbox">
           <span>一併移除此標籤下的全部收藏連結（包含還有其他標籤的收藏）</span>
         </label>
-        <p id="tag-remove-favorites-note" class="rule-hint" hidden>實際檔案及資料夾會保留。移除收藏連結後，工作區中使用該收藏的連結需重新選取。</p>
+        <label id="tag-trash-files-field" class="checkbox-field" hidden><input id="tag-trash-files" type="checkbox" disabled><span>同時將實際檔案／資料夾移至系統資源回收筒（需要第二次確認）</span></label>
+        <p id="tag-remove-favorites-note" class="rule-hint" hidden>預設保留實際檔案。若勾選回收，資料夾內容及其他標籤下的相關收藏也會受影響；第二次確認會列出路徑及收藏數量。工作區連結不會自動刪除。</p>
         <div class="modal-buttons">
           <button type="button" id="btn-tag-manage-cancel" class="btn btn-secondary">取消</button>
           <button id="btn-tag-manage-confirm" type="submit" class="btn btn-primary">確認</button>
@@ -2291,6 +2295,7 @@
     <div id="toast-container" aria-live="polite"></div>
     <script src="presets.js" defer></script>
     <script src="list-pagination.js" defer></script>
+    <script src="file-location-groups.js" defer></script>
     <script src="settings-workbench.js" defer></script>
     <script src="settings.js" defer></script>
     <script src="shortcuts.js" defer></script>

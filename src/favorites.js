@@ -123,6 +123,11 @@
       if(result.notice){callbacks.showToast(result.notice.message);if(result.notice.issues.length)callbacks.showFailure('部分右鍵收藏未完成',result.notice.issues.join('\n'));}
     } catch(e) {if(request===revision){loaded=false;render();callbacks.showFailure('無法讀取收藏',e);}}
   }
+  function reportTrash(result){
+    if(result.canceled)return;
+    callbacks.showToast(`已回收 ${result.trashed} 個來源，移除 ${result.removed} 項收藏連結`);
+    if(result.failures?.length)callbacks.showFailure('部分項目未完成，請核對路徑',result.failures.join('\n'));
+  }
   async function run(task,refreshAfter=false) {
     if(busy)return;
     busy=true;render();closeMenu();
@@ -162,7 +167,7 @@
   }
   function requestRemove(ids=[...selected]) {
     if(busy||!ids.length)return;
-    removingIds=[...ids];closeMenu();
+    removingIds=[...ids];closeMenu();$('favorite-trash-files').checked=false;$('btn-fav-remove-confirm').textContent='移除收藏';
     $('favorite-remove-description').textContent=`即將移除 ${ids.length} 項收藏紀錄，包含已選取但目前未顯示的項目。`;
     $('favorite-remove-dialog').showModal();
   }
@@ -194,7 +199,7 @@
     ]);
   }
   function manageTag(tag,deleting){
-    managedTag={...tag,deleting,ids:items.filter(item=>item.tags.some(value=>value.toLocaleLowerCase()===tag.key)).map(item=>item.id)};closeMenu();$('tag-remove-favorites').checked=false;$('tag-remove-favorites-field').hidden=!deleting;$('tag-remove-favorites-note').hidden=!deleting;$('tag-manage-title').textContent=deleting?'刪除標籤？':'重新命名／合併標籤';$('btn-tag-manage-confirm').textContent=deleting?'刪除標籤':'儲存標籤';$('tag-manage-description').textContent=`「${tag.name}」影響 ${tag.count} 項收藏。`+(deleting?'預設只移除此標籤；沒有其他標籤的收藏會列入未分類。勾選下方選項可一併移除這些收藏連結。':'輸入既有標籤名稱可合併，不會產生重複標籤。');$('tag-manage-name').value=tag.name;$('tag-manage-field').hidden=deleting;$('tag-manage-dialog').showModal();
+    managedTag={...tag,deleting,ids:items.filter(item=>item.tags.some(value=>value.toLocaleLowerCase()===tag.key)).map(item=>item.id)};closeMenu();$('tag-trash-files').checked=false;$('tag-trash-files').disabled=true;$('tag-trash-files-field').hidden=!deleting;$('tag-remove-favorites').checked=false;$('tag-remove-favorites-field').hidden=!deleting;$('tag-remove-favorites-note').hidden=!deleting;$('tag-manage-title').textContent=deleting?'刪除標籤？':'重新命名／合併標籤';$('btn-tag-manage-confirm').textContent=deleting?'刪除標籤':'儲存標籤';$('tag-manage-description').textContent=`「${tag.name}」影響 ${tag.count} 項收藏。`+(deleting?'預設只移除此標籤；沒有其他標籤的收藏會列入未分類。勾選下方選項可一併移除這些收藏連結。':'輸入既有標籤名稱可合併，不會產生重複標籤。');$('tag-manage-name').value=tag.name;$('tag-manage-field').hidden=deleting;$('tag-manage-dialog').showModal();
   }
   function openColumns(){
     columnDraft=[...model.columns(window.settingsUI.get().favoriteColumns),...Object.keys(model.COLUMNS).filter(key=>!window.settingsUI.get().favoriteColumns.includes(key))].map(key=>({key,checked:window.settingsUI.get().favoriteColumns.includes(key)}));renderColumnEditor();$('favorite-columns-dialog').showModal();
@@ -227,8 +232,10 @@
     window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
     window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
     $('btn-tag-manage-cancel').addEventListener('click',()=>$('tag-manage-dialog').close());
-    $('tag-remove-favorites').addEventListener('change',()=>{$('btn-tag-manage-confirm').textContent=$('tag-remove-favorites').checked?'刪除標籤及收藏連結':'刪除標籤';});
-    $('tag-manage-form').addEventListener('submit',event=>{event.preventDefault();const tag=managedTag;if(!tag)return;const replacement=tag.deleting?null:$('tag-manage-name').value.trim();if(!tag.deleting&&!replacement){$('tag-manage-name').focus();return;}const removeFavorites=tag.deleting&&$('tag-remove-favorites').checked;$('tag-manage-dialog').close();run(async()=>{const result=await api.manageTag(tag.name,replacement,tag.count,{removeFavorites,expectedIds:tag.ids});if(activeTag===tag.key)activeTag=replacement===null?null:replacement.toLocaleLowerCase();callbacks.showToast(result.removed?`已刪除標籤並移除 ${result.removed} 項收藏連結，實際檔案已保留`:`已更新 ${result.updated} 項收藏的標籤`);},true);});
+    $('tag-trash-files').addEventListener('change',()=>{$('btn-tag-manage-confirm').textContent=$('tag-trash-files').checked?'下一步：確認回收檔案':'刪除標籤及收藏連結';});
+    $('favorite-trash-files').addEventListener('change',()=>{$('btn-fav-remove-confirm').textContent=$('favorite-trash-files').checked?'下一步：確認回收檔案':'移除收藏';});
+    $('tag-remove-favorites').addEventListener('change',()=>{$('tag-trash-files').disabled=!$('tag-remove-favorites').checked;if(!$('tag-remove-favorites').checked)$('tag-trash-files').checked=false;$('btn-tag-manage-confirm').textContent=$('tag-remove-favorites').checked?'刪除標籤及收藏連結':'刪除標籤';});
+    $('tag-manage-form').addEventListener('submit',event=>{event.preventDefault();const tag=managedTag;if(!tag)return;const replacement=tag.deleting?null:$('tag-manage-name').value.trim();if(!tag.deleting&&!replacement){$('tag-manage-name').focus();return;}const removeFavorites=tag.deleting&&$('tag-remove-favorites').checked;$('tag-manage-dialog').close();run(async()=>{const result=await api.manageTag(tag.name,replacement,tag.count,{removeFavorites,expectedIds:tag.ids,trashFiles:removeFavorites&&$('tag-trash-files').checked});if(result.canceled)return;if(result.trashed!==undefined){reportTrash(result);return;}if(activeTag===tag.key)activeTag=replacement===null?null:replacement.toLocaleLowerCase();callbacks.showToast(result.removed?`已刪除標籤並移除 ${result.removed} 項收藏連結，實際檔案已保留`:`已更新 ${result.updated} 項收藏的標籤`);},true);});
     $('btn-fav-import-paths').addEventListener('click',()=>window.pathImportUI.open());
     window.desktopAPI.onChanged(payload=>{if(payload.settings?.explorerTagPrompt===false){pendingPromptIds.clear();clearTimeout(promptTimer);}});
     $('favorite-columns').addEventListener('contextmenu',event=>{event.preventDefault();openColumns();});
@@ -287,7 +294,7 @@
     });
     $('btn-fav-remove-cancel').addEventListener('click',()=>$('favorite-remove-dialog').close());
     $('btn-fav-remove-confirm').addEventListener('click',()=>{
-      const ids=[...removingIds];$('favorite-remove-dialog').close();run(async()=>{await api.remove(ids);callbacks.showToast('已移除收藏，實際檔案已保留');},true);
+      const ids=[...removingIds];$('favorite-remove-dialog').close();run(async()=>{const result=await api.remove(ids,{trashFiles:$('favorite-trash-files').checked});if(result.trashed!==undefined)reportTrash(result);else callbacks.showToast('已移除收藏，實際檔案已保留');},true);
     });
     $('btn-context-menu').addEventListener('click',async()=>{
       if(!contextState?.supported)return;
@@ -305,7 +312,7 @@
       }
     });
     window.addEventListener('focus',()=>{if(active)refresh();});
-    api.onChanged(payload=>{if(payload.activate)setView('favorites');refresh();});
+    api.onChanged(payload=>{if(payload.trashedPaths?.length)callbacks.onTrashed?.(payload.trashedPaths);if(payload.activate)setView('favorites');refresh();});
     setView(window.settingsUI.get().startPage);await refresh();await updateContextStatus();
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},

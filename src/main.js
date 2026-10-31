@@ -15,6 +15,7 @@ const {FloatingWindow,windowDefaults}=require('./floating-window');
 const {tagMenu}=require('./floating-tag-menu');
 const {prepareBatch,executeBatch}=require('./favorites-batch');
 const {tagList,basename}=require('./favorites-model');
+const {prepareTrash,executeTrash}=require('./favorites-trash');
 const globalShortcuts=require('./global-shortcuts');
 const {normalize:normalizeDesktop}=require('./desktop-state');
 const {pathToFileURL}=require('node:url');
@@ -47,6 +48,17 @@ function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-ch
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
 function notesChanged(result){send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});return result;}
+let trashing=false;
+async function confirmTrash(ids,validateScope=()=>{}){
+ if(trashing)throw new Error('另一項回收操作仍在處理');
+ trashing=true;
+ try{
+  validateScope();const plan=prepareTrash(favorites,ids);
+  const choice=await dialog.showMessageBox(win,{type:'warning',title:'第二次確認：回收實際檔案／資料夾',message:`將 ${plan.targets.length} 個來源及其內容移至系統資源回收筒，並移除 ${plan.affected.length} 項收藏連結，是否繼續？`,detail:plan.targets.map(target=>target.path+'（含 '+target.entries.length+' 個項目）').join('\n')+'\n其他標籤下的相同收藏及資料夾內的收藏也會移除。工作區內的文字路徑不會自動刪除。若系統無法回收，會保留來源與連結；不會改為永久刪除。',buttons:['移至資源回收筒','取消'],defaultId:1,cancelId:1,noLink:true});
+  if(choice.response!==0||win.isDestroyed())return {canceled:true,trashed:0,removed:0,failures:[]};
+  validateScope();const result=await executeTrash(favorites,plan,filepath=>shell.trashItem(filepath));notifyFavorites({trashedPaths:result.trashedPaths});return result;
+ }finally{trashing=false;}
+}
 let batchOpening=false;
 async function confirmBatch(ids,kind,parent){
  if(batchOpening)throw new Error('另一項批次開啟仍在處理');
@@ -251,7 +263,15 @@ app.whenReady().then(() => {
   });
   handle('favorites-import-preview',(_,text,tags)=>previewPathImport(favorites,text,tags));
   handle('favorites-import-paths',(_,text,tags,token)=>{const result=importPathList(favorites,text,tags,token);notifyFavorites();return result;});
-  handle('favorites-manage-tag',(_,name,replacement,count,options)=>{const result=favorites.manageTag(name,replacement,count,options);notifyFavorites();return result;});
+  handle('favorites-manage-tag',(_,name,replacement,count,options)=>{
+    if(options?.trashFiles){
+      if(replacement!==null||options.removeFavorites!==true)throw new Error('回收檔案時必須同時移除收藏連結');
+      const found=favorites.read().items.filter(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===name.toLocaleLowerCase()));
+      if(found.length!==count||!Array.isArray(options.expectedIds)||new Set(options.expectedIds).size!==count||found.some(item=>!options.expectedIds.includes(item.id)))throw new Error('標籤收藏已變更，請重新確認');
+      return confirmTrash(options.expectedIds,()=>{const current=favorites.read().items.filter(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===name.toLocaleLowerCase()));if(current.length!==count||current.some(item=>!options.expectedIds.includes(item.id)))throw new Error('標籤收藏已變更，請重新確認');});
+    }
+    const result=favorites.manageTag(name,replacement,count,options);notifyFavorites();return result;
+  });
   handle('favorites-add-tags',(_,ids,tags)=>{const result=favorites.addTags(ids,tags);notifyFavorites();return result;});
   handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
   handle('export-settings',async(_,input)=>{
@@ -375,7 +395,7 @@ app.whenReady().then(() => {
     const added=favorites.addPaths(result.filePaths);notifyFavorites();return added;
   });
   handle('favorites-update', (_, ids, changes) => {const result=favorites.update(ids,changes);notifyFavorites();return result;});
-  handle('favorites-remove', (_, ids) => {const result=favorites.remove(ids);notifyFavorites();return result;});
+  handle('favorites-remove', (_, ids, options) => {if(options?.trashFiles)return confirmTrash(ids);const result=favorites.remove(ids);notifyFavorites();return result;});
   handle('favorites-open', async (_, id) => {
     const item=favorites.get(id,true);assertSafeOpen(item.path);const error=await shell.openPath(item.path);
     if(error)throw new Error(error);
@@ -400,9 +420,9 @@ app.whenReady().then(() => {
   handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),history:require('./release-history'),offline:!notesShare?.config.enabled}));
   handle('choose-move-folder',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇搬移目標（可選另一個本機磁碟）',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
   handle('choose-move-sources',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇要搬移的完整資料夾（包含所有子檔案）',properties:['openDirectory','multiSelections']});return result.canceled?[]:result.filePaths.map(assertLocalPath);});
-  handle('move-preview',(_,paths,folder)=>planMove(paths,folder));
-  handle('move-files',(_,paths,folder,expected)=>{
-    const moves=planMove(paths,folder);
+  handle('move-preview',(_,paths,folder,options)=>planMove(paths,folder,options));
+  handle('move-files',(_,paths,folder,expected,options)=>{
+    const moves=planMove(paths,folder,options);
     if(JSON.stringify(moves)!==JSON.stringify(expected))throw new Error('搬移預覽已變更，請重新預覽');
     const record={version:3,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
     try{executeRelocation(moves,{onPrepared:()=>saveHistory(record)});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}const warning=syncFavoriteMoves(moves);

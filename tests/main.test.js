@@ -37,7 +37,7 @@ function harness(t, overrides = {}) {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
     __dirname:path.dirname(main), process
   }, { filename:main });
-  return {messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
+  return {shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
 test('IPC persists verified history, blocks edited files, and allows retry', t => {
@@ -251,4 +251,18 @@ test('copy fallback IPC synchronizes new bookmark identities in movement, undo a
 });
 test('tag delete IPC optionally removes bookmark links while keeping the actual file and unrelated bookmarks',t=>{
  const {dir,handlers}=harness(t),a=path.join(dir,'a.txt'),b=path.join(dir,'b.txt');fs.writeFileSync(a,'a');fs.writeFileSync(b,'b');const saved=handlers.get('favorites-add')(null,[a],['Work','Other']);handlers.get('favorites-add')(null,[b],['Other']);assert.throws(()=>handlers.get('favorites-manage-tag')(null,'Work',null,1,{removeFavorites:true,expectedIds:['wrong']}),/項目已變更/);assert.equal(handlers.get('favorites-list')().items.length,2);const result=handlers.get('favorites-manage-tag')(null,'work',null,1,{removeFavorites:true,expectedIds:saved.ids});assert.equal(result.removed,1);assert.equal(handlers.get('favorites-list')().items.length,1);assert.equal(fs.readFileSync(a,'utf8'),'a');assert.equal(fs.readFileSync(b,'utf8'),'b');
+});
+
+test('physical removal requires a cancel-default native second confirmation',async t=>{
+ const {dir,handlers,dialog,shell,messages}=harness(t),source=path.join(dir,'trash.txt');fs.writeFileSync(source,'keep');const ids=handlers.get('favorites-add')(null,[source],['Work']).ids;let confirmations=0,called=0;
+ dialog.showMessageBox=async(_,options)=>{confirmations++;assert.equal(options.defaultId,1);assert.equal(options.cancelId,1);assert.match(options.detail,/trash\.txt/);assert.match(options.title,/第二次確認/);return {response:1};};shell.trashItem=async()=>called++;
+ const canceled=await handlers.get('favorites-remove')(null,ids,{trashFiles:true});assert.equal(canceled.canceled,true);assert.equal(confirmations,1);assert.equal(called,0);assert.ok(fs.existsSync(source));assert.equal(handlers.get('favorites-list')().items.length,1);
+ dialog.showMessageBox=async()=>({response:0});shell.trashItem=async p=>{called++;fs.unlinkSync(p);};const result=await handlers.get('favorites-remove')(null,ids,{trashFiles:true});assert.equal(result.trashed,1);assert.equal(called,1);assert.equal(handlers.get('favorites-list')().items.length,0);assert.ok(messages.some(([channel,payload])=>channel==='favorites-changed'&&payload.trashedPaths?.includes(source)));
+});
+test('tag recycling catches membership changes during second confirmation and keeps every file',async t=>{
+ const {dir,handlers,dialog,shell}=harness(t),a=path.join(dir,'a.txt'),b=path.join(dir,'b.txt');fs.writeFileSync(a,'a');fs.writeFileSync(b,'b');const ids=handlers.get('favorites-add')(null,[a],['Work']).ids;
+ dialog.showMessageBox=async()=>{handlers.get('favorites-add')(null,[b],['Work']);return {response:0};};shell.trashItem=async()=>assert.fail('must not trash');await assert.rejects(handlers.get('favorites-manage-tag')(null,'Work',null,1,{removeFavorites:true,expectedIds:ids,trashFiles:true}),/已變更/);assert.equal(fs.readFileSync(a,'utf8'),'a');assert.equal(handlers.get('favorites-list')().items.length,2);
+});
+test('numbering move IPC rejects a stale target without silently allocating a new name',t=>{
+ const {dir,handlers,historyPath}=harness(t),source=path.join(dir,'a.txt'),target=path.join(dir,'target');fs.writeFileSync(source,'source');fs.mkdirSync(target);fs.writeFileSync(path.join(target,'a.txt'),'existing');const options={conflict:'number'},plan=handlers.get('move-preview')(null,[source],target,options);assert.match(plan[0].destination,/a\(1\)\.txt$/);fs.writeFileSync(plan[0].destination,'racing');assert.throws(()=>handlers.get('move-files')(null,[source],target,plan,options),/預覽已變更/);assert.equal(fs.readFileSync(source,'utf8'),'source');assert.equal(fs.existsSync(historyPath),false);
 });

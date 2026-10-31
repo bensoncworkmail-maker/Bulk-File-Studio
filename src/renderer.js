@@ -39,6 +39,17 @@ let pendingAction = 'rename';
 let previewPending = false;
 let savedPresets = [];
 let previewPage=0,sourcePage=0;
+let groupMode='folder';try{const saved=localStorage.getItem('bfs-file-group-mode');if(['none','folder','root'].includes(saved))groupMode=saved;}catch{}
+const locationGroups=window.fileLocationGroups;
+function grouped(rows){return locationGroups.arrange(rows,groupMode);}
+function groupHeader(rows,source,table=false){
+ const group=locationGroups.location(source,groupMode),members=locationGroups.members(rows,source,groupMode);
+ const header=element(table?'tr':'div','file-location-group'),content=table?element('td'):header;
+ if(table){content.colSpan=5;header.appendChild(content);}
+ const check=element('input');check.type='checkbox';check.checked=members.every(row=>selected.has(norm(row.source)));check.indeterminate=!check.checked&&members.some(row=>selected.has(norm(row.source)));check.disabled=busy;check.setAttribute('aria-label','選取此位置全部搜尋結果：'+group.label);
+ check.addEventListener('change',()=>{if(busy)return;for(const row of members){if(check.checked)selected.add(norm(row.source));else selected.delete(norm(row.source));}enqueuePreview();});
+ content.append(check,element('span','',group.label+' · '+members.length+' 項',group.label));return header;
+}
 let previousPanels={showSource:initialSettings.showSource,showRules:initialSettings.showRules};
 
 const norm = (s) => s.normalize('NFC').toLocaleLowerCase('en-US');
@@ -245,13 +256,15 @@ function element(tag, className, text, title) {
 function renderFiles() {
   const container = $('file-list'); container.replaceChildren();
   $('file-counter').textContent = files.length;
-  const page=paginate(files,sourcePage,window.settingsUI.get().pageSize);sourcePage=page.page;
+  const scoped=grouped(filterFiles()),page=paginate(scoped,sourcePage,window.settingsUI.get().pageSize);sourcePage=page.page;
   $('source-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
   $('source-page-prev').disabled=busy||!page.hasPrevious;$('source-page-next').disabled=busy||!page.hasNext;
   if (!files.length) { container.appendChild(element('div','list-empty','尚未加入任何檔案')); return; }
   const fragment = document.createDocumentFragment();
-  const list = page.rows;
-  for (const p of list) {
+  const list = page.rows;let lastGroup;
+  for (const item of list) {
+    const p=item.source,group=locationGroups.location(p,groupMode).key;
+    if(groupMode!=='none'&&group!==lastGroup){fragment.appendChild(groupHeader(scoped,p));lastGroup=group;}
     const name = basename(p); const isChecked = selected.has(norm(p));
     const row = element('div', 'file-item' + (isChecked ? '' : ' unselected'));
     row.title = p;
@@ -270,7 +283,7 @@ function renderFiles() {
 }
 function renderTable() {
   const tbody = $('preview-body'); tbody.replaceChildren();
-  const filtered = filterFiles();
+  const filtered = grouped(filterFiles());
   const page=paginate(filtered,previewPage,window.settingsUI.get().pageSize);previewPage=page.page;
   $('preview-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
   for(const id of ['preview-page-first','preview-page-prev'])$(id).disabled=busy||!page.hasPrevious;
@@ -292,8 +305,10 @@ function renderTable() {
     $('table-showing').textContent = '沒有符合搜尋條件的檔案';return;
   }
   const fragment = document.createDocumentFragment();
-  const visible = page.rows;
+  const visible = page.rows;let lastGroup;
   for (const row of visible) {
+    const group=locationGroups.location(row.source,groupMode).key;
+    if(groupMode!=='none'&&group!==lastGroup){fragment.appendChild(groupHeader(filtered,row.source,true));lastGroup=group;}
     const on = selected.has(norm(row.source));
     const tr = element('tr', on ? '' : 'row-off');
     tr.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,row.source);});
@@ -334,7 +349,7 @@ function renderWorkspaceControls() {
   if(rules.trim||rules.caseMode!=='none'||rules.whitespace!=='none')summary.push('文字整理');
   if(rules.extensionMode!=='keep')summary.push(rules.extensionMode==='replace'?`副檔名 → .${rules.extensionValue||'（未填）'}`:'副檔名大小寫');
   $('rule-summary').textContent=summary.length?summary.join(' · '):'尚未設定命名規則';
-  $('rule-summary').title=$('rule-summary').textContent+'；搜尋及分頁只改變顯示，仍處理全部選取項目。';
+  $('rule-summary').title=$('rule-summary').textContent+'；位置分組、搜尋及分頁只改變顯示，仍處理全部選取項目。';
 }
 function render() {
   const counts = latest.counts;
@@ -455,6 +470,8 @@ async function exportCSV() {
   catch(e) {showToast(withoutPrefix(e),'error');}
 }
 function wireEvents() {
+  $('file-group-mode').value=groupMode;
+  $('file-group-mode').addEventListener('change',()=>{groupMode=$('file-group-mode').value;try{localStorage.setItem('bfs-file-group-mode',groupMode);}catch{}sourcePage=0;previewPage=0;render();});
   $('btn-toggle-source').addEventListener('click',()=>window.settingsUI.update({showSource:!window.settingsUI.get().showSource}));
   $('btn-toggle-rules').addEventListener('click',()=>window.settingsUI.update({showRules:!window.settingsUI.get().showRules}));
   $('btn-close-source').addEventListener('click',()=>window.settingsUI.update({showSource:false}));
@@ -494,7 +511,7 @@ function wireEvents() {
   $('btn-cancel').addEventListener('click',()=>$('confirm-modal').close());
   $('btn-undo').addEventListener('click',undo);
   $('btn-export').addEventListener('click',exportCSV);
-  $('search').addEventListener('input',()=>{previewPage=0;render();});
+  $('search').addEventListener('input',()=>{sourcePage=0;previewPage=0;render();});
   for (const id of fieldIds) {
     const el = $('rule-' + id);
     el.addEventListener(el.type === 'checkbox' || el.tagName==='SELECT' ? 'change':'input',enqueuePreview);
@@ -554,7 +571,7 @@ async function init() {
   window.sidebarResize.initNotes({getWidth:()=>window.settingsUI.get().notesPanelWidth,save:value=>window.settingsUI.update({notesPanelWidth:value}),isBusy:()=>busy||window.notesUI.isBusy()||window.notesUI.hasOpenDialog()});
   window.appSearchUI.init({showFailure,isBusy:()=>busy,transient:()=>({sources:files,presets:[...savedPresets.map(item=>({id:item.id,name:item.name,rules:item.rules})),...BUILTIN_PRESETS.map(item=>({id:'builtin:'+item.id,name:item.name,description:item.description}))]}),showPreset:id=>{window.favoritesUI.show('rename');setRuleTab('presets');if(id.startsWith('builtin:')){$('preset-select').value=id.slice(8);$('preset-select').dispatchEvent(new Event('change'));}else renderSavedPresets(id);},showSources:()=>window.favoritesUI.show('rename')});
   window.homeUI.init({showFailure,isBusy:()=>busy});
-  const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
+  const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,onTrashed:paths=>{files=files.filter(file=>!paths.some(p=>norm(file)===norm(p)||norm(file).startsWith(norm(p).replace(/[\\/]$/,'')+(p.includes('\\')?'\\':'/'))));selected=new Set([...selected].filter(p=>files.some(file=>norm(file)===p)));enqueuePreview();},getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;
   window.everythingUI.init({isBusy:()=>busy,showToast,showFailure,onFavorite:async()=>{await window.favoritesUI.refresh();window.favoritesUI.show('favorites');},onRename:result=>{addFromResult(result);window.favoritesUI.show('rename');}});
