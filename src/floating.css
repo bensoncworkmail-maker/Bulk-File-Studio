@@ -26,3 +26,13 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 .mini-mixed-heading{display:block;width:100%;text-align:left;font-weight:700;padding:5px 6px;border:0;background:transparent;color:var(--accent,#8768dd);}
 .mini-mixed-tag{margin:3px;padding:4px 6px;font-size:11px;}
 .mini-workspace-new{margin:4px 6px;padding:4px 7px;font-size:11px;}
+/* Window commands and content commands use separate rows. */
+#mini-header{height:30px;min-height:30px;padding:3px 5px;border-bottom:1px solid var(--line);background:var(--panel);gap:4px;}
+#mini-header .mini-drag-handle{display:block;flex:1;min-width:12px;font-size:14px;color:var(--muted);cursor:move;}
+#mini-header button{height:23px;min-width:24px;padding:0 4px;border-color:transparent;background:transparent;border-radius:4px;font-size:14px;}
+#mini-pin[aria-pressed=true]{color:var(--accent);}
+#mini-close:hover{background:#a72c38;color:#fff;}
+.mini-caption-bar{display:flex;align-items:center;gap:4px;padding:5px 7px;min-height:32px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.mini-caption-bar strong{font-size:12px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mini-caption-bar button{min-width:24px;height:23px;padding:0 5px;border-color:transparent;background:none;font-size:12px;}
+:root[data-collapsed=true] #mini-header{height:100%;min-height:28px;border-bottom:0;}

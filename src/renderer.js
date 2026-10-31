@@ -539,7 +539,7 @@ async function init() {
     if(changed.includes('pageSize')){sourcePage=0;previewPage=0;window.favoritesUI.resetPage();}
     if(changed.some(key=>key==='favoriteSort'||key==='favoriteDirection'))window.favoritesUI.resetPage();
     if(changed.includes('rememberRules')&&settings.rememberRules)saveRulePreferences();
-    if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
+    if(changed.some(key=>key.startsWith('home')))window.homeUI?.settingsChanged();if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
   }});
   setRuleTab('presets');initPresets();wireEvents();render();
   window.movingUI.init({showFailure,onMoved:async result=>{
@@ -552,6 +552,7 @@ async function init() {
   window.notesUI.init({showToast,showFailure});
   window.sidebarResize.initNotes({getWidth:()=>window.settingsUI.get().notesPanelWidth,save:value=>window.settingsUI.update({notesPanelWidth:value}),isBusy:()=>busy||window.notesUI.isBusy()||window.notesUI.hasOpenDialog()});
   window.appSearchUI.init({showFailure,isBusy:()=>busy,transient:()=>({sources:files,presets:[...savedPresets.map(item=>({id:item.id,name:item.name,rules:item.rules})),...BUILTIN_PRESETS.map(item=>({id:'builtin:'+item.id,name:item.name,description:item.description}))]}),showPreset:id=>{window.favoritesUI.show('rename');setRuleTab('presets');if(id.startsWith('builtin:')){$('preset-select').value=id.slice(8);$('preset-select').dispatchEvent(new Event('change'));}else renderSavedPresets(id);},showSources:()=>window.favoritesUI.show('rename')});
+  window.homeUI.init({showFailure,isBusy:()=>busy});
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;

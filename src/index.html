@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="workspace.css">
     <link rel="stylesheet" href="notes.css">
     <link rel="stylesheet" href="app-layout.css">
+    <link rel="stylesheet" href="home.css">
   </head>
   <body>
     <div class="app-shell">
@@ -29,11 +30,12 @@
           </div>
           <span id="app-version" class="version">…</span>
         </div>
-        <nav class="studio-tabs" aria-label="工作區">
-          <button id="tab-rename" class="studio-tab active" aria-pressed="true">↗ 批次重新命名</button>
-          <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
+        <nav class="studio-tabs" aria-label="主要功能">
+          <button id="tab-home" class="studio-tab" aria-pressed="false">⌂ 首頁</button>
           <button id="tab-notes" class="studio-tab" aria-pressed="false">▦ 資料工作區</button>
+          <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
           <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button>
+          <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
           <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
           <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
         </nav>
@@ -45,6 +47,25 @@
           <button id="btn-floating" class="btn btn-secondary" title="叫出浮動工具，可在設定更改全域快捷鍵">▣ 浮動工具</button>
         </div>
       </header>
+      <section id="home-page" class="home-page hidden" aria-labelledby="home-title">
+        <div class="home-heading">
+          <div>
+            <h1 id="home-title">首頁</h1>
+            <p>快速存取收藏、主檔與最近資料。</p>
+          </div>
+          <div class="home-heading-actions">
+            <button id="home-customize" class="btn btn-secondary">自訂首頁</button>
+            <button id="home-settings" class="btn btn-ghost">首頁設定</button>
+            <button id="home-refresh" class="btn btn-ghost" title="重新讀取本機資料" aria-label="重新整理首頁">↻</button>
+          </div>
+        </div>
+        <form id="home-search-form" class="home-search">
+          <input id="home-search-query" type="search" maxlength="256" placeholder="搜尋客戶、聯絡人、文件或收藏位置…" aria-label="從首頁全域搜尋">
+          <button class="btn btn-primary" type="submit">全域搜尋</button>
+        </form>
+        <p id="home-status" class="notes-hint" role="status"></p>
+        <div id="home-widgets" class="home-widgets"></div>
+      </section>
       <section id="search-page" class="settings-page app-search-page hidden" aria-labelledby="app-search-title">
         <div class="settings-heading">
           <div>
@@ -245,15 +266,70 @@
         </div>
         <div class="settings-layout">
           <aside class="settings-categories">
-            <nav class="settings-tabs" aria-orientation="vertical" role="tablist" aria-label="設定分類">
-              <button id="settings-tab-appearance" class="btn btn-ghost" role="tab" aria-controls="settings-panel-appearance" aria-selected="true" tabindex="0">顯示與閱讀</button>
-              <button id="settings-tab-search" class="btn btn-ghost" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1">全域搜尋</button>
-              <button id="settings-tab-workspace" class="btn btn-ghost" role="tab" aria-controls="settings-panel-workspace" aria-selected="false" tabindex="-1">檔案工具</button>
-              <button id="settings-tab-notes" class="btn btn-ghost" role="tab" aria-controls="settings-panel-notes" aria-selected="false" tabindex="-1">資料工作區</button>
-              <button id="settings-tab-favorites" class="btn btn-ghost" role="tab" aria-controls="settings-panel-favorites" aria-selected="false" tabindex="-1">收藏與標籤</button>
-              <button id="settings-tab-floating" class="btn btn-ghost" role="tab" aria-controls="settings-panel-floating" aria-selected="false" tabindex="-1">浮動工具</button>
-              <button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">啟動與系統</button>
-              <button id="settings-tab-data" class="btn btn-ghost" role="tab" aria-controls="settings-panel-data" aria-selected="false" tabindex="-1">資料與備份</button>
+            <nav class="settings-tabs" role="tablist" aria-label="設定分類" aria-orientation="vertical">
+              <button id="settings-tab-home" class="btn btn-ghost" role="tab" aria-controls="settings-panel-home" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">⌂</span>
+                <span class="settings-category-copy">
+                  <strong>首頁</strong>
+                  <small>概覽與快速入口</small>
+                </span>
+              </button>
+              <button id="settings-tab-appearance" class="btn btn-ghost" role="tab" aria-controls="settings-panel-appearance" aria-selected="true" tabindex="0">
+                <span class="settings-category-icon" aria-hidden="true">◐</span>
+                <span class="settings-category-copy">
+                  <strong>顯示與閱讀</strong>
+                  <small>主題、字級與間距</small>
+                </span>
+              </button>
+              <button id="settings-tab-workspace" class="btn btn-ghost" role="tab" aria-controls="settings-panel-workspace" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">↗</span>
+                <span class="settings-category-copy">
+                  <strong>檔案工具</strong>
+                  <small>改名與面板預設</small>
+                </span>
+              </button>
+              <button id="settings-tab-favorites" class="btn btn-ghost" role="tab" aria-controls="settings-panel-favorites" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">☆</span>
+                <span class="settings-category-copy">
+                  <strong>收藏與標籤</strong>
+                  <small>清單、標籤與操作</small>
+                </span>
+              </button>
+              <button id="settings-tab-notes" class="btn btn-ghost" role="tab" aria-controls="settings-panel-notes" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">▦</span>
+                <span class="settings-category-copy">
+                  <strong>資料工作區</strong>
+                  <small>主檔、明細與卡片</small>
+                </span>
+              </button>
+              <button id="settings-tab-search" class="btn btn-ghost" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">⌕</span>
+                <span class="settings-category-copy">
+                  <strong>全域搜尋</strong>
+                  <small>來源與關聯比對</small>
+                </span>
+              </button>
+              <button id="settings-tab-floating" class="btn btn-ghost" role="tab" aria-controls="settings-panel-floating" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">▣</span>
+                <span class="settings-category-copy">
+                  <strong>浮動工具</strong>
+                  <small>視窗、尺寸與工具</small>
+                </span>
+              </button>
+              <button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">⚙</span>
+                <span class="settings-category-copy">
+                  <strong>啟動與系統</strong>
+                  <small>啟動與本機整合</small>
+                </span>
+              </button>
+              <button id="settings-tab-data" class="btn btn-ghost" role="tab" aria-controls="settings-panel-data" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">▤</span>
+                <span class="settings-category-copy">
+                  <strong>資料與備份</strong>
+                  <small>匯出、位置與還原</small>
+                </span>
+              </button>
             </nav>
             <button id="settings-about" class="btn btn-ghost">關於與更新紀錄</button>
           </aside>
@@ -267,6 +343,30 @@
             </div>
             <div id="settings-query-results" class="settings-query-results" hidden aria-label="設定搜尋結果"></div>
             <div id="settings-panels">
+              <div id="settings-panel-home" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-home" hidden>
+                <section class="settings-card">
+                  <h2>首頁工作台</h2>
+                  <p>首頁提供本機資料概覽、快速入口、釘選主檔、群組、最近資料與儲存檢視。顯示區塊與順序可自行設定。</p>
+                  <label class="field">
+                    <span>首頁欄數</span>
+                    <select id="settings-home-columns">
+                      <option value="1">1 欄</option>
+                      <option value="2">2 欄</option>
+                      <option value="3">3 欄</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>每個區塊最多項目</span>
+                    <select id="settings-home-limit">
+                      <option value="5">5 項</option>
+                      <option value="10">10 項</option>
+                      <option value="20">20 項</option>
+                    </select>
+                  </label>
+                  <button id="settings-home-customize" class="btn btn-secondary">選擇首頁區塊與順序</button>
+                  <p class="notes-hint">自訂顯示只影響這台電腦的偏好，不會刪除資料；小視窗會自動減少實際欄數。</p>
+                </section>
+              </div>
               <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance">
                 <section class="settings-card">
                   <h2>外觀與閱讀</h2>
@@ -491,6 +591,10 @@
                       <option value="250">250 筆</option>
                     </select>
                   </label>
+                  <label class="check-row">
+                    <input id="settings-notes-sidebar-sections" type="checkbox">
+                    <span>側欄分區顯示主檔與明細表</span>
+                  </label>
                 </section>
                 <section class="settings-card">
                   <h2>卡片顯示內容</h2>
@@ -666,6 +770,10 @@
                   <label class="check-row">
                     <input id="settings-search-sources" type="checkbox">
                     <span>目前改名工作台清單</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="settings-search-file-actions" type="checkbox">
+                    <span>搜尋結果顯示開啟／所在位置按鈕</span>
                   </label>
                 </section>
                 <section class="settings-card">
@@ -898,6 +1006,7 @@
                     <fieldset id="settings-floating-buttons">
                       <legend>勾選要顯示的按鈕／提示</legend>
                     </fieldset>
+                    <p class="notes-hint">收合／展開及關閉按鈕也可隱藏；仍可用 F8 收合／展開、Esc 隱藏；標題列右鍵也可重新顯示按鈕。</p>
                     <p class="rule-hint">收合／展開、關閉及拖曳區保留。控制列的顯示與精簡設定優先；隱藏按鈕後仍可從設定切換模式，Ctrl+1／2／3、Ctrl+F、Ctrl+Shift+C 仍可使用。</p>
                   </details>
                   <details>
@@ -955,6 +1064,7 @@
                   <label class="field">
                     <span>啟動時開啟</span>
                     <select id="settings-start-page">
+                      <option value="home">首頁工作台</option>
                       <option value="rename">批次重新命名</option>
                       <option value="favorites">我的收藏</option>
                       <option value="notes">資料工作區</option>
@@ -1645,6 +1755,34 @@
       </div>
     </dialog>
     <div id="favorite-context-menu" class="favorite-context-menu hidden" role="menu" aria-label="收藏操作"></div>
+    <dialog id="home-custom-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="home-custom-title">
+      <h2 id="home-custom-title">自訂首頁</h2>
+      <p class="notes-hint">勾選要顯示的區塊，使用上下按鈕排列順序。</p>
+      <div id="home-widget-options"></div>
+      <div class="home-custom-layout">
+        <label class="field">
+          <span>欄數</span>
+          <select id="home-columns">
+            <option value="1">1 欄</option>
+            <option value="2">2 欄</option>
+            <option value="3">3 欄</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>每區項目</span>
+          <select id="home-limit">
+            <option value="5">5 項</option>
+            <option value="10">10 項</option>
+            <option value="20">20 項</option>
+          </select>
+        </label>
+      </div>
+      <div class="modal-buttons">
+        <button id="home-custom-reset" class="btn btn-ghost">還原排列</button>
+        <button id="home-custom-cancel" class="btn btn-secondary">取消</button>
+        <button id="home-custom-save" class="btn btn-primary">套用</button>
+      </div>
+    </dialog>
     <dialog id="settings-reset-dialog" class="modal" aria-labelledby="settings-reset-title">
       <h2 id="settings-reset-title">還原偏好設定？</h2>
       <p id="settings-reset-description">還原應用程式與浮動工具偏好；保留收藏、工作區資料、範本、視窗位置及系統整合。收藏快捷鍵使用獨立的還原按鈕。</p>
@@ -2145,6 +2283,7 @@
     <script src="notes-model.js" defer></script>
     <script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
+    <script src="home.js" defer></script>
     <script src="renderer.js" defer></script>
   </body>
 </html>

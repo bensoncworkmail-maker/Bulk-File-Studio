@@ -14,7 +14,7 @@
   $('mini-collapse').textContent=settings.floatingCollapsed?'▾':'▴';$('mini-collapse').setAttribute('aria-expanded',String(!settings.floatingCollapsed));$('mini-collapse').setAttribute('aria-label',settings.floatingCollapsed?'展開浮動工具':'收合浮動工具');
   document.documentElement.dataset.showStatus=String(settings.floatingShowStatus===true&&!settings.floatingCompact);
   document.documentElement.dataset.iconSize=settings.floatingIconSize||'small';
-  const hiddenButtons=settings.floatingHiddenButtons||[];for(const key of ['tools-toggle','pin','main','refresh','view-list','view-icons','view-tags','view-workspace','view-mixed','import','copy-paths','drop-hint'])$('mini-'+key).hidden=hiddenButtons.includes(key);
+  const hiddenButtons=settings.floatingHiddenButtons||[];for(const key of ['collapse','close','tools-toggle','pin','main','refresh','view-list','view-icons','view-tags','view-workspace','view-mixed','import','copy-paths','drop-hint'])$('mini-'+key).hidden=hiddenButtons.includes(key);
   const compact=settings.floatingCompact;for(const [id,key] of [['mini-search-bar','floatingShowSearch'],['mini-tools-bar','floatingShowTools'],['mini-tags','floatingShowTags']])$(id).hidden=id==='mini-search-bar'&&temporarySearch?false:compact||settings[key]===false;
   if(['view-list','view-icons','view-tags','view-workspace','view-mixed','import','copy-paths','drop-hint'].every(key=>hiddenButtons.includes(key)))$('mini-tools-bar').hidden=true;
   $('mini-tools-toggle').setAttribute('aria-pressed',String(Boolean(compact)));
@@ -23,7 +23,7 @@
   document.documentElement.dataset.theme=settings.theme||'dark';document.documentElement.style.fontSize=(settings.fontSize||'13')+'px';
   $('mini-view-mixed').setAttribute('aria-pressed',String(settings.floatingView==='mixed'));$('mini-view-workspace').setAttribute('aria-pressed',String(settings.floatingView==='workspace'));$('mini-heading').textContent=settings.floatingView==='mixed'?'▦ 浮動工作台':settings.floatingView==='workspace'?'▣ 浮動工作區':'☆ 浮動工具';$('mini-search').placeholder=settings.floatingView==='mixed'?'搜尋收藏、標籤、主檔…':settings.floatingView==='workspace'?'搜尋主檔、電話、筆記…':'搜尋收藏…';
   const tags=model.tagList(items,settings.tagSort,settings.tagDirection);if(tag&&!tags.some(t=>t.key===tag))tag=null;
-  $('mini-pin').textContent=settings.floatingOnTop?'◆':'◇';$('mini-pin').setAttribute('aria-pressed',String(settings.floatingOnTop));$('mini-pin').title=settings.floatingOnTop?'目前置頂，點選取消':'目前未置頂，點選啟用';
+  $('mini-pin').textContent='⌖';$('mini-pin').setAttribute('aria-pressed',String(settings.floatingOnTop));$('mini-pin').title=settings.floatingOnTop?'目前置頂，點選取消':'目前未置頂，點選啟用';
   if(settings.floatingView==='mixed'){renderMixed();return;}if(settings.floatingView==='workspace'){renderWorkspace();return;}
   if(settings.floatingView==='tags'){
    const visible=[...(settings.floatingShowAllTag===false?[]:[null]),...(settings.floatingShowUntagged===false?[]:['']),...tags.filter(entry=>settings.floatingTagScope!=='selected'||(settings.floatingSelectedTags||[]).includes(entry.key)).map(entry=>entry.key)];

@@ -4,6 +4,12 @@
 const config={
   "groups": [
     {
+      "id": "home",
+      "label": "首頁",
+      "description": "快速工作台、顯示區塊與排列",
+      "keywords": "home dashboard overview widgets"
+    },
+    {
       "id": "appearance",
       "label": "顯示與閱讀",
       "description": "主題、字級、間距與操作提示",
@@ -123,7 +129,11 @@ const config={
     "rememberRules": "settings-remember-rules",
     "resetRulesAfterRename": "settings-reset-rules",
     "defaultSortBy": "settings-sort-by",
-    "defaultSortDirection": "settings-sort-direction"
+    "defaultSortDirection": "settings-sort-direction",
+    "homeColumns": "settings-home-columns",
+    "homeItemLimit": "settings-home-limit",
+    "notesSidebarSections": "settings-notes-sidebar-sections",
+    "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
     "floatingMixedFiles": "settings-mixed-files",
@@ -170,6 +180,8 @@ const config={
     "floatingShortcut": "settings-floating-shortcut"
   },
   "buttonLabels": {
+    "collapse": "收合／展開按鈕",
+    "close": "關閉（隱藏）按鈕",
     "tools-toggle": "精簡／還原工具列",
     "pin": "置頂",
     "main": "主視窗",
@@ -304,7 +316,12 @@ const config={
     "floatingDefaultWidth": "floating",
     "floatingDefaultHeight": "floating",
     "floatingSelectedTags": "floating",
-    "floatingHiddenButtons": "floating"
+    "floatingHiddenButtons": "floating",
+    "homeColumns": "home",
+    "homeItemLimit": "home",
+    "notesSidebarSections": "notes",
+    "searchFileActions": "search",
+    "homeWidgets": "home"
   },
   "numericKeys": [
     "searchPageSize",
@@ -324,7 +341,9 @@ const config={
     "floatingIconHeight",
     "floatingTagHeight",
     "floatingMinWidth",
-    "floatingMinHeight"
+    "floatingMinHeight",
+    "homeColumns",
+    "homeItemLimit"
   ],
   "sharedNativeKeys": [
     "theme",

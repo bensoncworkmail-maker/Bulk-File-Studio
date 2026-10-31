@@ -85,3 +85,5 @@ contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
  exportPreview:options=>ipcRenderer.invoke('notes-export-preview',options),exportSave:token=>ipcRenderer.invoke('notes-export-save',token),chooseImport:()=>ipcRenderer.invoke('notes-import-choose'),importPreview:mode=>ipcRenderer.invoke('notes-import-preview',mode),importCommit:token=>ipcRenderer.invoke('notes-import-commit',token),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('notes-changed',listener);return ()=>ipcRenderer.removeListener('notes-changed',listener);}
 }));
+
+contextBridge.exposeInMainWorld('homeAPI',Object.freeze({snapshot:()=>ipcRenderer.invoke('studio-home')}));

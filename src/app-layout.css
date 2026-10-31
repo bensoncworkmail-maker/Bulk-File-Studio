@@ -99,3 +99,24 @@
 
 .app-search-page{overflow:hidden;padding:14px 16px;}
 @media(max-width:800px){.settings-grid{grid-template-columns:minmax(0,1fr);}}
+/* Category order matches the keyboard order in settings-catalog.js. */
+.settings-layout{grid-template-columns:220px minmax(0,1fr);gap:20px;}
+.settings-categories{padding:5px 15px 8px 4px;}
+.settings-tabs{gap:6px;}
+.settings-categories .settings-tabs>button{display:flex;align-items:center;gap:11px;text-align:left;min-height:58px;padding:10px 13px;border:1px solid transparent;box-shadow:none;border-radius:8px;color:var(--text);background:transparent;}
+.settings-category-icon{display:grid;place-items:center;flex:0 0 26px;width:26px;height:28px;font-size:20px;color:var(--muted);}
+.settings-category-copy{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.settings-category-copy strong{font-size:calc(var(--font-scale)*13px);font-weight:650;line-height:1.4;}
+.settings-category-copy small{font-size:calc(var(--font-scale)*10px);font-weight:400;line-height:1.4;color:var(--muted);}
+.settings-categories .settings-tabs>button:hover{background:var(--surface-2);border-color:var(--line);}
+.settings-categories .settings-tabs>button[aria-selected=true]{background:color-mix(in srgb,var(--accent) 13%,var(--panel));border-color:var(--accent);box-shadow:inset 4px 0 var(--accent);}
+.settings-tabs>[aria-selected=true] .settings-category-icon,.settings-tabs>[aria-selected=true] strong{color:var(--accent);}
+.settings-section-head{padding:7px 0 15px;}
+.settings-content{padding-top:4px;}
+.notes-sheet-role{font-size:11px;font-weight:750;color:var(--muted);padding:10px 6px 5px;margin:4px 0 0;border-top:1px solid var(--line);}
+.notes-sheet-role:first-child{border-top:0;padding-top:3px;}
+.app-search-results{align-items:start;}
+.app-search-file-actions{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 4px;}
+.app-search-file-actions .btn{min-height:28px;height:28px;padding:4px 8px;font-size:11px;}
+.app-search-item>small{display:block;margin:5px 0;}
+@media(max-width:800px){.settings-layout{grid-template-columns:170px minmax(0,1fr);gap:12px;}.settings-categories{padding:3px 8px 6px 0;}.settings-categories .settings-tabs>button{padding:9px;gap:7px;}.settings-category-icon{flex-basis:22px;width:22px;font-size:18px;}}
