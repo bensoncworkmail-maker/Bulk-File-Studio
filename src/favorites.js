@@ -18,7 +18,8 @@
   function setView(view) {
     if(callbacks?.isBusy())return;
     if(window.notesUI&&!window.notesUI.canLeave())return;
-    active=view==='favorites';settingsActive=view==='settings'||view==='info'||view==='notes';closeMenu();
+    active=view==='favorites';settingsActive=view==='settings'||view==='info'||view==='notes'||view==='search';closeMenu();
+    if($('search-page')){$('search-page').classList.toggle('hidden',view!=='search');$('tab-search').classList.toggle('active',view==='search');$('tab-search').setAttribute('aria-pressed',String(view==='search'));if(view==='search')window.appSearchUI?.activate();}
     $('notes-page').classList.toggle('hidden',view!=='notes');$('tab-notes').classList.toggle('active',view==='notes');$('tab-notes').setAttribute('aria-pressed',String(view==='notes'));if(view==='notes')window.notesUI?.activate();
     $('info-page').classList.toggle('hidden',view!=='info');$('tab-info').classList.toggle('active',view==='info');$('tab-info').setAttribute('aria-pressed',String(view==='info'));
     $('btn-undo').classList.toggle('hidden',settingsActive);
@@ -321,7 +322,7 @@
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
     hasOpenDialog:()=>$('everything-dialog').open||$('tag-manage-dialog').open||$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),
-    openColumns,show:view=>setView(view),showTag:tag=>{if(typeof tag!=='string'||!tag.trim()||busy)return;setView('favorites');if(!active)return;activeTag=tag.trim().toLocaleLowerCase();$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;selected.clear();render();},
+    openColumns,showItem:async id=>{if(busy)return false;if(!loaded)await refresh();if(!items.some(item=>item.id===id))throw new Error('收藏已移除');setView('favorites');if(!active)return false;activeTag=null;$('favorite-search').value=items.find(item=>item.id===id).path;$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set([id]);pageIndex=0;render();return true;},show:view=>setView(view),showTag:tag=>{if(typeof tag!=='string'||!tag.trim()||busy)return;setView('favorites');if(!active)return;activeTag=tag.trim().toLocaleLowerCase();$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;selected.clear();render();},
     showSourceMenu:(event,filepath)=>{
       if(busy||!callbacks)return;
       const paths=callbacks.getSelectedPaths(),actions=[{label:'☆ 收藏此檔案',run:()=>addPaths([filepath])}];

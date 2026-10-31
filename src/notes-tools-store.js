@@ -5,6 +5,7 @@ const LIMIT=4*1024*1024;
 function view(input){
  if(!input||typeof input!=='object')throw new Error('檢視設定無效');const scopes=['sheet','master','area','all','masters'];if(!scopes.includes(input.scope))throw new Error('搜尋範圍無效');
  const out={scope:input.scope,query:M.text(input.query||'',256,'搜尋文字'),tag:M.text(input.tag||'',32,'標籤'),sort:input.sort==='title'?'title':'updated',mode:['list','cards','grid'].includes(input.mode)?input.mode:'list',due:['all','overdue','7','30','90'].includes(input.due)?input.due:'all',dateField:input.dateField==='updatedAt'?'updatedAt':input.dateField?M.id(input.dateField):''};
+ if(input.sortKey!==undefined){if(typeof input.sortKey!=='string'||!['title','updatedAt','tags','context','masters','summary'].includes(input.sortKey)&&!M.ID.test(input.sortKey))throw new Error('排序欄位無效');out.sortKey=input.sortKey;out.sortDirection=input.sortDirection==='desc'?'desc':'asc';}
  for(const key of ['sheetId','masterId'])out[key]=input[key]?M.id(input[key]):null;out.areaId=['all','ungrouped'].includes(input.areaId)?input.areaId:M.id(input.areaId);return out;
 }
 class NotesToolsStore{

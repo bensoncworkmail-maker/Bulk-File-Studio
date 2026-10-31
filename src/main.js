@@ -166,6 +166,8 @@ app.whenReady().then(() => {
   handle('notes-share-check',()=>notesShare.check());
   handle('notes-share-publish',()=>notesShare.publish());
   handle('notes-share-load',async(_,name)=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;return {name,canceled:false};});
+  handle('studio-search',(_,query,options,transient)=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],templates:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('檢視／範本讀取失敗：'+error.message);}return {...require('./app-search-model').search({document,favorites:favorites.read().items,tools,transient:transient||{}},query,options||{}),warnings};});
+  handle('studio-search-copy',(_,value)=>{clipboard.writeText(require('./notes-model').text(value,4096,'位置文字',true));});
   handle('notes-tools-get',()=>toolsStore().get());
   handle('notes-view-save',(_,name,state)=>{toolsStore().saveView(name,state);return toolsChanged();});
   handle('notes-tool-remove',(_,kind,id)=>{toolsStore().remove(kind,id);return toolsChanged();});
