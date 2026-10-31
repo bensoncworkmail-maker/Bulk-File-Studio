@@ -132,6 +132,7 @@ const config={
     "defaultSortDirection": "settings-sort-direction",
     "homeColumns": "settings-home-columns",
     "homeItemLimit": "settings-home-limit",
+    "notesSidebarMode": "settings-notes-sidebar-mode",
     "notesSidebarSections": "settings-notes-sidebar-sections",
     "searchFileActions": "settings-search-file-actions"
   },
@@ -320,11 +321,13 @@ const config={
     "floatingHiddenButtons": "floating",
     "homeColumns": "home",
     "homeItemLimit": "home",
+    "notesSidebarMode": "notes",
     "notesSidebarSections": "notes",
     "searchFileActions": "search",
     "homeWidgets": "home",
     "floatingShowCaption": "floating",
-    "notesCollapsedGroups": "notes"
+    "notesCollapsedGroups": "notes",
+    "notesExpandedGroups": "notes"
   },
   "numericKeys": [
     "searchPageSize",

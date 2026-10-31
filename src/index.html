@@ -118,7 +118,7 @@
               <button id="notes-group-menu" class="btn btn-ghost" title="群組選單（亦可右鍵或 Shift+F10）" aria-haspopup="menu">⋯</button>
             </div>
             <div class="notes-nav-search">
-              <input id="notes-nav-search" type="search" maxlength="120" placeholder="找群組、表格或主紀錄…" aria-label="搜尋全部群組、表格或主紀錄">
+              <input id="notes-nav-search" type="search" maxlength="120" placeholder="找分類、群組、表格或主紀錄…" aria-label="搜尋全部主檔分類、群組、表格或主紀錄">
               <button id="notes-nav-clear" class="btn btn-ghost" aria-label="清除側欄搜尋" hidden>✕</button>
             </div>
             <div class="notes-nav-actions">
@@ -126,18 +126,19 @@
               <button id="notes-nav-collapse-all" class="btn btn-ghost">收合全部</button>
             </div>
             <p id="notes-nav-current" class="notes-nav-current" role="status"></p>
-            <select id="notes-area-select" aria-label="工作區群組"></select>
             <label id="notes-master-picker" class="notes-master-field">
               <span id="notes-master-label">主紀錄</span>
               <select id="notes-master-select" aria-label="依主紀錄篩選"></select>
             </label>
             <div class="notes-sidebar-head">
-              <strong>主檔與明細表</strong>
+              <strong>主檔分類與表格</strong>
               <button id="notes-organize" class="btn btn-ghost" title="批次管理群組及表格">批次</button>
               <button id="notes-panel-view" class="btn btn-ghost" title="切換側欄清單／卡片" aria-pressed="false">▦</button>
             </div>
+            <label class="notes-master-field"><span>主檔分類</span><select id="notes-nav-category" aria-label="篩選主檔分類"></select></label>
             <div id="notes-sheets"></div>
             <small>▣ 主檔清單 · ↳ 明細表</small>
+            <details class="notes-nav-options"><summary>導覽與群組切換</summary><div class="notes-nav-filters"><label class="notes-master-field"><span>導覽方式</span><select id="notes-nav-layout" aria-label="工作區導覽方式"><option value="masters">主檔分類（優先顯示主表）</option><option value="groups">完整群組與表格</option></select></label><label class="notes-master-field"><span>直接切換群組</span><select id="notes-area-select" aria-label="工作區群組"></select></label></div></details>
             <button id="notes-open-storage" class="btn btn-ghost" title="目前使用本機 workspace.sqlite；不支援在共享磁碟直接多人編輯">本機資料位置 ↗</button>
             <details class="notes-storage-help">
               <summary>儲存與分享</summary>
@@ -547,6 +548,7 @@
               <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
                 <section class="settings-card">
                   <h2>資料工作區版面</h2>
+                  <label class="field"><span>側欄導覽方式</span><select id="settings-notes-sidebar-mode"><option value="masters">主檔分類，僅展開目前群組的明細</option><option value="groups">完整群組與表格</option></select></label>
                   <label class="field">
                     <span>左側表格導覽</span>
                     <select id="settings-notes-panel-view">
@@ -1287,16 +1289,15 @@
       </section>
       <div id="rename-intro" class="intro-row">
         <div class="workspace-actions">
-          <h1>批次重新命名</h1>
+          <h1>檔案工具</h1>
           <button class="btn btn-secondary" id="btn-everything-rename" hidden disabled title="請先在設定 → 啟動啟用 Everything">Everything 搜尋</button>
           <button class="btn btn-primary" id="btn-add-files">＋ 檔案</button>
-          <button class="btn btn-secondary" id="btn-add-folder">＋ 資料夾</button>
+          <button class="btn btn-secondary" id="btn-add-folder" title="將資料夾中的檔案加入下方清單；不會搬移資料夾本身">＋ 讀取資料夾</button>
           <button class="btn btn-ghost" id="btn-toggle-source" aria-pressed="false">來源清單</button>
           <button class="btn btn-ghost" id="btn-toggle-rules" aria-pressed="true">命名規則</button>
           <button class="btn btn-ghost" id="btn-focus-list">專注清單</button>
           <button class="btn btn-secondary" id="btn-extension">副檔名</button>
-          <button class="btn btn-secondary" id="btn-move-selected" disabled>搬移選取檔案</button>
-          <button class="btn btn-ghost" id="btn-move-folders">搬移完整資料夾</button>
+          <button class="btn btn-ghost" id="btn-move-folders" title="另外選取尚未在下方清單中的完整來源資料夾">另選資料夾搬移…</button>
         </div>
         <div class="stats">
           <div class="stat">
@@ -1362,7 +1363,7 @@
           <div class="panel-heading preview-heading">
             <div>
               <span class="step-tag">02</span>
-              <h2>重新命名預覽</h2>
+              <h2>檔案清單與改名預覽</h2>
             </div>
             <span class="preview-live"><span class="pulse-dot"></span>即時預覽</span>
           </div>
@@ -1376,6 +1377,8 @@
               </span>
               <input id="search" type="search" placeholder="搜尋原始或新檔名…" autocomplete="off" aria-label="搜尋檔案">
             </div>
+            <span id="file-selection-summary" class="file-selection-summary" role="status"></span>
+            <button id="btn-move-selected" class="btn btn-secondary" title="直接使用下方全部勾選項目，只需選擇搬移目標" disabled>搬移已選項目</button>
             <button id="btn-select-all" class="text-action" disabled>全選</button>
             <button id="btn-select-none" class="text-action" disabled>取消全選</button>
             <button id="btn-clear" class="text-action" disabled>清空</button>
@@ -1821,6 +1824,8 @@
     <dialog id="move-dialog" class="modal favorite-edit-dialog">
       <h2>搬移檔案／資料夾</h2>
       <p id="move-count"></p>
+      <details class="move-source-details" open><summary id="move-source-summary">已選來源</summary><pre id="move-source-list"></pre></details>
+      <p class="rule-hint">已選檔案會直接放入目標資料夾；搬移完整資料夾會保留該資料夾及其全部層級。</p>
       <p>可搬移至另一個本機磁碟；資料夾包含所有子檔案與空資料夾，保留原有名稱與層級。同名預設停止，可改選自動加上 (1)、(2)…；不會合併或覆寫。跨磁碟先複製並校驗，全部成功後才移除來源；這次操作會取代上一批復原紀錄。</p>
       <label class="field"><span>目標同名時</span><select id="move-conflict"><option value="stop">停止整批搬移（預設）</option><option value="number">自動編號：檔名(1).ext／資料夾(1)</option></select></label>
       <button id="btn-move-target" class="btn btn-secondary">選擇目標資料夾</button>
@@ -1933,6 +1938,7 @@
           <span>群組名稱</span>
           <input type="text" id="notes-area-name" required maxlength="100" placeholder="例如：客戶管理、工作專案">
         </label>
+        <label class="field"><span>主檔分類（選填）</span><input id="notes-area-category" type="text" maxlength="60" placeholder="例如：客戶、供應商、專案"><small class="notes-hint">留白時依主表名稱分類；同一分類可放多個群組，分類不會合併表格或紀錄。</small></label>
         <label class="check-row">
           <input id="notes-area-adopt" type="checkbox">
           <span>將所有未分組表格收納到此群組（包含回收筒表格）</span>

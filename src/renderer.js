@@ -51,6 +51,10 @@ function expandGroups(expand){
  for(const row of filterFiles()){const key=locationGroups.collapseKey(row.source,groupMode);if(expand)collapsedLocations.delete(key);else collapsedLocations.add(key);}
  saveCollapsedLocations();render();
 }
+function moveListedSelection(paths,sourceLabel='下方清單已選項目'){
+ if(busy||window.movingUI.hasOpenDialog()||!paths.length)return;
+ return window.movingUI.start(paths,{sourceLabel});
+}
 function groupHeader(rows,source,table=false){
  const group=locationGroups.location(source,groupMode),members=locationGroups.members(rows,source,groupMode);
  const key=locationGroups.collapseKey(source,groupMode),collapsed=collapsedLocations.has(key);
@@ -65,7 +69,13 @@ function groupHeader(rows,source,table=false){
  const arrow=element('span','file-group-arrow',collapsed?'▸':'▾');arrow.setAttribute('aria-hidden','true');
  toggle.append(arrow,element('span','file-group-label',group.label+' · '+members.length+' 項',group.label));
  toggle.addEventListener('click',()=>{if(busy)return;if(collapsedLocations.has(key))collapsedLocations.delete(key);else collapsedLocations.add(key);saveCollapsedLocations();render();$(toggle.id)?.focus();});
- content.append(check,toggle);return header;
+ const actions=element('span','file-group-actions'),marked=members.filter(row=>selected.has(norm(row.source))).map(row=>row.source);
+ const move=element('button','text-action','搬移已選（'+marked.length+'）');move.type='button';move.disabled=busy||!marked.length;move.title='直接使用此位置已勾選的搜尋結果，不需重新選取來源';move.addEventListener('click',()=>moveListedSelection(marked,'此位置已勾選項目'));
+ actions.append(move);
+ if(groupMode==='folder'&&!/^(?:[a-z]:\/?|\/)$/i.test(group.label)){
+  const folder=element('button','text-action','搬移整個資料夾');folder.type='button';folder.disabled=busy;folder.title='直接使用此來源資料夾，包含未載入清單的全部子項目，先預覽再搬移';folder.addEventListener('click',()=>moveListedSelection([group.label],'完整來源資料夾（包含未載入清單的子項目）'));actions.append(folder);
+ }
+ content.append(check,toggle,actions);return header;
 }
 let previousPanels={showSource:initialSettings.showSource,showRules:initialSettings.showRules};
 
@@ -385,7 +395,10 @@ function render() {
   const canRun = !busy && !previewPending && counts.ready > 0 && counts.error === 0;
   const blocker = counts.error > 0;
   $('btn-run').disabled = !canRun;
-  $('btn-move-selected').disabled=busy||!selected.size;$('btn-move-folders').disabled=busy;
+  $('btn-move-selected').disabled=busy||!selected.size;$('btn-move-selected').textContent='搬移已選（'+selected.size+'）';$('btn-move-folders').disabled=busy;
+  const shownSelection=new Set(filterFiles().map(row=>norm(row.source))),outside=[...selected].filter(key=>!shownSelection.has(key)).length;
+  $('file-selection-summary').textContent='已選 '+selected.size+' 項'+(outside?' · 搜尋外 '+outside+' 項':'');
+  $('file-selection-summary').title='搬移使用全部勾選項目，包含收合、跨頁及目前搜尋以外的項目。';
   $('btn-undo').disabled = busy || !history;
   $('btn-export').disabled = busy || !selCount;
   $('btn-favorite-selected').disabled = busy || !selCount;
@@ -495,6 +508,8 @@ async function exportCSV() {
   catch(e) {showToast(withoutPrefix(e),'error');}
 }
 function wireEvents() {
+  $('btn-move-selected').addEventListener('click',()=>moveListedSelection(files.filter(p=>selected.has(norm(p)))));
+  $('btn-move-folders').addEventListener('click',()=>window.movingUI.chooseSources());
   $('file-group-mode').value=groupMode;
   $('btn-file-groups-expand').addEventListener('click',()=>expandGroups(true));
   $('btn-file-groups-collapse').addEventListener('click',()=>expandGroups(false));
@@ -592,8 +607,6 @@ async function init() {
   }});
   window.sidebarResize.initSource({getWidth:()=>window.settingsUI.get().sourcePanelWidth,save:value=>window.settingsUI.update({sourcePanelWidth:value}),isBusy:()=>busy});
   window.sidebarResize.initRules({getWidth:()=>Number(window.settingsUI.get().rulesWidth),save:value=>window.settingsUI.update({rulesWidth:String(value)}),isBusy:()=>busy});
-  $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
-  $('btn-move-folders').addEventListener('click',()=>window.movingUI.chooseSources());
   window.notesUI.init({showToast,showFailure});
   window.sidebarResize.initNotes({getWidth:()=>window.settingsUI.get().notesPanelWidth,save:value=>window.settingsUI.update({notesPanelWidth:value}),isBusy:()=>busy||window.notesUI.isBusy()||window.notesUI.hasOpenDialog()});
   window.appSearchUI.init({showFailure,isBusy:()=>busy,transient:()=>({sources:files,presets:[...savedPresets.map(item=>({id:item.id,name:item.name,rules:item.rules})),...BUILTIN_PRESETS.map(item=>({id:'builtin:'+item.id,name:item.name,description:item.description}))]}),showPreset:id=>{window.favoritesUI.show('rename');setRuleTab('presets');if(id.startsWith('builtin:')){$('preset-select').value=id.slice(8);$('preset-select').dispatchEvent(new Event('change'));}else renderSavedPresets(id);},showSources:()=>window.favoritesUI.show('rename')});

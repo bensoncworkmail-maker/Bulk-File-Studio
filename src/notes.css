@@ -134,3 +134,13 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 
 .app-search-title:focus-visible,.notes-sort-heading:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px;}
 @media(max-width:600px){.app-search-page{padding:10px;}.app-search-input{flex-wrap:wrap;}.app-search-input input{flex-basis:100%;}}
+
+.notes-nav-filters { display:grid; gap:7px; }
+.notes-nav-category { margin:12px 2px 5px; padding:6px 8px; border-radius:6px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:700; border-left:3px solid var(--accent); overflow-wrap:anywhere; }
+.notes-nav-empty { display:flex; flex-direction:column; gap:10px; padding:14px 4px; }
+.notes-nav-empty .btn { white-space:normal; height:auto; min-height:32px; text-align:left; }
+
+.notes-nav-options { flex-shrink:0; font-size:11px; color:var(--muted); }
+.notes-nav-options summary { cursor:pointer; padding:4px 0; }
+.notes-nav-options .notes-nav-filters { margin-top:7px; }
+.notes-sheet-button[data-role=detail] { padding-left:18px; }

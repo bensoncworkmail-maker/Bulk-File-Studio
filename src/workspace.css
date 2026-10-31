@@ -281,3 +281,11 @@ div.file-location-group, tr.file-location-group td { padding: 10px 12px; border-
 .file-group-arrow { flex:none; width:12px; }
 .file-group-label { min-width:0; overflow-wrap:anywhere; }
 .sort-toolbar { flex-wrap: wrap; }
+
+.file-group-actions { display:inline-flex; flex-wrap:wrap; gap:6px 10px; margin-left:25px; vertical-align:middle; }
+.file-group-actions .text-action { font-size:inherit; min-height:28px; white-space:normal; text-align:left; }
+.preview-toolbar { flex-wrap:wrap; }
+.file-selection-summary { color:var(--muted); font-size:12px; white-space:nowrap; }
+.move-source-details { text-align:left; border:1px solid var(--line); border-radius:7px; padding:8px 10px; margin:10px 0; }
+.move-source-details summary { cursor:pointer; font-weight:600; }
+#move-source-list { white-space:pre-wrap; overflow-wrap:anywhere; max-height:150px; overflow:auto; font:inherit; font-size:12px; margin:8px 0 0; }
