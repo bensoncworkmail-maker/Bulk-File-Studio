@@ -41,14 +41,31 @@ let savedPresets = [];
 let previewPage=0,sourcePage=0;
 let groupMode='folder';try{const saved=localStorage.getItem('bfs-file-group-mode');if(['none','folder','root'].includes(saved))groupMode=saved;}catch{}
 const locationGroups=window.fileLocationGroups;
+const collapsedLocations=new Set();
+try{const saved=JSON.parse(localStorage.getItem('bfs-file-collapsed-groups')||'[]');if(Array.isArray(saved))for(const value of saved.slice(-1000))if(typeof value==='string')collapsedLocations.add(value);}catch{}
 function grouped(rows){return locationGroups.arrange(rows,groupMode);}
+function visibleGroupRows(rows){return locationGroups.visibleRows(rows,groupMode,collapsedLocations);}
+function saveCollapsedLocations(){try{localStorage.setItem('bfs-file-collapsed-groups',JSON.stringify([...collapsedLocations].slice(-1000)));}catch{}}
+function expandGroups(expand){
+ if(busy||groupMode==='none')return;
+ for(const row of filterFiles()){const key=locationGroups.collapseKey(row.source,groupMode);if(expand)collapsedLocations.delete(key);else collapsedLocations.add(key);}
+ saveCollapsedLocations();render();
+}
 function groupHeader(rows,source,table=false){
  const group=locationGroups.location(source,groupMode),members=locationGroups.members(rows,source,groupMode);
+ const key=locationGroups.collapseKey(source,groupMode),collapsed=collapsedLocations.has(key);
  const header=element(table?'tr':'div','file-location-group'),content=table?element('td'):header;
  if(table){content.colSpan=5;header.appendChild(content);}
  const check=element('input');check.type='checkbox';check.checked=members.every(row=>selected.has(norm(row.source)));check.indeterminate=!check.checked&&members.some(row=>selected.has(norm(row.source)));check.disabled=busy;check.setAttribute('aria-label','選取此位置全部搜尋結果：'+group.label);
  check.addEventListener('change',()=>{if(busy)return;for(const row of members){if(check.checked)selected.add(norm(row.source));else selected.delete(norm(row.source));}enqueuePreview();});
- content.append(check,element('span','',group.label+' · '+members.length+' 項',group.label));return header;
+ const toggle=element('button','file-group-toggle');toggle.type='button';toggle.disabled=busy;
+ toggle.id='file-group-'+(table?'preview':'source')+'-'+encodeURIComponent(key);
+ toggle.setAttribute('aria-expanded',String(!collapsed));toggle.setAttribute('aria-label',(collapsed?'展開':'收合')+' '+group.label+'（'+members.length+' 項）');
+ toggle.title='展開／收合此位置；收合會保留勾選，操作仍包含全部選取項目。';
+ const arrow=element('span','file-group-arrow',collapsed?'▸':'▾');arrow.setAttribute('aria-hidden','true');
+ toggle.append(arrow,element('span','file-group-label',group.label+' · '+members.length+' 項',group.label));
+ toggle.addEventListener('click',()=>{if(busy)return;if(collapsedLocations.has(key))collapsedLocations.delete(key);else collapsedLocations.add(key);saveCollapsedLocations();render();$(toggle.id)?.focus();});
+ content.append(check,toggle);return header;
 }
 let previousPanels={showSource:initialSettings.showSource,showRules:initialSettings.showRules};
 
@@ -256,7 +273,7 @@ function element(tag, className, text, title) {
 function renderFiles() {
   const container = $('file-list'); container.replaceChildren();
   $('file-counter').textContent = files.length;
-  const scoped=grouped(filterFiles()),page=paginate(scoped,sourcePage,window.settingsUI.get().pageSize);sourcePage=page.page;
+  const scoped=grouped(filterFiles()),page=paginate(visibleGroupRows(scoped),sourcePage,window.settingsUI.get().pageSize);sourcePage=page.page;
   $('source-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
   $('source-page-prev').disabled=busy||!page.hasPrevious;$('source-page-next').disabled=busy||!page.hasNext;
   if (!files.length) { container.appendChild(element('div','list-empty','尚未加入任何檔案')); return; }
@@ -265,6 +282,7 @@ function renderFiles() {
   for (const item of list) {
     const p=item.source,group=locationGroups.location(p,groupMode).key;
     if(groupMode!=='none'&&group!==lastGroup){fragment.appendChild(groupHeader(scoped,p));lastGroup=group;}
+    if(item.collapsedGroup)continue;
     const name = basename(p); const isChecked = selected.has(norm(p));
     const row = element('div', 'file-item' + (isChecked ? '' : ' unselected'));
     row.title = p;
@@ -284,7 +302,7 @@ function renderFiles() {
 function renderTable() {
   const tbody = $('preview-body'); tbody.replaceChildren();
   const filtered = grouped(filterFiles());
-  const page=paginate(filtered,previewPage,window.settingsUI.get().pageSize);previewPage=page.page;
+  const displayed=visibleGroupRows(filtered),page=paginate(displayed,previewPage,window.settingsUI.get().pageSize);previewPage=page.page;
   $('preview-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
   for(const id of ['preview-page-first','preview-page-prev'])$(id).disabled=busy||!page.hasPrevious;
   for(const id of ['preview-page-next','preview-page-last'])$(id).disabled=busy||!page.hasNext;
@@ -309,6 +327,7 @@ function renderTable() {
   for (const row of visible) {
     const group=locationGroups.location(row.source,groupMode).key;
     if(groupMode!=='none'&&group!==lastGroup){fragment.appendChild(groupHeader(filtered,row.source,true));lastGroup=group;}
+    if(row.collapsedGroup)continue;
     const on = selected.has(norm(row.source));
     const tr = element('tr', on ? '' : 'row-off');
     tr.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,row.source);});
@@ -327,7 +346,10 @@ function renderTable() {
     tr.append(checkTd,originalTd,arrowTd,newTd,stateTd);fragment.appendChild(tr);
   }
   tbody.appendChild(fragment);
-  $('table-showing').textContent = `顯示 ${page.start}–${page.end} / ${page.total} 項 · 已選取 ${selected.size} 項`;
+  const collapsedCount=displayed.filter(row=>row.collapsedGroup).length;
+  $('table-showing').textContent = collapsedCount
+    ? `本頁 ${page.rows.filter(row=>!row.collapsedGroup).length} 個檔案 · 已收合 ${collapsedCount} 個位置 · 篩選共 ${filtered.length} 項 · 已選取 ${selected.size} 項（含收合項目）`
+    : `顯示 ${page.start}–${page.end} / ${page.total} 項 · 已選取 ${selected.size} 項`;
 }
 function setRuleTab(tab) {
   const value=['presets','name','text','extension'].includes(tab)?tab:'presets';
@@ -337,6 +359,9 @@ function setRuleTab(tab) {
 }
 function renderWorkspaceControls() {
   const settings=window.settingsUI.get();
+  const scope=filterFiles(),keys=scope.map(row=>locationGroups.collapseKey(row.source,groupMode));
+  $('btn-file-groups-expand').disabled=busy||groupMode==='none'||!keys.some(key=>collapsedLocations.has(key));
+  $('btn-file-groups-collapse').disabled=busy||groupMode==='none'||!keys.some(key=>!collapsedLocations.has(key));
   $('btn-toggle-source').textContent=settings.showSource?'收合來源':'來源清單';
   $('btn-toggle-rules').textContent=settings.showRules?'收合規則':'命名規則';
   $('btn-toggle-source').setAttribute('aria-pressed',String(settings.showSource));
@@ -471,6 +496,8 @@ async function exportCSV() {
 }
 function wireEvents() {
   $('file-group-mode').value=groupMode;
+  $('btn-file-groups-expand').addEventListener('click',()=>expandGroups(true));
+  $('btn-file-groups-collapse').addEventListener('click',()=>expandGroups(false));
   $('file-group-mode').addEventListener('change',()=>{groupMode=$('file-group-mode').value;try{localStorage.setItem('bfs-file-group-mode',groupMode);}catch{}sourcePage=0;previewPage=0;render();});
   $('btn-toggle-source').addEventListener('click',()=>window.settingsUI.update({showSource:!window.settingsUI.get().showSource}));
   $('btn-toggle-rules').addEventListener('click',()=>window.settingsUI.update({showRules:!window.settingsUI.get().showRules}));
@@ -488,7 +515,7 @@ function wireEvents() {
   $('preview-page-first').addEventListener('click',()=>{previewPage=0;renderTable();});
   $('preview-page-prev').addEventListener('click',()=>{previewPage--;renderTable();});
   $('preview-page-next').addEventListener('click',()=>{previewPage++;renderTable();});
-  $('preview-page-last').addEventListener('click',()=>{previewPage=paginate(filterFiles(),0,window.settingsUI.get().pageSize).pageCount-1;renderTable();});
+  $('preview-page-last').addEventListener('click',()=>{previewPage=paginate(visibleGroupRows(filterFiles()),0,window.settingsUI.get().pageSize).pageCount-1;renderTable();});
   $('btn-error-close').addEventListener('click', () => $('error-dialog').close());
   $('btn-add-files').addEventListener('click',chooseFiles);
   $('btn-empty-add').addEventListener('click',chooseFiles);

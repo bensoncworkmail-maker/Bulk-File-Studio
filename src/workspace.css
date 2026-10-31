@@ -276,4 +276,8 @@ html,body { height:100%; overflow:hidden; }
 .file-location-group { font-weight: 600; overflow-wrap: anywhere; color: var(--text); background: var(--panel); }
 div.file-location-group, tr.file-location-group td { padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .file-location-group input { margin-right: 8px; vertical-align: middle; }
+.file-group-toggle { display:inline-flex; align-items:flex-start; gap:7px; max-width:calc(100% - 30px); padding:3px 5px; border:0; border-radius:4px; background:transparent; color:inherit; text-align:left; font:inherit; vertical-align:middle; }
+.file-group-toggle:not(:disabled):hover { background:var(--surface-2); }
+.file-group-arrow { flex:none; width:12px; }
+.file-group-label { min-width:0; overflow-wrap:anywhere; }
 .sort-toolbar { flex-wrap: wrap; }
