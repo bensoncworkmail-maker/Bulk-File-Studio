@@ -41,23 +41,23 @@ function harness(t, overrides = {}) {
   return {clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
-test('IPC persists verified history, blocks edited files, and allows retry', t => {
-  const { dir, handlers, historyPath } = harness(t);
+test('IPC persists verified history, blocks edited files, and allows retry', async t => {
+  const { dir, handlers, historyPath } = harness(t);handlers.get('desktop-settings-set')(null,{renameVerification:'full'});
   const source = path.join(dir, 'a.txt');
   fs.writeFileSync(source, 'AAAA');
   fs.utimesSync(source, 1700000000, 1700000000);
-  const result = handlers.get('rename')(null, [source], { prefix:'new_' });
+  const result = await handlers.get('rename')(null, [source], { prefix:'new_' });
   const renamed = result.moves[0].destination;
   const saved = JSON.parse(fs.readFileSync(historyPath));
   assert.equal(saved.version, 2);
   assert.equal(saved.state, 'completed');
   fs.writeFileSync(renamed, 'BBBB');
-  assert.throws(() => handlers.get('undo')(), /修改或替換/);
+  await assert.rejects(handlers.get('undo')(), /修改或替換/);
   assert.equal(JSON.parse(fs.readFileSync(historyPath)).state, 'completed');
   assert.equal(fs.existsSync(source), false);
   fs.writeFileSync(renamed, 'AAAA');
   fs.utimesSync(renamed, 1700000000, 1700000000);
-  assert.equal(handlers.get('undo')().changed, 1);
+  assert.equal((await handlers.get('undo')()).changed, 1);
   assert.equal(fs.readFileSync(source, 'utf8'), 'AAAA');
   assert.equal(fs.existsSync(historyPath), false);
 });
@@ -310,4 +310,11 @@ test('custom floating titles persist, update native windows immediately, restore
  const h=harness(t);h.handlers.get('desktop-settings-set')(null,{floatingTitle:'  我的資料 <工作>  '});assert.equal(h.handlers.get('desktop-settings-get')().floatingTitle,'我的資料 <工作>');h.handlers.get('floating-show')();let mini=h.windows[1];assert.equal(mini.options.title,'Bulk File Studio · 我的資料 <工作>');h.handlers.get('desktop-settings-set')(null,{floatingTitle:'快捷工作台'});assert.equal(mini.title,'Bulk File Studio · 快捷工作台');assert.equal(JSON.parse(fs.readFileSync(path.join(h.dir,'desktop-state.json'),'utf8')).settings.floatingTitle,'快捷工作台');
  for(const value of [null,42,'x'.repeat(41),'line\nfeed','bad\x00title'])assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{floatingTitle:value}),/標題最多 40/);assert.equal(h.handlers.get('desktop-settings-get')().floatingTitle,'快捷工作台');h.handlers.get('desktop-settings-set')(null,{floatingTitle:''});assert.equal(mini.title,'Bulk File Studio · 浮動工具');mini.destroy();h.handlers.get('floating-show')();mini=h.windows[2];assert.equal(mini.options.title,'Bulk File Studio · 浮動工具');
  const desktop=require('../src/desktop-state');assert.equal(desktop.normalize({floatingTitle:'bad\nvalue'}).floatingTitle,'');const exported=require('../src/settings-export').createSettingsExport({settings:{},rules:{}},{floatingTitle:'我的資料'},'1.39.2');assert.equal(exported.desktop.floatingTitle,'我的資料');
+});
+
+test('fast mode is the default and history retains it after settings change; mismatched confirmation never renames',t=>{
+ const h=harness(t),source=path.join(h.dir,'a.txt');fs.writeFileSync(source,'A');assert.equal(h.handlers.get('desktop-settings-get')().renameVerification,'fast');assert.throws(()=>h.handlers.get('rename')(null,[source],{prefix:'x_'},undefined,'full'),/模式已變更/);assert.equal(fs.existsSync(source),true);const result=h.handlers.get('rename')(null,[source],{prefix:'x_'}),saved=JSON.parse(fs.readFileSync(h.historyPath));assert.equal(saved.version,4);assert.equal(saved.verification,'fast');assert.equal(saved.moves[0].expectedFingerprint.sha256,undefined);h.handlers.get('desktop-settings-set')(null,{renameVerification:'full'});assert.equal(h.handlers.get('history')().verification,'fast');assert.equal(h.handlers.get('undo')().changed,1);assert.equal(fs.readFileSync(source,'utf8'),'A');assert.equal(result.changed,1);
+});
+test('full-mode IPC reports progress, blocks simultaneous file mutations and shutdown, and releases the lock on completion',async t=>{
+ const h=harness(t),source=path.join(h.dir,'a.bin');fs.writeFileSync(source,Buffer.alloc(1024*1024,65));h.handlers.get('desktop-settings-set')(null,{renameVerification:'full'});const pending=h.handlers.get('rename')(null,[source],{prefix:'x_'},undefined,'full',{operationId:71});assert.throws(()=>h.handlers.get('rename')(null,[source],{prefix:'y_'}),/仍在執行/);assert.throws(()=>h.handlers.get('move-files')(),/仍在執行/);let prevented=false;h.events.get('before-quit')({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal((await pending).changed,1);assert.ok(h.messages.some(([channel,value])=>channel==='rename-progress'&&value.id===71&&value.detail.includes('MB')));h.handlers.get('desktop-settings-set')(null,{renameVerification:'fast'});assert.equal(h.handlers.get('history')().verification,'full');await h.handlers.get('undo')();assert.equal(fs.existsSync(source),true);assert.equal(h.handlers.get('rename')(null,[source],{prefix:'z_'}).changed,1);
 });

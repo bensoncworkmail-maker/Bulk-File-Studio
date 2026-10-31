@@ -1,6 +1,6 @@
 {
   "name": "bulk-rename-studio",
-  "version": "1.39.2",
+  "version": "1.40.0",
   "description": "離線收藏、標籤、自訂資料工作區、批次重新命名與檔案搬移工具",
   "main": "src/main.js",
   "author": "Bulk File Studio",
@@ -48,7 +48,13 @@
     },
     "portable": {
       "artifactName": "BulkFileStudio-Portable-${version}-${arch}.${ext}"
-    }
+    },
+    "asarUnpack": [
+      "src/rename-job*.js",
+      "src/rename-core.js",
+      "src/rename-history.js",
+      "src/offline-policy.js"
+    ]
   },
   "dependencies": {
     "jszip": "3.10.1",

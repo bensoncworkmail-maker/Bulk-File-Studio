@@ -10,7 +10,8 @@
   function show(){showTimer=undefined;if(!tasks.size||!isVisible())return;previous=activeElement();render();if(!dialog.open)dialog.showModal();}
   function close(){hideTimer=undefined;if(tasks.size)return;if(dialog.open)dialog.close();root.setAttribute('aria-busy','false');if(previous?.isConnected!==false&&!previous?.disabled)previous?.focus?.();previous=null;}
   function receive(event){
-   if(!event||!['start','end'].includes(event.type))return;
+   if(!event||!['start','update','end'].includes(event.type))return;
+   if(event.type==='update'){if(!tasks.has(event.id))return;const current=tasks.get(event.id);tasks.set(event.id,{title:typeof event.title==='string'?event.title:current.title,detail:typeof event.detail==='string'?event.detail:current.detail});if(dialog.open)render();return;}
    if(event.type==='start'){
     if(typeof event.title!=='string')return;tasks.set(event.id,{title:event.title,detail:event.detail});cancel(hideTimer);hideTimer=undefined;root.setAttribute('aria-busy','true');
     if(dialog.open)render();else if(showTimer===undefined)showTimer=schedule(show,delay);

@@ -35,7 +35,7 @@ let busy = false;
 let debounceTimer = null;
 let revision = 0;
 let noticeTimeout;
-let pendingAction = 'rename';
+let pendingAction = 'rename',pendingRenameVerification='fast';
 let previewPending = false;
 let savedPresets = [];
 let previewPage=0,sourcePage=0;
@@ -448,14 +448,16 @@ function selectFiltered(all) {
   }
   enqueuePreview();render();
 }
-function confirmRename() {
+async function confirmRename() {
   if (busy || previewPending || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog() || !latest.counts.ready || latest.counts.error) return;
+  try{const settings=await window.desktopAPI.get();pendingRenameVerification=settings.renameVerification||'fast';}catch(error){showFailure('無法讀取改名校驗設定',error);return;}
+  if(busy||previewPending||$('confirm-modal').open||!latest.counts.ready||latest.counts.error)return;
   pendingAction = 'rename';
   const ready = latest.counts.ready;
-  $('modal-title').textContent = '確認重新命名？';
+  $('modal-title').textContent = pendingRenameVerification==='full'?'確認完整校驗並重新命名？':'確認快速重新命名？';
   $('modal-description').textContent = `即將對 ${ready} 個檔案重新命名。操作只會更改檔案名稱，不會改動檔案內容。`;
   if(rules.extensionMode!=='keep')$('modal-description').textContent+=' 副檔名變更亦不會轉換檔案格式。';
-  $('modal-note').textContent = '會先讀取檔案並建立校驗紀錄；大型檔案可能需要較長時間。成功後可使用「復原上一批」。';
+  $('modal-note').textContent = pendingRenameVerification==='full'?'完整模式會讀取全部內容並建立 SHA-256 校驗紀錄；大型檔案需要較長時間，執行時顯示實際讀取進度。':'快速模式不讀取全部內容，改用檔案身分、大小及修改時間檢查與復原。無法可靠偵測同大小且修改時間被還原的內容變更。';
   $('btn-confirm').textContent = '確認並執行';
   $('confirm-modal').showModal();
 }
@@ -465,13 +467,13 @@ async function executeRename() {
   setBusy(true);
   try {
     const plan=latest.rows.filter(row=>row.status==='ready').map(({source,destination})=>({source,destination}));
-    const result = await api.rename(files.filter(p => selected.has(norm(p))), rules, plan);
+    const result = await api.rename(files.filter(p => selected.has(norm(p))), rules, plan,pendingRenameVerification);
     const map = new Map(result.moves.map(m => [norm(m.source),m.destination]));
     if (result.changed) {
       files = [...new Set(files.map(p => map.get(norm(p)) || p))].sort((a,b)=>collator.compare(a,b));
       selected.clear();
       if(window.settingsUI.get().resetRulesAfterRename)applyRules(defaults);saveRulePreferences();
-      history = result.history ? { count: result.changed } : null;
+      history = result.history ? { count: result.changed,kind:'rename',verification:result.verification||pendingRenameVerification } : null;
       showToast(`成功重新命名 ${result.changed} 個檔案`, 'success');
       if (result.warning) showFailure('重新命名完成，但需要注意', result.warning);
     } else showToast('沒有需要重新命名的檔案');
@@ -482,8 +484,8 @@ function undo() {
   if (busy || !history || $('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog()) return;
   pendingAction = 'undo';
   $('modal-title').textContent = '復原上一批操作？';
-  $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的${history.kind==='move'?'位置':'名稱'}。不會還原檔案內容；若檔案已修改／替換或原位置被占用，會整批停止。`;
-  $('modal-note').textContent = '若任何檔案已被修改、替換、移走，或原名稱已被佔用，整批復原會停止。紀錄會保留，修正問題後可再試。舊版未校驗紀錄不支援自動復原。';
+  $('modal-description').textContent = `即將檢查並復原 ${history.count} 個檔案的${history.kind==='move'?'位置':'名稱'}。不會還原檔案內容；若檔案檢查未通過或原位置被占用，會整批停止。`;
+  $('modal-note').textContent = history.verification==='fast'?'此批使用快速模式：只檢查檔案身分、大小及修改時間，無法可靠偵測同大小且修改時間被還原的內容變更。屬性變更或原名稱被佔用時會停止，保留紀錄供修正後重試。':'此批使用完整內容校驗；檔案修改、替換、移走或原名稱被佔用時會停止。紀錄會保留供修正後重試。';
   $('btn-confirm').textContent = '檢查並復原';
   $('confirm-modal').showModal();
 }

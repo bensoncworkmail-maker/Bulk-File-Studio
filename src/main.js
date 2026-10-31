@@ -24,6 +24,8 @@ const {pathToFileURL}=require('node:url');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createPreview, executeMoves, listPaths, snapshotMoves, prepareUndo } = require('./rename-core');
+const renameJobs=require('./rename-job');
+const {writeHistory}=require('./rename-history');
 const { FavoritesStore,inspectPath } = require('./favorites-store');
 const {EverythingBridge}=require('./everything-bridge');
 const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('./windows-context-menu');
@@ -51,8 +53,13 @@ function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-ch
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
 function notesChanged(result){send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});return result;}
+let fileOperationBusy=false;
+function fileOperation(task){if(fileOperationBusy||trashing)throw new Error('另一項改名、搬移或復原仍在執行，請稍候');fileOperationBusy=true;try{const result=task();if(result&&typeof result.then==='function')return result.finally(()=>{fileOperationBusy=false;});fileOperationBusy=false;return result;}catch(error){fileOperationBusy=false;throw error;}}
+function renameProgress(event,context){return value=>{if(event.sender!==win?.webContents||!Number.isSafeInteger(context?.operationId)||context.operationId<=0)return;const labels={snapshot:'建立內容校驗（第 1／2 遍）',verify:'執行前複核（第 2／2 遍）','undo-verify':'復原內容檢查（第 1／2 遍）',staging:'暫存檔名',renaming:'套用檔名'},title=labels[value.phase]||'處理改名';const bytes=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';const detail=typeof value.totalBytes==='number'?`第 ${value.fileIndex}／${value.totalFiles} 個：${value.name}；已讀取 ${bytes(value.completedBytes)}／${bytes(value.totalBytes)}（本階段）`:`${value.fileIndex}／${value.totalFiles} 個：${value.name}`;send(win,'rename-progress',{id:context.operationId,title,detail});};}
+function finishRenameJob(result){const warning=syncFavoriteMoves(result.moves);return {...result,warning:[result.warning,warning].filter(Boolean).join('\n')};}
 let trashing=false;
 async function confirmTrash(ids,validateScope=()=>{}){
+ if(fileOperationBusy)throw new Error('檔案操作仍在執行，請完成後再回收檔案');
  if(trashing)throw new Error('另一項回收操作仍在處理');
  trashing=true;
  try{
@@ -106,14 +113,7 @@ const readHistory = () => {
   } catch { /* no prior history */ }
   return null;
 };
-const saveHistory = (history) => {
-  const filepath = historyFile();
-  fs.mkdirSync(path.dirname(filepath), { recursive: true });
-  if (!history) { try { fs.unlinkSync(filepath); } catch (e) { if (e.code !== 'ENOENT') throw e; } return; }
-  const temp = filepath + '.new';
-  fs.writeFileSync(temp, JSON.stringify(history, null, 2), { encoding: 'utf8', mode: 0o600 });
-  fs.renameSync(temp, filepath);
-};
+const saveHistory = history => writeHistory(historyFile(),history,fs);
 
 function captureController(){
  if(!capture)capture=new FloatingCapture({BrowserWindow,screen,secureWindow,parent:()=>{if(!floating||floating.isDestroyed())showFloating();return floating;},settings:()=>desktop.settings,notesStore,favorites,notesChanged,notifyFavorites});return capture;
@@ -140,7 +140,7 @@ function createWindow(hidden=false) {
   desktop.attach('main',win,error=>send(win,'desktop-settings-changed',{error:error.message}));
   pendingMaximize=Boolean(hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized);
   if(!hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized)win.maximize();
-  win.on('close',event=>{if(desktopShell.onClose(event))return;capture?.destroy();if(floating&&!floating.isDestroyed()){try{floatingWindow.record();}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
+  win.on('close',event=>{if(desktopShell.onClose(event))return;if(fileOperationBusy){event.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再關閉'});return;}capture?.destroy();if(floating&&!floating.isDestroyed()){try{floatingWindow.record();}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
   win.on('closed',()=>{win=null;});
   win.loadFile(path.join(__dirname, 'index.html'));
 }
@@ -321,6 +321,7 @@ app.whenReady().then(() => {
     const previous=desktop.settings;
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
     for(const key of ['mainShortcut','floatingShortcut','collapseShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
+    if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');
     if(Object.hasOwn(patch,'floatingTitle')&&require('./desktop-state').normalizeFloatingTitle(patch.floatingTitle)===null)throw new Error('浮動工具標題最多 40 字元，且不可包含控制字元');
     if(Object.hasOwn(patch,'floatingQuickActions'))quickActions.normalize(patch.floatingQuickActions,true);
     if(Object.hasOwn(patch,'floatingDropActionId')&&patch.floatingDropActionId!==''&&!quickActions.ID.test(patch.floatingDropActionId))throw new Error('拖放目標無效');
@@ -475,14 +476,14 @@ app.whenReady().then(() => {
   handle('choose-move-sources',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇要搬移的完整資料夾（包含所有子檔案）',properties:['openDirectory','multiSelections']});return result.canceled?[]:result.filePaths.map(assertLocalPath);});
   handle('move-sources',(_,paths,scope)=>resolveMoveSources(paths,scope));
   handle('move-preview',(_,paths,folder,options)=>planMove(paths,folder,options));
-  handle('move-files',(_,paths,folder,expected,options)=>{
+  handle('move-files',(_,paths,folder,expected,options)=>fileOperation(()=>{
     const moves=planMove(paths,folder,options);
     if(JSON.stringify(moves)!==JSON.stringify(expected))throw new Error('搬移預覽已變更，請重新預覽');
     const record={version:3,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
     try{executeRelocation(moves,{onPrepared:()=>saveHistory(record)});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}const warning=syncFavoriteMoves(moves);
     try{saveHistory({...record,state:'completed'});}catch(e){return {changed:moves.length,moves,history:false,warning:warning+' 搬移成功，但復原紀錄無法儲存：'+e.message};}
     return {changed:moves.length,moves,history:true,warning};
-  });
+  }));
   handle('context-menu-status', () => contextMenu.status());
   handle('context-menu-set', (_, enabled) => contextMenu.setEnabled(enabled));
   handle('data-location',()=>app.getPath('userData'));
@@ -505,7 +506,8 @@ app.whenReady().then(() => {
   });
   handle('add-paths', (_, paths, recursive) => listPaths(paths, Boolean(recursive)));
   handle('preview', (_, paths, rules) => createPreview(paths, rules));
-  handle('rename', (_, paths, rules, expectedPlan) => {
+  handle('rename', (event, paths, rules, expectedPlan, expectedVerification,context) => fileOperation(()=> {
+    const verification=desktop.settings.renameVerification;if(expectedVerification!==undefined&&expectedVerification!==verification)throw new Error('校驗模式已變更，請重新確認改名');
     const preview = createPreview(paths, rules);
     if (preview.counts.error) throw new Error(`${preview.counts.error} 個檔案存在衝突或名稱錯誤。請先修正，再重新執行。`);
     let moves = preview.rows.filter(x => x.status === 'ready').map(x => ({ source: x.source, destination: x.destination }));
@@ -513,8 +515,9 @@ app.whenReady().then(() => {
       throw new Error('預覽結果已變更（檔案名稱、日期或排序可能已改動），操作已取消。請檢查更新後的預覽，再重新確認。');
     }
     if (!moves.length) return { changed: 0, moves: [], history: Boolean(readHistory()) };
-    moves = snapshotMoves(moves);
-    const record = { version: 2, state: 'pending', createdAt: new Date().toISOString(), moves };
+    if(verification==='full')return renameJobs.run({kind:'rename',moves,historyPath:historyFile()},renameProgress(event,context)).then(finishRenameJob);
+    moves = snapshotMoves(moves,{verification:'fast'});
+    const record = { version: 4, kind:'rename',verification:'fast',state: 'pending', createdAt: new Date().toISOString(), moves };
     // Persist evidence before changing any names; incomplete operations fail closed.
     saveHistory(record);
     executeMoves(moves);
@@ -525,10 +528,11 @@ app.whenReady().then(() => {
       return { changed: moves.length, moves, history: false, warning: [favoriteWarning,`重新命名成功，但無法完成復原紀錄；自動復原已停用。請手動核對檔案：${e.message}`].filter(Boolean).join('\n') };
     }
     return { changed: moves.length, moves, history: true, warning:favoriteWarning };
-  });
-  handle('undo', () => {
+  }));
+  handle('undo', (event,context) => fileOperation(()=> {
     const h = readHistory();
     if (!h) throw new Error('沒有可復原的上一批操作紀錄');
+    if(h.kind!=='move'&&h.version===2)return renameJobs.run({kind:'undo',history:h,historyPath:historyFile()},renameProgress(event,context)).then(finishRenameJob);
     const reversed = h.kind==='move'?prepareMoveUndo(h):prepareUndo(h);
     // Keep interrupted undo from being replayed against a partially restored batch.
     saveHistory({ ...h, state: 'undoing' });
@@ -537,10 +541,10 @@ app.whenReady().then(() => {
     try { saveHistory(null); }
     catch (e) { return { changed: reversed.length, moves: reversed, warning: [favoriteWarning,`檔案已還原，但清除復原紀錄時發生錯誤：${e.message}`].filter(Boolean).join('\n') }; }
     return { changed: reversed.length, moves: reversed, warning:favoriteWarning };
-  });
+  }));
   handle('history', () => {
     const h = readHistory();
-    return h ? { count: h.moves.length, createdAt: h.createdAt, state: h.state, kind:h.kind||'rename' } : null;
+    return h ? { count: h.moves.length, createdAt: h.createdAt, state: h.state, kind:h.kind||'rename',verification:h.verification||'full' } : null;
   });
   handle('export-csv', async (_, paths, rules) => {
     const preview = createPreview(paths, rules);
@@ -574,7 +578,7 @@ app.whenReady().then(() => {
   if(desktop.settings.floatingStartup)showFloating();
   app.on('activate',focusMain);
 });
-app.on('before-quit',()=>{if(desktopShell)desktopShell.quitting=true;});
+app.on('before-quit',event=>{if(fileOperationBusy){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(desktopShell)desktopShell.quitting=true;});
 app.on('will-quit',()=>{capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {

@@ -139,6 +139,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "renameVerification": "settings-rename-verification",
     "floatingTitle": "settings-floating-title",
     "floatingQuickMode": "settings-floating-quick-mode",
     "floatingKeepAfterQuick": "settings-floating-keep-quick",
@@ -206,6 +207,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "renameVerification": "workspace",
     "floatingTitle": "floating",
     "floatingQuickMode": "floating",
     "floatingKeepAfterQuick": "floating",

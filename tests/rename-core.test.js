@@ -223,3 +223,11 @@ test('a failed rollback reports the remaining temporary path for manual recovery
   assert.equal(fs.readFileSync(a,'utf8'),'A');
   assert.equal(fs.readFileSync(path.join(dir,temp),'utf8'),'B');
 });
+
+test('fast rename and serialized undo do not read file contents, while detecting metadata edits and keeping full mode strict',t=>{
+ const {dir,make}=fixture(t),source=make('large.bin','A'.repeat(2*1024*1024)),destination=path.join(dir,'renamed.bin');let bytes=0;const original=fs.readSync;fs.readSync=(...args)=>{const n=original(...args);bytes+=n;return n;};
+ try{const moves=snapshotMoves([{source,destination}],{verification:'fast'});assert.equal(moves[0].expectedFingerprint.verification,'fast');assert.equal(moves[0].expectedFingerprint.sha256,undefined);executeMoves(moves);const history=JSON.parse(JSON.stringify({version:4,kind:'rename',verification:'fast',state:'completed',moves}));executeMoves(prepareUndo(history));assert.equal(bytes,0);const full=snapshotMoves([{source,destination}]);executeMoves(full);assert.equal(bytes,4*1024*1024);fs.appendFileSync(destination,'changed');assert.throws(()=>prepareUndo(history),/修改或替換/);assert.throws(()=>prepareUndo({...history,version:2}),/紀錄不完整/);assert.throws(()=>prepareUndo({...history,verification:'full'}),/舊版/);}finally{fs.readSync=original;}
+});
+test('fast mode retains swap support, complete-batch conflict checks and rollback without inspecting contents',t=>{
+ const {dir,make}=fixture(t),a=make('a.txt','A'),b=make('b.txt','B');let moves=snapshotMoves([{source:a,destination:b},{source:b,destination:a}],{verification:'fast'});executeMoves(moves);assert.equal(fs.readFileSync(a,'utf8'),'B');executeMoves(prepareUndo({version:4,kind:'rename',verification:'fast',state:'completed',moves}));assert.equal(fs.readFileSync(a,'utf8'),'A');moves=snapshotMoves([{source:a,destination:path.join(dir,'x.txt')},{source:b,destination:path.join(dir,'y.txt')}],{verification:'fast'});const rename=fs.renameSync;let calls=0;fs.renameSync=(...args)=>{if(++calls===3)throw new Error('injected');return rename(...args);};try{assert.throws(()=>executeMoves(moves),/injected/);}finally{fs.renameSync=rename;}assert.equal(fs.readFileSync(a,'utf8'),'A');assert.equal(fs.readFileSync(b,'utf8'),'B');const occupied=make('x.txt');assert.throws(()=>executeMoves(moves),/已存在/);assert.equal(fs.existsSync(occupied),true);
+});

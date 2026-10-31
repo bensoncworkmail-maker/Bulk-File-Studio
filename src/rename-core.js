@@ -225,7 +225,7 @@ function sameIdentity(a, b) {
 }
 
 /** Bound memory use even for large files. Reject a file changing while read. */
-function fingerprintFile(filepath) {
+function fingerprintFile(filepath,onRead) {
   assertLocalPath(filepath);
   const before = fileIdentity(fs.lstatSync(filepath, { bigint: true }));
   const fd = fs.openSync(filepath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
@@ -234,16 +234,17 @@ function fingerprintFile(filepath) {
     const hash = crypto.createHash('sha256');
     const buffer = Buffer.allocUnsafe(256 * 1024);
     let length;
-    while ((length = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, length));
+    while ((length = fs.readSync(fd, buffer, 0, buffer.length, null)) > 0) {hash.update(buffer.subarray(0, length));try{onRead?.(length);}catch{/* Progress must not interrupt a file operation. */}}
     if (!sameIdentity(before, fileIdentity(fs.fstatSync(fd, { bigint: true }))) ||
         !sameIdentity(before, fileIdentity(fs.lstatSync(filepath, { bigint: true })))) throw new Error('檔案在檢查期間被修改或替換');
     return { ...before, sha256: hash.digest('hex') };
   } finally { fs.closeSync(fd); }
 }
 
-function assertFingerprint(filepath, expected, content = true) {
+function assertFingerprint(filepath, expected, content = true,onRead) {
   try {
-    const actual = content ? fingerprintFile(filepath) : fileIdentity(fs.lstatSync(filepath, { bigint: true }));
+    assertLocalPath(filepath);content=content&&expected.verification!=='fast';
+    const actual = content ? fingerprintFile(filepath,onRead) : fileIdentity(fs.lstatSync(filepath, { bigint: true }));
     if (!sameIdentity(actual, expected) || (content && actual.sha256 !== expected.sha256)) {
       throw new Error('檔案已被修改或替換，不能安全復原');
     }
@@ -253,12 +254,20 @@ function assertFingerprint(filepath, expected, content = true) {
   }
 }
 
-function snapshotMoves(moves) {
-  return moves.map(move => ({ ...move, expectedFingerprint: fingerprintFile(move.source) }));
+function reportProgress(callback,value){try{callback?.(value);}catch{/* Keep observers independent of file operations. */}}
+function hashReporter(moves,onProgress,phase){
+ const totalBytes=moves.reduce((sum,move)=>sum+Number(move.expectedFingerprint?.size??(assertLocalPath(move.source),fs.lstatSync(move.source).size)),0);let completedBytes=0;
+ return (move,index)=>{const emit=()=>reportProgress(onProgress,{phase,completedBytes,totalBytes,fileIndex:index+1,totalFiles:moves.length,name:path.basename(move.source)});emit();return bytes=>{completedBytes+=bytes;emit();};};
+}
+function snapshotMoves(moves,{verification='full',onProgress}={}) {
+ if(!['fast','full'].includes(verification))throw new Error('改名校驗模式無效');
+ if(verification==='fast')return moves.map(move=>{assertLocalPath(move.source);return {...move,expectedFingerprint:{...fileIdentity(fs.lstatSync(move.source,{bigint:true})),verification:'fast'}};});
+ const progress=hashReporter(moves,onProgress,'snapshot');return moves.map((move,index) => ({ ...move, expectedFingerprint: fingerprintFile(move.source,progress(move,index)) }));
 }
 
-function prepareUndo(history) {
-  if (!history || history.version !== 2) throw new Error('舊版復原紀錄沒有檔案校驗資料，無法安全復原。請手動核對檔名；新版操作會建立可校驗的紀錄。');
+function prepareUndo(history,{onProgress}={}) {
+  const fast=history?.version===4&&history.kind==='rename'&&history.verification==='fast';
+  if (!history || history.version !== 2&&!fast) throw new Error('舊版復原紀錄沒有檔案校驗資料，無法安全復原。請手動核對檔名；新版操作會建立可校驗的紀錄。');
   if (history.state !== 'completed') throw new Error('上次操作或復原未完整完成，不能自動復原。請依先前錯誤訊息核對原始、目標及 .brs- 暫存檔案。');
   if (!Array.isArray(history.moves) || !history.moves.length) throw new Error('沒有可復原的操作紀錄');
   const reversed = history.moves.map(move => {
@@ -266,17 +275,17 @@ function prepareUndo(history) {
     const fp = move.expectedFingerprint;
     if (typeof move.source !== 'string' || typeof move.destination !== 'string' ||
         !path.isAbsolute(move.source) || !path.isAbsolute(move.destination) ||
-        !fp || !identityFields.every(field => typeof fp[field] === 'string') || !/^[a-f0-9]{64}$/.test(fp.sha256)) {
+        !fp || !identityFields.every(field => typeof fp[field] === 'string') || (fast?fp.verification!=='fast'||fp.sha256!==undefined:fp.verification!==undefined||!/^[a-f0-9]{64}$/.test(fp.sha256))) {
       throw new Error('復原紀錄不完整，操作已取消；請手動核對檔案。');
     }
     return { source: move.destination, destination: move.source, expectedFingerprint: fp };
   });
-  validateMoves(reversed);
+  validateMoves(reversed,{onProgress,phase:'undo-verify'});
   return reversed;
 }
 
 /** Validate the entire batch before touching any names. */
-function validateMoves(moves) {
+function validateMoves(moves,{onProgress,phase='verify'}={}) {
   if (moves.length > MAX_FILES) throw new Error('檔案數量超過安全上限');
   const sources = new Set(); const targets = new Set();
   for (const { source, destination } of moves) {
@@ -297,15 +306,16 @@ function validateMoves(moves) {
       throw new Error(`目標檔案已存在，操作已取消：${destination}`);
     }
   }
-  for (const move of moves) {
-    if (move.expectedFingerprint) assertFingerprint(move.source, move.expectedFingerprint);
+  const full=moves.filter(move=>move.expectedFingerprint&&move.expectedFingerprint.verification!=='fast'),progress=full.length?hashReporter(full,onProgress,phase):null;
+  let index=0;for (const move of moves) {
+    if (move.expectedFingerprint) assertFingerprint(move.source, move.expectedFingerprint,true,move.expectedFingerprint.verification==='fast'?undefined:progress(move,index++));
   }
 }
 
 /** Stage all names first, allowing A→B / B→A swaps. Roll back on errors. */
-function executeMoves(moves) {
+function executeMoves(moves,{onProgress}={}) {
   if (!moves.length) return 0;
-  validateMoves(moves);
+  validateMoves(moves,{onProgress});
   const staged = []; const completed = [];
   try {
     for (const move of moves) {
@@ -315,12 +325,14 @@ function executeMoves(moves) {
       while (pathExists(temp));
       fs.renameSync(move.source, temp);
       staged.push({ ...move, temp });
+      reportProgress(onProgress,{phase:'staging',fileIndex:staged.length,totalFiles:moves.length,name:path.basename(move.source)});
     }
     for (const move of staged) {
       if (move.expectedFingerprint) assertFingerprint(move.temp, move.expectedFingerprint, false);
       if (pathExists(move.destination)) throw new Error(`目標名稱在執行期間已被建立：${move.destination}`);
       fs.renameSync(move.temp, move.destination);
       completed.push(move);
+      reportProgress(onProgress,{phase:'renaming',fileIndex:completed.length,totalFiles:moves.length,name:path.basename(move.destination)});
     }
     return moves.length;
   } catch (original) {

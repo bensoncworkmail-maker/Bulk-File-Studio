@@ -421,6 +421,7 @@
                 </section>
               </div>
               <div id="settings-panel-workspace" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-workspace" hidden>
+                <section class="settings-card"><h2>改名速度與復原校驗</h2><label class="field"><span>重新命名校驗模式</span><select id="settings-rename-verification"><option value="fast">快速改名（預設，不讀取完整內容）</option><option value="full">完整校驗（SHA-256，適合需要內容檢查的檔案）</option></select></label><p class="rule-hint">快速模式檢查名稱衝突、檔案身分、大小與修改時間；復原也使用這些屬性，無法可靠偵測「同大小且修改時間被還原」的內容變更。完整模式讀取並校驗全部內容，顯示實際讀取進度。每批復原沿用該批儲存的模式；此設定不影響檔案搬移的內容校驗。</p></section>
                 <section class="settings-card">
                   <h2>工作區與清單</h2>
                   <label class="field">

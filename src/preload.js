@@ -14,10 +14,14 @@ function notifyOperation(event){for(const listener of operationListeners)try{lis
 async function invoke(channel,...args){
  const title=operationLabels[channel]||(/^notes-/.test(channel)&&!/^notes-share-/.test(channel)&&/(?:save|commit|preview|restore|batch|trash|remove|duplicate|template|client-details)/.test(channel)?'處理資料工作區操作':null);
  if(!title)return ipcRenderer.invoke(channel,...args);
- const id=++operationSequence,event={type:'start',id,title,detail:channel==='move-files'?'正在檢查、搬移及校驗，完成後自動關閉。':'處理中，請稍候。完成後自動關閉。'};
+ const id=++operationSequence,event={type:'start',id,channel,title,detail:channel==='move-files'?'正在檢查、搬移及校驗，完成後自動關閉。':'處理中，請稍候。完成後自動關閉。'};
  activeOperations.set(id,event);notifyOperation(event);
- try{return await ipcRenderer.invoke(channel,...args);}finally{activeOperations.delete(id);notifyOperation({type:'end',id});}
+ try{return await ipcRenderer.invoke(channel,...args,...(['rename','undo'].includes(channel)?[{operationId:id}]:[]));}finally{activeOperations.delete(id);notifyOperation({type:'end',id});}
 }
+ipcRenderer.on('rename-progress',(_,value)=>{
+ if(!value||!Number.isSafeInteger(value.id)||typeof value.title!=='string'||typeof value.detail!=='string')return;const current=activeOperations.get(value.id);if(!current||!['rename','undo'].includes(current.channel))return;
+ const next={...current,title:value.title.slice(0,200),detail:value.detail.slice(0,1000)};activeOperations.set(value.id,next);notifyOperation({...next,type:'update'});
+});
 contextBridge.exposeInMainWorld('operationAPI',Object.freeze({onChange:callback=>{if(typeof callback!=='function')throw new Error('操作監聽無效');operationListeners.add(callback);for(const event of activeOperations.values())try{callback(event);}catch{/* Ignore a failing UI subscriber. */}return ()=>operationListeners.delete(callback);}}));
 
 contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
@@ -32,7 +36,7 @@ contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   chooseFolder: (recursive) => invoke('choose-folder', recursive),
   addPaths: (paths, recursive) => invoke('add-paths', paths, recursive),
   preview: (paths, rules) => invoke('preview', paths, rules),
-  rename: (paths, rules, plan) => invoke('rename', paths, rules, plan),
+  rename: (paths, rules, plan,verification) => invoke('rename', paths, rules, plan,verification),
   undo: () => invoke('undo'),
   history: () => invoke('history'),
   setTheme: (theme) => invoke('set-theme', theme),
