@@ -139,6 +139,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "floatingShowQuickActions": "settings-floating-quick-enabled",
     "floatingMixedFiles": "settings-mixed-files",
     "floatingMixedTags": "settings-mixed-tags",
     "floatingMixedWorkspace": "settings-mixed-workspace",
@@ -200,6 +201,8 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "floatingShowQuickActions": "floating",
+    "floatingQuickActions": "floating",
     "notesExpandFilters": "notes",
     "searchRecords": "search",
     "searchPaths": "search",

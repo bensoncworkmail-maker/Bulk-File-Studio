@@ -37,7 +37,7 @@ function harness(t, overrides = {}) {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
     __dirname:path.dirname(main), process
   }, { filename:main });
-  return {shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
+  return {clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
 test('IPC persists verified history, blocks edited files, and allows retry', t => {
@@ -268,4 +268,27 @@ test('numbering move IPC rejects a stale target without silently allocating a ne
 });
 test('move scope IPC resolves sources without pickers and rejects a changed complete-folder preview',t=>{
  const {dir,handlers,historyPath}=harness(t),root=path.join(dir,'Client'),target=path.join(dir,'target');fs.mkdirSync(root);fs.mkdirSync(target);const a=path.join(root,'a.txt');fs.writeFileSync(a,'a');const resolved=handlers.get('move-sources')(null,[a],'folders');assert.deepEqual(resolved,[root]);const options={scope:'folders'},plan=handlers.get('move-preview')(null,[a],target,options);assert.equal(plan[0].kind,'folder');fs.writeFileSync(path.join(root,'new.txt'),'new');assert.throws(()=>handlers.get('move-files')(null,[a],target,plan,options),/預覽已變更/);assert.equal(fs.existsSync(historyPath),false);assert.equal(fs.readFileSync(a,'utf8'),'a');assert.deepEqual(fs.readdirSync(target),[]);
+});
+
+test('floating quick capture validates stored targets, queues forms without saving, and prevents pending request replacement',t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),[root,detail]=state.document.sheets;
+ const created=h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'Acme',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}),master=created.result.id;
+ const action={id:require('node:crypto').randomUUID(),type:'new-record',label:'新增聯絡人',sheetId:detail.id,masterId:master,enabled:true};h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action]});
+ const options=h.handlers.get('quick-action-options')();assert.equal(options.sheets.find(s=>s.id===detail.id).parentSheetId,root.id);assert.equal(options.masters[0].id,master);
+ h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ for(const channel of ['quick-action-options','desktop-settings-set'])assert.throws(()=>h.rawHandlers.get(channel)(event),/不受信任/);
+ assert.equal(h.rawHandlers.get('floating-quick-action')(event,action.id).opened,true);assert.equal(h.handlers.get('notes-get')().document.records.length,1);assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/仍待開啟/);
+ const target=h.handlers.get('notes-navigation')();assert.equal(target.newRecordSheetId,detail.id);assert.equal(target.masterId,master);assert.equal(h.handlers.get('notes-navigation')(),null);
+ h.handlers.get('notes-trash')(null,'record',master,created.document.records[0].version,false);assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/主紀錄/);
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,type:'open-sheet',masterId:undefined}]});h.rawHandlers.get('floating-quick-action')(event,action.id);assert.equal(h.handlers.get('notes-navigation')().openSheetId,detail.id);
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,enabled:false}]});assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/停用/);
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,type:'command'}]}),/無效/);
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,sheetId:require('node:crypto').randomUUID(),masterId:undefined}]});assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/表格已移除/);
+});
+test('tagged clipboard shortcut queues a review without importing files and respects clipboard opt-in and size bounds',t=>{
+ const h=harness(t),file=path.join(h.dir,'original.txt');fs.writeFileSync(file,'original');let reads=0;h.clipboard.readText=()=>{reads++;return file;};
+ const action={id:require('node:crypto').randomUUID(),type:'import-paths',label:'匯入合約',enabled:true,tags:['合約'],useClipboard:true};h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action]});h.handlers.get('floating-quick-action')(null,action.id);assert.throws(()=>h.handlers.get('floating-quick-action')(null,action.id),/仍待開啟/);
+ const result=h.handlers.get('favorites-list')();assert.equal(result.items.length,0);assert.deepEqual(Array.from(result.importRequest.tags),['合約']);assert.equal(result.importRequest.text,file);assert.equal(fs.readFileSync(file,'utf8'),'original');assert.equal(reads,1);assert.equal(h.handlers.get('favorites-list')().importRequest,null);
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,useClipboard:false}]});h.handlers.get('floating-quick-action')(null,action.id);assert.equal(h.handlers.get('favorites-list')().importRequest.text,'');assert.equal(reads,1);
+ h.clipboard.readText=()=> 'x'.repeat(2*1024*1024+1);h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action]});assert.throws(()=>h.handlers.get('floating-quick-action')(null,action.id),/2 MB/);assert.equal(h.handlers.get('favorites-list')().items.length,0);
 });

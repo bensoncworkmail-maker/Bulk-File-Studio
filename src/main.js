@@ -15,6 +15,7 @@ const {FloatingWindow,windowDefaults}=require('./floating-window');
 const {tagMenu}=require('./floating-tag-menu');
 const {prepareBatch,executeBatch}=require('./favorites-batch');
 const {tagList,basename}=require('./favorites-model');
+const quickActions=require('./quick-actions-model');
 const {prepareTrash,executeTrash}=require('./favorites-trash');
 const globalShortcuts=require('./global-shortcuts');
 const {normalize:normalizeDesktop}=require('./desktop-state');
@@ -164,7 +165,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
+    const floatingAllowed=['floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
     if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
     return handler(event,...args);
   });
@@ -194,6 +195,25 @@ app.whenReady().then(() => {
   handle('notes-tabular-commit',(_,token)=>notesChanged(notesStore().tabularCommit(token)));
   handle('notes-grid-save',(_,entries,revision)=>notesChanged(notesStore().updateCells(entries,revision)));
   handle('notes-navigation',()=>{const next=pendingNotesNavigation;pendingNotesNavigation=null;return next;});
+  handle('quick-action-options',()=>{
+    const M=require('./notes-model'),doc=notesStore().get().document,live=doc.sheets.filter(sheet=>!sheet.deletedAt),masterSheets=new Set(doc.areas.map(area=>area.masterSheetId));
+    return {sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
+  });
+  handle('floating-quick-action',(_,id)=>{
+    const action=desktop.settings.floatingQuickActions.find(item=>item.id===id&&item.enabled);if(!action)throw new Error('快捷動作已移除或停用');
+    if(action.type==='import-paths'){
+      if(pendingImportRequest)throw new Error('上一個匯入要求仍待開啟，請先回主視窗完成');
+      const text=action.useClipboard?clipboard.readText():'';if(Buffer.byteLength(text,'utf8')>2*1024*1024)throw new Error('剪貼簿文字超過 2 MB，請改用手動貼上');
+      pendingImportRequest={tags:action.tags,text};favoriteActivation=true;focusMain();if(floating&&!floating.isDestroyed())floating.hide();notifyFavorites({activate:true});return {opened:true};
+    }
+    if(pendingNotesNavigation)throw new Error('上一個工作區要求仍待開啟，請先儲存或取消主視窗的編輯');
+    const M=require('./notes-model'),doc=notesStore().get().document,sheet=doc.sheets.find(sheet=>sheet.id===action.sheetId&&!sheet.deletedAt);if(!sheet)throw new Error('快捷動作的表格已移除，請在設定更改');
+    if(action.type==='new-record'){
+      const parent=M.parentField(doc,sheet);if(action.masterId&&!doc.records.some(record=>record.id===action.masterId&&record.sheetId===parent?.targetSheetId&&M.live(doc,record)))throw new Error('預設主紀錄已變更，請在設定重新選擇');
+      pendingNotesNavigation={newRecordSheetId:sheet.id,masterId:action.masterId||null};
+    }else pendingNotesNavigation={openSheetId:sheet.id};
+    focusMain();send(win,'notes-navigate',{});return {opened:true};
+  });
   handle('floating-workspace-new',()=>{const doc=notesStore().get().document,groups=doc.areas.filter(area=>doc.sheets.some(sheet=>sheet.id===area.masterSheetId&&!sheet.deletedAt));popupFloatingMenu(groups.length?groups.map(area=>({label:'＋ '+area.name,click:()=>{pendingNotesNavigation={newMasterSheetId:area.masterSheetId};focusMain();send(win,'notes-navigate',{});}})):[{label:'請先在主視窗建立群組主表',enabled:false}]);});
   handle('floating-workspace-list',(_,query='')=>require('./notes-tools-store').workspaceItems(notesStore().get().document,toolsStore().get().pins,query));
   handle('floating-workspace-open',(_,id,action='open')=>{if(action==='home'&&id===null){pendingNotesNavigation={home:true};focusMain();send(win,'notes-navigate',{});return;}const M=require('./notes-model'),doc=notesStore().get().document,record=doc.records.find(record=>record.id===id&&M.live(doc,record)&&doc.areas.some(area=>area.masterSheetId===record.sheetId));if(!record)throw new Error('主紀錄已移除');if(action==='copy'){clipboard.writeText(require('./notes-tools-store').contactText(doc,id));return;}if(action==='open'){navigateWorkspace(id);return;}if(action!=='menu')throw new Error('操作無效');const area=doc.areas.find(area=>area.masterSheetId===record.sheetId);popupFloatingMenu([{label:record.title,enabled:false},{label:'在工作區開啟',click:()=>navigateWorkspace(id)},{label:'複製聯絡資訊',click:floatingAction(()=>clipboard.writeText(require('./notes-tools-store').contactText(notesStore().get().document,id)))},{label:toolsStore().get().pins.includes(id)?'取消釘選':'釘選到浮動工具',click:floatingAction(()=>{toolsStore().pin(notesStore().get().document,id);toolsChanged();})},...M.detailSheets(doc,area.id).map(sheet=>({label:'＋ 新增'+sheet.name,click:()=>navigateWorkspace(id,sheet.id)}))]);});
@@ -290,6 +310,7 @@ app.whenReady().then(() => {
     const previous=desktop.settings;
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
     for(const key of ['mainShortcut','floatingShortcut','collapseShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
+    if(Object.hasOwn(patch,'floatingQuickActions'))quickActions.normalize(patch.floatingQuickActions,true);
     const candidate=normalizeDesktop({...previous,...patch});globalShortcuts.validatePair(candidate);closeFloatingMenu();
     const changed=previous.floatingShortcut!==candidate.floatingShortcut||previous.mainShortcut!==candidate.mainShortcut||previous.collapseShortcut!==candidate.collapseShortcut;
     if(changed){const warning=desktopShell.registerShortcuts(candidate);if(warning){shortcutWarning=desktopShell.registerShortcuts(previous);throw new Error(warning+' 已保留原設定。'+shortcutWarning);}}

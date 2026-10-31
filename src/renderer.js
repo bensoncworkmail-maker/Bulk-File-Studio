@@ -600,6 +600,7 @@ async function init() {
     if(changed.includes('rememberRules')&&settings.rememberRules)saveRulePreferences();
     if(changed.some(key=>key.startsWith('home')))window.homeUI?.settingsChanged();if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
   }});
+  window.quickActionsSettingsUI?.init({showFailure});
   setRuleTab('presets');initPresets();wireEvents();render();
   window.movingUI.init({showFailure,isBusy:()=>busy,onMoved:async result=>{
     const destinations=new Map(result.moves.map(move=>[norm(move.source),move.destination]));

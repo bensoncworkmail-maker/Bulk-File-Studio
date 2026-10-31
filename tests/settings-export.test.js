@@ -16,3 +16,8 @@ test('settings export includes workspace display preferences without workspace r
 test('compact sidebar configuration supports all master layouts and round-trips without workspace data',()=>{
  const {normalize}=require('../src/settings-model');for(const mode of ['flat','masters','groups']){const result=createSettingsExport({settings:{notesSidebarMode:mode,notesSidebarCompact:true,notesSidebarShowDetails:false},rules:{},presets:[]},{},'1.37.0');const loaded=normalize(JSON.parse(JSON.stringify(result.settings)));assert.equal(loaded.notesSidebarMode,mode);assert.equal(loaded.notesSidebarCompact,true);assert.equal(loaded.notesSidebarShowDetails,false);assert.equal(result.document,undefined);}assert.equal(normalize({notesSidebarMode:'invalid'}).notesSidebarMode,'masters');
 });
+
+test('quick-action configuration exports only configured IDs, labels and tags and normalizes on reload',()=>{
+ const id=require('node:crypto').randomUUID(),action={id,type:'import-paths',label:'匯入合約',tags:['合約'],useClipboard:true,enabled:false,clipboardText:'must not persist',path:'/private/file'};
+ const result=createSettingsExport({settings:{},rules:{}},{floatingQuickActions:[action],floatingShowQuickActions:false},'1.38.0');assert.equal(result.desktop.floatingShowQuickActions,false);assert.equal(result.desktop.floatingQuickActions[0].enabled,false);assert.equal(JSON.stringify(result).includes('must not persist'),false);assert.equal(JSON.stringify(result).includes('/private/file'),false);assert.deepEqual(require('../src/desktop-state').normalize(JSON.parse(JSON.stringify(result.desktop))).floatingQuickActions,result.desktop.floatingQuickActions);
+});

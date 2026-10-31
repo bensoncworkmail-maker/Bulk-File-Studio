@@ -43,3 +43,6 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 #mini-heading { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); font-size:11px; }
 #mini-main { margin-left:auto; }
 :root[data-collapsed=true] #mini-header .mini-drag-handle { flex:1; }
+
+.mini-quick-actions { display:flex; align-items:center; gap:5px; padding:5px 6px; overflow-x:auto; flex-shrink:0; border-bottom:1px solid var(--line); }
+.mini-quick-action { white-space:nowrap; padding:3px 7px; font-size:11px; min-height:26px; }

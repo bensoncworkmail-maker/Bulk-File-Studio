@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="notes.css">
     <link rel="stylesheet" href="app-layout.css">
     <link rel="stylesheet" href="home.css">
+    <link rel="stylesheet" href="operation-ui.css">
+    <script src="operation-ui.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -830,6 +832,20 @@
                 </section>
               </div>
               <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden>
+                <section class="settings-card">
+                  <h2>浮動快捷動作</h2>
+                  <label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
+                  <p class="rule-hint">最多 12 項。指定表格直接開新增表單，或預填標籤及剪貼簿路徑；紀錄儲存及路徑匯入仍需確認。</p>
+                  <div id="quick-action-list"></div>
+                  <div class="notes-tools"><button id="quick-action-add" type="button" class="btn btn-secondary">＋ 新增快捷動作</button><button id="quick-action-refresh" type="button" class="btn btn-ghost">重新讀取表格</button></div>
+                  <details id="quick-action-editor"><summary>編輯快捷動作</summary>
+                    <label class="field"><span>按鈕名稱</span><input id="quick-action-label" type="text" maxlength="30" placeholder="例如：新增聯絡人、匯入合約位置"></label>
+                    <label class="field"><span>操作類型</span><select id="quick-action-type"><option value="new-record">新增指定表格紀錄</option><option value="import-paths">匯入路徑並套用標籤</option><option value="open-sheet">開啟指定表格</option></select></label>
+                    <div id="quick-action-table-fields"><label class="field"><span>目標表格</span><select id="quick-action-sheet"></select></label><label id="quick-action-master-field" class="field" hidden><span>預設所屬主紀錄（選填）</span><select id="quick-action-master"></select></label></div>
+                    <div id="quick-action-import-fields" hidden><label class="field"><span>預設標籤，以逗號分隔</span><input id="quick-action-tags" type="text" placeholder="工作、合約"></label><label class="check-row"><input id="quick-action-clipboard" type="checkbox"><span>按下按鈕時帶入剪貼簿文字，先預覽再匯入</span></label></div>
+                    <button id="quick-action-save" type="button" class="btn btn-primary">儲存快捷動作</button>
+                  </details><p id="quick-action-status" class="rule-hint" role="status"></p>
+                </section>
                 <section class="settings-card">
                   <h2>視窗與快速入口</h2>
                   <label class="field">
@@ -2309,6 +2325,8 @@
     <script src="list-pagination.js" defer></script>
     <script src="file-location-groups.js" defer></script>
     <script src="settings-workbench.js" defer></script>
+    <script src="quick-actions-model.js" defer></script>
+    <script src="quick-actions-settings.js" defer></script>
     <script src="settings.js" defer></script>
     <script src="shortcuts.js" defer></script>
     <script src="moving.js" defer></script>
@@ -2322,5 +2340,6 @@
     <script src="app-search.js" defer></script>
     <script src="home.js" defer></script>
     <script src="renderer.js" defer></script>
-  </body>
+  <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>
+</body>
 </html>
