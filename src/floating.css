@@ -22,3 +22,7 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 .mini-workspace-row .mini-name{flex:1;min-width:0;height:auto;min-height:38px;text-align:left;}
 .mini-workspace-row .mini-name small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;opacity:.75;}
 .mini-workspace-row .mini-workspace-contact{user-select:text;}
+.mini-mixed-section{border-bottom:1px solid var(--line,#ddd);padding:4px 2px;}
+.mini-mixed-heading{display:block;width:100%;text-align:left;font-weight:700;padding:5px 6px;border:0;background:transparent;color:var(--accent,#8768dd);}
+.mini-mixed-tag{margin:3px;padding:4px 6px;font-size:11px;}
+.mini-workspace-new{margin:4px 6px;padding:4px 7px;font-size:11px;}

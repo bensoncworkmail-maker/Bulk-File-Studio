@@ -83,3 +83,17 @@ dialog.notes-record-dialog .notes-form-footer .btn{height:auto;min-height:34px;w
 .notes-table [role=gridcell]>input{min-width:100px;width:100%;height:29px;padding:3px 5px;}
 #notes-tools-dialog h3{margin:14px 0 5px;font-size:13px;}
 .notes-table [role=gridcell]>select,.notes-table [role=gridcell]>textarea{min-width:100px;width:100%;padding:3px 5px;font:inherit;}
+.notes-master-title-row>#notes-master-back{flex-shrink:0;order:0;}
+.notes-master-title-row>#notes-master-heading{order:1;}
+.notes-master-title-row>.notes-tools{order:2;}
+#notes-grid-paste-label{font-size:11px;display:flex;align-items:center;gap:4px;}
+#notes-grid-paste-label[hidden]{display:none;}
+.notes-table-mapping{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;padding:7px 0;}
+.notes-table-mapping .field{margin:0;}
+dialog.modal.notes-table-dialog{padding:0;overflow:hidden;height:min(800px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);}
+dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
+.notes-table-import-body{flex:1;min-height:0;overflow:auto;padding:12px 18px;}
+.notes-table-import-body .notes-hint{line-height:1.6;margin:6px 0;}
+.notes-table-import-body textarea{margin:8px 0;}
+.notes-table-import-body .notes-tools select{width:auto;max-width:250px;}
+.notes-table-dialog .notes-form-footer{flex-shrink:0;}
