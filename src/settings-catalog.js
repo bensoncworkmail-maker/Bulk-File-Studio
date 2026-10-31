@@ -139,6 +139,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "floatingTitle": "settings-floating-title",
     "floatingQuickMode": "settings-floating-quick-mode",
     "floatingKeepAfterQuick": "settings-floating-keep-quick",
     "floatingDropMode": "settings-floating-drop-mode",
@@ -205,6 +206,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "floatingTitle": "floating",
     "floatingQuickMode": "floating",
     "floatingKeepAfterQuick": "floating",
     "floatingDropMode": "floating",

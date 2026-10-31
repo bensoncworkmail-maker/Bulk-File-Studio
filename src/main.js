@@ -156,7 +156,7 @@ function showFloating(toggle=false){
     if(toggle&&floating.isVisible()){floating.hide();return;}
     floating.show();floating.focus();return;
   }
-  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · 浮動工具',autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
+  floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · '+(desktop.settings.floatingTitle||'浮動工具'),autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
   secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen);
   floating.on('hide',closeFloatingMenu);floating.on('close',closeFloatingMenu);
   floating.on('closed',()=>{capture?.destroy();floatingMenu=null;floating=null;floatingWindow=null;});floating.loadFile(path.join(__dirname,'floating.html'));
@@ -321,6 +321,7 @@ app.whenReady().then(() => {
     const previous=desktop.settings;
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
     for(const key of ['mainShortcut','floatingShortcut','collapseShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
+    if(Object.hasOwn(patch,'floatingTitle')&&require('./desktop-state').normalizeFloatingTitle(patch.floatingTitle)===null)throw new Error('浮動工具標題最多 40 字元，且不可包含控制字元');
     if(Object.hasOwn(patch,'floatingQuickActions'))quickActions.normalize(patch.floatingQuickActions,true);
     if(Object.hasOwn(patch,'floatingDropActionId')&&patch.floatingDropActionId!==''&&!quickActions.ID.test(patch.floatingDropActionId))throw new Error('拖放目標無效');
     const candidate=normalizeDesktop({...previous,...patch});globalShortcuts.validatePair(candidate);closeFloatingMenu();
@@ -331,7 +332,7 @@ app.whenReady().then(() => {
     if(!settings.explorerTagPrompt)pendingTagIds.clear();
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
-    if(floating&&!floating.isDestroyed()){floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
+    if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
     const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('desktop-reset-window',()=>{win.unmaximize();win.setBounds(desktop.bounds('reset',screen.getAllDisplays(),mainDefaults));});
