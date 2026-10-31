@@ -105,7 +105,7 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 #notes-master-heading{font-size:20px;line-height:1.3;font-weight:800;}
 .notes-sort-heading{display:block;width:100%;text-align:left;font:inherit;font-weight:700;border:0;background:none;color:inherit;padding:2px;cursor:pointer;}
 .notes-sort-heading:hover{color:var(--accent);}
-#notes-card-mode[hidden],#notes-card-select-hint[hidden]{display:none;}
+#notes-card-select-hint[hidden]{display:none;}
 #notes-card-select-hint{font-size:10px;color:var(--muted);}
 .notes-card.notes-marked{background:color-mix(in srgb,var(--accent) 12%,var(--panel));border-color:var(--accent);outline:1px solid var(--accent);outline-offset:-2px;}
 .notes-card-top input[type=checkbox]{width:19px;height:19px;}
