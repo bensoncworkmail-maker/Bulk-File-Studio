@@ -6,6 +6,19 @@
 
 使用 **Electron + Node.js** 開發的繁體中文 Windows 桌面工具：收藏檔案／資料夾位置、使用標籤分類，建立自訂資料表與關聯筆記，需要時批次重新命名或搬移，先預覽及檢查衝突。**預設離線運作，沒有遙測或自動更新；共享資料包另行啟用後，才會存取指定資料夾。**
 
+## v1.29.1：修正升級後缺少建置依賴
+
+修正 Windows 建置／來源啟動腳本只核對 Electron 版本，未偵測新增 `jszip`、`xml-js` 的問題。現在共用 `build/check-dependencies.js` 檢查正式與開發依賴是否安裝、版本是否符合、模組是否可載入，以及 Electron 執行檔是否存在。Windows 建置腳本缺件時會執行 `npm install --include=prod --include=dev`，再次檢查成功才開始建置；安裝失敗會停止。來源啟動只檢查、不自動安裝。直接 `npm start`／`npm run dist:*` 也有前置檢查，會列出缺少的套件與修復指令。
+
+已下載 v1.29.0 的原始碼如遇到 `Production dependency jszip not found`，請在專案目錄執行：
+
+```powershell
+npm install --include=prod --include=dev
+npm run dist:win
+```
+
+不需要移除工作區 SQLite、收藏或設定檔。依賴安裝屬於開發／建置階段，可能需要網路；安裝後的應用程式仍使用本機封裝套件離線讀取 Excel。
+
 ## v1.29.0：Excel 清單建立紀錄、混合浮動工作台與版本修正
 
 **儲存格的用途與貼上方式**：儲存格模式用於修改目前表格的既有資料（Enter／F2／雙擊開始），也能建立新資料。切換到儲存格時會將焦點移到表格，空表格也可貼上。第二列新增「儲存格貼上」選項：預設 **建立新紀錄**，開啟欄位對應及預覽；選擇 **更新既有儲存格** 才使用原本的矩形範圍更新（目前頁面內、最多 500 格）。在格內編輯的輸入框貼上，仍是修改該格的文字。
@@ -667,7 +680,7 @@ Windows 右鍵項目加入快捷字母 **B**。在檔案總管選取項目，以
 
 1. 安裝 [Node.js LTS](https://nodejs.org/)（包含 npm；建議 Node.js 24 或更新版本）。
 2. 在專案目錄執行 `npm install`，安裝開發與建置依賴；此步驟需要網路。
-3. 執行 `npm start` 或雙擊 `Start-App.cmd`。啟動腳本只檢查依賴與 Electron 版本，不會自動下載或安裝。
+3. 執行 `npm start` 或雙擊 `Start-App.cmd`。啟動腳本會檢查完整依賴與 Electron 執行檔；缺件時顯示修復指令，不會自動下載。
 
 ```powershell
 npm install

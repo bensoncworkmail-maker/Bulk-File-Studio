@@ -1,6 +1,6 @@
 {
   "name": "bulk-rename-studio",
-  "version": "1.29.0",
+  "version": "1.29.1",
   "description": "離線收藏、標籤、自訂資料工作區、批次重新命名與檔案搬移工具",
   "main": "src/main.js",
   "author": "Bulk File Studio",
@@ -10,7 +10,12 @@
     "test": "node --test tests/*.test.js",
     "dist:win": "electron-builder --win nsis portable --publish never",
     "dist:portable": "electron-builder --win portable --publish never",
-    "dist:setup": "electron-builder --win nsis --publish never"
+    "dist:setup": "electron-builder --win nsis --publish never",
+    "check:deps": "node build/check-dependencies.js",
+    "prestart": "node build/check-dependencies.js",
+    "predist:win": "node build/check-dependencies.js",
+    "predist:portable": "node build/check-dependencies.js",
+    "predist:setup": "node build/check-dependencies.js"
   },
   "devDependencies": {
     "electron": "45.1.0",

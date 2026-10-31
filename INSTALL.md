@@ -6,8 +6,8 @@
 
 | 版本 | 檔名範例 | 使用方式 |
 |---|---|---|
-| 完整安裝版 | `BulkFileStudio-Setup-1.29.0-x64.exe` | 雙擊並完成安裝，可於設定啟用 Windows 右鍵收藏 |
-| 可攜版 | `BulkFileStudio-Portable-1.29.0-x64.exe` | 雙擊直接執行，不提供 Windows 右鍵註冊 |
+| 完整安裝版 | `BulkFileStudio-Setup-1.29.1-x64.exe` | 雙擊並完成安裝，可於設定啟用 Windows 右鍵收藏 |
+| 可攜版 | `BulkFileStudio-Portable-1.29.1-x64.exe` | 雙擊直接執行，不提供 Windows 右鍵註冊 |
 
 架構需符合你的電腦；上表是 x64 範例。GitHub 的「Source code ZIP」是開發原始碼，並非已建置的安裝檔。若尚未有人提供 EXE，需先由開發者依 README 在 Windows 完成建置及驗證。
 
@@ -131,3 +131,14 @@
 浮動工具新增混合模式，可在設定選擇收藏／標籤／工作區區段及數量。工作區列提供複製聯絡資訊，亦可從「＋ 新增主檔」選群組並在主視窗填寫。主檔返回清單按鈕移到名稱左側；版本標示與更新紀錄已統一來源。
 
 原始碼建置時須重新執行 `npm install` 取得新增的本機 XLSX 讀取相依套件；安裝完成的應用程式讀檔不需要網路或安裝 Microsoft Excel。
+
+## 建置缺少 jszip／xml-js（v1.29.1 修正）
+
+升級到 v1.29.0 新增 Excel 讀取依賴後，舊的 node_modules 可能仍只有 Electron／建置工具。請在專案資料夾執行：
+
+```powershell
+npm install --include=prod --include=dev
+npm run dist:win
+```
+
+新版 Windows 建置腳本會偵測缺少或無法載入的依賴，安裝正式與開發套件，再檢查後繼續；失敗會停止。來源啟動腳本只檢查完整依賴並顯示修復指令，不會自動下載。直接執行 npm 建置／啟動也會先檢查依賴。`npm run check:deps` 可只檢查不安裝。不必刪除個人資料、工作區、收藏或設定；下載依賴只發生在開發／建置電腦。
