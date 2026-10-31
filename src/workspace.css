@@ -270,3 +270,5 @@ html,body { height:100%; overflow:hidden; }
 #settings-floating-tag-options{max-height:240px;overflow:auto;}
 #settings-floating-buttons .check-row,#settings-floating-tag-options .check-row{margin:0;min-width:0;overflow-wrap:anywhere;}
 #settings-panel-floating details>summary{cursor:pointer;padding:8px 0;}
+
+#tag-manage-dialog [hidden]{display:none!important;}

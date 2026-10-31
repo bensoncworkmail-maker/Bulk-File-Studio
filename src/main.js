@@ -251,7 +251,7 @@ app.whenReady().then(() => {
   });
   handle('favorites-import-preview',(_,text,tags)=>previewPathImport(favorites,text,tags));
   handle('favorites-import-paths',(_,text,tags,token)=>{const result=importPathList(favorites,text,tags,token);notifyFavorites();return result;});
-  handle('favorites-manage-tag',(_,name,replacement,count)=>{const result=favorites.manageTag(name,replacement,count);notifyFavorites();return result;});
+  handle('favorites-manage-tag',(_,name,replacement,count,options)=>{const result=favorites.manageTag(name,replacement,count,options);notifyFavorites();return result;});
   handle('favorites-add-tags',(_,ids,tags)=>{const result=favorites.addTags(ids,tags);notifyFavorites();return result;});
   handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
   handle('export-settings',async(_,input)=>{
@@ -398,13 +398,14 @@ app.whenReady().then(() => {
   });
   handle('favorites-copy-many',(_,ids)=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')));
   handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),history:require('./release-history'),offline:!notesShare?.config.enabled}));
-  handle('choose-move-folder',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇搬移目標（同一磁碟）',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
+  handle('choose-move-folder',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇搬移目標（可選另一個本機磁碟）',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
+  handle('choose-move-sources',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇要搬移的完整資料夾（包含所有子檔案）',properties:['openDirectory','multiSelections']});return result.canceled?[]:result.filePaths.map(assertLocalPath);});
   handle('move-preview',(_,paths,folder)=>planMove(paths,folder));
   handle('move-files',(_,paths,folder,expected)=>{
     const moves=planMove(paths,folder);
     if(JSON.stringify(moves)!==JSON.stringify(expected))throw new Error('搬移預覽已變更，請重新預覽');
-    const record={version:2,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
-    executeRelocation(moves);const warning=syncFavoriteMoves(moves);
+    const record={version:3,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
+    try{executeRelocation(moves,{onPrepared:()=>saveHistory(record)});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}const warning=syncFavoriteMoves(moves);
     try{saveHistory({...record,state:'completed'});}catch(e){return {changed:moves.length,moves,history:false,warning:warning+' 搬移成功，但復原紀錄無法儲存：'+e.message};}
     return {changed:moves.length,moves,history:true,warning};
   });
@@ -457,7 +458,7 @@ app.whenReady().then(() => {
     const reversed = h.kind==='move'?prepareMoveUndo(h):prepareUndo(h);
     // Keep interrupted undo from being replayed against a partially restored batch.
     saveHistory({ ...h, state: 'undoing' });
-    if(h.kind==='move')executeRelocation(reversed);else executeMoves(reversed);
+    if(h.kind==='move'){try{executeRelocation(reversed,{onPrepared:()=>saveHistory({...h,state:'undoing',undoMoves:reversed})});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}}else executeMoves(reversed);
     const favoriteWarning=syncFavoriteMoves(reversed);
     try { saveHistory(null); }
     catch (e) { return { changed: reversed.length, moves: reversed, warning: [favoriteWarning,`檔案已還原，但清除復原紀錄時發生錯誤：${e.message}`].filter(Boolean).join('\n') }; }

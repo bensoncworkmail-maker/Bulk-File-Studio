@@ -129,11 +129,18 @@ class FavoritesStore {
     for(const update of updates){update.item.tags=update.tags;update.item.updatedAt=new Date().toISOString();}
     this.write(data);return {updated:items.length};
   }
-  manageTag(name,replacement,expectedCount) {
+  manageTag(name,replacement,expectedCount,options={}) {
+    if(!options||typeof options!=='object'||Array.isArray(options)||options.removeFavorites!==undefined&&typeof options.removeFavorites!=='boolean')throw new Error('標籤刪除選項無效');
+    if(options.removeFavorites&&replacement!==null)throw new Error('只有刪除標籤時可一併移除收藏');
     const single=value=>{const tags=cleanTags([value]);if(tags.length!==1)throw new Error('請輸入非空白標籤');return tags[0];};
     const source=single(name),target=replacement===null?null:single(replacement),data=this.read();
     const affected=data.items.filter(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===source.toLocaleLowerCase()));
     if(!affected.length||affected.length!==expectedCount)throw new Error('標籤項目數量已變更，請重新整理後再試');
+    if(options.removeFavorites){
+      const ids=options.expectedIds;
+      if(!Array.isArray(ids)||ids.length!==affected.length||new Set(ids).size!==ids.length||affected.some(item=>!ids.includes(item.id)))throw new Error('標籤收藏項目已變更，請重新整理後再試');
+      const removed=new Set(ids);data.items=data.items.filter(item=>!removed.has(item.id));this.write(data);return {updated:0,removed:affected.length};
+    }
     for(const item of affected){item.tags=cleanTags(item.tags.flatMap(tag=>tag.toLocaleLowerCase()===source.toLocaleLowerCase()?(target===null?[]:[target]):[tag]));item.updatedAt=new Date().toISOString();}
     this.write(data);return {updated:affected.length};
   }
@@ -154,7 +161,7 @@ class FavoritesStore {
       const move=mapping.get(pathKey(item.path));
       if(!move||!sameIdentity(item.identity,move.expectedFingerprint))continue;
       // Keep swaps and repeated recovery attempts tied to the original file identity.
-      item.path=move.destination;item.updatedAt=new Date().toISOString();updated++;
+      item.path=move.destination;if(move.destinationFingerprint)item.identity=Object.fromEntries(identityKeys.map(key=>[key,move.destinationFingerprint[key]]));item.updatedAt=new Date().toISOString();updated++;
     }
     if(updated) {
       const unique=new Map();

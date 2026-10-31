@@ -1258,7 +1258,7 @@
                 <div class="toolbar-popover">
                   <button id="btn-fav-copy" class="btn btn-ghost" disabled>複製完整路徑</button>
                   <button id="btn-fav-edit" class="btn btn-ghost" disabled>編輯名稱／標籤</button>
-                  <button id="btn-fav-move" class="btn btn-ghost" disabled>搬移檔案</button>
+                  <button id="btn-fav-move" class="btn btn-ghost" disabled>搬移檔案／資料夾</button>
                   <button id="btn-fav-remove" class="btn btn-ghost" disabled>移除收藏紀錄</button>
                   <label class="check-row">
                     <input id="favorite-recursive" type="checkbox">
@@ -1296,6 +1296,7 @@
           <button class="btn btn-ghost" id="btn-focus-list">專注清單</button>
           <button class="btn btn-secondary" id="btn-extension">副檔名</button>
           <button class="btn btn-secondary" id="btn-move-selected" disabled>搬移選取檔案</button>
+          <button class="btn btn-ghost" id="btn-move-folders">搬移完整資料夾</button>
         </div>
         <div class="stats">
           <div class="stat">
@@ -1814,9 +1815,9 @@
       </div>
     </dialog>
     <dialog id="move-dialog" class="modal favorite-edit-dialog">
-      <h2>搬移檔案</h2>
+      <h2>搬移檔案／資料夾</h2>
       <p id="move-count"></p>
-      <p>只支援同一磁碟且支援硬連結的一般檔案（例如 NTFS；不支援 FAT／exFAT）；不覆寫、不搬移整個資料夾。這次操作會取代上一批復原紀錄。</p>
+      <p>可搬移至另一個本機磁碟；資料夾包含所有子檔案與空資料夾，保留原有名稱與層級。目標同名時整批取消，不會合併或覆寫。跨磁碟先複製並校驗，全部成功後才移除來源；這次操作會取代上一批復原紀錄。</p>
       <button id="btn-move-target" class="btn btn-secondary">選擇目標資料夾</button>
       <code id="move-target"></code>
       <pre id="move-preview-list"></pre>
@@ -1879,9 +1880,14 @@
           <span>新標籤名稱</span>
           <input type="text" id="tag-manage-name" maxlength="32" autocomplete="off">
         </label>
+        <label id="tag-remove-favorites-field" class="checkbox-field" hidden>
+          <input id="tag-remove-favorites" type="checkbox">
+          <span>一併移除此標籤下的全部收藏連結（包含還有其他標籤的收藏）</span>
+        </label>
+        <p id="tag-remove-favorites-note" class="rule-hint" hidden>實際檔案及資料夾會保留。移除收藏連結後，工作區中使用該收藏的連結需重新選取。</p>
         <div class="modal-buttons">
           <button type="button" id="btn-tag-manage-cancel" class="btn btn-secondary">取消</button>
-          <button type="submit" class="btn btn-primary">確認</button>
+          <button id="btn-tag-manage-confirm" type="submit" class="btn btn-primary">確認</button>
         </div>
       </form>
     </dialog>

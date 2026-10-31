@@ -345,7 +345,7 @@ function render() {
   const canRun = !busy && !previewPending && counts.ready > 0 && counts.error === 0;
   const blocker = counts.error > 0;
   $('btn-run').disabled = !canRun;
-  $('btn-move-selected').disabled=busy||!selected.size;
+  $('btn-move-selected').disabled=busy||!selected.size;$('btn-move-folders').disabled=busy;
   $('btn-undo').disabled = busy || !history;
   $('btn-export').disabled = busy || !selCount;
   $('btn-favorite-selected').disabled = busy || !selCount;
@@ -542,13 +542,14 @@ async function init() {
     if(changed.some(key=>key.startsWith('home')))window.homeUI?.settingsChanged();if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
   }});
   setRuleTab('presets');initPresets();wireEvents();render();
-  window.movingUI.init({showFailure,onMoved:async result=>{
+  window.movingUI.init({showFailure,isBusy:()=>busy,onMoved:async result=>{
     const destinations=new Map(result.moves.map(move=>[norm(move.source),move.destination]));
-    files=files.map(file=>destinations.get(norm(file))||file);selected.clear();history=await api.history().catch(()=>null);await updatePreview();await window.favoritesUI.refresh();showToast(`已搬移 ${result.changed} 個檔案`,'success');
+    files=files.map(file=>destinations.get(norm(file))||file);selected.clear();history=await api.history().catch(()=>null);await updatePreview();await window.favoritesUI.refresh();showToast(`已搬移 ${result.changed} 個項目`,'success');
   }});
   window.sidebarResize.initSource({getWidth:()=>window.settingsUI.get().sourcePanelWidth,save:value=>window.settingsUI.update({sourcePanelWidth:value}),isBusy:()=>busy});
   window.sidebarResize.initRules({getWidth:()=>Number(window.settingsUI.get().rulesWidth),save:value=>window.settingsUI.update({rulesWidth:String(value)}),isBusy:()=>busy});
   $('btn-move-selected').addEventListener('click',()=>window.movingUI.start(files.filter(p=>selected.has(norm(p)))));
+  $('btn-move-folders').addEventListener('click',()=>window.movingUI.chooseSources());
   window.notesUI.init({showToast,showFailure});
   window.sidebarResize.initNotes({getWidth:()=>window.settingsUI.get().notesPanelWidth,save:value=>window.settingsUI.update({notesPanelWidth:value}),isBusy:()=>busy||window.notesUI.isBusy()||window.notesUI.hasOpenDialog()});
   window.appSearchUI.init({showFailure,isBusy:()=>busy,transient:()=>({sources:files,presets:[...savedPresets.map(item=>({id:item.id,name:item.name,rules:item.rules})),...BUILTIN_PRESETS.map(item=>({id:'builtin:'+item.id,name:item.name,description:item.description}))]}),showPreset:id=>{window.favoritesUI.show('rename');setRuleTab('presets');if(id.startsWith('builtin:')){$('preset-select').value=id.slice(8);$('preset-select').dispatchEvent(new Event('change'));}else renderSavedPresets(id);},showSources:()=>window.favoritesUI.show('rename')});
