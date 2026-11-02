@@ -750,9 +750,12 @@
                 </section>
                 <section class="settings-card">
                   <h2>共享資料包</h2>
-                  <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；其他資料包仍需先預覽再匯入。</p>
+                  <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；新資料可選提醒、自動套用指定來源或忽略。</p>
                   <p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
-                  <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button>
+                  <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button><label class="field"><span>發現其他人發布的新資料包時</span><select id="settings-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
+<label class="field"><span>跟隨的發布來源 ID</span><select id="settings-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
+<p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以「合併，更新相同識別碼」手動匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
+<p id="settings-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="settings-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="settings-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
                 </section>
               </div>
               <div id="settings-panel-search" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-search" hidden>
@@ -2015,7 +2018,7 @@
     </dialog>
     <dialog id="notes-share-dialog" class="modal notes-modal" aria-labelledby="notes-share-title">
       <h2 id="notes-share-title">共享資料包（選用）</h2>
-      <p class="notes-hint">主資料庫留在本機。啟用後會存取指定資料夾，可能經區域網路；只分享資料包，收到資料仍須預覽匯入。資料包包含有效紀錄、筆記與路徑，可能含聯絡資訊，不包含原始檔案。</p>
+      <p class="notes-hint">主資料庫留在本機。啟用後會存取指定資料夾，可能經區域網路；只分享資料包，接收方式可選提醒、自動套用或忽略。資料包包含有效紀錄、筆記與路徑，可能含聯絡資訊，不包含原始檔案。</p>
       <div class="notes-file-row">
         <code id="notes-share-folder">尚未選取資料夾</code>
         <button id="notes-share-choose" class="btn btn-secondary">選取資料夾</button>
@@ -2038,13 +2041,18 @@
         <input id="notes-share-auto" type="checkbox">
         <span>定期檢查後，資料有變更時自動發佈全部有效紀錄（預設關閉）</span>
       </label>
+      <label class="field"><span>發現其他人發布的新資料包時</span><select id="notes-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
+<label class="field"><span>跟隨的發布來源 ID</span><select id="notes-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
+<p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以「合併，更新相同識別碼」手動匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
+<p id="notes-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="notes-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="notes-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
+      <p class="notes-hint">本機發布來源 ID：<code id="notes-share-device"></code></p>
       <div class="notes-tools">
         <button id="notes-share-check" class="btn btn-secondary">立即檢查</button>
         <button id="notes-share-publish" class="btn btn-secondary">發佈目前快照</button>
       </div>
       <p id="notes-share-status" class="notes-hint" role="status"></p>
       <div id="notes-share-files" class="notes-preview-list"></div>
-      <p class="notes-hint">每次發佈建立獨立資料包，避免不同電腦互相覆寫；不自動合併或刪除舊資料包。最多列出最近 50 份，請定期整理分享資料夾。停用會停止後續檢查與發佈，已發佈的資料包會保留。</p>
+      <p class="notes-hint">每次發佈建立獨立資料包，避免不同電腦互相覆寫；依接收設定處理新資料，不刪除舊資料包。最多列出最近 50 份，請定期整理分享資料夾。停用會停止後續檢查與發佈，已發佈的資料包會保留。</p>
       <div class="modal-buttons">
         <button id="notes-share-close" class="btn btn-secondary">關閉</button>
       </div>
@@ -2367,6 +2375,7 @@
     <script src="favorites.js" defer></script>
     <script src="everything.js" defer></script>
     <script src="notes-model.js" defer></script>
+    <script src="share-receive-ui.js" defer></script>
     <script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
     <script src="home.js" defer></script>

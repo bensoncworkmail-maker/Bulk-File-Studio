@@ -52,7 +52,9 @@ const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 let favorites,everything;
-let notes,notesImportDocument,notesShare,notesTools,pendingNotesNavigation=null;
+let notes,notesImportDocument,notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
+const shareIdleRequests=new Map();
+function shareIdle(){if(!win||win.isDestroyed())return Promise.resolve(false);return new Promise(resolve=>{const id=require('node:crypto').randomUUID(),timer=setTimeout(()=>{shareIdleRequests.delete(id);resolve(false);},1500);shareIdleRequests.set(id,value=>{clearTimeout(timer);shareIdleRequests.delete(id);resolve(value===true);});send(win,'notes-share-idle-query',id);});}
 function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(app.getPath('userData'),'workspace-tools.json'));return notesTools;}
 function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});return result;}
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
@@ -187,13 +189,18 @@ app.whenReady().then(() => {
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
-  notesShare=new NotesShare(path.join(app.getPath('userData'),'workspace-share.json'),{snapshot:()=>{const current=notesStore().get();return {revision:current.revision,data:require('./notes-model').exportPackage(current.document,{scope:'all'})};},createWorker:()=>utilityProcess.fork(path.join(__dirname,'notes-share-worker.js'),[],{stdio:'ignore',serviceName:'Studio Workspace Share'}),onChange:value=>send(win,'notes-share-changed',value)});
+  notesShare=new NotesShare(path.join(app.getPath('userData'),'workspace-share.json'),{applyUpdate:async(data,revision,stillEnabled)=>{
+    if(!await shareIdle()||!stillEnabled()||capture?.window&&!capture.window.isDestroyed()||fileOperationBusy)return {deferred:true,reason:'正在編輯、執行操作或尚未取得主視窗閒置確認，稍後會重試。'};
+    const result=notesStore().importShared(data,revision);if(result.deferred)return result;notesChanged(result);return {revision:result.revision,backup:result.result.backup};
+  },snapshot:()=>{const current=notesStore().get();return {revision:current.revision,data:require('./notes-model').exportPackage(current.document,{scope:'all'})};},createWorker:()=>utilityProcess.fork(path.join(__dirname,'notes-share-worker.js'),[],{stdio:'ignore',serviceName:'Studio Workspace Share'}),onChange:value=>{if(value.error)diagnostics.record('main','share-background',value.error);send(win,'notes-share-changed',value);}});
+  handle('notes-share-idle',(_,id,idle)=>{const reply=typeof id==='string'?shareIdleRequests.get(id):null;if(reply)reply(idle);return {received:Boolean(reply)};});
+  handle('notes-share-ignore',(_,name)=>notesShare.ignore(name));
   handle('notes-share-status',()=>notesShare.status());
   handle('notes-share-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取共享資料包資料夾（啟用後可能透過區域網路存取）',properties:['openDirectory']});return result.canceled?{canceled:true}:notesShare.choose(result.filePaths[0]);});
   handle('notes-share-configure',(_,patch)=>notesShare.configure(patch));
   handle('notes-share-check',()=>notesShare.check());
   handle('notes-share-publish',()=>notesShare.publish());
-  handle('notes-share-load',async(_,name)=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;return {name,canceled:false};});
+  handle('notes-share-load',async(_,name)=>{notesImportDocument=null;sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;sharedImport={name,sharing:result.sharing};return {name,canceled:false};});
   handle('studio-home',()=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],pins:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('釘選／檢視讀取失敗：'+error.message);}return {...require('./home-model').snapshot({document,tools,favorites:favorites.read().items}),warnings};});
   handle('studio-search',(_,query,options,transient)=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],templates:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('檢視／範本讀取失敗：'+error.message);}return {...require('./app-search-model').search({document,favorites:favorites.read().items,tools,transient:transient||{}},query,options||{}),warnings};});
   handle('studio-search-copy',(_,value)=>{clipboard.writeText(require('./notes-model').text(value,4096,'位置文字',true));});
@@ -281,11 +288,11 @@ app.whenReady().then(() => {
     notesStore().takePreview(token,'export');const result=await dialog.showSaveDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});
     if(result.canceled||!result.filePath)return {canceled:true};const pending=notesStore().takePreview(token,'export');writePackageFile(result.filePath,pending.data);return {canceled:false,path:result.filePath};
   });
-  handle('notes-import-choose',async()=>{notesImportDocument=null;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};notesImportDocument=readPackageFile(result.filePaths[0]);return {canceled:false,name:path.basename(result.filePaths[0])};});
-  handle('notes-import-preview',(_,mode)=>{if(!notesImportDocument)throw new Error('請先選取資料包');return notesStore().importPreview(notesImportDocument,mode);});
+  handle('notes-import-choose',async()=>{sharedImport=null;sharedImportToken=null;notesImportDocument=null;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};notesImportDocument=readPackageFile(result.filePaths[0]);return {canceled:false,name:path.basename(result.filePaths[0])};});
+  handle('notes-import-preview',(_,mode)=>{if(!notesImportDocument)throw new Error('請先選取資料包');const result=notesStore().importPreview(notesImportDocument,mode);sharedImportToken=mode==='update'&&sharedImport?result.token:null;return result;});
   handle('notes-backup-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取本程式的匯入前／還原前／升級前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']});if(result.canceled)return {canceled:true};return notesStore().restorePreview(result.filePaths[0]);});
   handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
-  handle('notes-import-commit',(_,token)=>notesChanged(notesStore().importCommit(token)));
+  handle('notes-import-commit',(_,token)=>{const result=notesChanged(notesStore().importCommit(token));if(sharedImportToken===token&&sharedImport){try{notesShare.accept(sharedImport,result.revision);}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
   handle('everything-choose',async()=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const result=await dialog.showOpenDialog(win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']});return result.canceled?{canceled:true}:everything.choose(result.filePaths[0]);});
@@ -605,7 +612,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{process.removeListener('uncaughtExceptionMonitor',monitorException);capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{process.removeListener('uncaughtExceptionMonitor',monitorException);for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

@@ -78,6 +78,13 @@ class NotesStore {
   this.pending={kind:'restore',token:crypto.randomUUID(),revision:state.revision,data:document,expires:Date.now()+600000};return {token:this.pending.token,records:document.records.map(record=>({title:record.title,sheet:document.sheets.find(sheet=>sheet.id===record.sheetId).name})),sheets:document.sheets.map(sheet=>({name:sheet.name,count:document.records.filter(record=>record.sheetId===sheet.id).length})),name:path.basename(filename)};
  }
  restoreCommit(token){const pending=this.takePreview(token,'restore'),backup=this.backup('before-restore');return this.change(doc=>{Object.assign(doc,pending.data);return {backup};},pending.revision);}
+ importShared(input,expectedRevision){
+  if(this.pending&&this.pending.expires>Date.now())return {deferred:true,reason:'目前有尚未完成的匯入／匯出預覽，稍後會重試。'};
+  const state=this.get();if(state.revision!==expectedRevision)return {deferred:true,reason:'本機資料已變更，請手動預覽匯入。'};
+  const incoming=model.readPackage(input),merged=model.mergeDocument(state.document,incoming,'update',()=>crypto.randomUUID(),new Date().toISOString());
+  if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
+  const backup=this.backup('before-import');return this.change(doc=>{Object.assign(doc,merged.document);return {backup,...merged.summary};},expectedRevision);
+ }
  importCommit(token){
   const pending=this.takePreview(token,'import'),backup=this.backup('before-import');
   const result=this.change(doc=>{Object.assign(doc,pending.data);return {backup,...pending.summary};},pending.revision);return result;

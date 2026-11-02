@@ -36,7 +36,7 @@ function harness(t, overrides = {}) {
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
-    __dirname:path.dirname(main), process
+    __dirname:path.dirname(main), process, setTimeout, clearTimeout
   }, { filename:main });
   return {clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
@@ -337,4 +337,13 @@ test('diagnostic export and clearing are explicit and cancellation preserves log
  h.dialog.showSaveDialog=async()=>({canceled:false,filePath:file});const exported=await h.handlers.get('diagnostics-export')();assert.equal(exported.count,1);const data=JSON.parse(fs.readFileSync(file));assert.equal(data.format,'BulkFileStudio.Diagnostics');assert.equal(data.entries[0].message,'example');assert.equal(data.environment.version,require('../package.json').version);
  h.dialog.showMessageBox=async(_,options)=>{assert.equal(options.defaultId,1);return {response:1};};assert.equal((await h.handlers.get('diagnostics-clear')()).canceled,true);assert.equal(h.handlers.get('diagnostics-status')(null,true).recent.length,1);
  h.dialog.showMessageBox=async()=>({response:0});assert.equal((await h.handlers.get('diagnostics-clear')()).removed,1);assert.equal(h.handlers.get('diagnostics-status')(null,true).recent.length,0);assert.equal(fs.existsSync(file),true);
+});
+
+test('shared updates establish baseline only after confirmed update import, require renderer idle and back up before auto apply',async t=>{
+ const {fork}=require('node:child_process'),crypto=require('node:crypto'),M=require('../src/notes-model'),{perform,packageIdentity}=require('../src/notes-share-worker');
+ const h=harness(t,{utilityProcess:{fork(modulePath){const child=fork(modulePath,{silent:true});child.postMessage=value=>child.send(value);return child;}}}),folder=path.join(h.dir,'shared');fs.mkdirSync(folder);h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});await h.handlers.get('notes-share-choose')();
+ const source=crypto.randomUUID(),document=M.template(()=>crypto.randomUUID(),'2026-11-02T00:00:00Z');let remoteRevision=0,publicationTime=Date.now();const publish=()=>{const result=perform({action:'publish',folder,deviceId:source,revision:++remoteRevision,data:M.exportPackage(document,{scope:'all'})});const name=result.name.replace('-'+packageIdentity(result.name).published+'-','-'+(publicationTime++)+'-');if(name!==result.name)fs.renameSync(path.join(folder,result.name),path.join(folder,name));return name;};
+ h.handlers.get('notes-share-configure')(null,{enabled:true,followSource:source,receiveMode:'auto'});const first=publish();await h.handlers.get('notes-share-check')();assert.equal(h.handlers.get('notes-share-status')().lastAccepted,null);await h.handlers.get('notes-share-load')(null,first);const preview=h.handlers.get('notes-import-preview')(null,'update');h.handlers.get('notes-import-commit')(null,preview.token);assert.equal(h.handlers.get('notes-share-status')().lastAccepted.name,first);
+ let idle=false;h.windows[0].webContents.send=(channel,id)=>{if(channel==='notes-share-idle-query')h.handlers.get('notes-share-idle')(null,id,idle);};document.areas[0].name='Changed remotely';const next=publish();await h.handlers.get('notes-share-check')();assert.equal(h.handlers.get('notes-share-status')().lastAccepted.name,first);idle=true;await h.handlers.get('notes-share-check')();const received=h.handlers.get('notes-share-status')();assert.equal(received.lastAccepted.name,next);assert.ok(fs.existsSync(received.lastAutoBackup));assert.equal(h.handlers.get('notes-get')().document.areas[0].name,'Changed remotely');
+ h.handlers.get('notes-template')();document.areas[0].name='Second remote update';publish();await h.handlers.get('notes-share-check')();assert.match(h.handlers.get('notes-share-status')().notice.reason,/本機.*修改/);assert.equal(h.handlers.get('notes-get')().document.areas[0].name,'Changed remotely');
 });
