@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage, utilityProcess } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage, utilityProcess, Notification } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
 const {resolveMoveSources,planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
@@ -41,6 +41,16 @@ const diagnostics=new DiagnosticLog(path.join(app.getPath('userData'),'logs'),{g
 const monitorException=error=>diagnostics.record('main','uncaughtException',error);
 process.on('uncaughtExceptionMonitor',monitorException);
 function loggedInvocation(source,action,task){try{const result=task();if(result&&typeof result.then==='function')return result.catch(error=>{diagnostics.record(source,action,error);throw error;});return result;}catch(error){diagnostics.record(source,action,error);throw error;}}
+let sharedNotification=null,lastSharedNotification='';
+function updateSharedNotification(value){
+ try{
+  if(!value.enabled||!value.desktopNotifications){sharedNotification?.close();sharedNotification=null;lastSharedNotification='';return;}
+  if(!value.notice){sharedNotification?.close();sharedNotification=null;return;}
+  if(value.busy||value.notice.name===lastSharedNotification||!Notification?.isSupported?.())return;
+  sharedNotification?.close();const notice=new Notification({title:'共享資料包有更新',body:'有待預覽的共享資料更新，按此回到 Bulk File Studio。'});
+  notice.on('click',()=>{focusMain();send(win,'notes-share-open-request',{});});notice.on('failed',(_,error)=>diagnostics.record('main','share-notification',String(error||'桌面通知未能顯示')));notice.show();sharedNotification=notice;lastSharedNotification=value.notice.name;
+ }catch(error){diagnostics.record('main','share-notification',error);}
+}
 function closeFloatingMenu(){if(floatingMenu){floatingMenu.closePopup(floating);floatingMenu=null;}}
 function floatingAction(task){return async()=>{try{await task();}catch(error){diagnostics.record('floating','native-menu',error);send(floating,'desktop-settings-changed',{error:String(error.message||error)});}};}
 function popupFloatingMenu(template,{allowCollapsed=false}={}){
@@ -52,7 +62,7 @@ const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
 let favorites,everything;
-let notes,notesImportDocument,notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
+let notes,notesImportDocument,notesImportName='',notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
 const shareIdleRequests=new Map();
 function shareIdle(){if(!win||win.isDestroyed())return Promise.resolve(false);return new Promise(resolve=>{const id=require('node:crypto').randomUUID(),timer=setTimeout(()=>{shareIdleRequests.delete(id);resolve(false);},1500);shareIdleRequests.set(id,value=>{clearTimeout(timer);shareIdleRequests.delete(id);resolve(value===true);});send(win,'notes-share-idle-query',id);});}
 function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(app.getPath('userData'),'workspace-tools.json'));return notesTools;}
@@ -177,6 +187,7 @@ function registerShortcut(){return desktopShell.registerShortcuts();}
 if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites})) {
 app.on('second-instance', (_, argv, workingDirectory, additionalData) => receiveFavorites(argv,additionalData?.favoritePaths));
 app.whenReady().then(() => {
+  if(process.platform==='win32')app.setAppUserModelId?.(app.isPackaged?'app.bulkrenamestudio.desktop':process.execPath);
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
@@ -189,10 +200,10 @@ app.whenReady().then(() => {
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
-  notesShare=new NotesShare(path.join(app.getPath('userData'),'workspace-share.json'),{applyUpdate:async(data,revision,stillEnabled)=>{
+  notesShare=new NotesShare(path.join(app.getPath('userData'),'workspace-share.json'),{applyUpdate:async(data,revision,stillEnabled,context)=>{
     if(!await shareIdle()||!stillEnabled()||capture?.window&&!capture.window.isDestroyed()||fileOperationBusy)return {deferred:true,reason:'正在編輯、執行操作或尚未取得主視窗閒置確認，稍後會重試。'};
-    const result=notesStore().importShared(data,revision);if(result.deferred)return result;notesChanged(result);return {revision:result.revision,backup:result.result.backup};
-  },snapshot:()=>{const current=notesStore().get();return {revision:current.revision,data:require('./notes-model').exportPackage(current.document,{scope:'all'})};},createWorker:()=>utilityProcess.fork(path.join(__dirname,'notes-share-worker.js'),[],{stdio:'ignore',serviceName:'Studio Workspace Share'}),onChange:value=>{if(value.error)diagnostics.record('main','share-background',value.error);send(win,'notes-share-changed',value);}});
+    const result=notesStore().importShared(data,revision,context);if(result.deferred)return result;notesChanged(result);return {revision:result.revision,backup:result.result.backup};
+  },snapshot:()=>{const current=notesStore().get();return {revision:current.revision,data:require('./notes-model').exportPackage(current.document,{scope:'all'})};},createWorker:()=>utilityProcess.fork(path.join(__dirname,'notes-share-worker.js'),[],{stdio:'ignore',serviceName:'Studio Workspace Share'}),onChange:value=>{if(value.error)diagnostics.record('main','share-background',value.error);updateSharedNotification(value);send(win,'notes-share-changed',value);}});
   handle('notes-share-idle',(_,id,idle)=>{const reply=typeof id==='string'?shareIdleRequests.get(id):null;if(reply)reply(idle);return {received:Boolean(reply)};});
   handle('notes-share-ignore',(_,name)=>notesShare.ignore(name));
   handle('notes-share-status',()=>notesShare.status());
@@ -200,7 +211,7 @@ app.whenReady().then(() => {
   handle('notes-share-configure',(_,patch)=>notesShare.configure(patch));
   handle('notes-share-check',()=>notesShare.check());
   handle('notes-share-publish',()=>notesShare.publish());
-  handle('notes-share-load',async(_,name)=>{notesImportDocument=null;sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;sharedImport={name,sharing:result.sharing};return {name,canceled:false};});
+  handle('notes-share-load',async(_,name)=>{notesImportDocument=null;sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;const result=await notesShare.read(name);notesImportDocument=result.data;notesImportName=name;sharedImport={name,sharing:result.sharing};return {name,canceled:false};});
   handle('studio-home',()=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],pins:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('釘選／檢視讀取失敗：'+error.message);}return {...require('./home-model').snapshot({document,tools,favorites:favorites.read().items}),warnings};});
   handle('studio-search',(_,query,options,transient)=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],templates:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('檢視／範本讀取失敗：'+error.message);}return {...require('./app-search-model').search({document,favorites:favorites.read().items,tools,transient:transient||{}},query,options||{}),warnings};});
   handle('studio-search-copy',(_,value)=>{clipboard.writeText(require('./notes-model').text(value,4096,'位置文字',true));});
@@ -288,11 +299,13 @@ app.whenReady().then(() => {
     notesStore().takePreview(token,'export');const result=await dialog.showSaveDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});
     if(result.canceled||!result.filePath)return {canceled:true};const pending=notesStore().takePreview(token,'export');writePackageFile(result.filePath,pending.data);return {canceled:false,path:result.filePath};
   });
-  handle('notes-import-choose',async()=>{sharedImport=null;sharedImportToken=null;notesImportDocument=null;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};notesImportDocument=readPackageFile(result.filePaths[0]);return {canceled:false,name:path.basename(result.filePaths[0])};});
-  handle('notes-import-preview',(_,mode)=>{if(!notesImportDocument)throw new Error('請先選取資料包');const result=notesStore().importPreview(notesImportDocument,mode);sharedImportToken=mode==='update'&&sharedImport?result.token:null;return result;});
+  handle('notes-import-choose',async()=>{sharedImport=null;sharedImportToken=null;notesImportDocument=null;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};notesImportDocument=readPackageFile(result.filePaths[0]);notesImportName=path.basename(result.filePaths[0]);return {canceled:false,name:path.basename(result.filePaths[0])};});
+  handle('notes-preview-cancel',(_,token)=>notesStore().cancelPreview(token));
+  handle('notes-import-details',(_,token,key)=>notesStore().importDetails(token,key));
+  handle('notes-import-preview',(_,mode)=>{if(!notesImportDocument)throw new Error('請先選取資料包');const context=sharedImport?{source:sharedImport.sharing?.source||'未提供來源',sourceRevision:sharedImport.sharing?.revision??null,packageName:sharedImport.name}:{source:'手動選取資料包',packageName:notesImportName};const result=notesStore().importPreview(notesImportDocument,mode,context);sharedImportToken=sharedImport?{token:result.token,mode}:null;return result;});
   handle('notes-backup-choose',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取本程式的匯入前／還原前／升級前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']});if(result.canceled)return {canceled:true};return notesStore().restorePreview(result.filePaths[0]);});
   handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
-  handle('notes-import-commit',(_,token)=>{const result=notesChanged(notesStore().importCommit(token));if(sharedImportToken===token&&sharedImport){try{notesShare.accept(sharedImport,result.revision);}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
+  handle('notes-import-commit',(_,token)=>{const result=notesChanged(notesStore().importCommit(token));if(sharedImportToken?.token===token&&sharedImport){try{notesShare.completeImport(sharedImport,result.revision,sharedImportToken.mode);}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
   handle('everything-choose',async()=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const result=await dialog.showOpenDialog(win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']});return result.canceled?{canceled:true}:everything.choose(result.filePaths[0]);});
@@ -609,10 +622,11 @@ app.whenReady().then(() => {
   if(queuedFavorites.length)receiveFavorites([]);
   shortcutWarning=registerShortcut();if(shortcutWarning)send(win,'desktop-settings-changed',{warning:shortcutWarning});
   if(desktop.settings.floatingStartup)showFloating();
+  Promise.resolve().then(()=>{if(notesShare.config.enabled)return notesShare.tick();}).catch(error=>diagnostics.record('main','share-startup',error));
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{process.removeListener('uncaughtExceptionMonitor',monitorException);for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

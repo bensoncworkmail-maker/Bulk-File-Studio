@@ -34,7 +34,7 @@
         </div>
         <nav class="studio-tabs" aria-label="主要功能">
           <button id="tab-home" class="studio-tab" aria-pressed="false">⌂ 首頁</button>
-          <button id="tab-notes" class="studio-tab" aria-pressed="false">▦ 資料工作區</button>
+          <button id="tab-notes" class="studio-tab" aria-pressed="false">▦ 資料工作區 <span id="share-update-badge" class="count-pill" hidden>有更新</span></button>
           <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
           <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button>
           <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
@@ -49,6 +49,7 @@
           <button id="btn-floating" class="btn btn-secondary" title="叫出浮動工具，可在設定更改全域快捷鍵">▣ 浮動工具</button>
         </div>
       </header>
+      <aside id="share-update-banner" class="share-update-banner" role="status" hidden><div><strong>共享資料有待處理更新</strong><p id="share-update-message"></p></div><button id="share-update-open" class="btn btn-secondary">檢視更新</button><button id="share-update-ignore" class="btn btn-ghost">忽略這一份</button></aside>
       <section id="home-page" class="home-page hidden" aria-labelledby="home-title">
         <div class="home-heading">
           <div>
@@ -749,10 +750,16 @@
                   <p class="rule-hint">資料工作區偏好包含於「匯出設定 JSON」；資料本身請使用工作區資料包匯出。</p>
                 </section>
                 <section class="settings-card">
+                  <h2>匯入預設與備份</h2>
+                  <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="skip">合併，略過重複紀錄</option><option value="update">合併，更新相同識別碼</option></select></label>
+                  <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="update">合併，更新相同識別碼（持續接收更新）</option><option value="copy">另存副本（獨立參考）</option><option value="skip">合併，略過重複紀錄</option></select></label>
+                  <p class="rule-hint">只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
+                </section><section class="settings-card">
                   <h2>共享資料包</h2>
                   <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；新資料可選提醒、自動套用指定來源或忽略。</p>
                   <p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
-                  <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button><label class="field"><span>發現其他人發布的新資料包時</span><select id="settings-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
+                  <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button><label class="check-row"><input id="settings-share-notifications" type="checkbox"><span>共享有更新時顯示桌面通知（仍受系統通知設定影響）</span></label>
+<label class="field"><span>發現其他人發布的新資料包時</span><select id="settings-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
 <label class="field"><span>跟隨的發布來源 ID</span><select id="settings-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
 <p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以「合併，更新相同識別碼」手動匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
 <p id="settings-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="settings-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="settings-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
@@ -2041,7 +2048,8 @@
         <input id="notes-share-auto" type="checkbox">
         <span>定期檢查後，資料有變更時自動發佈全部有效紀錄（預設關閉）</span>
       </label>
-      <label class="field"><span>發現其他人發布的新資料包時</span><select id="notes-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
+      <label class="check-row"><input id="notes-share-notifications" type="checkbox"><span>共享有更新時顯示桌面通知（仍受系統通知設定影響）</span></label>
+<label class="field"><span>發現其他人發布的新資料包時</span><select id="notes-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
 <label class="field"><span>跟隨的發布來源 ID</span><select id="notes-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
 <p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以「合併，更新相同識別碼」手動匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
 <p id="notes-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="notes-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="notes-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
@@ -2328,7 +2336,7 @@
         <label class="field">
           <span>匯入方式</span>
           <select id="notes-import-mode">
-            <option value="copy">另存副本（建議，重新建立識別碼）</option>
+            <option value="copy">另存副本（獨立資料，重新建立識別碼）</option>
             <option value="skip">合併，略過重複紀錄</option>
             <option value="update">合併，更新相同識別碼的紀錄</option>
           </select>
@@ -2336,10 +2344,13 @@
         <button id="notes-import-choose" class="btn btn-secondary">選取 Studio 資料包</button>
         <span id="notes-import-name" class="notes-sub"></span>
       </div>
+      <p id="notes-import-mode-help" class="notes-hint"></p>
       <p class="notes-hint">資料包包含欄位、紀錄、筆記及關聯；檔案只包含位置，沒有原始檔案副本。匯入前會建立 SQLite 備份；不會執行包內文字或開啟檔案。不是即時多人同步。</p>
       <button id="notes-transfer-preview" class="btn btn-secondary">預覽內容</button>
       <p id="notes-transfer-summary" role="status"></p>
       <input id="notes-transfer-search" type="search" placeholder="搜尋預覽中的紀錄…" aria-label="搜尋分享預覽">
+      <p id="notes-transfer-context" class="notes-hint"></p><label class="field"><span>預覽變更篩選</span><select id="notes-transfer-filter"><option value="all">全部紀錄</option><option value="added">新增</option><option value="updated">更新內容</option><option value="unchanged">內容相同</option><option value="skipped">略過</option></select></label>
+      <p id="notes-import-audit-hint" class="notes-hint">匯入預覽顯示「本機目前值 → 本次匯入後的值」，可展開查看。共享資料包不包含發布者完整操作歷史或操作者身分；本機歷史只反映此電腦的變更。</p>
       <div id="notes-transfer-preview-list" class="notes-preview-list"></div>
       <div class="notes-pagination">
         <button id="notes-transfer-prev" class="btn btn-ghost">‹</button>
@@ -2352,7 +2363,7 @@
       </div>
     </dialog>
     <dialog id="notes-history-dialog" class="modal notes-modal" aria-labelledby="notes-history-title">
-      <h2 id="notes-history-title">最近 10 次修改前的版本</h2>
+      <h2 id="notes-history-title">最近 10 次修改歷史</h2><p class="notes-hint">版本為此紀錄的本機版本；來源版本是發布端工作區修訂。未記錄登入身分，不能據此判定實際操作者。舊版資料未記錄的操作來源會明確標示。</p>
       <div id="notes-history-list"></div>
       <div class="modal-buttons">
         <button id="notes-history-close" class="btn btn-secondary">關閉</button>
