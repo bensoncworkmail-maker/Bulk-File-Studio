@@ -35,7 +35,9 @@ dialog.notes-record-dialog .notes-form-footer .btn{height:auto;min-height:34px;w
 :root[data-notes-compact=true] #notes-master-context[data-selected=true] #notes-master-info{display:block;}
 .notes-detail-tabs{flex-wrap:nowrap;overflow-x:auto;gap:0;border-bottom:1px solid var(--line);padding-top:1px;min-width:0;}
 .notes-detail-tabs[hidden]{display:none;}
-.notes-detail-tabs .btn{flex-shrink:0;border:0;border-radius:6px 6px 0 0;background:transparent;box-shadow:none;padding:7px 12px;min-height:33px;height:auto;color:var(--muted);}
+.notes-detail-tabs .btn{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;border:0;border-radius:6px 6px 0 0;background:transparent;box-shadow:none;padding:7px 12px;min-height:33px;height:auto;color:var(--muted);}
+.notes-tab-count{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-width:2ch;padding:2px 6px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);color:var(--text);font-size:.85em;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3;}
+.notes-detail-tabs .btn[aria-selected=true] .notes-tab-count{background:color-mix(in srgb,var(--accent) 14%,var(--panel));border-color:var(--accent);color:var(--accent);}
 .notes-detail-tabs .btn[aria-selected=true]{color:var(--accent);background:var(--panel);box-shadow:inset 0 -3px var(--accent);font-weight:800;}
 :root[data-notes-compact=true] .notes-detail-tabs .btn{padding:6px 10px;min-height:30px;}
 :root[data-notes-panel-view=cards] #notes-sheets{display:flex;flex-direction:column;gap:7px;padding:2px;}

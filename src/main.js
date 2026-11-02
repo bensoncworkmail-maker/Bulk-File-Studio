@@ -70,7 +70,7 @@ function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(ap
 function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});return result;}
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
-function notesChanged(result){send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});return result;}
+function notesChanged(result){send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(capture?.window,'floating-capture-choices-changed',{});return result;}
 let fileOperationBusy=false;
 function fileOperation(task){if(fileOperationBusy||trashing)throw new Error('另一項改名、搬移或復原仍在執行，請稍候');fileOperationBusy=true;try{const result=task();if(result&&typeof result.then==='function')return result.finally(()=>{fileOperationBusy=false;});fileOperationBusy=false;return result;}catch(error){fileOperationBusy=false;throw error;}}
 function renameProgress(event,context){return value=>{if(event.sender!==win?.webContents||!Number.isSafeInteger(context?.operationId)||context.operationId<=0)return;const labels={snapshot:'建立內容校驗（第 1／2 遍）',verify:'執行前複核（第 2／2 遍）','undo-verify':'復原內容檢查（第 1／2 遍）',staging:'暫存檔名',renaming:'套用檔名'},title=labels[value.phase]||'處理改名';const bytes=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';const detail=typeof value.totalBytes==='number'?`第 ${value.fileIndex}／${value.totalFiles} 個：${value.name}；已讀取 ${bytes(value.completedBytes)}／${bytes(value.totalBytes)}（本階段）`:`${value.fileIndex}／${value.totalFiles} 個：${value.name}`;send(win,'rename-progress',{id:context.operationId,title,detail});};}
@@ -104,7 +104,7 @@ let queuedFavorites = favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
 let favoriteNotice = null;
 function send(window,channel,payload){if(window&&!window.isDestroyed())window.webContents.send(channel,payload);}
-function notifyFavorites(payload = {}) {closeFloatingMenu();send(win,'favorites-changed',payload);send(floating,'favorites-changed',{});}
+function notifyFavorites(payload = {}) {closeFloatingMenu();send(win,'favorites-changed',payload);send(floating,'favorites-changed',{});send(capture?.window,'floating-capture-choices-changed',{});}
 function receiveFavorites(argv, transferredPaths) {
   queuedFavorites.push(...(transferredPaths===undefined?favoriteArguments(argv):validFavoritePaths(transferredPaths)));
   if (queuedFavorites.length && favorites) {
