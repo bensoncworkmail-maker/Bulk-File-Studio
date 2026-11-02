@@ -59,6 +59,7 @@ const config={
     }
   ],
   "controls": {
+    "notesImportChangesOnly":"settings-notes-import-changes-only","notesShareQuickActions":"settings-notes-share-quick",
     "notesImportMode":"settings-notes-import-mode","notesSharedImportMode":"settings-notes-shared-import-mode",
     "notesExpandFilters": "settings-notes-expand-filters",
     "searchRecords": "settings-search-records",
@@ -209,6 +210,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "notesImportChangesOnly":"notes","notesShareQuickActions":"notes",
     "notesImportMode":"notes","notesSharedImportMode":"notes",
     "diagnosticsEnabled":"data","diagnosticsIncludeStack":"data","diagnosticsIncludePaths":"data","diagnosticsRetentionDays":"data",
     "renameVerification": "workspace",
