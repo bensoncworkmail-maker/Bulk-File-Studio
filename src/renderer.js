@@ -118,6 +118,7 @@ function showToast(message, type = '') {
   setTimeout(() => node.remove(), 5300);
 }
 function showFailure(title, error) {
+  window.studioDiagnostics?.report(title,error);
   $('error-title').textContent = title;
   $('error-details').textContent = withoutPrefix(error);
   if (!$('error-dialog').open) $('error-dialog').showModal();
@@ -603,6 +604,7 @@ async function init() {
     if(changed.some(key=>key.startsWith('home')))window.homeUI?.settingsChanged();if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
   }});
   window.quickActionsSettingsUI?.init({showFailure});
+  window.diagnosticsSettingsUI?.init({showFailure});
   setRuleTab('presets');initPresets();wireEvents();render();
   window.movingUI.init({showFailure,isBusy:()=>busy,onMoved:async result=>{
     const destinations=new Map(result.moves.map(move=>[norm(move.source),move.destination]));

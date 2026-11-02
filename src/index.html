@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; media-src 'none'; worker-src 'none'">
-    <title>Bulk File Studio</title>
+    <script src="diagnostics-runtime.js"></script><title>Bulk File Studio</title>
     <script src="global-shortcuts.js"></script>
     <script src="favorites-model.js"></script>
     <script src="settings-catalog.js"></script>
@@ -1128,6 +1128,7 @@
                     <span>登入 Windows 後自動啟動</span>
                   </label>
                   <p id="settings-login-status" role="status">正在檢查…</p>
+                  <div class="notes-tools"><button id="btn-startup-refresh" type="button" class="btn btn-ghost">重新檢查啟動狀態</button><button id="btn-startup-windows" type="button" class="btn btn-secondary" disabled>開啟 Windows 啟動設定</button></div>
                   <label class="check-row">
                     <input id="settings-start-hidden" type="checkbox">
                     <span>啟動程式後隱藏至系統匣</span>
@@ -1182,6 +1183,20 @@
                 </section>
               </div>
               <div id="settings-panel-data" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-data" hidden>
+                <section class="settings-card">
+                  <h2>錯誤紀錄與診斷</h2>
+                  <label class="check-row"><input id="settings-diagnostics-enabled" type="checkbox"><span>保留本機錯誤紀錄</span></label>
+                  <label class="check-row"><input id="settings-diagnostics-stack" type="checkbox"><span>包含程式堆疊，方便找出錯誤位置</span></label>
+                  <label class="check-row"><input id="settings-diagnostics-paths" type="checkbox"><span>包含錯誤訊息中的完整檔案路徑（可能含個人資料）</span></label>
+                  <label class="field"><span>保留天數</span><select id="settings-diagnostics-days"><option value="3">3 天</option><option value="7">7 天</option><option value="14">14 天</option><option value="30">30 天</option></select></label>
+                  <p class="rule-hint">僅儲存在本機，不會自動傳送。每個檔案最多 1 MiB，最多 5 個；相同錯誤會去重。記錄時間、版本、操作、錯誤訊息與可選堆疊，不記錄表單、剪貼簿或操作參數。錯誤文字仍可能包含資料，分享前請先檢查。</p>
+                  <p class="rule-hint">預設隱去完整路徑，並遮蔽常見憑證及 Email。關閉紀錄不會刪除舊檔；先前啟用完整路徑留下的原始紀錄可用「清除」移除。查看及匯出會再次依目前設定遮蔽。</p>
+                  <label class="field"><span>紀錄資料夾</span><input id="diagnostics-folder" type="text" readonly></label>
+                  <p id="diagnostics-status" role="status"></p>
+                  <div class="button-row"><button id="diagnostics-refresh" class="btn btn-secondary">重新整理</button><button id="diagnostics-open" class="btn btn-secondary">開啟紀錄資料夾</button><button id="diagnostics-export" class="btn btn-secondary">匯出診斷 JSON</button><button id="diagnostics-clear" class="btn btn-ghost">清除錯誤紀錄</button></div>
+                  <details id="diagnostics-recent"><summary>最近 100 筆錯誤</summary><div id="diagnostics-list"></div></details>
+                </section>
+
                 <section class="settings-card">
                   <h2>資料與設定</h2>
                   <button id="btn-settings-export" class="btn btn-secondary">匯出設定 JSON</button>
@@ -2342,6 +2357,7 @@
     <script src="settings-workbench.js" defer></script>
     <script src="quick-actions-model.js" defer></script>
     <script src="quick-actions-settings.js" defer></script>
+    <script src="diagnostics-settings.js" defer></script>
     <script src="settings.js" defer></script>
     <script src="shortcuts.js" defer></script>
     <script src="moving.js" defer></script>

@@ -318,3 +318,23 @@ test('fast mode is the default and history retains it after settings change; mis
 test('full-mode IPC reports progress, blocks simultaneous file mutations and shutdown, and releases the lock on completion',async t=>{
  const h=harness(t),source=path.join(h.dir,'a.bin');fs.writeFileSync(source,Buffer.alloc(1024*1024,65));h.handlers.get('desktop-settings-set')(null,{renameVerification:'full'});const pending=h.handlers.get('rename')(null,[source],{prefix:'x_'},undefined,'full',{operationId:71});assert.throws(()=>h.handlers.get('rename')(null,[source],{prefix:'y_'}),/仍在執行/);assert.throws(()=>h.handlers.get('move-files')(),/仍在執行/);let prevented=false;h.events.get('before-quit')({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal((await pending).changed,1);assert.ok(h.messages.some(([channel,value])=>channel==='rename-progress'&&value.id===71&&value.detail.includes('MB')));h.handlers.get('desktop-settings-set')(null,{renameVerification:'fast'});assert.equal(h.handlers.get('history')().verification,'full');await h.handlers.get('undo')();assert.equal(fs.existsSync(source),true);assert.equal(h.handlers.get('rename')(null,[source],{prefix:'z_'}).changed,1);
 });
+
+test('diagnostic IPC records sync and async failures without saving arguments or altering errors',async t=>{
+ const h=harness(t);assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{renameVerification:'secret-input'}),/模式無效/);
+ h.shell.openPath=async()=> 'open failure';await assert.rejects(h.handlers.get('diagnostics-open')(),/open failure/);
+ const status=h.handlers.get('diagnostics-status')(null,true);assert.ok(status.recent.some(row=>row.action==='desktop-settings-set'));assert.ok(status.recent.some(row=>row.action==='diagnostics-open'));assert.ok(!JSON.stringify(status.recent).includes('secret-input'));
+ h.handlers.get('desktop-settings-set')(null,{diagnosticsEnabled:false});const count=h.handlers.get('diagnostics-status')(null,true).recent.length;assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{renameVerification:'another-invalid'}));assert.equal(h.handlers.get('diagnostics-status')(null,true).recent.length,count);
+});
+test('diagnostic renderer reports are bounded and management operations require main frame',async t=>{
+ const h=harness(t);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ assert.equal(h.rawHandlers.get('diagnostics-report')(event,{context:'test',message:'problem '+ 'x'.repeat(10000),clipboard:'PRIVATE-FORM',path:'PRIVATE-PATH'}).recorded,true);
+ assert.throws(()=>h.rawHandlers.get('diagnostics-status')(event,true),/不受信任/);assert.throws(()=>h.rawHandlers.get('diagnostics-clear')(event),/不受信任/);
+ const recent=h.handlers.get('diagnostics-status')(null,true).recent;assert.ok(recent.some(row=>row.source==='floating'&&row.message.length===6000));assert.ok(!JSON.stringify(recent).includes('PRIVATE-'));
+ assert.throws(()=>h.rawHandlers.get('diagnostics-report')({sender:mini.webContents,senderFrame:{url:'https://evil.example'}},{message:'injected'}),/不受信任/);assert.ok(!JSON.stringify(h.handlers.get('diagnostics-status')(null,true)).includes('injected'));
+});
+test('diagnostic export and clearing are explicit and cancellation preserves logs',async t=>{
+ const h=harness(t);h.handlers.get('diagnostics-report')(null,{message:'example'});const file=path.join(h.dir,'report.json');h.dialog.showSaveDialog=async()=>({canceled:true});assert.equal((await h.handlers.get('diagnostics-export')()).canceled,true);assert.equal(fs.existsSync(file),false);
+ h.dialog.showSaveDialog=async()=>({canceled:false,filePath:file});const exported=await h.handlers.get('diagnostics-export')();assert.equal(exported.count,1);const data=JSON.parse(fs.readFileSync(file));assert.equal(data.format,'BulkFileStudio.Diagnostics');assert.equal(data.entries[0].message,'example');assert.equal(data.environment.version,require('../package.json').version);
+ h.dialog.showMessageBox=async(_,options)=>{assert.equal(options.defaultId,1);return {response:1};};assert.equal((await h.handlers.get('diagnostics-clear')()).canceled,true);assert.equal(h.handlers.get('diagnostics-status')(null,true).recent.length,1);
+ h.dialog.showMessageBox=async()=>({response:0});assert.equal((await h.handlers.get('diagnostics-clear')()).removed,1);assert.equal(h.handlers.get('diagnostics-status')(null,true).recent.length,0);assert.equal(fs.existsSync(file),true);
+});

@@ -5,6 +5,7 @@ const {resolveMoveSources,planMove,executeRelocation,prepareMoveUndo}=require('.
 const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
+const {DiagnosticLog}=require('./diagnostic-log');
 const {Buffer}=require('node:buffer');
 const {NotesStore}=require('./notes-store');
 const {NotesToolsStore}=require('./notes-tools-store');
@@ -36,8 +37,12 @@ for(const flag of ['disable-background-networking','disable-component-update','d
 
 let capture;
 let win, floating, floatingWindow, floatingMenu, desktop, desktopShell, pendingMaximize=false, shortcutWarning='',shellWarning='';
+const diagnostics=new DiagnosticLog(path.join(app.getPath('userData'),'logs'),{getSettings:()=>desktop?.settings,appRoot:__dirname,environment:{version:app.getVersion(),platform:process.platform,arch:process.arch,electron:process.versions.electron||'',node:process.versions.node}});
+const monitorException=error=>diagnostics.record('main','uncaughtException',error);
+process.on('uncaughtExceptionMonitor',monitorException);
+function loggedInvocation(source,action,task){try{const result=task();if(result&&typeof result.then==='function')return result.catch(error=>{diagnostics.record(source,action,error);throw error;});return result;}catch(error){diagnostics.record(source,action,error);throw error;}}
 function closeFloatingMenu(){if(floatingMenu){floatingMenu.closePopup(floating);floatingMenu=null;}}
-function floatingAction(task){return async()=>{try{await task();}catch(error){send(floating,'desktop-settings-changed',{error:String(error.message||error)});}};}
+function floatingAction(task){return async()=>{try{await task();}catch(error){diagnostics.record('floating','native-menu',error);send(floating,'desktop-settings-changed',{error:String(error.message||error)});}};}
 function popupFloatingMenu(template,{allowCollapsed=false}={}){
  if(!floating||floating.isDestroyed()||!floating.isVisible()||!allowCollapsed&&desktop.settings.floatingCollapsed)throw new Error('請先展開浮動工具');
  closeFloatingMenu();const menu=Menu.buildFromTemplate(template);floatingMenu=menu;
@@ -147,6 +152,7 @@ function createWindow(hidden=false) {
 
 function secureWindow(window){
   installOfflinePolicy(window.webContents.session,__dirname);
+  window.webContents.on('render-process-gone',(_,details)=>{if(details.reason!=='clean-exit')diagnostics.record(window===win?'main-renderer':window===floating?'floating':'capture','render-process-gone',new Error(details.reason+' (exit '+details.exitCode+')'));});
   window.webContents.on('will-navigate',event=>event.preventDefault());
   window.webContents.on('will-attach-webview',event=>event.preventDefault());
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
@@ -172,12 +178,14 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
-    if(!main&&!(mini&&floatingAllowed.includes(channel)))throw new Error('不受信任的操作來源');
-    return handler(event,...args);
+    const floatingAllowed=['diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
+    return loggedInvocation(main?'main-renderer':mini?'floating':'untrusted',channel,()=>{
+      if(!main&&!(mini&&floatingAllowed.includes(channel))&&!(channel==='diagnostics-report'&&capture?.owns(event)))throw new Error('不受信任的操作來源');
+      return handler(event,...args);
+    });
   });
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
-  desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
+  desktopShell=new DesktopShell({app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
   notesShare=new NotesShare(path.join(app.getPath('userData'),'workspace-share.json'),{snapshot:()=>{const current=notesStore().get();return {revision:current.revision,data:require('./notes-model').exportPackage(current.document,{scope:'all'})};},createWorker:()=>utilityProcess.fork(path.join(__dirname,'notes-share-worker.js'),[],{stdio:'ignore',serviceName:'Studio Workspace Share'}),onChange:value=>send(win,'notes-share-changed',value)});
   handle('notes-share-status',()=>notesShare.status());
@@ -206,7 +214,7 @@ app.whenReady().then(() => {
     const M=require('./notes-model'),doc=notesStore().get().document,live=doc.sheets.filter(sheet=>!sheet.deletedAt),masterSheets=new Set(doc.areas.map(area=>area.masterSheetId));
     return {sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
   });
-  for(const [channel,method] of [['floating-capture-get','data'],['floating-capture-preview','preview'],['floating-capture-commit','commit'],['floating-capture-close','close']])ipcMain.handle(channel,(event,...args)=>{if(!capture?.owns(event))throw new Error('不受信任的浮動表單來源');return capture[method](...args);});
+  for(const [channel,method] of [['floating-capture-get','data'],['floating-capture-preview','preview'],['floating-capture-commit','commit'],['floating-capture-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('capture',channel,()=>{if(!capture?.owns(event))throw new Error('不受信任的浮動表單來源');return capture[method](...args);}));
   handle('floating-quick-action',(_,id)=>{
     const action=configuredQuick(id);
     if(desktop.settings.floatingQuickMode==='popup'&&action.type!=='open-sheet'){
@@ -314,13 +322,31 @@ app.whenReady().then(() => {
   handle('desktop-settings-defaults',()=>JSON.parse(JSON.stringify(require('./desktop-state').DEFAULTS)));
   handle('desktop-settings-get',()=>({...desktop.settings,shortcutWarning:[shortcutWarning,shellWarning].filter(Boolean).join('\n')}));
   handle('floating-tag-options',()=>tagList(favorites.read().items));
+  handle('diagnostics-report',(event,input)=>{
+    if(!input||typeof input!=='object'||Array.isArray(input))return {recorded:false};
+    const bounded=(key,max)=>typeof input[key]==='string'?input[key].slice(0,max):'';
+    const source=event.sender===win?.webContents?'main-renderer':event.sender===floating?.webContents?'floating':'capture';
+    return {recorded:Boolean(diagnostics.record(source,bounded('context',120)||'renderer-error',{message:bounded('message',6000)||'未知錯誤',stack:bounded('stack',12000),code:bounded('code',64)}))};
+  });
+  handle('diagnostics-status',(_,recent=false)=>{if(typeof recent!=='boolean')throw new Error('紀錄查詢無效');return diagnostics.status(recent);});
+  handle('diagnostics-open',async()=>{const error=await shell.openPath(diagnostics.prepareFolder());if(error)throw new Error(error);return {opened:true};});
+  handle('diagnostics-export',async()=>{
+    const data=diagnostics.exportData(),result=await dialog.showSaveDialog(win,{title:'匯出本機錯誤紀錄',defaultPath:'BulkFileStudio-diagnostics-'+new Date().toISOString().slice(0,10)+'.json',filters:[{name:'JSON',extensions:['json']}]});
+    if(result.canceled||!result.filePath)return {canceled:true};writeSettingsExport(result.filePath,data);return {canceled:false,path:result.filePath,count:data.entries.length};
+  });
+  handle('diagnostics-clear',async()=>{
+    const result=await dialog.showMessageBox(win,{type:'warning',title:'清除錯誤紀錄',message:'清除所有本機錯誤紀錄？',detail:'不會影響工作區、收藏或復原紀錄。已匯出的副本需另行刪除。',buttons:['清除紀錄','取消'],defaultId:1,cancelId:1,noLink:true});
+    return result.response===0?{canceled:false,...diagnostics.clear()}:{canceled:true};
+  });
   handle('startup-get',()=>desktopShell.loginStatus());
+  handle('startup-open-settings',()=>desktopShell.openLoginSettings());
   handle('startup-set',(_,enabled)=>desktopShell.setLogin(enabled));
   handle('app-hide-to-tray',()=>{if(!desktopShell.hideToTray())throw new Error(shellWarning||'無法隱藏至系統匣');});
   handle('desktop-settings-set',(_,patch)=>{
     const previous=desktop.settings;
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
     for(const key of ['mainShortcut','floatingShortcut','collapseShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
+    if(Object.hasOwn(patch,'diagnosticsRetentionDays')&&![3,7,14,30].includes(patch.diagnosticsRetentionDays))throw new Error('錯誤紀錄保留天數無效');
     if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');
     if(Object.hasOwn(patch,'floatingTitle')&&require('./desktop-state').normalizeFloatingTitle(patch.floatingTitle)===null)throw new Error('浮動工具標題最多 40 字元，且不可包含控制字元');
     if(Object.hasOwn(patch,'floatingQuickActions'))quickActions.normalize(patch.floatingQuickActions,true);
@@ -579,7 +605,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{process.removeListener('uncaughtExceptionMonitor',monitorException);capture?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

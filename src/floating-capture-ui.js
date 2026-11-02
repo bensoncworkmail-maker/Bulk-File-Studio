@@ -2,7 +2,7 @@
 (() => {
  const $=id=>document.getElementById(id),api=window.captureAPI;let data,token=null,busy=false,completed=false;const getters=[];
  const node=(tag,text)=>{const item=document.createElement(tag);if(text!==undefined)item.textContent=text;return item;},tags=()=>$('capture-tags').value.split(/[,，\n]/).map(tag=>tag.trim()).filter(Boolean);
- function status(message,error=false){$('capture-status').textContent=message;$('capture-status').className=error?'error':'';}
+ function status(message,error=false){if(error)window.studioDiagnostics?.report('capture-status',message);$('capture-status').textContent=message;$('capture-status').className=error?'error':'';}
  function lock(value){busy=value;$('capture-spinner').hidden=!value;$('capture-form').setAttribute('aria-busy',String(value));for(const input of $('capture-form').querySelectorAll('input,select,textarea'))input.disabled=value||completed;$('capture-check').disabled=value||!data||completed;$('capture-confirm').disabled=value||!token||completed;$('capture-close').disabled=value;}
  function invalidate(){if(busy||completed)return;token=null;$('capture-preview').hidden=true;$('capture-confirm').disabled=true;status('內容已更新，請先預覽再確認。');}
  function field(item){

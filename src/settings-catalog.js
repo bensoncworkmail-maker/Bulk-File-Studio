@@ -139,6 +139,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "diagnosticsEnabled":"settings-diagnostics-enabled","diagnosticsIncludeStack":"settings-diagnostics-stack","diagnosticsIncludePaths":"settings-diagnostics-paths","diagnosticsRetentionDays":"settings-diagnostics-days",
     "renameVerification": "settings-rename-verification",
     "floatingTitle": "settings-floating-title",
     "floatingQuickMode": "settings-floating-quick-mode",
@@ -207,6 +208,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "diagnosticsEnabled":"data","diagnosticsIncludeStack":"data","diagnosticsIncludePaths":"data","diagnosticsRetentionDays":"data",
     "renameVerification": "workspace",
     "floatingTitle": "floating",
     "floatingQuickMode": "floating",
@@ -350,6 +352,7 @@ const config={
     "notesExpandedGroups": "notes"
   },
   "numericKeys": [
+    "diagnosticsRetentionDays",
     "searchPageSize",
     "searchSnippetLength",
     "notesCardHeight",

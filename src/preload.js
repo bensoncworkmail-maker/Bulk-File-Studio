@@ -89,10 +89,11 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  floatingTagOptions:()=>invoke('floating-tag-options'),
  setFloatingCollapsed:value=>invoke('floating-collapse',value),compactFloatingSize:()=>invoke('floating-compact-size'),
  setFloatingCompact:value=>invoke('floating-tools',value),
- startup:()=>invoke('startup-get'),setStartup:enabled=>invoke('startup-set',enabled),hideToTray:()=>invoke('app-hide-to-tray'),
+ openStartupSettings:()=>invoke('startup-open-settings'),startup:()=>invoke('startup-get'),setStartup:enabled=>invoke('startup-set',enabled),hideToTray:()=>invoke('app-hide-to-tray'),
  newWorkspaceMaster:()=>invoke('floating-workspace-new'),workspaceList:query=>invoke('floating-workspace-list',query),workspaceOpen:(id,action)=>invoke('floating-workspace-open',id,action),onWorkspaceChanged:callback=>ipcRenderer.on('notes-changed',()=>callback()),
  setFloatingView:mode=>invoke('floating-view',mode),
  importPaths:tag=>invoke('floating-import',tag),togglePin:()=>invoke('floating-pin'),
+ diagnosticsStatus:recent=>invoke('diagnostics-status',recent),openDiagnostics:()=>invoke('diagnostics-open'),exportDiagnostics:()=>invoke('diagnostics-export'),clearDiagnostics:()=>invoke('diagnostics-clear'),
  get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),
  resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),showMain:tag=>invoke('floating-main',tag),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
@@ -115,3 +116,5 @@ contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('homeAPI',Object.freeze({snapshot:()=>invoke('studio-home')}));
+
+contextBridge.exposeInMainWorld('diagnosticsAPI',Object.freeze({report:entry=>ipcRenderer.invoke('diagnostics-report',entry)}));

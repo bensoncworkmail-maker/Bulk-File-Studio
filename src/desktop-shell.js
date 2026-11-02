@@ -1,4 +1,5 @@
 'use strict';
+const path=require('node:path');
 // Native lifecycle only. No file operations or renderer-provided launch commands.
 class DesktopShell {
  constructor(options){Object.assign(this,options);this.tray=null;this.quitting=false;}
@@ -35,14 +36,20 @@ class DesktopShell {
  loginOptions(){return {name:'BulkFileStudio',path:this.executable,args:['--login-startup']};}
  loginStatus(){
   if(!this.loginSupported())return {supported:false,enabled:false,reason:'開機啟動僅適用於 Windows 安裝版；可攜版及原始碼模式不會註冊。'};
-  const result=this.app.getLoginItemSettings(this.loginOptions());
-  return {supported:true,enabled:result.openAtLogin===true,disabledBySystem:result.openAtLogin===true&&result.executableWillLaunchAtLogin===false};
+  const options=this.loginOptions(),read=executable=>this.app.getLoginItemSettings({path:executable,args:options.args}),samePath=value=>typeof value==='string'&&path.win32.normalize(value.replace(/^"|"$/g,'')).toLowerCase()===path.win32.normalize(this.executable).toLowerCase();
+  const matches=item=>item&&typeof item.name==='string'&&item.name.toLowerCase()===options.name.toLowerCase()&&item.scope==='user'&&samePath(item.path)&&Array.isArray(item.args)&&item.args.length===options.args.length&&item.args.every((arg,index)=>arg===options.args[index]);
+  const result=read(this.executable);let own=Array.isArray(result.launchItems)?result.launchItems.find(matches):null;
+  if(!own&&/\s/.test(this.executable)){const fallback=read('"'+this.executable+'"');own=Array.isArray(fallback.launchItems)?fallback.launchItems.find(matches):null;}
+  // openAtLogin reads Electron's default AppUserModelId; our named Run entry is in launchItems.
+  const registered=own?true:Array.isArray(result.launchItems)?false:result.openAtLogin===true,disabledBySystem=registered&&(own?own.enabled===false:result.executableWillLaunchAtLogin===false);
+  return {supported:true,registered,enabled:registered,disabledBySystem,willLaunch:registered&&!disabledBySystem};
  }
  setLogin(enabled){
   if(typeof enabled!=='boolean'||!this.loginSupported())throw new Error('請使用 Windows 安裝版設定開機啟動');
-  this.app.setLoginItemSettings({...this.loginOptions(),openAtLogin:enabled});
-  const result=this.loginStatus();if(result.enabled!==enabled)throw new Error('Windows 未套用開機啟動設定，請檢查系統的啟動應用程式設定');return result;
+  this.app.setLoginItemSettings({...this.loginOptions(),openAtLogin:enabled,enabled});
+  const result=this.loginStatus();if(result.enabled!==enabled){const error=new Error('無法驗證 Windows 啟動項，請按重新檢查，或查看 Windows 的啟動應用程式設定');error.code='STARTUP_VERIFY_FAILED';throw error;}return result;
  }
+ openLoginSettings(){if(this.platform!=='win32'||typeof this.openStartupSettings!=='function')throw new Error('此環境無法開啟 Windows 啟動設定');return this.openStartupSettings();}
  destroy(){this.globalShortcut.unregisterAll();this.tray?.destroy();this.tray=null;}
 }
 // Embedded local PNG; no network or external icon dependency.
