@@ -12,7 +12,7 @@
 | 紀錄與版本、修改歷史 | `workspace.sqlite`／NotesStore | 預覽不寫入；確認檢查工作區修訂，建立備份後以交易寫入。 |
 | 已退役的群組導覽偏好 | renderer 舊偏好 | 保留相容，設定頁隱藏且搜尋排除；不影響主表導覽。未刪除資料關聯。 |
 
-82 個介面綁定、54 個桌面綁定已核對對應控制項與預設；新選項遵循既有正規化與分類設定機制。沒有新增網路更新服務或啟用共享的隱含動作。
+82 個介面綁定、55 個桌面綁定已核對對應控制項與預設；新選項遵循既有正規化與分類設定機制。沒有新增網路更新服務或啟用共享的隱含動作。
 
 ## 本次修正
 
@@ -39,3 +39,16 @@
 
 - https://www.carbondesignsystem.com/building-blocks/core/components/data-table/guidelines
 - https://atlassian.design/components/modal-dialog
+
+## v1.46.0 補充
+
+- 共享設定新增 publishScope／receiveScope，按主表 ID 篩選，保存後才生效；改接收範圍或跟隨來源會撤銷舊基準和待確認預覽。預設仍不啟用共享。
+- 新增 floatingCaptureKeepValues，預設保留連續新增的欄位及標籤，可搜尋、匯出與分類還原；名稱與筆記每筆清空。
+- 新預覽失敗會撤銷舊確認權限，避免誤套用上一次的比較。
+- Windows 登記核對只讀固定的 HKCU 本程式名稱及舊版 AppUserModelId，經 PowerShell UTF-8 輸出支援中文路徑；讀取不執行登記的命令，無須管理員權限。核准資訊未知時明示；只有使用者切換才寫入，並只移除已驗證屬於目前程式的舊名稱。系統限制讀取時會報告無法驗證，不假定已啟用。
+- 分類導覽固定每個選項內容高度，避免捲動 flex 容器壓縮按鈕；焦點框改在框內。快捷表單改成一個欄位捲動區，底部操作在外。
+
+Electron 已有路徑含空格導致啟動項回讀遺漏的修正；本程式亦處理舊名稱與實際安裝位置不一致的情況。不能單憑截圖確定使用者電腦的原因，仍需新版 Windows 安裝版實機核對。
+
+- https://releases.electronjs.org/pr/54364
+- https://www.electronjs.org/docs/latest/api/app/#appgetloginitemsettingsoptions

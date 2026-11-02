@@ -37,16 +37,17 @@ class DesktopShell {
  loginStatus(){
   if(!this.loginSupported())return {supported:false,enabled:false,reason:'開機啟動僅適用於 Windows 安裝版；可攜版及原始碼模式不會註冊。'};
   const options=this.loginOptions(),read=executable=>this.app.getLoginItemSettings({path:executable,args:options.args}),samePath=value=>typeof value==='string'&&path.win32.normalize(value.replace(/^"|"$/g,'')).toLowerCase()===path.win32.normalize(this.executable).toLowerCase();
-  const matches=item=>item&&typeof item.name==='string'&&item.name.toLowerCase()===options.name.toLowerCase()&&item.scope==='user'&&samePath(item.path)&&Array.isArray(item.args)&&item.args.length===options.args.length&&item.args.every((arg,index)=>arg===options.args[index]);
-  const result=read(this.executable);let own=Array.isArray(result.launchItems)?result.launchItems.find(matches):null;
-  if(!own&&/\s/.test(this.executable)){const fallback=read('"'+this.executable+'"');own=Array.isArray(fallback.launchItems)?fallback.launchItems.find(matches):null;}
+  const matches=item=>item&&typeof item.name==='string'&&require('./startup-registration').NAMES.some(name=>name.toLowerCase()===item.name.toLowerCase())&&item.scope==='user'&&samePath(item.path)&&Array.isArray(item.args)&&item.args.length===options.args.length&&item.args.every((arg,index)=>arg===options.args[index]);
+  let result;try{result=read(this.executable);}catch(error){if(!this.readLoginRegistration)throw error;result={};}let ownResult=result,own=Array.isArray(result.launchItems)?result.launchItems.find(matches):null;
+  if(!own&&/\s/.test(this.executable)){try{const fallback=read('"'+this.executable+'"');own=Array.isArray(fallback.launchItems)?fallback.launchItems.find(matches):null;if(own)ownResult=fallback;}catch(error){if(!this.readLoginRegistration)throw error;}}
   // openAtLogin reads Electron's default AppUserModelId; our named Run entry is in launchItems.
-  const registered=own?true:Array.isArray(result.launchItems)?false:result.openAtLogin===true,disabledBySystem=registered&&(own?own.enabled===false:result.executableWillLaunchAtLogin===false);
-  return {supported:true,registered,enabled:registered,disabledBySystem,willLaunch:registered&&!disabledBySystem};
+  let registry=null;if(!own&&this.readLoginRegistration)registry=this.readLoginRegistration(this.executable);
+  const registered=own?true:registry?registry.registered:Array.isArray(result.launchItems)?false:result.openAtLogin===true,disabledBySystem=registered&&(own?ownResult.launchItems.filter(matches).every(item=>item.enabled===false):registry?registry.disabledBySystem===true:result.executableWillLaunchAtLogin===false);
+  return {supported:true,registered,enabled:registered,disabledBySystem,willLaunch:registry?.approvalUnknown?null:registered&&!disabledBySystem,verifiedBy:registry?'registry':'electron',entryNames:registry?.entryNames||(Array.isArray(ownResult.launchItems)?ownResult.launchItems.filter(matches).map(item=>item.name):[]),...(registry?.otherLocation&&!registry.registered?{reason:'啟動項指向另一個安裝位置，請重新勾選以登記目前版本。'}:{}),...(registry?.approvalUnknown?{reason:'本程式已登記啟動，但無法判定 Windows 核准狀態；請查看系統啟動設定。'}:{})};
  }
  setLogin(enabled){
   if(typeof enabled!=='boolean'||!this.loginSupported())throw new Error('請使用 Windows 安裝版設定開機啟動');
-  this.app.setLoginItemSettings({...this.loginOptions(),openAtLogin:enabled,enabled});
+  const before=this.loginStatus();for(const name of before.entryNames||[])if(name!=='BulkFileStudio')this.app.setLoginItemSettings({...this.loginOptions(),name,openAtLogin:false,enabled:false});this.app.setLoginItemSettings({...this.loginOptions(),openAtLogin:enabled,enabled});
   const result=this.loginStatus();if(result.enabled!==enabled){const error=new Error('無法驗證 Windows 啟動項，請按重新檢查，或查看 Windows 的啟動應用程式設定');error.code='STARTUP_VERIFY_FAILED';throw error;}return result;
  }
  openLoginSettings(){if(this.platform!=='win32'||typeof this.openStartupSettings!=='function')throw new Error('此環境無法開啟 Windows 啟動設定');return this.openStartupSettings();}

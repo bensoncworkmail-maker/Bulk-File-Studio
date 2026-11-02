@@ -731,7 +731,7 @@
                 </section><section class="settings-card">
                   <h2>共享資料包</h2><label class="check-row"><input id="settings-notes-share-quick" type="checkbox"><span>在工作區標題列顯示共享快捷操作</span></label><p class="rule-hint">快捷列只控制顯示。共享啟用、資料夾、接收方式與檢查間隔獨立儲存，不隨介面偏好還原。</p>
                   <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；新資料可選提醒、自動套用指定來源或忽略。</p>
-                  <p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
+                  <p class="rule-hint">發佈／接收可指定主表及其明細；請開啟管理視窗的「共享設定與來源資訊 → 指定主表」。來源版本可從資料包的「版本資訊」核對，舊版仍須預覽、確認並備份。</p><p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
                   <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button><label class="check-row"><input id="settings-share-notifications" type="checkbox"><span>共享有更新時顯示桌面通知（仍受系統通知設定影響）</span></label>
 <label class="field"><span>發現其他人發布的新資料包時</span><select id="settings-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
 <label class="field"><span>跟隨的發布來源 ID</span><select id="settings-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
@@ -823,7 +823,7 @@
                   <label class="check-row"><input id="settings-floating-show-new-master" type="checkbox"><span>顯示「＋新增主檔」按鈕（工作區／混合檢視）</span></label>
                   <p class="rule-hint">內建新增主檔與自訂快捷按鈕顯示在同一列；關閉快捷動作列會一起隱藏。</p>
                   <p class="rule-hint">自訂快捷按鈕單擊執行，最多 12 項。可在浮動工具旁填寫及預覽，確認後才儲存。</p>
-                  <label class="field"><span>新增與匯入快捷動作的開啟位置</span><select id="settings-floating-quick-mode"><option value="popup">浮動工具旁的獨立彈出表單</option><option value="main">主視窗</option></select></label>
+                  <label class="field"><span>新增與匯入快捷動作的開啟位置</span><select id="settings-floating-quick-mode"><option value="popup">浮動工具旁的獨立彈出表單</option><option value="main">主視窗</option></select></label><label class="check-row"><input id="settings-capture-keep-values" type="checkbox"><span>快捷表單連續新增時，預設保留欄位與標籤（名稱與筆記清空）</span></label>
                   <label class="check-row"><input id="settings-floating-keep-quick" type="checkbox"><span>快捷動作轉到主視窗後，保留浮動工具</span></label>
                   <p class="rule-hint">「開啟指定表格」仍使用主視窗；獨立表單不會叫出主視窗，離開焦點也保留未完成輸入。</p>
                   <div id="quick-action-list"></div>
@@ -2029,9 +2029,11 @@
 <label class="field"><span>發現其他人發布的新資料包時</span><select id="notes-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
 <label class="field"><span>跟隨的發布來源 ID</span><select id="notes-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
 <p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以更新模式或「複製來源到本機」手動確認匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
-      <p class="notes-hint">本機發布來源 ID：<code id="notes-share-device"></code></p>
+      <fieldset class="notes-share-scope"><legend>指定主表（連同明細表）</legend><div class="notes-scope-columns"><section><label class="field"><span>發佈範圍</span><select id="notes-share-publish-scope"><option value="all">全部主表</option><option value="masters">只發佈指定主表</option></select></label><div id="notes-share-publish-masters" class="notes-scope-choices"></div></section><section><label class="field"><span>接收範圍</span><select id="notes-share-receive-scope"><option value="all">來源包提供的主表</option><option value="masters">只接收指定主表（按 ID）</option></select></label><div id="notes-share-receive-masters" class="notes-scope-choices"></div></section></div><p class="notes-hint">選主表會包含全部明細；跨主表關聯只帶必要結構，不發佈其他主表的紀錄。首次接收新來源可先採來源範圍匯入，再指定本機主表。改接收範圍後需重新預覽確認，建立自動接收基準。</p><button id="notes-share-save-scope" class="btn btn-secondary">套用範圍</button><p id="notes-share-scope-status" class="notes-hint" role="status"></p></fieldset>
+<p class="notes-hint">本機發布來源 ID：<code id="notes-share-device"></code></p>
         </details>
-        <div class="notes-share-list-heading"><h3>資料包</h3><label class="field"><span>顯示來源</span><select id="notes-share-file-scope"><option value="others">其他人的來源</option><option value="followed">跟隨的來源</option><option value="all">全部，包含本機發布</option></select></label></div>
+        <section id="notes-share-version" class="notes-share-status-card" hidden aria-label="來源版本資訊"><h3>來源版本資訊</h3><div id="notes-share-version-info"></div><button id="notes-share-version-preview" class="btn btn-secondary">比較此版本與本機</button></section>
+        <div class="notes-share-list-heading"><h3>資料包與來源版本</h3><label class="field"><span>顯示來源</span><select id="notes-share-file-scope"><option value="others">其他人的來源</option><option value="followed">跟隨的來源</option><option value="all">全部，包含本機發布</option></select></label></div>
         <div id="notes-share-files" class="notes-share-packages"></div>
         <details class="notes-disclosure"><summary>資料包含甚麼？如何還原？</summary><p class="notes-hint">包含有效紀錄、筆記與路徑，可能含聯絡資訊；不包含原始檔案、回收筒或發布者修改歷史。匯入前自動備份，可從工作區「還原備份」恢復。每次發佈建立獨立快照，最多列出最近 50 份；請定期整理舊資料包。</p></details>
       </div>

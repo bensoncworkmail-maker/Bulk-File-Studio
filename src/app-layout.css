@@ -167,3 +167,10 @@
 #share-update-banner[hidden],#share-update-badge[hidden] { display:none!important; }
 #notes-legacy-group-controls[hidden],.settings-card label[hidden] { display:none!important; }
 .notes-organize-child { padding-left:22px; }
+/* Sidebar buttons must retain their height inside the scrolling flex column. */
+.settings-categories{min-width:0;scroll-padding:8px;}
+.settings-categories .settings-tabs{flex:0 0 auto;min-width:0;padding:3px;}
+.settings-categories .settings-tabs>button{flex:0 0 auto;box-sizing:border-box;width:100%;max-width:100%;height:auto;min-height:58px;overflow:visible;white-space:normal;}
+.settings-category-copy{flex:1 1 auto;overflow-wrap:anywhere;}
+.settings-category-copy :is(strong,small){white-space:normal;line-height:1.45;}
+.settings-categories .settings-tabs>button:focus-visible{outline-offset:-3px;}

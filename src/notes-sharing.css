@@ -64,3 +64,4 @@
 .notes-top{flex-wrap:wrap;}
 .notes-dialog-body .notes-disclosure .field{min-width:0;}
 .notes-dialog-body select{max-width:100%;}
+.notes-scope-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}.notes-share-scope{border:1px solid var(--line);border-radius:7px;padding:12px;margin:12px 0;}.notes-share-scope legend{font-size:12px;font-weight:700;}.notes-scope-choices{max-height:200px;overflow:auto;padding:4px;}.notes-scope-choices .check-row{margin:5px 0;}#notes-share-version-info{overflow-wrap:anywhere;}

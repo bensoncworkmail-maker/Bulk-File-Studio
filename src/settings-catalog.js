@@ -141,6 +141,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "floatingCaptureKeepValues":"settings-capture-keep-values",
     "diagnosticsEnabled":"settings-diagnostics-enabled","diagnosticsIncludeStack":"settings-diagnostics-stack","diagnosticsIncludePaths":"settings-diagnostics-paths","diagnosticsRetentionDays":"settings-diagnostics-days",
     "renameVerification": "settings-rename-verification",
     "floatingTitle": "settings-floating-title",
@@ -210,6 +211,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "floatingCaptureKeepValues":"floating",
     "notesImportChangesOnly":"notes","notesShareQuickActions":"notes",
     "notesImportMode":"notes","notesSharedImportMode":"notes",
     "diagnosticsEnabled":"data","diagnosticsIncludeStack":"data","diagnosticsIncludePaths":"data","diagnosticsRetentionDays":"data",
