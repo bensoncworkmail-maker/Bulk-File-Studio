@@ -13,7 +13,7 @@
  }
  function render(){
   renderQuickActions();
-  const floatingTitle=settings.floatingTitle||'浮動工具';$('mini-title').textContent=floatingTitle;$('mini-title').title=floatingTitle;
+  const floatingTitle=settings.floatingTitle??'浮動工具';$('mini-title').textContent=floatingTitle;$('mini-title').title=floatingTitle;$('mini-title').hidden=!floatingTitle;document.documentElement.dataset.quickPlacement=settings.floatingQuickPlacement||'top';document.documentElement.dataset.quickColumns=String(settings.floatingQuickColumns||0);
   $('mini-caption-bar').hidden=settings.floatingShowCaption===false;
   document.documentElement.dataset.collapsed=String(Boolean(settings.floatingCollapsed));
   const headerActions={collapse:'收合／展開',tools:'精簡／還原工具列',pin:'切換置頂',main:'顯示主視窗'};$('mini-header').title='拖曳移動浮動工具 · 右鍵開啟工具選單'+(settings.floatingHeaderDoubleClick===false?'':' · 雙擊：'+headerActions[settings.floatingHeaderAction||'collapse']);
@@ -33,7 +33,7 @@
   document.documentElement.dataset.theme=settings.theme||'dark';document.documentElement.style.fontSize=(settings.fontSize||'13')+'px';
   $('mini-view-mixed').setAttribute('aria-pressed',String(settings.floatingView==='mixed'));$('mini-view-workspace').setAttribute('aria-pressed',String(settings.floatingView==='workspace'));$('mini-search').placeholder=settings.floatingView==='mixed'?'搜尋收藏、標籤、主檔…':settings.floatingView==='workspace'?'搜尋主檔、電話、筆記…':'搜尋收藏…';
   const tags=model.tagList(items,settings.tagSort,settings.tagDirection);if(tag&&!tags.some(t=>t.key===tag))tag=null;$('mini-heading').textContent=settings.floatingView==='mixed'?'混合檢視':settings.floatingView==='workspace'?'資料工作區':settings.floatingView==='tags'?'收藏標籤':tag===null?'全部收藏':tag===''?'未分類':tags.find(item=>item.key===tag)?.name||tag;
-  $('mini-pin').textContent='⌖';$('mini-pin').setAttribute('aria-pressed',String(settings.floatingOnTop));$('mini-pin').title=settings.floatingOnTop?'目前置頂，點選取消':'目前未置頂，點選啟用';
+  $('mini-pin').textContent='📌';$('mini-pin').setAttribute('aria-pressed',String(settings.floatingOnTop));$('mini-pin').title=settings.floatingOnTop?'目前置頂，點選取消':'目前未置頂，點選啟用';
   if(settings.floatingView==='mixed'){renderMixed();return;}if(settings.floatingView==='workspace'){renderWorkspace();return;}
   if(settings.floatingView==='tags'){
    const visible=[...(settings.floatingShowAllTag===false?[]:[null]),...(settings.floatingShowUntagged===false?[]:['']),...tags.filter(entry=>settings.floatingTagScope!=='selected'||(settings.floatingSelectedTags||[]).includes(entry.key)).map(entry=>entry.key)];

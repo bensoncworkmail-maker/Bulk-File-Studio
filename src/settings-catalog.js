@@ -141,6 +141,8 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "remindersEnabled":"settings-reminders-enabled","reminderDelivery":"settings-reminder-delivery","reminderBringToFront":"settings-reminder-focus","reminderSnoozeMinutes":"settings-reminder-snooze",
+    "floatingQuickPlacement":"settings-floating-quick-placement","floatingQuickColumns":"settings-floating-quick-columns",
     "floatingCaptureKeepValues":"settings-capture-keep-values",
     "diagnosticsEnabled":"settings-diagnostics-enabled","diagnosticsIncludeStack":"settings-diagnostics-stack","diagnosticsIncludePaths":"settings-diagnostics-paths","diagnosticsRetentionDays":"settings-diagnostics-days",
     "renameVerification": "settings-rename-verification",
@@ -211,6 +213,8 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "remindersEnabled":"notes","reminderDelivery":"notes","reminderBringToFront":"notes","reminderSnoozeMinutes":"notes",
+    "floatingQuickPlacement":"floating","floatingQuickColumns":"floating",
     "floatingCaptureKeepValues":"floating",
     "notesImportChangesOnly":"notes","notesShareQuickActions":"notes",
     "notesImportMode":"notes","notesSharedImportMode":"notes",
@@ -358,6 +362,8 @@ const config={
     "notesExpandedGroups": "notes"
   },
   "numericKeys": [
+    "reminderSnoozeMinutes",
+    "floatingQuickColumns",
     "diagnosticsRetentionDays",
     "searchPageSize",
     "searchSnippetLength",

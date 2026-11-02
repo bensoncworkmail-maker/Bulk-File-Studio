@@ -174,3 +174,5 @@
 .settings-category-copy{flex:1 1 auto;overflow-wrap:anywhere;}
 .settings-category-copy :is(strong,small){white-space:normal;line-height:1.45;}
 .settings-categories .settings-tabs>button:focus-visible{outline-offset:-3px;}
+.quick-form-row{display:grid;grid-template-columns:20px minmax(90px,1fr) minmax(100px,1fr) 30px 30px;gap:6px;align-items:center;padding:7px;border-bottom:1px solid var(--line);}.quick-form-row input{min-width:0;}.settings-inline{display:flex;flex-wrap:wrap;gap:10px;}.settings-inline label{flex:1 1 100px;}.settings-inline input{max-width:100%;}
+#record-reminder-banner{position:fixed;right:18px;bottom:12px;z-index:75;box-shadow:0 6px 24px #0003;display:flex;align-items:center;gap:12px;}#record-reminder-banner[hidden]{display:none;}#record-reminders-dialog{width:min(800px,calc(100vw - 30px));max-height:calc(100vh - 30px);overflow:auto;}#record-reminders-list{display:grid;gap:8px;margin:12px 0;}#record-reminder-form{display:grid;gap:8px;}#record-reminder-form .field{margin:0;}

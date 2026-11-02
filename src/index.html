@@ -97,7 +97,7 @@
             <button id="notes-settings-open" class="btn btn-ghost" title="資料工作區設定" aria-label="資料工作區設定">⚙</button>
             <button id="notes-back-search" class="btn btn-ghost" hidden>← 返回搜尋</button>
             <div id="notes-share-quick" class="notes-tools" role="group" aria-label="共享快捷操作"><button id="notes-share-quick-check" class="btn btn-ghost" disabled>檢查更新</button><button id="notes-share-quick-publish" class="btn btn-ghost" disabled>發佈快照</button><button id="notes-share-quick-preview" class="btn btn-secondary" hidden>檢視更新</button></div>
-            <button id="notes-share-open" class="btn btn-ghost">共享資料包</button>
+            <button id="notes-reminders-open" class="btn btn-ghost">提醒排程</button><button id="notes-share-open" class="btn btn-ghost">共享資料包</button>
             <details id="notes-tools-menu" class="notes-overflow">
               <summary class="btn btn-secondary">更多操作 ▾</summary>
               <div class="notes-overflow-menu">
@@ -195,7 +195,7 @@
                 <span id="notes-count" class="notes-sub"></span>
               <div class="notes-current-bar">
                 <strong id="notes-current-record">尚未選取紀錄</strong>
-                <button id="notes-inspect-current" class="btn btn-ghost" disabled>查看目前紀錄</button>
+                <button id="notes-record-reminder" class="btn btn-ghost" disabled>設定提醒</button><button id="notes-inspect-current" class="btn btn-ghost" disabled>查看目前紀錄</button>
                 <small>目前紀錄與批次勾選分開標示</small>
               </div>
 
@@ -357,7 +357,7 @@
                   <p class="notes-hint">自訂顯示只影響這台電腦的偏好，不會刪除資料；小視窗會自動減少實際欄數。</p>
                 </section>
               </div>
-              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance">
+              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance"><section class="settings-card"><h2>主視窗版面預設</h2><p class="rule-hint">套用後仍可逐項調整密度、字體及各面板寬度；不改資料。</p><div class="notes-tools"><button id="layout-main-compact" class="btn btn-secondary">精簡</button><button id="layout-main-standard" class="btn btn-secondary">標準</button><button id="layout-main-readable" class="btn btn-secondary">大字易讀</button></div><div class="settings-inline"><label>視窗寬<input id="settings-main-width" type="number" min="800" max="8000" value="1400"></label><label>視窗高<input id="settings-main-height" type="number" min="500" max="8000" value="900"></label></div><button id="settings-main-size-apply" class="btn btn-secondary">套用視窗尺寸</button><p id="settings-main-size-status" class="rule-hint"></p></section>
                 <section class="settings-card">
                   <h2>外觀與閱讀</h2>
                   <label class="check-row">
@@ -564,7 +564,7 @@
                     </select>
                   </label>
                   <label class="field">
-                    <span>群組側欄寬度 <output id="settings-notes-panel-width-value">220 px</output></span>
+                    <span>主表側欄寬度 <output id="settings-notes-panel-width-value">220 px</output></span>
                     <input id="settings-notes-panel-width" type="range" min="160" max="480" value="220">
                   </label>
                   <p class="rule-hint">亦可拖曳側欄右邊界；雙擊還原 220 px，方向鍵微調，窄視窗會限制顯示寬度。</p>
@@ -724,11 +724,12 @@
                   <p class="rule-hint">資料工作區偏好包含於「匯出設定 JSON」；資料本身請使用工作區資料包匯出。</p>
                 </section>
                 <section class="settings-card">
-                  <h2>匯入預設與備份</h2><label class="check-row"><input id="settings-notes-import-changes-only" type="checkbox"><span>匯入預覽預設只看有差異的紀錄</span></label>
+                  <h2>匯入預設與備份</h2><p class="rule-hint">程式版本與資料格式獨立；目前資料格式 3，可讀取舊資料包 1／2／3；指定主表共享採封裝 4，避免舊接收端誤套用全部。只傳送資料與連結，不含實體檔案。</p><button id="settings-notes-compat-check" class="btn btn-secondary">檢查舊資料包相容性（不匯入）</button><p id="settings-notes-compat-status" class="rule-hint"></p><label class="check-row"><input id="settings-notes-import-changes-only" type="checkbox"><span>匯入預覽預設只看有差異的紀錄</span></label>
                   <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="skip">合併，略過重複紀錄</option><option value="update">合併，更新相同識別碼</option></select></label>
                   <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option><option value="update">合併，更新相同識別碼（持續接收更新）</option><option value="copy">另存副本（獨立參考）</option><option value="skip">合併，略過重複紀錄</option></select></label>
                   <p class="rule-hint">只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。來源複製會取代資料包未包含的本機表格與紀錄，須再次確認；保留 ID，不建立重複副本。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
-                </section><section class="settings-card">
+                </section><section class="settings-card"><h2>紀錄提醒</h2><label class="check-row"><input id="settings-reminders-enabled" type="checkbox"><span>啟用本機紀錄提醒（只在程式執行時）</span></label><label class="field"><span>預設提醒方式</span><select id="settings-reminder-delivery"><option value="notification">Windows 系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option></select></label><label class="check-row"><input id="settings-reminder-focus" type="checkbox"><span>到期時顯示並聚焦主視窗（不關閉未儲存表單）</span></label><label class="field"><span>預設延後</span><select id="settings-reminder-snooze"><option value="5">5 分鐘</option><option value="10">10 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label><button id="settings-reminders-open" class="btn btn-secondary">管理提醒排程</button><p class="rule-hint">程式完全結束時不提醒；下次執行補列逾期提醒。Windows 通知可能被系統限制，程式內待辦提示仍保留。排程保存在本機，不隨資料包共享。</p></section>
+<section class="settings-card">
                   <h2>共享資料包</h2><label class="check-row"><input id="settings-notes-share-quick" type="checkbox"><span>在工作區標題列顯示共享快捷操作</span></label><p class="rule-hint">快捷列只控制顯示。共享啟用、資料夾、接收方式與檢查間隔獨立儲存，不隨介面偏好還原。</p>
                   <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；新資料可選提醒、自動套用指定來源或忽略。</p>
                   <p class="rule-hint">發佈／接收可指定主表及其明細；請開啟管理視窗的「共享設定與來源資訊 → 指定主表」。來源版本可從資料包的「版本資訊」核對，舊版仍須預覽、確認並備份。</p><p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
@@ -816,7 +817,7 @@
                   <p class="notes-hint">位置引用以完整路徑去重，主檔數也去重。文字路徑、分享待確認連結仍可列出關係，但搜尋不會自動開啟或授權它們。搜尋文字不寫入持久紀錄。</p>
                 </section>
               </div>
-              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden>
+              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden><section class="settings-card"><h2>浮動工具版面預設</h2><button id="layout-floating-minimal" class="btn btn-secondary">精簡小窗</button><button id="layout-floating-balanced" class="btn btn-secondary">平衡雙欄</button><p class="rule-hint">可繼續自訂寬高、透明度、列高、快捷列位置與欄數、顯示按鈕；各快捷表單可另設尺寸與欄位。</p></section>
                 <section class="settings-card">
                   <h2>浮動快捷動作</h2>
                   <label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
@@ -830,10 +831,12 @@
                   <div class="notes-tools"><button id="quick-action-add" type="button" class="btn btn-secondary">＋ 新增快捷動作</button><button id="quick-action-refresh" type="button" class="btn btn-ghost">重新讀取表格</button></div>
                   <details id="quick-action-editor"><summary>編輯快捷動作</summary>
                     <label class="field"><span>按鈕名稱</span><input id="quick-action-label" type="text" maxlength="30" placeholder="例如：新增聯絡人、匯入合約位置"></label>
-                    <label class="field"><span>操作類型</span><select id="quick-action-type"><option value="new-record">新增指定表格紀錄</option><option value="import-paths">匯入路徑並套用標籤</option><option value="open-sheet">開啟指定表格</option></select></label>
+                    <label class="field"><span>操作類型</span><select id="quick-action-type"><option value="new-record">新增指定表格紀錄</option><option value="import-paths">匯入路徑並套用標籤</option><option value="open-sheet">開啟指定表格</option><option value="open-page">開啟指定頁面</option><option value="share-check">檢查共享更新</option><option value="share-publish">發佈共享快照（仍須確認）</option></select></label><label id="quick-action-page-field" class="field" hidden><span>目標頁面</span><select id="quick-action-page"><option value="home">首頁</option><option value="notes">資料工作區</option><option value="favorites">我的收藏</option><option value="search">全域搜尋</option><option value="rename">檔案工具</option><option value="settings">設定</option></select></label>
+
                     <div id="quick-action-table-fields"><label class="field"><span>目標表格</span><select id="quick-action-sheet"></select></label><label id="quick-action-master-field" class="field" hidden><span>預設所屬主紀錄（選填）</span><select id="quick-action-master"></select></label></div>
                     <div id="quick-action-import-fields" hidden><label class="field"><span>預設標籤，以逗號分隔</span><input id="quick-action-tags" type="text" placeholder="工作、合約"></label><label class="check-row"><input id="quick-action-clipboard" type="checkbox"><span>按下按鈕時帶入剪貼簿文字，先預覽再匯入</span></label></div>
-                    <button id="quick-action-save" type="button" class="btn btn-primary">儲存快捷動作</button>
+                    <details id="quick-action-form-config"><summary>自訂快捷表單欄位與尺寸</summary><div class="settings-inline"><label>欄數<select id="quick-form-columns"><option value="2">兩欄</option><option value="1">一欄</option></select></label><label>寬度<input id="quick-form-width" type="number" min="360" max="1000" value="480"></label><label>高度<input id="quick-form-height" type="number" min="320" max="1200" value="650"></label></div><label class="field"><span>預設紀錄標籤</span><input id="quick-form-tags" placeholder="工作、合約"></label><p class="rule-hint">勾選要顯示的欄位，箭頭調整順序；可填預設值。所屬主紀錄未預設時仍須顯示。</p><div id="quick-form-fields"></div></details>
+<button id="quick-action-save" type="button" class="btn btn-primary">儲存快捷動作</button>
                   </details><p id="quick-action-status" class="rule-hint" role="status"></p>
                 </section>
                 <section class="settings-card">
@@ -845,8 +848,9 @@
                 </section>
                 <section class="settings-card">
                   <h2>視窗與快速入口</h2>
-                  <label class="field"><span>浮動工具標題</span><input id="settings-floating-title" type="text" maxlength="40" placeholder="浮動工具" aria-describedby="settings-floating-title-help"></label>
-                  <p id="settings-floating-title-help" class="rule-hint">最多 40 字元，留空恢復「浮動工具」。儲存後立即套用，右側仍自動顯示目前模式／標籤；長標題顯示省略號，滑鼠停留可查看完整名稱。</p>
+                  <label class="field"><span>快捷列位置</span><select id="settings-floating-quick-placement"><option value="top">頂部</option><option value="bottom">底部</option></select></label><label class="field"><span>快捷按鈕欄數</span><select id="settings-floating-quick-columns"><option value="0">自動單列捲動</option><option value="1">1 欄</option><option value="2">2 欄</option><option value="3">3 欄</option><option value="4">4 欄</option></select></label>
+<label class="field"><span>浮動工具標題</span><input id="settings-floating-title" type="text" maxlength="40" placeholder="浮動工具" aria-describedby="settings-floating-title-help"></label>
+                  <p id="settings-floating-title-help" class="rule-hint">最多 40 字元，留空只隱藏名稱，仍保留目前模式。儲存後立即套用，右側仍自動顯示目前模式／標籤；長標題顯示省略號，滑鼠停留可查看完整名稱。</p>
                   <label class="field">
                     <span>檢視模式</span>
                     <select id="settings-floating-view">
@@ -2363,6 +2367,9 @@
     <script src="favorites.js" defer></script>
     <script src="everything.js" defer></script>
     <script src="notes-model.js" defer></script>
+    <aside id="record-reminder-banner" class="notes-share-status-card" hidden><span id="record-reminder-count"></span><button id="record-reminder-review" class="btn btn-secondary">查看提醒</button></aside>
+    <dialog id="record-reminders-dialog" class="modal notes-modal" aria-labelledby="record-reminders-title"><h2 id="record-reminders-title">紀錄提醒排程</h2><p class="notes-hint">關閉程式後不會通知；既有編輯內容會保留。</p><form id="record-reminder-form"><input id="record-reminder-search" type="search" placeholder="搜尋紀錄與表格…"><label class="field"><span>紀錄</span><select id="record-reminder-record" required></select></label><label class="field"><span>提醒時間（本機時間）</span><input id="record-reminder-at" type="datetime-local" required></label><label class="field"><span>重複</span><select id="record-reminder-repeat"><option value="none">一次</option><option value="daily">每天（完成後排下一次）</option><option value="weekly">每週（完成後排下一次）</option></select></label><label class="field"><span>提醒方式</span><select id="record-reminder-delivery"><option value="default">依設定頁</option><option value="notification">系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option></select></label><button class="btn btn-primary" type="submit">儲存提醒</button><button id="record-reminder-new" class="btn btn-ghost" type="button">新增另一個</button></form><p id="record-reminder-status" role="status"></p><div id="record-reminders-list"></div><div class="modal-buttons"><button id="record-reminders-close" class="btn btn-secondary">關閉</button></div></dialog>
+    <script src="record-reminders-ui.js" defer></script>
     <script src="share-view-model.js" defer></script>
     <script src="share-receive-ui.js" defer></script>
     <script src="notes.js" defer></script>

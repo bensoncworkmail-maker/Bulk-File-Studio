@@ -94,7 +94,7 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  setFloatingView:mode=>invoke('floating-view',mode),
  importPaths:tag=>invoke('floating-import',tag),togglePin:()=>invoke('floating-pin'),
  diagnosticsStatus:recent=>invoke('diagnostics-status',recent),openDiagnostics:()=>invoke('diagnostics-open'),exportDiagnostics:()=>invoke('diagnostics-export'),clearDiagnostics:()=>invoke('diagnostics-clear'),
- get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),
+ resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),
  resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),showMain:tag=>invoke('floating-main',tag),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));
@@ -103,7 +103,7 @@ contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>invoke
 
 contextBridge.exposeInMainWorld('appSearchAPI',Object.freeze({search:(query,options,transient)=>invoke('studio-search',query,options,transient),copyPath:value=>invoke('studio-search-copy',value)}));
 contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
- chooseTableFile:()=>invoke('notes-tabular-file'),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
+ checkPackage:()=>invoke('notes-check-package'),chooseTableFile:()=>invoke('notes-tabular-file'),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
  tools:()=>invoke('notes-tools-get'),saveView:(name,state)=>invoke('notes-view-save',name,state),removeTool:(kind,id)=>invoke('notes-tool-remove',kind,id),saveTemplate:(name,areaId)=>invoke('notes-template-save',name,areaId),applyTemplate:(id,revision)=>invoke('notes-template-apply',id,revision),pin:id=>invoke('notes-pin',id),batchSheets:(entries,revision)=>invoke('notes-batch-sheets',entries,revision),batchAreas:(ids,revision)=>invoke('notes-batch-areas',ids,revision),saveCells:(entries,revision)=>invoke('notes-grid-save',entries,revision),navigation:()=>invoke('notes-navigation'),onNavigate:callback=>ipcRenderer.on('notes-navigate',()=>callback()),onToolsChanged:callback=>ipcRenderer.on('notes-tools-changed',(_,value)=>callback(value)),
 
  onShareOpenRequest:callback=>ipcRenderer.on('notes-share-open-request',()=>callback()),cancelPreview:token=>invoke('notes-preview-cancel',token),importDetails:(token,key)=>invoke('notes-import-details',token,key),
@@ -120,3 +120,5 @@ contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
 contextBridge.exposeInMainWorld('homeAPI',Object.freeze({snapshot:()=>invoke('studio-home')}));
 
 contextBridge.exposeInMainWorld('diagnosticsAPI',Object.freeze({report:entry=>ipcRenderer.invoke('diagnostics-report',entry)}));
+
+contextBridge.exposeInMainWorld('remindersAPI',Object.freeze({canPresent:automatic=>invoke('reminders-ready',automatic),list:()=>invoke('reminders-list'),save:input=>invoke('reminders-save',input),remove:id=>invoke('reminders-remove',id),ack:id=>invoke('reminders-ack',id),snooze:(id,minutes)=>invoke('reminders-snooze',id,minutes),onOpen:callback=>ipcRenderer.on('record-reminders-open',()=>callback()),onChanged:callback=>ipcRenderer.on('record-reminders-changed',(_,value)=>callback(value))}));
