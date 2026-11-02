@@ -141,6 +141,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "floatingSearchMode":"settings-floating-search-mode","floatingSearchDelay":"settings-floating-search-delay","floatingSearchMinLength":"settings-floating-search-min",
     "floatingGlobalSearch":"settings-floating-global-search","floatingSearchWidth":"settings-floating-search-width","floatingSearchHeight":"settings-floating-search-height",
     "reminderAttentionSound":"settings-reminder-attention-sound","reminderAttentionRepeatMinutes":"settings-reminder-attention-repeat","remindersEnabled":"settings-reminders-enabled","reminderDelivery":"settings-reminder-delivery","reminderBringToFront":"settings-reminder-focus","reminderSnoozeMinutes":"settings-reminder-snooze",
     "floatingQuickPlacement":"settings-floating-quick-placement","floatingQuickColumns":"settings-floating-quick-columns",
@@ -214,6 +215,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "floatingSearchMode":"floating","floatingSearchDelay":"floating","floatingSearchMinLength":"floating",
     "floatingGlobalSearch":"floating","floatingSearchWidth":"floating","floatingSearchHeight":"floating",
     "reminderAttentionSound":"notes","reminderAttentionRepeatMinutes":"notes","remindersEnabled":"notes","reminderDelivery":"notes","reminderBringToFront":"notes","reminderSnoozeMinutes":"notes",
     "floatingQuickPlacement":"floating","floatingQuickColumns":"floating",
@@ -364,6 +366,7 @@ const config={
     "notesExpandedGroups": "notes"
   },
   "numericKeys": [
+    "floatingSearchDelay","floatingSearchMinLength",
     "floatingSearchWidth","floatingSearchHeight",
     "reminderAttentionRepeatMinutes",
     "reminderSnoozeMinutes",
