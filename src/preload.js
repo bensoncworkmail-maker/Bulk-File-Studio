@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  dropFiles:(paths,tag)=>invoke('floating-drop',paths,tag),
- quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
+ openFloatingSearch:query=>invoke('floating-search-open',query),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>invoke('floating-header-menu'),
  headerDoubleClick:()=>invoke('floating-header-double-click'),
@@ -101,7 +101,7 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
 
 contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>invoke('everything-status'),configure:(enabled,instance)=>invoke('everything-configure',enabled,instance),choose:()=>invoke('everything-choose'),search:input=>invoke('everything-search',input),cancel:()=>invoke('everything-cancel'),favorite:(token,indices,tags)=>invoke('everything-favorite',token,indices,tags),toRename:(token,indices)=>invoke('everything-to-rename',token,indices)}));
 
-contextBridge.exposeInMainWorld('appSearchAPI',Object.freeze({search:(query,options,transient)=>invoke('studio-search',query,options,transient),copyPath:value=>invoke('studio-search-copy',value)}));
+contextBridge.exposeInMainWorld('appSearchAPI',Object.freeze({search:(query,options,transient)=>invoke('studio-search',query,options,transient),copyPath:value=>invoke('studio-search-copy',value),onTarget:callback=>{const listener=(_,item)=>callback(item);ipcRenderer.on('studio-search-target',listener);return ()=>ipcRenderer.removeListener('studio-search-target',listener);}}));
 contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
  checkPackage:()=>invoke('notes-check-package'),chooseTableFile:()=>invoke('notes-tabular-file'),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
  tools:()=>invoke('notes-tools-get'),saveView:(name,state)=>invoke('notes-view-save',name,state),removeTool:(kind,id)=>invoke('notes-tool-remove',kind,id),saveTemplate:(name,areaId)=>invoke('notes-template-save',name,areaId),applyTemplate:(id,revision)=>invoke('notes-template-apply',id,revision),pin:id=>invoke('notes-pin',id),batchSheets:(entries,revision)=>invoke('notes-batch-sheets',entries,revision),batchAreas:(ids,revision)=>invoke('notes-batch-areas',ids,revision),saveCells:(entries,revision)=>invoke('notes-grid-save',entries,revision),navigation:()=>invoke('notes-navigation'),onNavigate:callback=>ipcRenderer.on('notes-navigate',()=>callback()),onToolsChanged:callback=>ipcRenderer.on('notes-tools-changed',(_,value)=>callback(value)),
