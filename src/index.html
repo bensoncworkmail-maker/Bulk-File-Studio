@@ -100,7 +100,7 @@
               <summary class="btn btn-secondary">更多操作 ▾</summary>
               <div class="notes-overflow-menu">
                 <button id="notes-template" class="btn btn-secondary">範本庫</button>
-                <button id="notes-new-sheet" class="btn btn-secondary">＋ 表格</button>
+                <button id="notes-new-sheet" class="btn btn-secondary">＋ 主表</button>
                 <button id="notes-add-detail-sheet" class="btn btn-ghost">＋ 明細表</button>
                 <button id="notes-trash-view" class="btn btn-ghost">回收筒</button>
                 <button id="notes-import" class="btn btn-ghost">匯入</button>
@@ -114,44 +114,16 @@
         <p id="notes-status" class="notes-status" role="status">開啟後讀取本機資料。</p>
         <div id="notes-layout" class="notes-layout">
           <aside id="notes-sidebar" class="notes-sidebar">
-            <div class="notes-sidebar-head">
-              <strong>工作區群組</strong>
-              <button id="notes-new-area" class="btn btn-ghost" title="新增工作區群組">＋</button>
-              <button id="notes-edit-area" class="btn btn-ghost" title="群組名稱與主表">⚙</button>
-              <button id="notes-group-menu" class="btn btn-ghost" title="群組選單（亦可右鍵或 Shift+F10）" aria-haspopup="menu">⋯</button>
-            </div>
-            <div class="notes-nav-search">
-              <input id="notes-nav-search" type="search" maxlength="120" placeholder="找分類、群組、表格或主紀錄…" aria-label="搜尋全部主檔分類、群組、表格或主紀錄">
-              <button id="notes-nav-clear" class="btn btn-ghost" aria-label="清除側欄搜尋" hidden>✕</button>
-            </div>
-            <div class="notes-nav-actions">
-              <button id="notes-nav-focus" class="btn btn-ghost">只看目前群組</button>
-              <button id="notes-nav-collapse-all" class="btn btn-ghost">收合全部</button>
-            </div>
-            <p id="notes-nav-current" class="notes-nav-current" role="status"></p>
-            <label id="notes-master-picker" class="notes-master-field">
-              <span id="notes-master-label">主紀錄</span>
-              <select id="notes-master-select" aria-label="依主紀錄篩選"></select>
-            </label>
-            <label id="notes-nav-category-field" class="notes-master-field"><span>主檔分類</span><select id="notes-nav-category" aria-label="篩選主檔分類"></select></label>
+            <div class="notes-sidebar-head"><strong>主表</strong><button id="notes-sidebar-new-master" class="btn btn-ghost" title="新增主表">＋</button><button id="notes-organize" class="btn btn-ghost" title="批次管理主表及明細表">批次</button><button id="notes-panel-view" class="btn btn-ghost" title="切換側欄清單／卡片" aria-pressed="false">▦</button></div>
+            <div class="notes-nav-search"><input id="notes-nav-search" type="search" maxlength="120" placeholder="搜尋主表名稱…" aria-label="搜尋主表"><button id="notes-nav-clear" class="btn btn-ghost" aria-label="清除側欄搜尋" hidden>✕</button></div>
             <div id="notes-sheets"></div>
-            <details class="notes-nav-options">
-              <summary>導覽與資料工具</summary>
-              <div class="notes-sidebar-head">
-              <strong>主檔分類與表格</strong>
-              <button id="notes-organize" class="btn btn-ghost" title="批次管理群組及表格">批次</button>
-              <button id="notes-panel-view" class="btn btn-ghost" title="切換側欄清單／卡片" aria-pressed="false">▦</button>
+            <button id="notes-open-storage" class="btn btn-ghost">本機資料位置 ↗</button>
+            <div id="notes-legacy-group-controls" hidden aria-hidden="true">
+              <button id="notes-new-area" hidden></button><button id="notes-edit-area" hidden></button><button id="notes-group-menu" hidden></button><button id="notes-nav-focus" hidden></button><button id="notes-nav-collapse-all" hidden></button><p id="notes-nav-current" hidden></p>
+              <label id="notes-master-picker"><span id="notes-master-label"></span><select id="notes-master-select"></select></label><label id="notes-nav-category-field"><select id="notes-nav-category"></select></label><select id="notes-nav-layout"><option value="flat">主表</option><option value="masters">保留</option><option value="groups">保留</option></select><select id="notes-area-select"></select>
             </div>
-              <div class="notes-nav-filters"><label class="notes-master-field"><span>導覽方式</span><select id="notes-nav-layout" aria-label="工作區導覽方式"><option value="flat">平列全部主檔</option><option value="masters">按主檔分類</option><option value="groups">完整群組與表格</option></select></label><label class="notes-master-field"><span>直接切換群組</span><select id="notes-area-select" aria-label="工作區群組"></select></label></div>
-            <small>▣ 主檔清單 · ↳ 明細表</small>
-            <button id="notes-open-storage" class="btn btn-ghost" title="目前使用本機 workspace.sqlite；不支援在共享磁碟直接多人編輯">本機資料位置 ↗</button>
-            <details class="notes-storage-help">
-              <summary>儲存與分享</summary>
-              <p>主資料庫 workspace.sqlite 留在本機。可選用「共享資料包」，在明確指定的資料夾定期檢查或發佈快照，預設關閉；此功能可經區域網路存取共享磁碟。收到資料包仍須先預覽再匯入，不會自動合併。一般收藏、改名與檔案操作仍拒絕 UNC 路徑。</p>
-            </details>
-            </details>
           </aside>
-          <div id="notes-panel-resizer" class="notes-panel-resizer" role="separator" aria-label="調整工作區群組側欄寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" tabindex="0"></div>
+          <div id="notes-panel-resizer" class="notes-panel-resizer" role="separator" aria-label="調整主表側欄寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" tabindex="0"></div>
           <main class="notes-content">
             <div id="notes-master-context" class="notes-master-context" hidden>
               <small id="notes-master-badge">目前主檔</small>
@@ -173,8 +145,8 @@
               <select id="notes-search-scope" aria-label="搜尋範圍">
                 <option value="sheet">目前表格</option>
                 <option id="notes-scope-master" value="master">目前主紀錄與明細</option>
-                <option value="area">目前群組的全部表格</option>
-                <option value="all">全域：所有群組、主檔與明細</option>
+                <option value="area">目前主表及其明細</option>
+                <option value="all">全域：所有主表與明細</option>
                 <option value="masters">全域：只搜尋主檔</option>
               </select>
               <div id="notes-filters" class="notes-filters">
@@ -555,9 +527,9 @@
               <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
                 <section class="settings-card">
                   <h2>資料工作區版面</h2>
-                  <label class="field"><span>側欄導覽方式</span><select id="settings-notes-sidebar-mode"><option value="flat">平列全部主檔（最精簡）</option><option value="masters">按主檔分類</option><option value="groups">完整群組與表格</option></select></label>
-                  <label class="check-row"><input id="settings-notes-sidebar-compact" type="checkbox"><span>精簡側欄間距與重複標題</span></label><label class="check-row"><input id="settings-notes-sidebar-details" type="checkbox"><span>分類模式亦顯示明細表（平列主檔固定隱藏明細）</span></label>
-                  <p class="rule-hint">平列全部主檔最省空間；明細仍可從主紀錄分頁開啟。精簡模式會隱藏重複的主檔／明細分區標題，顯示設定不會改動資料。</p>
+                  <label hidden class="field"><span>側欄導覽方式</span><select id="settings-notes-sidebar-mode"><option value="flat">平列全部主檔（最精簡）</option><option value="masters">按主檔分類</option><option value="groups">完整群組與表格</option></select></label>
+                  <label hidden class="check-row"><input id="settings-notes-sidebar-compact" type="checkbox"><span>精簡側欄間距與重複標題</span></label><label hidden class="check-row"><input id="settings-notes-sidebar-details" type="checkbox"><span>分類模式亦顯示明細表（平列主檔固定隱藏明細）</span></label>
+                  <p class="rule-hint">左側固定只列主表；選取主紀錄後，從分頁開啟明細。現有主從關聯保留，暫不提供群組分類介面。</p>
                   <label class="field">
                     <span>左側表格導覽</span>
                     <select id="settings-notes-panel-view">
@@ -611,7 +583,7 @@
                       <option value="250">250 筆</option>
                     </select>
                   </label>
-                  <label class="check-row">
+                  <label hidden class="check-row">
                     <input id="settings-notes-sidebar-sections" type="checkbox">
                     <span>側欄分區顯示主檔與明細表</span>
                   </label>
@@ -670,7 +642,7 @@
                       <option value="sheet">目前表格</option>
                       <option value="master">目前主紀錄與明細（未選主檔時使用目前表格）</option>
                       <option value="area">目前群組</option>
-                      <option value="all">全域：所有群組、主檔與明細</option>
+                      <option value="all">全域：所有主表與明細</option>
                       <option value="masters">全域：只搜尋主檔</option>
                     </select>
                   </label>
@@ -751,9 +723,9 @@
                 </section>
                 <section class="settings-card">
                   <h2>匯入預設與備份</h2>
-                  <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="skip">合併，略過重複紀錄</option><option value="update">合併，更新相同識別碼</option></select></label>
-                  <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="update">合併，更新相同識別碼（持續接收更新）</option><option value="copy">另存副本（獨立參考）</option><option value="skip">合併，略過重複紀錄</option></select></label>
-                  <p class="rule-hint">只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
+                  <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="skip">合併，略過重複紀錄</option><option value="update">合併，更新相同識別碼</option></select></label>
+                  <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option><option value="update">合併，更新相同識別碼（持續接收更新）</option><option value="copy">另存副本（獨立參考）</option><option value="skip">合併，略過重複紀錄</option></select></label>
+                  <p class="rule-hint">只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。來源複製會取代資料包未包含的本機表格與紀錄，須再次確認；保留 ID，不建立重複副本。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
                 </section><section class="settings-card">
                   <h2>共享資料包</h2>
                   <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；新資料可選提醒、自動套用指定來源或忽略。</p>
@@ -761,7 +733,7 @@
                   <button id="settings-notes-share-manage" class="btn btn-secondary">管理共享資料包</button><label class="check-row"><input id="settings-share-notifications" type="checkbox"><span>共享有更新時顯示桌面通知（仍受系統通知設定影響）</span></label>
 <label class="field"><span>發現其他人發布的新資料包時</span><select id="settings-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
 <label class="field"><span>跟隨的發布來源 ID</span><select id="settings-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
-<p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以「合併，更新相同識別碼」手動匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
+<p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以更新模式或「複製來源到本機」手動確認匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
 <p id="settings-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="settings-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="settings-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
                 </section>
               </div>
@@ -2051,7 +2023,7 @@
       <label class="check-row"><input id="notes-share-notifications" type="checkbox"><span>共享有更新時顯示桌面通知（仍受系統通知設定影響）</span></label>
 <label class="field"><span>發現其他人發布的新資料包時</span><select id="notes-share-receive"><option value="remind">提醒我，預覽確認後匯入（預設）</option><option value="auto">自動套用指定來源（本機未修改時）</option><option value="ignore">忽略新資料包，不提醒也不匯入</option></select></label>
 <label class="field"><span>跟隨的發布來源 ID</span><select id="notes-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
-<p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以「合併，更新相同識別碼」手動匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
+<p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以更新模式或「複製來源到本機」手動確認匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
 <p id="notes-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="notes-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="notes-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
       <p class="notes-hint">本機發布來源 ID：<code id="notes-share-device"></code></p>
       <div class="notes-tools">
@@ -2073,7 +2045,7 @@
           <input type="text" id="notes-sheet-name" required maxlength="100" autocomplete="off">
         </label>
         <p class="notes-hint">每筆紀錄都有標題、筆記、標籤及收藏連結。以下新增其他欄位；關聯欄位可連到另一張表的紀錄。</p>
-        <label class="field">
+        <label hidden class="field">
           <span>所屬工作區群組</span>
           <select id="notes-sheet-area"></select>
         </label>
@@ -2124,14 +2096,14 @@
     </dialog>
     <dialog id="notes-tools-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-tools-title">
       <h2 id="notes-tools-title">儲存檢視與自訂範本</h2>
-      <p class="notes-hint">檢視保存搜尋、範圍、日期條件及顯示模式；日期條件會隨今天滾動。範本只保存目前群組的空白表格結構，不包含紀錄。</p>
+      <p class="notes-hint">檢視保存搜尋、範圍、日期條件及顯示模式；日期條件會隨今天滾動。範本只保存目前主表及明細的空白表格結構，不包含紀錄。</p>
       <label class="field">
         <span>名稱</span>
         <input id="notes-tool-name" type="text" maxlength="100">
       </label>
       <div class="notes-tools">
         <button id="notes-tool-save-view" class="btn btn-primary">儲存目前檢視</button>
-        <button id="notes-tool-save-template" class="btn btn-secondary">將目前群組存成範本</button>
+        <button id="notes-tool-save-template" class="btn btn-secondary">將目前主表與明細存成範本</button>
       </div>
       <h3>儲存檢視</h3>
       <div id="notes-view-list-items"></div>
@@ -2142,8 +2114,8 @@
       </div>
     </dialog>
     <dialog id="notes-organize-dialog" class="modal notes-modal" aria-labelledby="notes-organize-title">
-      <h2 id="notes-organize-title">群組／表格批次管理</h2>
-      <p class="notes-hint">群組勾選用於移除群組（表格保留並移至未分組）；表格勾選用於移至回收筒。兩項操作分開確認，不刪除實體檔案。</p>
+      <h2 id="notes-organize-title">主表／明細表批次管理</h2>
+      <p class="notes-hint">勾選主表會一併勾選所屬明細表；也可只選指定明細表。確認後表格及其紀錄移至回收筒，不刪除實體檔案。</p>
       <div class="notes-tools">
         <button id="notes-organize-all" class="btn btn-ghost">全選表格</button>
         <button id="notes-organize-none" class="btn btn-ghost">取消全部</button>
@@ -2152,7 +2124,7 @@
       <p id="notes-organize-count" class="notes-hint"></p>
       <div class="modal-buttons">
         <button id="notes-organize-close" class="btn btn-ghost">關閉</button>
-        <button id="notes-organize-areas" class="btn btn-ghost">移除所選群組（保留表格）</button>
+
         <button id="notes-organize-sheets" class="btn btn-primary">所選表格移至回收筒</button>
       </div>
     </dialog>
@@ -2335,7 +2307,7 @@
       <div id="notes-import-options">
         <label class="field">
           <span>匯入方式</span>
-          <select id="notes-import-mode">
+          <select id="notes-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option>
             <option value="copy">另存副本（獨立資料，重新建立識別碼）</option>
             <option value="skip">合併，略過重複紀錄</option>
             <option value="update">合併，更新相同識別碼的紀錄</option>
@@ -2349,7 +2321,7 @@
       <button id="notes-transfer-preview" class="btn btn-secondary">預覽內容</button>
       <p id="notes-transfer-summary" role="status"></p>
       <input id="notes-transfer-search" type="search" placeholder="搜尋預覽中的紀錄…" aria-label="搜尋分享預覽">
-      <p id="notes-transfer-context" class="notes-hint"></p><label class="field"><span>預覽變更篩選</span><select id="notes-transfer-filter"><option value="all">全部紀錄</option><option value="added">新增</option><option value="updated">更新內容</option><option value="unchanged">內容相同</option><option value="skipped">略過</option></select></label>
+      <p id="notes-transfer-context" class="notes-hint"></p><label class="field"><span>預覽變更篩選</span><select id="notes-transfer-filter"><option value="all">全部紀錄</option><option value="added">新增</option><option value="updated">更新內容</option><option value="unchanged">內容相同</option><option value="skipped">略過</option><option value="removed">將移除（來源複製）</option></select></label>
       <p id="notes-import-audit-hint" class="notes-hint">匯入預覽顯示「本機目前值 → 本次匯入後的值」，可展開查看。共享資料包不包含發布者完整操作歷史或操作者身分；本機歷史只反映此電腦的變更。</p>
       <div id="notes-transfer-preview-list" class="notes-preview-list"></div>
       <div class="notes-pagination">

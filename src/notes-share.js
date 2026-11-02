@@ -46,7 +46,7 @@ class NotesShare {
   this.notice=null;if(this.config.receiveMode==='ignore')return;const file=this.candidate();if(!file||file.name===this.config.ignoredName||file.name===this.config.lastAccepted?.name||this.config.receivedNames.includes(file.name))return;
   const identity=packageIdentity(file.name);this.notice={name:file.name,source:identity.source,reason:'發現新的共享資料包，請預覽匯入。'};
   if(this.config.receiveMode!=='auto')return;
-  const baseline=this.config.lastAccepted;if(!baseline||baseline.source!==identity.source){this.notice.reason='首次接收請先預覽，使用「合併，更新相同識別碼」匯入，建立自動接收基準。';return;}
+  const baseline=this.config.lastAccepted;if(!baseline||baseline.source!==identity.source){this.notice.reason='首次接收請先預覽，使用更新模式或「複製來源到本機」確認匯入，建立自動接收基準。';return;}
   if(this.snapshot().revision!==baseline.localRevision){this.notice.reason='本機在上次接收後已有修改，已暫停自動套用；請手動預覽及確認。';return;}
   const result=await this.read(file.name);if(generation!==this.generation||!this.config.enabled)throw new Error('分享作業已取消');
   if(!result.sharing||result.sharing.source!==identity.source)throw new Error('資料包缺少有效的發布來源，請手動預覽');
@@ -60,7 +60,7 @@ class NotesShare {
  }
  accept(input,localRevision){const value=accepted({name:input?.name,source:input?.sharing?.source,remoteRevision:input?.sharing?.revision,localRevision});if(!value||value.source!==this.config.followSource)return false;this.save({...this.config,lastAccepted:value,ignoredName:'',receivedNames:[...this.config.receivedNames.filter(name=>name!==value.name),value.name].slice(-100)});this.notice=null;this.emit();return true;}
  completeImport(input,localRevision,mode){
-  if(mode==='update'&&this.accept(input,localRevision))return true;if(!FILE.test(input?.name))return false;
+  if((mode==='update'||mode==='clone')&&this.accept(input,localRevision))return true;if(!FILE.test(input?.name))return false;
   this.save({...this.config,receivedNames:[...this.config.receivedNames.filter(name=>name!==input.name),input.name].slice(-100)});this.notice=null;this.emit();return true;
  }
  ignore(name){if(!this.notice||this.notice.name!==name)throw new Error('更新提示已變更，請重新檢查');this.save({...this.config,ignoredName:name});this.notice=null;this.emit();return this.status();}

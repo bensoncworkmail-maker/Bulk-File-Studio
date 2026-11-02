@@ -140,8 +140,14 @@
  }
  function readPackage(input){if(!isObject(input)||input.format!=='BulkFileStudio.Workspace'||![1,2,3].includes(input.packageVersion))fail('不是支援的 Studio 資料包');const doc=normalizeDocument(input.document);for(const record of doc.records){for(const link of record.fileLinks)link.favoriteId=null;for(const link of record.favoriteTagLinks)link.authorized=false;}return doc;}
  function mergeDocument(current,incoming,mode,makeId,now){
-  if(!['copy','skip','update'].includes(mode))fail('匯入方式無效');
+  if(!['copy','skip','update','clone'].includes(mode))fail('匯入方式無效');
   const next=normalizeDocument(current),doc=normalizeDocument(incoming);let added=0,updated=0,skipped=0;
+  if(mode==='clone'){
+   const result=clone(doc),incomingIds=new Set(doc.records.map(record=>record.id)),oldRecords=new Map(next.records.map(record=>[record.id,record])),oldSheets=new Map(next.sheets.map(sheet=>[sheet.id,sheet]));result.id=next.id;
+   for(const sheet of result.sheets){const old=oldSheets.get(sheet.id);if(old){sheet.version=old.version+1;sheet.updatedAt=now;}}
+   for(const record of result.records){const old=oldRecords.get(record.id);if(old){record.version=old.version+1;record.updatedAt=now;updated++;}else added++;}
+   return {document:normalizeDocument(result),summary:{added,updated,skipped:0,removed:next.records.filter(record=>!incomingIds.has(record.id)).length,sheets:doc.sheets.length}};
+  }
   if(mode==='copy'){
    const mapping=new Map();for(const area of doc.areas)mapping.set(area.id,makeId());for(const sheet of doc.sheets){mapping.set(sheet.id,makeId());for(const field of sheet.fields)mapping.set(field.id,makeId());}for(const record of doc.records)mapping.set(record.id,makeId());
    for(const area of doc.areas){area.id=mapping.get(area.id);area.name=(area.name+'（匯入副本）').slice(0,100);if(area.masterSheetId)area.masterSheetId=mapping.get(area.masterSheetId);}
@@ -192,12 +198,23 @@
   if(area?.category)return area.category;
   const root=activeSheet(doc,area?.masterSheetId);return root?(root.name.replace(/(?:清單|列表)$/,'').trim()||root.name):'未設定主表';
  }
+ function masterTableTree(doc){
+  const active=doc.sheets.filter(sheet=>!sheet.deletedAt),byId=new Map(active.map(sheet=>[sheet.id,sheet])),children=new Map();
+  for(const sheet of active){const field=parentField(doc,sheet);if(field&&byId.has(field.targetSheetId)){const list=children.get(field.targetSheetId)||[];list.push(sheet);children.set(field.targetSheetId,list);}}
+  const childIds=new Set([...children.values()].flat().map(sheet=>sheet.id));return active.filter(sheet=>!childIds.has(sheet.id)).map(master=>({master,children:children.get(master.id)||[]}));
+ }
+ function sheetDeletionPlan(doc,entries){
+  if(!Array.isArray(entries)||!entries.length||entries.length>100)fail('表格選取無效');const selected=new Map(),active=new Map(doc.sheets.filter(sheet=>!sheet.deletedAt).map(sheet=>[sheet.id,sheet]));
+  for(const entry of entries){const sheet=active.get(entry?.id);if(!sheet||sheet.version!==entry.version||selected.has(sheet.id))fail('表格已變更或重複，請重新選取');selected.set(sheet.id,sheet);}
+  for(const branch of masterTableTree(doc))if(selected.has(branch.master.id))for(const child of branch.children)selected.set(child.id,child);
+  return {sheets:[...selected.values()].map(sheet=>({id:sheet.id,version:sheet.version,name:sheet.name})),records:doc.records.filter(record=>selected.has(record.sheetId)&&!record.deletedAt).length,implicit:selected.size-entries.length};
+ }
  function sidebarGroups(doc,{query='',areaId='all',masterId=null,category=''}={}){
   const tokens=String(query).trim().toLocaleLowerCase().split(/\s+/).filter(Boolean),matches=value=>tokens.every(token=>String(value).toLocaleLowerCase().includes(token)),sheets=doc.sheets.filter(sheet=>!sheet.deletedAt),records=doc.records.filter(record=>live(doc,record)),scoped=new Set(scopedRecords(doc,{areaId:tokens.length?'all':areaId,masterId:tokens.length?null:masterId}).map(record=>record.id)),counts=new Map();
   for(const record of records)if(scoped.has(record.id))counts.set(record.sheetId,(counts.get(record.sheetId)||0)+1);
   const groups=[...doc.areas.map(area=>({id:area.id,title:area.name,masterSheetId:area.masterSheetId,category:areaCategory(doc,area)})),{id:'ungrouped',title:'未分組',masterSheetId:null,category:'未分組'}];
   return groups.filter(group=>(!category||group.category===category)&&(tokens.length||areaId==='all'||areaId===group.id)).map(group=>{const all=sheets.filter(sheet=>(sheet.areaId||'ungrouped')===group.id),groupMatch=tokens.length&&matches(group.title+' '+group.category),masterSheet=all.find(sheet=>sheet.id===group.masterSheetId),masters=tokens.length&&masterSheet?records.filter(record=>record.sheetId===masterSheet.id&&matches(record.title+' '+masterSheet.fields.map(field=>cell(doc,field,record.values[field.id])).join(' '))):[];const visible=all.filter(sheet=>!tokens.length||groupMatch||matches(sheet.name)).sort((a,b)=>Number(b.id===group.masterSheetId)-Number(a.id===group.masterSheetId));return {...group,sheets:visible.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields.length,role:sheet.id===group.masterSheetId?'master':parentField(doc,sheet)?'detail':'other',count:counts.get(sheet.id)||0})),masters:masters.slice(0,30).map(record=>({id:record.id,title:record.title})),masterTotal:masters.length,tableTotal:all.length,match:Boolean(groupMatch)};}).filter(group=>tokens.length?group.sheets.length||group.masterTotal||group.match:group.tableTotal||areaId===group.id||group.id!=='ungrouped');
  }
- const api={areaCategory,sidebarGroups,sortRecords,tabularRows,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();

@@ -165,3 +165,5 @@
 .notes-history-entry details,.notes-import-entry,.notes-schema-change { margin:9px 0; }
 .notes-import-entry>summary,.notes-schema-change>summary { padding:7px; cursor:pointer; overflow-wrap:anywhere; border:1px solid var(--line); border-radius:6px; }
 #share-update-banner[hidden],#share-update-badge[hidden] { display:none!important; }
+#notes-legacy-group-controls[hidden],.settings-card label[hidden] { display:none!important; }
+.notes-organize-child { padding-left:22px; }
