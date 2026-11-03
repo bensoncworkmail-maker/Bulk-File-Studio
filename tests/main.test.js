@@ -454,3 +454,44 @@ test('a late asynchronous package read cannot overwrite the latest selected sour
  const M=require('../src/notes-model'),base=M.template(()=>require('node:crypto').randomUUID(),'2026-11-03T00:00:00Z'),old=M.exportPackage(base,{scope:'all'}),latest=structuredClone(old);latest.document.sheets[0].name='Latest selected';let resolveOld;
  const h=harness(t,{'./notes-import-files':{readImportPackageFile:filename=>filename==='old.json'?new Promise(resolve=>resolveOld=resolve):Promise.resolve(latest),packageImportName:filename=>filename}});let name='old.json';h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[name]});const first=h.handlers.get('notes-import-choose')();await new Promise(setImmediate);name='latest.json';await h.handlers.get('notes-import-choose')();resolveOld(old);await assert.rejects(first,/最新選擇/);const preview=h.handlers.get('notes-import-preview')(null,'copy');assert.ok(preview.sheets.some(sheet=>sheet.name.includes('Latest selected')));
 });
+
+async function sharedPreviewFixture(t){
+ const {fork}=require('node:child_process'),M=require('../src/notes-model'),crypto=require('node:crypto'),{perform}=require('../src/notes-share-worker');
+ const h=harness(t,{utilityProcess:{fork(modulePath){const child=fork(modulePath,{silent:true});child.postMessage=value=>child.send(value);return child;}}});
+ h.handlers.get('notes-template')();const state=h.handlers.get('notes-template')(null,'projects'),roots=M.masterTableTree(state.document).map(branch=>branch.master);
+ const folders=roots.map((_,i)=>{const folder=path.join(h.dir,'shared-'+i);fs.mkdirSync(folder);return folder;});
+ for(let i=0;i<2;i++){h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folders[i]]});await h.handlers.get('notes-share-choose')(null,roots[i].id);h.handlers.get('notes-share-configure')(null,{enabled:true},roots[i].id);}
+ h.handlers.get('notes-share-select')(null,roots[0].id);
+ const packet=M.exportPackage(state.document,{scope:'masters',masterIds:[roots[0].id]});
+ packet.document.sheets.find(sheet=>sheet.id===roots[0].id).name='Remote change';
+ const name=perform({action:'publish',folder:folders[0],deviceId:crypto.randomUUID(),revision:1,data:packet,scope:{mode:'masters',masterIds:[roots[0].id]}}).name;
+ await h.handlers.get('notes-share-check')(null,roots[0].id);await h.handlers.get('notes-share-load')(null,name,roots[0].id);
+ return {...h,roots,folders,preview:h.handlers.get('notes-import-preview')(null,'update'),revision:state.revision};
+}
+
+for(const change of ['folder','disable'])test('shared '+change+' change revokes the old loaded package and confirmation',async t=>{
+ const h=await sharedPreviewFixture(t);
+ if(change==='folder'){h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[h.folders[1]]});await h.handlers.get('notes-share-choose')(null,h.roots[0].id);}
+ else h.handlers.get('notes-share-configure')(null,{enabled:false},h.roots[0].id);
+ assert.throws(()=>h.handlers.get('notes-import-commit')(null,h.preview.token),/失效|變更|停用/);
+ assert.throws(()=>h.handlers.get('notes-import-preview')(null,'update'),/選取|變更|停用/);
+ assert.equal(h.handlers.get('notes-get')().revision,h.revision);
+});
+
+test('changing another master share configuration preserves the current master import preview',async t=>{
+ const h=await sharedPreviewFixture(t);
+ h.handlers.get('notes-share-configure')(null,{followSource:require('node:crypto').randomUUID()},h.roots[1].id);
+ h.handlers.get('notes-import-commit')(null,h.preview.token);
+ assert.equal(h.handlers.get('notes-get')().document.sheets.find(sheet=>sheet.id===h.roots[0].id).name,'Remote change');
+ assert.equal(h.handlers.get('notes-share-status')().receivedNames.length,1);
+});
+
+test('an older backup chooser cannot replace a newer import preview',async t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),packet=require('../src/notes-model').exportPackage(state.document,{scope:'all'});
+ const backup=path.join(h.dir,'irrelevant.sqlite'),file=path.join(h.dir,'source.json');fs.writeFileSync(file,JSON.stringify(packet));
+ let finishBackup;h.dialog.showOpenDialog=()=>new Promise(resolve=>finishBackup=resolve);
+ const choosing=h.handlers.get('notes-backup-choose')();
+ h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});await h.handlers.get('notes-import-choose')();
+ const preview=h.handlers.get('notes-import-preview')(null,'copy');finishBackup({canceled:false,filePaths:[backup]});
+ await assert.rejects(choosing,/最新|變更/);h.handlers.get('notes-import-commit')(null,preview.token);
+});

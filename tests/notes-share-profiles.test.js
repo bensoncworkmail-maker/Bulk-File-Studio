@@ -113,3 +113,37 @@ test('a failed retirement write still stops the orphan and reports the local set
  h.store.trash('sheet',removed.id,removed.version,true);h.share.select(removed.id);
  assert.equal(h.share.config.enabled,false);assert.equal(h.share.config.autoPublish,false);
 });
+
+test('legacy explicit scopes stop when a selected master is removed and cannot be reenabled with stale IDs',t=>{
+ const h=setup(t),id=h.roots[0].id,scope={mode:'masters',masterIds:[id]};
+ h.share.choose(h.folders[0]);h.share.configure({enabled:true,autoPublish:true,publishScope:scope,receiveScope:scope});
+ removeMaster(h,id);h.share.reconcile();h.share.select('default');
+ assert.equal(h.share.config.enabled,false);assert.equal(h.share.config.autoPublish,false);
+ assert.deepEqual(h.share.config.publishScope,scope);assert.match(h.share.status().error,/主表.*移除/);
+ assert.throws(()=>h.share.configure({enabled:true}),/主表.*移除/);
+ h.share.configure({publishScope:{mode:'masters',masterIds:[h.roots[1].id]},receiveScope:{mode:'masters',masterIds:[h.roots[1].id]},enabled:true});
+ assert.equal(h.share.config.enabled,true);
+});
+
+test('null scope cannot expand an independent master profile to all masters',t=>{
+ const h=setup(t);configure(h,0);const before=structuredClone(h.share.config);
+ for(const key of ['publishScope','receiveScope'])assert.throws(()=>h.share.configure({[key]:null}),/固定/);
+ assert.deepEqual(h.share.config,before);
+});
+
+for(const conflict of ['folder','scope'])test('startup pauses persisted '+conflict+' conflicts before any background work',t=>{
+ const h=setup(t);configure(h,0,{autoPublish:true});configure(h,1,{autoPublish:true});h.share.close();
+ if(conflict==='folder'){
+  const filename=h.share.file(h.roots[1].id),config=JSON.parse(fs.readFileSync(filename,'utf8'));
+  config.folder=h.folders[0]+path.sep;fs.writeFileSync(filename,JSON.stringify(config));
+ }else{
+  const legacy=JSON.parse(fs.readFileSync(h.share.file(h.roots[0].id),'utf8'));
+  legacy.folder=path.join(h.dir,'legacy');legacy.publishScope={mode:'all',masterIds:[]};legacy.receiveScope={mode:'all',masterIds:[]};
+  fs.writeFileSync(h.filename,JSON.stringify(legacy));
+ }
+ const reload=new NotesShareProfiles(h.filename,h.options);t.after(()=>reload.close());
+ for(const id of h.roots.map(root=>root.id)){
+  reload.select(id);assert.equal(reload.config.enabled,false);assert.equal(reload.channel().timer,null);
+  assert.match(reload.status().error,/衝突/);assert.equal(JSON.parse(fs.readFileSync(reload.file(id),'utf8')).enabled,false);
+ }
+});

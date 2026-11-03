@@ -21,6 +21,15 @@ function setup(t,{favoriteItems=[],settings={}}={}){
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/notes.js'),'utf8'),{window,document:testDocument,crypto},{filename:'notes.js'});
  window.notesUI.init({showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(String(error.message||error))});return {document:testDocument,docEvents,api,preferences,contextAction:value=>contextAction(value),store,els,ui:window.notesUI,errors,toasts,changed:()=>changed({})};
 }
+for(const [id,key,value] of [['notes-share-enabled','checked',true],['notes-share-interval','value','15']])test('rejected '+id+' changes restore the persisted shared state',async t=>{
+ const h=setup(t);h.store.addTemplate();h.ui.activate();await flush();
+ const share={enabled:false,folder:'/shared',autoPublish:false,intervalMinutes:5,files:[],total:0,busy:false};
+ h.api.shareStatus=async()=>share;h.api.shareConfigure=async()=>{throw new Error('Shared configuration rejected');};
+ h.els.get('notes-share-open').events.click();await flush();
+ h.els.get(id)[key]=value;h.els.get(id).events.change();await flush();
+ assert.equal(h.els.get('notes-share-enabled').checked,false);assert.equal(Number(h.els.get('notes-share-interval').value),5);
+ assert.match(h.errors.at(-1),/rejected/);
+});
 test('workspace UI creates a template and page, renders literal notes and shows linked client information',async t=>{
  const h=setup(t);h.ui.activate();await flush();h.els.get('notes-template').events.click();h.els.get('notes-template-list').children[0].events.click();h.els.get('notes-confirm-apply').events.click();await flush();assert.equal(h.store.get().document.sheets.length,5);
  h.els.get('notes-new-record').events.click();assert.equal(h.ui.canLeave(),false);h.els.get('notes-record-title').value='CLIENT_1';h.els.get('notes-record-body').value='<script>alert(1)</script>';h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();assert.equal(h.store.get().document.records.length,1);assert.equal(h.ui.canLeave(),true);h.els.get('notes-master-overview').events.click();assert.match(h.els.get('notes-detail-body').textContent,/<script>alert\(1\)<\/script>/);assert.equal(h.els.get('notes-detail').hidden,false);
