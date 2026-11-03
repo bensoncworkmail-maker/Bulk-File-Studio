@@ -6,8 +6,8 @@ function harness(count,policy,initial={}){
  const source=fs.readFileSync(path.join(__dirname,'../src/floating.js'),'utf8');for(const m of source.matchAll(/\$\('([^']+)'\)/g))els.set(m[1],new El());for(const id of ['mini-search-bar','mini-tools-bar','mini-tags','mini-view-list','mini-view-icons'])els.set(id,new El());
  const items=Array.from({length:count},(_,i)=>({id:String(i),path:'/file'+i+'.txt',label:'',type:'file',tags:[],status:'ready',createdAt:new Date(Date.UTC(2026,9,30)+i*1000).toISOString(),updatedAt:'2026-10-30T00:00:00.000Z'}));if(initial.itemTags)items.forEach(item=>item.tags=[...initial.itemTags]);if(initial.floatingView==='tags')items.forEach((item,index)=>item.tags=[index%2?'Home':'Work']);let prefs={floatingPager:policy,...initial},copied;let focusRefresh;let changed,opened=0,popup,itemMenu,workspaceCalls=[],hidden=0;
  const document={documentElement:new El(),getElementById:id=>els.get(id),createElement:()=>new El(),querySelectorAll:()=>[],addEventListener:(k,fn)=>events[k]=fn};
- const window={studioLiveSearch:require('../src/floating-live-search'),floatingHeader:require('../src/floating-header'),favoritesModel:model,addEventListener:(name,callback)=>{if(name==='focus')focusRefresh=callback;},favoritesAPI:{open:async()=>{opened++;},copyFloatingPaths:async ids=>{copied=ids;return {count:ids.length};},list:async()=>({items}),onChanged(){}},renameAPI:{pathForFile:file=>file.path},desktopAPI:{prepareFloatingSearch:async(...args)=>workspaceCalls.push(['prepare-live',...args]),previewFloatingSearch:async(...args)=>workspaceCalls.push(['preview-live',...args]),cancelFloatingSearch:async key=>workspaceCalls.push(['cancel-live',key]),openFloatingSearch:async query=>workspaceCalls.push(['global-search',query]),toggleFloatingSearch:async(...args)=>workspaceCalls.push(['toggle-search',...args]),dropFiles:async(paths,tag)=>{workspaceCalls.push(['drop',paths,tag]);return {popup:true};},runQuickAction:async id=>workspaceCalls.push(['quick',id]),hideFloating:async()=>{hidden++;},newWorkspaceMaster:async()=>workspaceCalls.push(['new']),workspaceList:async query=>({items:initial.workspaceItems||[],total:(initial.workspaceItems||[]).length}),workspaceOpen:async(...args)=>workspaceCalls.push(args),openFloatingItemMenu:async id=>{itemMenu=id;},openFloatingTagMenu:async(...args)=>{popup=args;return {count:items.length};},setFloatingCollapsed:async collapsed=>{prefs={...prefs,floatingCollapsed:collapsed};changed({settings:prefs});return {settings:prefs};},get:async()=>prefs,onChanged:fn=>changed=fn}};
- vm.runInNewContext(source,{window,document,setTimeout,clearTimeout});return {focus:()=>focusRefresh(),hidden:()=>hidden,workspaceCalls,root:document.documentElement,els,events,opened:()=>opened,popup:()=>popup,itemMenu:()=>itemMenu,set:patch=>{prefs={...prefs,...patch};changed({settings:prefs});},copied:()=>copied,change:policy=>{prefs={floatingPager:policy};changed({settings:prefs});}};
+ const window={studioFloatingRender:require('../src/floating-render-guard'),studioLiveSearch:require('../src/floating-live-search'),floatingHeader:require('../src/floating-header'),favoritesModel:model,addEventListener:(name,callback)=>{if(name==='focus')focusRefresh=callback;},favoritesAPI:{open:async()=>{opened++;},copyFloatingPaths:async ids=>{copied=ids;return {count:ids.length};},list:async()=>({items:JSON.parse(JSON.stringify(items))}),onChanged(){}},renameAPI:{pathForFile:file=>file.path},desktopAPI:{prepareFloatingSearch:async(...args)=>workspaceCalls.push(['prepare-live',...args]),previewFloatingSearch:async(...args)=>workspaceCalls.push(['preview-live',...args]),cancelFloatingSearch:async key=>workspaceCalls.push(['cancel-live',key]),openFloatingSearch:async query=>workspaceCalls.push(['global-search',query]),toggleFloatingSearch:async(...args)=>workspaceCalls.push(['toggle-search',...args]),dropFiles:async(paths,tag)=>{workspaceCalls.push(['drop',paths,tag]);return {popup:true};},runQuickAction:async id=>workspaceCalls.push(['quick',id]),hideFloating:async()=>{hidden++;},newWorkspaceMaster:async()=>workspaceCalls.push(['new']),workspaceList:async query=>({items:initial.workspaceItems||[],total:(initial.workspaceItems||[]).length}),workspaceOpen:async(...args)=>workspaceCalls.push(args),openFloatingItemMenu:async id=>{itemMenu=id;},openFloatingTagMenu:async(...args)=>{popup=args;return {count:items.length};},setFloatingCollapsed:async collapsed=>{prefs={...prefs,floatingCollapsed:collapsed};changed({settings:prefs});return {settings:prefs};},get:async()=>prefs,onChanged:fn=>changed=fn}};
+ vm.runInNewContext(source,{window,document,setTimeout,clearTimeout});return {items,focus:()=>focusRefresh(),hidden:()=>hidden,workspaceCalls,root:document.documentElement,els,events,opened:()=>opened,popup:()=>popup,itemMenu:()=>itemMenu,set:patch=>{prefs={...prefs,...patch};changed({settings:prefs});},copied:()=>copied,change:policy=>{prefs={floatingPager:policy};changed({settings:prefs});}};
 }
 test('floating pager auto hides for a single page, always shows and remains reachable when hidden',async()=>{const h=harness(2,'auto');await new Promise(setImmediate);assert.equal(h.els.get('mini-pager').hidden,true);h.change('always');assert.equal(h.els.get('mini-pager').hidden,false);h.change('hidden');assert.equal(h.els.get('mini-pager').hidden,true);});
 test('hidden pagination supports keyboard access to every page and clamps at boundaries',async()=>{const h=harness(201,'hidden');await new Promise(setImmediate);assert.equal(h.els.get('mini-list').children.length,100);h.events.keydown({key:'PageDown',preventDefault(){}});assert.match(h.els.get('mini-count').textContent,/2\/3/);h.events.keydown({key:'PageDown',preventDefault(){}});assert.equal(h.els.get('mini-list').children.length,1);h.events.keydown({key:'PageDown',preventDefault(){}});assert.match(h.els.get('mini-count').textContent,/3\/3/);h.change('auto');assert.equal(h.els.get('mini-pager').hidden,false);});
@@ -66,4 +66,40 @@ test('button presentation does not keep an invisible local filter and disabling 
 
 test('collapsed tool selects header buttons and configured quick actions separately from the expanded layout',async()=>{
  const id='00000000-0000-4000-8000-000000000001',h=harness(2,'auto',{floatingCollapsed:true,floatingCollapsedItems:['search','caption','quick-actions'],floatingCollapsedQuickActionIds:[id],floatingQuickActions:[{id,label:'搜尋',type:'open-search',enabled:true}],floatingGlobalSearch:true,floatingShowCaption:false,floatingHiddenButtons:['pin','main']});await new Promise(setImmediate);assert.equal(h.els.get('mini-search-toggle').hidden,false);assert.equal(h.els.get('mini-caption-bar').hidden,false);assert.equal(h.els.get('mini-pin').hidden,true);assert.equal(h.els.get('mini-close').hidden,true);assert.equal(h.els.get('mini-collapsed-actions').children.length,1);h.set({floatingCollapsed:false});assert.equal(h.els.get('mini-search-toggle').hidden,true);assert.equal(h.els.get('mini-caption-bar').hidden,true);assert.equal(h.els.get('mini-collapsed-actions').hidden,true);
+});
+
+test('collapsed quick controls survive refocusing and their first click executes once',async()=>{
+ const h=harness(2,'auto',{floatingCollapsed:true,floatingCollapsedItems:['quick-actions'],floatingCollapsedQuickActionIds:['tags'],floatingQuickActions:[{id:'tags',label:'Tags',type:'open-tag-menu',enabled:true}]});
+ await new Promise(setImmediate);const button=h.els.get('mini-collapsed-actions').children[0];
+ await h.focus();assert.equal(h.els.get('mini-collapsed-actions').children[0],button);
+ await button.click();assert.deepEqual(h.workspaceCalls,[['quick','tags']]);assert.equal(h.hidden(),0);
+});
+
+test('unchanged tag and file lists preserve their click targets on refocus',async()=>{
+ for(const view of ['tags','list','workspace','mixed']){
+  const h=harness(2,'auto',{floatingView:view,workspaceItems:[{id:'client',title:'Client',group:'Clients',details:0}]});
+  await h.focus();const target=h.els.get('mini-list').children[0];
+  await h.focus();assert.equal(h.els.get('mini-list').children[0],target,'refocus preserves '+view+' targets');
+ }
+});
+
+test('background refresh during a pressed tag defers replacement until its click opens the menu once',async()=>{
+ const h=harness(2,'auto',{floatingView:'tags'});await h.focus();
+ const section=h.els.get('mini-list').children.find(section=>section.children[0].textContent.includes('Work')),button=section.children[0];
+ h.events.pointerdown({button:0,isPrimary:true,pointerId:7});
+ h.set({floatingTitle:'Updated while pressed'});
+ assert.equal(h.els.get('mini-list').children.includes(section),true);
+ h.events.pointerup({pointerId:7});await button.click();
+ assert.deepEqual(Array.from(h.popup()),['work','']);assert.equal(h.hidden(),0);
+ await new Promise(resolve=>setTimeout(resolve,10));assert.equal(h.els.get('mini-title').textContent,'Updated while pressed');
+ assert.notEqual(h.els.get('mini-list').children.find(section=>section.children[0].textContent.includes('Work')),section);
+});
+
+test('changed favorites arriving on refocus retain the pressed tag until its first click completes',async()=>{
+ const h=harness(2,'auto',{floatingView:'tags'});await h.focus();
+ const section=h.els.get('mini-list').children.find(section=>section.children[0].textContent.includes('Work')),button=section.children[0];
+ h.events.pointerdown({button:0,pointerId:3});h.items[0].label='Changed in the main window';await h.focus();
+ assert.equal(h.els.get('mini-list').children.includes(section),true);h.events.pointerup({pointerId:3});
+ await button.click();assert.deepEqual(Array.from(h.popup()),['work','']);
+ await new Promise(resolve=>setTimeout(resolve,10));assert.equal(h.els.get('mini-list').children.includes(section),false);
 });
