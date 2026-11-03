@@ -1,0 +1,16 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),T=require('../src/notes-table-state'),Settings=require('../src/settings-model');
+const id=()=>crypto.randomUUID();
+function sample(){const status={id:id(),label:'狀態',type:'select',options:['合作中','待跟進','已結束']},completed={id:id(),label:'已完成',type:'checkbox',options:[]},tags={id:id(),label:'自訂進度',type:'multiselect',options:['草稿','審核']},sheet={id:id(),fields:[completed,status,tags]};return {sheet,status,completed,tags,records:[{sheetId:sheet.id,values:{[status.id]:'合作中',[completed.id]:true,[tags.id]:['草稿','審核']}},{sheetId:sheet.id,values:{[status.id]:'待跟進'}},{sheetId:sheet.id,values:{}}]};}
+test('legacy mode migrates once to independent master/detail groups without overwriting an explicit preference',()=>{
+ const migrated=Settings.normalize({notesView:'cards'});assert.equal(migrated.notesMasterView,'cards');assert.equal(migrated.notesDetailView,'cards');const saved=Settings.normalize({...migrated,notesMasterView:'grid'});assert.equal(saved.notesMasterView,'grid');assert.equal(saved.notesDetailView,'cards');assert.equal(saved.notesView,'cards');assert.equal(T.viewKey(T.viewGroup('sheet',true)),'notesDetailView');assert.equal(T.viewKey(T.viewGroup('masters',true)),'notesMasterView');assert.equal(T.viewKey(T.viewGroup('all',true)),'notesView');
+});
+test('status auto-detection prefers a status field and falls back to a completed checkbox; custom fields can be selected or hidden',()=>{
+ const {sheet,status,completed,tags}=sample();assert.equal(T.statusField(sheet).id,status.id);assert.equal(T.statusField({...sheet,fields:[completed,tags]}).id,completed.id);assert.equal(T.statusField(sheet,{fieldId:tags.id}).id,tags.id);assert.equal(T.statusField(sheet,{fieldId:'none'}),null);assert.equal(T.statusField(sheet,{fieldId:id()}),null);assert.equal(T.statusField({fields:[tags]}),null);
+});
+test('single/multiple selection and checkbox status filters use typed values, treat missing checkboxes as unchecked, and support empty values',()=>{
+ const {sheet,status,completed,tags,records}=sample(),filter=(field,value)=>T.filter(records,sheet,{fieldId:field.id,forField:field.id,value});assert.equal(filter(status,'v:合作中').length,1);assert.equal(filter(status,'empty').length,1);assert.equal(filter(completed,'true').length,1);assert.equal(filter(completed,'false').length,2);assert.equal(filter(tags,'v:審核').length,1);assert.equal(filter(tags,'empty').length,2);assert.equal(T.filter(records,sheet,{fieldId:tags.id,forField:status.id,value:'v:合作中'}).length,3);assert.equal(filter(status,'v:removed').length,3);
+});
+test('per-table filter settings round-trip with field identity and bound invalid maps',()=>{
+ const {sheet,status}=sample(),other=id(),settings=Settings.normalize({notesStatusFilters:{[sheet.id]:{fieldId:status.id,forField:status.id,value:'v:合作中'},[other]:{fieldId:'none'},bad:{fieldId:'auto'}}});assert.equal(settings.notesStatusFilters[sheet.id].value,'v:合作中');assert.equal(settings.notesStatusFilters[other].fieldId,'none');assert.equal(settings.notesStatusFilters.bad,undefined);assert.deepEqual(Settings.normalize(JSON.parse(JSON.stringify(settings))).notesStatusFilters,settings.notesStatusFilters);assert.equal(Object.keys(T.normalizeFilters(Object.fromEntries(Array.from({length:120},()=>[id(),{}])))).length,100);
+});

@@ -8,6 +8,7 @@
     <script src="global-shortcuts.js"></script>
     <script src="favorites-model.js"></script>
     <script src="search-criteria.js"></script><script src="search-date-presets.js"></script><script src="floating-search-state.js"></script><script src="settings-catalog.js"></script>
+    <script src="notes-table-state.js"></script>
     <script src="settings-model.js"></script>
     <script src="theme.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -141,6 +142,7 @@
               </div>
             </div>
             <div id="notes-detail-tabs" class="notes-detail-tabs" role="tablist" aria-label="目前主紀錄的明細表" hidden></div>
+            <div id="notes-panel-controls" class="notes-panel-controls">
             <details id="notes-panel-tools" class="notes-panel-tools" open>
               <summary>搜尋與操作 <span id="notes-panel-tools-summary"></span></summary>
             <div class="notes-searchbar">
@@ -171,8 +173,9 @@
               </div>
             </div>
             <details id="notes-view-tools" class="notes-view-tools">
-              <summary>檢視與日期篩選 <span id="notes-view-tools-summary"></span></summary>
+              <summary>檢視、日期與狀態欄位 <span id="notes-view-tools-summary"></span></summary>
               <div class="notes-workbar">
+                <label>狀態篩選欄位 <select id="notes-status-field" aria-label="指定此表格的狀態篩選欄位"></select></label>
                 <select id="notes-saved-views" aria-label="儲存檢視">
                   <option value="">儲存檢視…</option>
                 </select>
@@ -226,6 +229,8 @@
               </div>
             </div>
             </details>
+            <label id="notes-status-filter-wrap" class="notes-status-filter" hidden><span id="notes-status-filter-label">狀態</span><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select></label>
+            </div>
             <div id="notes-table" class="notes-table" role="region" aria-label="紀錄列表"></div>
             <div id="notes-pagination" class="notes-pagination">
               <button id="notes-prev" class="btn btn-ghost">‹ 上一頁</button>
@@ -557,7 +562,7 @@
                     </select>
                   </label>
                   <label class="field">
-                    <span>預設檢視</span>
+                    <span>跨表混合搜尋檢視</span>
                     <select id="settings-notes-view">
                       <option value="list">清單</option>
                       <option value="cards">卡片</option>
@@ -568,6 +573,9 @@
                     <input id="settings-notes-expand-filters" type="checkbox">
                     <span>預設展開檢視與日期篩選</span>
                   </label>
+                  <label class="field"><span>主表檢視</span><select id="settings-notes-master-view"><option value="list">清單</option><option value="cards">卡片</option><option value="grid">儲存格</option></select></label>
+                  <label class="field"><span>明細表檢視</span><select id="settings-notes-detail-view"><option value="list">清單</option><option value="cards">卡片</option><option value="grid">儲存格</option></select></label>
+                  <label class="check-row"><input id="settings-notes-master-tools-expanded" type="checkbox"><span>展開主表的搜尋與操作（會記住切換）</span></label>
                   <label class="check-row"><input id="settings-notes-detail-tools-expanded" type="checkbox"><span>展開明細表的搜尋與操作（收合後保留摘要；會記住切換）</span></label>
                   <label class="check-row">
                     <input id="settings-notes-compact" type="checkbox" checked>
