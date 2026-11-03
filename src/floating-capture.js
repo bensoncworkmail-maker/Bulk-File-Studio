@@ -62,7 +62,7 @@ class FloatingCapture{
    const result=store.change(doc=>{doc.records.push(...pending.records);return {count:pending.records.length,backup};},pending.revision);this.pending=null;this.notesChanged(result);if(favoritesAdded)this.notifyFavorites();return {message:`已在表格建立 ${pending.records.length} 筆紀錄。`,count:pending.records.length,backup};
   }catch(error){this.pending=null;if(favoritesAdded){this.notifyFavorites();throw new Error('收藏連結已儲存，但表格紀錄未建立；請重新預覽後再試。'+error.message);}throw error;}finally{this.busy=false;}
  }
- async choose(kind){if(this.busy||!['file','folder'].includes(kind)||this.target().action.type!=='new-record'||this.request.items.length)throw new Error('此表單不能選取位置');const paths=await this.choosePaths(kind,this.window);this.target();if(!paths?.length)return {attachments:(this.request.attachments||[]).map(item=>({path:item.path,type:item.type}))};return this.addAttachments(paths);}
+ async choose(kind){if(this.busy||!['file','folder'].includes(kind)||this.target().action.type!=='new-record'||this.request.items.length)throw new Error('此表單不能選取位置');const request=this.request,owner=this.window,paths=await this.choosePaths(kind,owner);if(this.request!==request||this.window!==owner)throw new Error('表單已關閉或變更，請在目前表單重新選取位置');this.target();if(!paths?.length)return {attachments:(this.request.attachments||[]).map(item=>({path:item.path,type:item.type}))};return this.addAttachments(paths);}
  addAttachments(paths){
   if(this.busy||this.target().action.type!=='new-record'||this.request.items.length||this.request.directSaved)throw new Error('此表單不能附加位置');
   const additions=inspectLinks(paths),all=[...new Map([...(this.request.attachments||[]),...additions].map(item=>[key(item.path),item])).values()];

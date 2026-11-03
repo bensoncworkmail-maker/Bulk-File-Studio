@@ -495,3 +495,34 @@ test('an older backup chooser cannot replace a newer import preview',async t=>{
  const preview=h.handlers.get('notes-import-preview')(null,'copy');finishBackup({canceled:false,filePaths:[backup]});
  await assert.rejects(choosing,/最新|變更/);h.handlers.get('notes-import-commit')(null,preview.token);
 });
+
+test('floating publication confirms and publishes the captured profile even if the management selection changes',async t=>{
+ const h=await sharedPreviewFixture(t),id=require('node:crypto').randomUUID();
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{id,type:'share-publish',label:'Publish',enabled:true}]});h.handlers.get('floating-show')();
+ const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};let finish;
+ h.dialog.showMessageBox=(_,options)=>{assert.match(options.detail,new RegExp('shared-0'));return new Promise(resolve=>finish=resolve);};
+ const countA=fs.readdirSync(h.folders[0]).length,pending=h.rawHandlers.get('floating-quick-action')(event,id);
+ h.handlers.get('notes-share-select')(null,h.roots[1].id);finish({response:1});await pending;
+ assert.equal(fs.readdirSync(h.folders[0]).length,countA+1);assert.deepEqual(fs.readdirSync(h.folders[1]),[]);
+});
+
+test('changing a confirmed publication folder requires a new confirmation before writing a package',async t=>{
+ const h=await sharedPreviewFixture(t),id=require('node:crypto').randomUUID();
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{id,type:'share-publish',label:'Publish',enabled:true}]});h.handlers.get('floating-show')();
+ const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};let finish;
+ h.dialog.showMessageBox=()=>new Promise(resolve=>finish=resolve);const pending=h.rawHandlers.get('floating-quick-action')(event,id);
+ const folder=path.join(h.dir,'new-share');fs.mkdirSync(folder);h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});
+ await h.handlers.get('notes-share-choose')(null,h.roots[0].id);h.handlers.get('notes-share-configure')(null,{enabled:true},h.roots[0].id);
+ finish({response:1});await assert.rejects(pending,/設定已變更/);assert.deepEqual(fs.readdirSync(folder),[]);
+});
+
+test('closing or quitting during an in-flight OS recycle operation is deferred until bookmark cleanup finishes',async t=>{
+ const h=harness(t),file=path.join(h.dir,'recycle.txt');fs.writeFileSync(file,'keep');const added=h.handlers.get('favorites-add')(null,[file],[]);
+ let finish;h.shell.trashItem=()=>new Promise(resolve=>finish=resolve);h.dialog.showMessageBox=async()=>({response:0});
+ const pending=h.handlers.get('favorites-remove')(null,added.ids,{trashFiles:true});await new Promise(setImmediate);
+ let closeBlocked=false,quitBlocked=false;
+ h.windows[0].emit('close',{preventDefault(){closeBlocked=true;}});h.events.get('before-quit')({preventDefault(){quitBlocked=true;}});
+ assert.equal(closeBlocked,true);assert.equal(quitBlocked,true);finish();await pending;
+ quitBlocked=false;h.events.get('before-quit')({preventDefault(){quitBlocked=true;}});assert.equal(quitBlocked,false);
+ assert.equal(h.handlers.get('favorites-list')().items.length,0);
+});

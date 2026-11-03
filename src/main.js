@@ -166,7 +166,7 @@ function createWindow(hidden=false) {
   desktop.attach('main',win,error=>send(win,'desktop-settings-changed',{error:error.message}));
   pendingMaximize=Boolean(hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized);
   if(!hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized)win.maximize();
-  win.on('close',event=>{if(desktopShell.onClose(event))return;if(fileOperationBusy){event.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再關閉'});return;}capture?.destroy();floatingSearch?.destroy();recordAttention?.destroyWindow();if(floating&&!floating.isDestroyed()){try{floatingWindow.record();}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
+  win.on('close',event=>{if(desktopShell.onClose(event))return;if(fileOperationBusy||trashing){event.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再關閉'});return;}capture?.destroy();floatingSearch?.destroy();recordAttention?.destroyWindow();if(floating&&!floating.isDestroyed()){try{floatingWindow.record();}catch{/* Keep closing available if preferences cannot be saved. */}floating.destroy();}});
   win.on('closed',()=>{win=null;});
   win.loadFile(path.join(__dirname, 'index.html'));
 }
@@ -269,7 +269,7 @@ app.whenReady().then(() => {
     if(action.type==='open-reminders'){focusMain();send(win,'record-reminders-open',{});keepFloatingAfterQuick();return {opened:true};}
     if(action.type==='open-page'){focusMain();send(win,'open-app-page',action.page);keepFloatingAfterQuick();return {opened:true};}
     if(action.type==='share-check')return notesShare.check();
-    if(action.type==='share-publish')return dialog.showMessageBox(floating||win,{type:'question',buttons:['取消','發佈'],defaultId:0,cancelId:0,message:'發佈「'+(notesShare.status().profiles.find(profile=>profile.id===notesShare.status().profileId)?.name||'目前共享設定')+'」資料包？',detail:'資料夾：'+(notesShare.config.folder||'未設定')+'\n會包含紀錄、筆記與位置；不包含原始檔案。'}).then(result=>result.response===1?notesShare.publish():{canceled:true});
+    if(action.type==='share-publish'){const profileId=notesShare.selected,channel=notesShare.channel(profileId),generation=channel.generation;return dialog.showMessageBox(floating||win,{type:'question',buttons:['取消','發佈'],defaultId:0,cancelId:0,message:'發佈「'+(notesShare.status().profiles.find(profile=>profile.id===profileId)?.name||'目前共享設定')+'」資料包？',detail:'資料夾：'+(channel.config.folder||'未設定')+'\n會包含紀錄、筆記與位置；不包含原始檔案。'}).then(result=>{if(result.response!==1)return {canceled:true};if(configuredQuick(id).type!=='share-publish'||notesShare.channel(profileId)!==channel||channel.generation!==generation)throw new Error('共享設定已變更，請重新確認發布來源與資料夾');return notesShare.publish(profileId);});}
     if(desktop.settings.floatingQuickMode==='popup'&&action.type!=='open-sheet'){
       const text=action.type==='import-paths'&&action.useClipboard?clipboard.readText():'';if(Buffer.byteLength(text,'utf8')>2*1024*1024)throw new Error('剪貼簿文字超過 2 MB，請改用手動貼上');return captureController().open({resolve:()=>configuredQuick(id),text});
     }
@@ -660,7 +660,7 @@ app.whenReady().then(() => {
   Promise.resolve().then(()=>{return notesShare.tick();}).catch(error=>diagnostics.record('main','share-startup',error));
   app.on('activate',focusMain);
 });
-app.on('before-quit',event=>{if(fileOperationBusy){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}recordReminders?.close();recordAttention?.close();if(desktopShell)desktopShell.quitting=true;});
+app.on('before-quit',event=>{if(fileOperationBusy||trashing){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}recordReminders?.close();recordAttention?.close();if(desktopShell)desktopShell.quitting=true;});
 app.on('will-quit',()=>{recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {

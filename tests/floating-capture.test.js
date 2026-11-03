@@ -8,6 +8,13 @@ function harness(t){
  const file=(name='one.txt')=>{const filename=path.join(dir,name);fs.writeFileSync(filename,name);return filename;};return {dir,notes,favorites,capture,windows,parent,notifications,file};
 }
 const recordInput=(title,values={})=>({title,notes:'',tags:[],values});
+test('a late file picker result cannot attach paths to a reopened capture form',async t=>{
+ const h=harness(t),sheet=h.notes.saveSheet({name:'Drafts',fields:[]}).document.sheets[0],action={type:'new-record',label:'New',sheetId:sheet.id};
+ h.capture.open({resolve:()=>action});let finish;h.capture.choosePaths=()=>new Promise(resolve=>finish=resolve);
+ const choosing=h.capture.choose('file');h.capture.close();h.capture.open({resolve:()=>action});
+ finish([h.file()]);await assert.rejects(choosing,/表單.*變更|表單.*關閉/);
+ assert.deepEqual(h.capture.data().attachments,[]);assert.equal(h.notes.get().document.records.length,0);
+});
 test('capture bounds fit beside floating tools across negative-coordinate monitors and small screens',()=>{
  for(const displays of [[{workArea:{x:-1280,y:0,width:1280,height:900}},{workArea:{x:0,y:0,width:1920,height:1080}}],[{workArea:{x:0,y:0,width:300,height:240}}]]){const bounds=captureBounds({x:displays[0].workArea.x+1100,y:750,width:320,height:400},displays),area=displays.find(d=>bounds.x>=d.workArea.x&&bounds.x+bounds.width<=d.workArea.x+d.workArea.width)?.workArea;assert.ok(area);assert.ok(bounds.y>=area.y);assert.ok(bounds.y+bounds.height<=area.y+area.height);}
 });
