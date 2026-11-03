@@ -191,3 +191,5 @@
 .reminder-message{white-space:pre-wrap;overflow-wrap:anywhere;max-height:16rem;overflow:auto;}
 .criteria-choices{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:7px;padding:6px 10px;margin:8px 0;}
 .layout-drop-target{outline:2px solid var(--accent);outline-offset:1px;background:var(--surface-2);}
+
+.date-preset-list{display:grid;gap:10px;margin:12px 0}.date-preset-row{padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.date-preset-heading{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.date-preset-heading>.field{flex:1 1 170px;min-width:0}.date-preset-heading .field input,.date-preset-heading .field select{width:100%;min-width:0}.date-preset-heading .field{margin:0}.date-preset-actions{display:flex;gap:4px;align-items:center}.date-preset-row>.settings-inline{margin-top:8px}.date-preset-row .check-row{margin:0}.date-preset-row .settings-inline .field{min-width:0;flex:1 1 140px}

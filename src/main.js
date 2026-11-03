@@ -405,6 +405,7 @@ app.whenReady().then(() => {
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
     for(const key of ['mainShortcut','floatingShortcut','collapseShortcut'])if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
     if(Object.hasOwn(patch,'diagnosticsRetentionDays')&&![3,7,14,30].includes(patch.diagnosticsRetentionDays))throw new Error('錯誤紀錄保留天數無效');
+    if(Object.hasOwn(patch,'floatingSearchDatePresets'))require('./search-date-presets').normalize(patch.floatingSearchDatePresets,true);
     if(Object.hasOwn(patch,'globalSearchCriteria'))require('./search-criteria').normalize(patch.globalSearchCriteria,true);
     if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');
     if(Object.hasOwn(patch,'floatingTitle')&&require('./desktop-state').normalizeFloatingTitle(patch.floatingTitle)===null)throw new Error('浮動工具標題最多 40 字元，且不可包含控制字元');

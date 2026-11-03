@@ -144,7 +144,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
-    "floatingSearchPresentation":"settings-floating-search-presentation","floatingLayoutEditing":"settings-floating-layout-editing",
+    "floatingSearchFiltersExpanded":"settings-floating-search-filters-expanded","floatingSearchPresentation":"settings-floating-search-presentation","floatingLayoutEditing":"settings-floating-layout-editing",
     "floatingSearchMode":"settings-floating-search-mode","floatingSearchDelay":"settings-floating-search-delay","floatingSearchMinLength":"settings-floating-search-min",
     "floatingGlobalSearch":"settings-floating-global-search","floatingSearchWidth":"settings-floating-search-width","floatingSearchHeight":"settings-floating-search-height",
     "reminderAttentionSound":"settings-reminder-attention-sound","reminderAttentionRepeatMinutes":"settings-reminder-attention-repeat","remindersEnabled":"settings-reminders-enabled","reminderDelivery":"settings-reminder-delivery","reminderBringToFront":"settings-reminder-focus","reminderSnoozeMinutes":"settings-reminder-snooze",
@@ -219,7 +219,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
-    "globalSearchCriteria":"search",
+    "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
     "floatingSearchMode":"floating","floatingSearchDelay":"floating","floatingSearchMinLength":"floating",

@@ -5,3 +5,6 @@
 :root[data-anchored=true] h1{display:none;}
 
 header{max-height:65vh;overflow:auto}.search-filters{border-top:1px solid var(--line);margin-top:8px;padding-top:4px}.search-filters details{margin:8px 0}.search-table-choices{display:flex;flex-direction:column;gap:5px;max-height:150px;overflow:auto;padding:8px}.search-table-choices label{display:flex;align-items:center;gap:6px}.search-options input[type=date]{max-width:155px}.search-filters small{display:block;margin-top:7px}
+
+.date-presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.date-presets button{font-size:.85rem;padding:4px 8px}.date-presets button[aria-pressed=true]{border-color:var(--accent);background:var(--accent);color:var(--bg)}
+.search-filters>summary{display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 2px;list-style:none}.search-filters>summary::before{content:'▸';color:var(--accent)}.search-filters[open]>summary::before{content:'▾'}.search-filters>summary strong{font-size:.9rem;flex-shrink:0}.search-filters>summary span{font-size:.83rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.search-filters>summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.search-filter-body{padding:0 2px 7px}
