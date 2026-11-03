@@ -41,6 +41,24 @@ function harness(t, overrides = {}) {
   return {clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
+for(const deletion of ['single','batch'])test('workspace '+deletion+' table deletion immediately stops and persists its share profile',async t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),root=state.document.sheets[0];
+ h.handlers.get('notes-share-select')(null,root.id);
+ const folder=path.join(h.dir,'shared');fs.mkdirSync(folder);
+ h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});
+ await h.handlers.get('notes-share-choose')(null,root.id);
+ h.handlers.get('notes-share-configure')(null,{enabled:true,autoPublish:true},root.id);
+ const filename=path.join(h.dir,'workspace-share-profiles',root.id+'.json');
+ assert.equal(JSON.parse(fs.readFileSync(filename,'utf8')).enabled,true);
+ if(deletion==='single')h.handlers.get('notes-trash')(null,'sheet',root.id,root.version,false);
+ else h.handlers.get('notes-batch-sheets')(null,[{id:root.id,version:root.version}],state.revision);
+ // No status request or restart is needed to release the removed owner's folder.
+ const saved=JSON.parse(fs.readFileSync(filename,'utf8'));
+ assert.equal(saved.enabled,false);assert.equal(saved.autoPublish,false);assert.equal(saved.folder,folder);
+ const event=h.messages.filter(([name])=>name==='notes-share-changed').at(-1)[1];
+ assert.equal(event.profileId,'default');assert.equal(event.profiles.some(profile=>profile.id===root.id),false);
+});
+
 test('IPC persists verified history, blocks edited files, and allows retry', async t => {
   const { dir, handlers, historyPath } = harness(t);handlers.get('desktop-settings-set')(null,{renameVerification:'full'});
   const source = path.join(dir, 'a.txt');
