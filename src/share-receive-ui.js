@@ -2,9 +2,10 @@
 (() => {
  const $=id=>document.getElementById(id),prefixes=['notes-share','settings-share'];let api,callbacks,lastNotice='',lastReceived='';
  function render(value){
+  const otherPending=(value.pendingProfiles||[]).filter(profile=>profile.id!==value.profileId);
   const pending=value.enabled&&value.receiveMode!=='ignore'&&Boolean(value.notice);
-  $('share-update-banner').hidden=!pending;$('share-update-badge').hidden=!pending;$('share-update-message').textContent=pending?value.notice.reason:'';
-  $('share-update-open').onclick=()=>callbacks.open?callbacks.open():callbacks.preview(value.notice.name);$('share-update-ignore').onclick=()=>api.shareIgnore(value.notice.name).then(render).catch(error=>callbacks.showFailure('無法忽略更新',error));
+  $('share-update-banner').hidden=!pending&&!otherPending.length;$('share-update-badge').hidden=!pending&&!otherPending.length;$('share-update-message').textContent=pending?value.notice.reason:otherPending.length?otherPending.map(profile=>profile.name+' 有共享更新').join('、'):'';
+  $('share-update-open').onclick=()=>callbacks.open?callbacks.open():callbacks.preview(value.notice.name);$('share-update-ignore').hidden=!pending;$('share-update-ignore').onclick=()=>api.shareIgnore(value.notice.name).then(render).catch(error=>callbacks.showFailure('無法忽略更新',error));
   for(const prefix of prefixes){
    $(prefix+'-notifications').checked=value.desktopNotifications!==false;$(prefix+'-notifications').disabled=Boolean(value.busy);
    const mode=$(prefix+'-receive'),source=$(prefix+'-source');mode.value=value.receiveMode||'remind';mode.disabled=Boolean(value.busy);

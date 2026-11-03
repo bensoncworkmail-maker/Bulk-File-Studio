@@ -22,4 +22,9 @@ function tagMenu(items,tag,query,actions){
  else for(let index=0;index<found.length;index+=40)template.push({label:`第 ${index+1}–${Math.min(index+40,found.length)} 項`,submenu:found.slice(index,index+40).map(entry)});
  return {template,count:found.length,ids:found.map(item=>item.id)};
 }
-module.exports={tagMenu};
+function tagListMenu(items,keys,query,actions){
+ if(!Array.isArray(keys)||!keys.length||keys.length>100||keys.some(key=>typeof key!=='string'||key.length>64))throw new Error('請勾選有效標籤');
+ const template=[],ids=new Set();for(const key of [...new Set(keys)]){const exists=key===''||items.some(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===key.toLocaleLowerCase()));if(!exists){template.push({label:key.replaceAll('&','&&')+'（目前不存在）',enabled:false});continue;}const menu=tagMenu(items,key,query,actions);menu.ids.forEach(id=>ids.add(id));template.push({label:menu.template[0].label,submenu:menu.template.slice(1)});}
+ return {template,count:ids.size,ids:[...ids]};
+}
+module.exports={tagMenu,tagListMenu};

@@ -602,7 +602,7 @@ async function init() {
     if(changed.includes('pageSize')){sourcePage=0;previewPage=0;window.favoritesUI.resetPage();}
     if(changed.some(key=>key==='favoriteSort'||key==='favoriteDirection'))window.favoritesUI.resetPage();
     if(changed.includes('rememberRules')&&settings.rememberRules)saveRulePreferences();
-    if(changed.some(key=>key.startsWith('home')))window.homeUI?.settingsChanged();if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
+    if(changed.some(key=>key.startsWith('home')||key==='layoutEditing'))window.homeUI?.settingsChanged();if(changed.some(key=>key.startsWith('search')))window.appSearchUI?.settingsChanged();if(changed.some(key=>key.startsWith('notes')))window.notesUI?.settingsChanged(changed);render();window.favoritesUI.render();
   }});
   window.quickActionsSettingsUI?.init({showFailure});window.searchCriteriaSettingsUI?.init();
   window.diagnosticsSettingsUI?.init({showFailure});
