@@ -144,8 +144,11 @@
             </div>
             <div id="notes-detail-tabs" class="notes-detail-tabs" role="tablist" aria-label="目前主紀錄的明細表" hidden></div>
             <div id="notes-panel-controls" class="notes-panel-controls">
-            <details id="notes-panel-tools" class="notes-panel-tools" open>
-              <summary>搜尋與操作 <span id="notes-panel-tools-summary"></span></summary>
+              <div class="notes-panel-header">
+                <button id="notes-panel-toggle" class="notes-panel-toggle" type="button" aria-expanded="true" aria-controls="notes-panel-tools"><span id="notes-panel-arrow" aria-hidden="true">▾</span><span class="notes-panel-toggle-label">搜尋與操作</span><span id="notes-panel-tools-summary"></span></button>
+                <div id="notes-status-filter-wrap" class="notes-status-filter" role="group" aria-label="目前表格狀態篩選" hidden><label for="notes-status-filter" id="notes-status-filter-label">狀態</label><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select><button id="notes-status-clear" type="button" aria-label="清除此表狀態篩選" title="清除此表狀態篩選" hidden>×</button></div>
+              </div>
+            <div id="notes-panel-tools" class="notes-panel-tools" role="region" aria-labelledby="notes-panel-toggle">
             <div class="notes-searchbar">
               <input id="notes-search" type="search" maxlength="256" placeholder="搜尋主檔、明細、欄位、筆記、標籤或位置…" aria-label="搜尋資料工作區">
               <select id="notes-search-scope" aria-label="搜尋範圍">
@@ -229,8 +232,7 @@
                 <button id="notes-batch-delete" class="btn btn-ghost" disabled>批次移至回收筒</button>
               </div>
             </div>
-            </details>
-            <div id="notes-status-filter-wrap" class="notes-status-filter" role="group" aria-label="目前表格狀態篩選" hidden><label for="notes-status-filter" id="notes-status-filter-label">狀態</label><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select><button id="notes-status-clear" type="button" aria-label="清除此表狀態篩選" title="清除此表狀態篩選" hidden>×</button></div>
+            </div>
             </div>
             <div id="notes-table" class="notes-table" role="region" aria-label="紀錄列表"></div>
             <div id="notes-pagination" class="notes-pagination">
