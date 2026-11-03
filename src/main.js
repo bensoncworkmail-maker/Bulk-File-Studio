@@ -246,7 +246,7 @@ app.whenReady().then(() => {
   handle('floating-search-cancel',(_,key)=>floatingSearch?.cancelLive(key)||{closed:true});
   handle('floating-search-preview',(_,query,key,activate)=>{if(!floating||floating.isDestroyed()||!floating.isVisible()||!floating.isFocused())return {opened:false};return floatingSearchController().previewLive(query,key,activate);});
   for(const [channel,method] of [['floating-search-get','data'],['floating-search-state-save','saveState'],['floating-search-run','search'],['floating-search-action','action'],['floating-search-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('floating-search',channel,()=>{if(!floatingSearch?.owns(event))throw new Error('不受信任的搜尋面板來源');return floatingSearch[method](...args);}));
-  for(const [channel,method] of [['floating-capture-get','data'],['floating-capture-preview','preview'],['floating-capture-commit','commit'],['floating-capture-save','save'],['floating-capture-choose','choose'],['floating-capture-clear','clearAttachments'],['floating-capture-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('capture',channel,()=>{if(!capture?.owns(event))throw new Error('不受信任的浮動表單來源');return capture[method](...args);}));
+  for(const [channel,method] of [['floating-capture-get','data'],['floating-capture-preview','preview'],['floating-capture-commit','commit'],['floating-capture-save','save'],['floating-capture-choose','choose'],['floating-capture-clear','clearAttachments'],['floating-capture-attach','addAttachments'],['floating-capture-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('capture',channel,()=>{if(!capture?.owns(event))throw new Error('不受信任的浮動表單來源');return capture[method](...args);}));
   const showTagMenu=(tag,query,{allowCollapsed=false}={})=>{
     const result=(Array.isArray(tag)?tagListMenu:tagMenu)(favorites.list(),tag,query,{
       open:id=>floatingAction(async()=>{const item=favorites.get(id,true);assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);})(),
@@ -296,7 +296,9 @@ app.whenReady().then(() => {
     if(!input||!Array.isArray(input.favoriteIds)||input.favoriteIds.length>100||!Array.isArray(input.keepUnlinked)||input.keepUnlinked.length>100)throw new Error('檔案連結資料無效');
     const old=notesStore().get().document.records.find(record=>record.id===input.id),catalog=favorites.read(),knownIds=new Set(catalog.items.map(item=>item.id)),unlinked=(old?.fileLinks||[]).filter(link=>link.favoriteId===null||!knownIds.has(link.favoriteId)).map(link=>({...link,favoriteId:null}));
     if(input.keepUnlinked.some(value=>typeof value!=='string'||!unlinked.some(link=>link.path===value)))throw new Error('匯入位置連結已變更');
-    const fileLinks=[...(input.favoriteIds.length?favorites.selection(catalog,input.favoriteIds).map(item=>({favoriteId:item.id,path:item.path,label:item.label,type:item.type})):[]),...unlinked.filter(link=>input.keepUnlinked.includes(link.path))];
+    if(input.directPaths!==undefined&&(!Array.isArray(input.directPaths)||input.directPaths.length>100))throw new Error('位置連結資料無效');
+    const direct=input.directPaths?.length?require('./notes-location-links').inspectLinks(input.directPaths).map(item=>({favoriteId:null,path:item.path,type:item.type,label:''})):[];
+    const seenPaths=new Set(),fileLinks=[...(input.favoriteIds.length?favorites.selection(catalog,input.favoriteIds).map(item=>({favoriteId:item.id,path:item.path,label:item.label,type:item.type})):[]),...unlinked.filter(link=>input.keepUnlinked.includes(link.path)),...direct].filter(link=>{const key=process.platform==='win32'?link.path.toLowerCase():link.path;if(seenPaths.has(key))return false;seenPaths.add(key);return true;});
     let favoriteTagLinks=old?.favoriteTagLinks||[];
     if(input.favoriteTags!==undefined||input.keepPendingTags!==undefined){const selected=input.favoriteTags||[],pending=input.keepPendingTags||[];if(!Array.isArray(selected)||!Array.isArray(pending)||selected.length+pending.length>20||[...selected,...pending].some(tag=>typeof tag!=='string'||!tag.trim()||tag.length>32))throw new Error('收藏標籤連結無效');const knownTags=new Set(catalog.items.flatMap(item=>item.tags).map(tag=>tag.toLocaleLowerCase())),oldTags=old?.favoriteTagLinks||[];if(selected.some(tag=>!knownTags.has(tag.toLocaleLowerCase())&&!oldTags.some(link=>link.authorized&&link.tag.toLocaleLowerCase()===tag.toLocaleLowerCase())))throw new Error('收藏標籤已變更，請重新選取');if(pending.some(tag=>!oldTags.some(link=>!link.authorized&&link.tag===tag)))throw new Error('分享標籤連結已變更');favoriteTagLinks=[...selected.map(tag=>({tag:tag.trim(),authorized:true})),...pending.map(tag=>({tag,authorized:false}))];}
     return notesChanged(notesStore().saveRecord({...input,fileLinks,favoriteTagLinks}));
@@ -315,16 +317,8 @@ app.whenReady().then(() => {
   handle('notes-history',(_,id)=>notesStore().history(id));
   handle('notes-history-restore',(_,id,historyId,version)=>notesChanged(notesStore().restoreHistory(id,historyId,version)));
   handle('notes-favorites',()=>({items:favorites.list()}));
-  handle('notes-open-link',async(_,recordId,index,action)=>{
-    const document=notesStore().get().document,record=document.records.find(record=>record.id===recordId&&!record.deletedAt&&document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt));
-    if(!record||!Number.isInteger(index)||index<0||index>=record.fileLinks.length||!['open','show','copy'].includes(action))throw new Error('檔案連結操作無效');
-    const link=record.fileLinks[index];
-    if(action==='copy'){clipboard.writeText(link.favoriteId?favorites.get(link.favoriteId).path:link.path);return;}
-    if(!link.favoriteId)throw new Error('分享包只保留位置，請先編輯紀錄並重新連結本機收藏');
-    const item=favorites.get(link.favoriteId,true);
-    if(action==='show'){shell.showItemInFolder(assertLocalPath(item.path));return;}
-    assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);
-  });
+  handle('notes-inspect-links',(_,paths)=>require('./notes-location-links').inspectLinks(paths).map(({path,type})=>({path,type})));
+  handle('notes-open-link',(_,recordId,index,action)=>require('./notes-location-links').openRecordLink({document:notesStore().get().document,favorites,recordId,index,action,shell,clipboard}));
   handle('notes-export-preview',(_,options)=>notesStore().exportPreview(options));
   handle('notes-export-save',async(_,token)=>{
     notesStore().takePreview(token,'export');const result=await dialog.showSaveDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});

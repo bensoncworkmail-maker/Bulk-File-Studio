@@ -1,0 +1,25 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),vm=require('node:vm');
+const {locationPath,inspectLinks,openRecordLink}=require('../src/notes-location-links');
+function context(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-location-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const filename=path.join(dir,'合約.pdf');fs.writeFileSync(filename,'content');const document={sheets:[{id:'s'}],records:[{id:'r',sheetId:'s',fileLinks:[{favoriteId:null,path:filename,type:'file'}]}]},opened=[],shown=[],copied=[];return {dir,filename,document,opened,shown,copied,favorites:{read:()=>({items:[]})},shell:{openPath:async value=>{opened.push(value);return '';},showItemInFolder:value=>shown.push(value)},clipboard:{writeText:value=>copied.push(value)},recordId:'r',index:0};}
+test('location syntax supports UNC, mapped drives and Unicode but rejects URLs, devices, relative paths and alternate streams',()=>{
+ assert.equal(locationPath('T:\\Share\\Clients\\In Progress\\Client-A'),'T:\\Share\\Clients\\In Progress\\Client-A');assert.equal(locationPath('\\\\Server\\Share\\客戶\\合約.pdf'),'\\\\Server\\Share\\客戶\\合約.pdf');assert.equal(locationPath('//Server/Share/客戶'),'\\\\Server\\Share\\客戶');
+ for(const value of ['relative/path','T:relative','https://server/file','file://server/share/a','\\\\?\\C:\\a','\\\\.\\pipe\\a','C:\\a:stream','\\\\server','\\\\server\\share\\a.pdf.','C:\\NUL','C:\\a\0.pdf'])assert.throws(()=>locationPath(value),undefined,value);
+});
+test('a shared path opens or reveals without a favorite, copy works offline and missing paths leave data untouched',async t=>{
+ const h=context(t);await openRecordLink({...h,action:'open'});await openRecordLink({...h,action:'show'});assert.deepEqual(h.opened,[h.filename]);assert.deepEqual(h.shown,[h.filename]);fs.unlinkSync(h.filename);await openRecordLink({...h,action:'copy'});assert.deepEqual(h.copied,[h.filename]);await assert.rejects(openRecordLink({...h,action:'open'}),/位置不存在|存取權/);assert.equal(h.opened.length,1);assert.equal(h.document.records[0].fileLinks[0].path,h.filename);
+});
+test('programs and links require reveal, invalid or recycled records cannot launch and native errors propagate',async t=>{
+ const h=context(t),script=path.join(h.dir,'run.cmd');fs.writeFileSync(script,'echo test');h.document.records[0].fileLinks[0].path=script;await assert.rejects(openRecordLink({...h,action:'open'}),/定位/);assert.equal(h.opened.length,0);await openRecordLink({...h,action:'show'});assert.equal(h.shown[0],script);h.document.records[0].fileLinks[0].path=h.filename;h.shell.openPath=async()=> 'No default application';await assert.rejects(openRecordLink({...h,action:'open'}),/No default application/);h.document.records[0].deletedAt='today';await assert.rejects(openRecordLink({...h,action:'open'}),/操作無效/);
+});
+test('local favorite identity checks remain enforced and dangling IDs fall back to the stored path',async t=>{
+ const h=context(t),link=h.document.records[0].fileLinks[0];link.favoriteId='old';await openRecordLink({...h,action:'open'});assert.equal(h.opened.length,1);h.favorites.read=()=>({items:[{id:'old',path:h.filename}]});h.favorites.get=()=>{throw new Error('來源已被替換');};await assert.rejects(openRecordLink({...h,action:'open'}),/替換/);assert.equal(h.opened.length,1);
+});
+test('direct path inspection deduplicates files/folders and rejects symbolic link traversal and all-or-nothing invalid batches',t=>{
+ const h=context(t);assert.equal(inspectLinks([h.filename,h.dir,h.filename]).length,2);assert.throws(()=>inspectLinks([h.filename,path.join(h.dir,'missing')]),/位置不存在/);const shortcut=path.join(h.dir,'link');fs.symlinkSync(h.dir,shortcut,'dir');assert.throws(()=>inspectLinks([path.join(shortcut,'合約.pdf')]),/連結/);assert.throws(()=>inspectLinks([]),/1–100/);assert.throws(()=>inspectLinks(Array(101).fill(h.filename)),/1–100/);
+});
+test('UNC open checks the path and share root and uses native shell without requiring favorite registration',async()=>{
+ const seen=[],opened=[],source=fs.readFileSync(require.resolve('../src/notes-location-links'),'utf8'),module={exports:{}};
+ vm.runInNewContext(source,{module,exports:module.exports,process:{platform:'win32'},require:name=>name==='node:fs'?{lstatSync:value=>{seen.push(value);return {isSymbolicLink:()=>false,isFile:()=>value.endsWith('.pdf'),isDirectory:()=>!value.endsWith('.pdf'),dev:1n,ino:2n,birthtimeNs:3n};}}:name==='node:path'?path:name==='./offline-policy'?{assertLocalPath:()=>{throw new Error('UNC must use the scoped share policy');}}:null});
+ const target='\\\\FileServer\\Share\\Clients\\合約.pdf';await module.exports.openRecordLink({document:{sheets:[{id:'s'}],records:[{id:'r',sheetId:'s',fileLinks:[{favoriteId:null,path:target,type:'file'}]}]},favorites:{read:()=>({items:[]})},recordId:'r',index:0,action:'open',shell:{openPath:async value=>{opened.push(value);return '';}},clipboard:{}});assert.deepEqual(opened,[target]);assert.ok(seen.includes('\\\\FileServer\\Share\\'));
+});

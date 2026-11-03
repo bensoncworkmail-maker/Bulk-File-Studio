@@ -28,7 +28,7 @@
  async function init(){
   try{data=await api.get();document.documentElement.dataset.theme=data.theme;document.documentElement.style.fontSize=(data.fontSize||'13')+'px';$('capture-heading').textContent=data.label;$('capture-tags').value=data.tags.join(', ');const imports=data.kind==='import-paths',drop=data.kind==='drop-records';$('capture-repeat-options').hidden=imports||drop;$('capture-save-add').hidden=imports||drop;$('capture-keep-values').checked=data.keepValues!==false;$('capture-import').hidden=!imports;$('capture-record').hidden=imports;$('capture-context').textContent=imports?'每行一個完整路徑，預覽後才加入收藏。':'新增至：'+data.sheet.name+(drop?' · 每個位置建立一筆紀錄':'');
    if(imports){$('capture-text').value=data.text;$('capture-confirm').textContent='確認匯入';}else{const fields=[...data.sheet.fields].sort((a,b)=>{const order=data.form?.fieldOrder||[];return (order.includes(a.id)?order.indexOf(a.id):100)-(order.includes(b.id)?order.indexOf(b.id):100);});for(const item of fields)if(!data.form?.hiddenFields?.includes(item.id)||item.id===data.parentId&&!data.masterId)field(item);$('capture-title').required=!drop;$('capture-title-label').textContent=drop?'名稱前綴（選填，後接原檔案／資料夾名稱）':'紀錄名稱 *';}
-   $('capture-locations').hidden=data.kind!=='new-record';document.documentElement.dataset.columns=String(data.form?.columns||2);renderTags();renderFavorites();api.onChoicesChanged?.(refreshChoices);window.addEventListener?.('focus',refreshChoices);
+   $('capture-drop-zone').hidden=data.kind!=='new-record';$('capture-locations').hidden=data.kind!=='new-record';document.documentElement.dataset.columns=String(data.form?.columns||2);renderTags();renderFavorites();api.onChoicesChanged?.(refreshChoices);window.addEventListener?.('focus',refreshChoices);
    $('capture-paths').hidden=!data.paths.length;$('capture-path-count').textContent='拖放位置 · '+data.paths.length+' 項';for(const item of data.paths)$('capture-path-list').append(node('li',item.path));if(data.kind==='new-record')$('capture-confirm').textContent='儲存並關閉';status(data.kind==='new-record'?'填寫後可直接儲存；預覽為選用。':'請填寫後預覽；確認前不會新增資料。');lock(false);(imports?$('capture-text'):$('capture-title')).focus();
   }catch(error){status(String(error.message||error),true);lock(false);}
  }
@@ -40,6 +40,18 @@
  $('capture-form').addEventListener('keydown',event=>{if(!(event.ctrlKey||event.metaKey)||event.key!=='Enter')return;event.preventDefault();if(busy||completed)return;if(token||data?.kind==='new-record'){saveAndAdd=event.shiftKey&&data.kind==='new-record';confirmSave();}else $('capture-form').requestSubmit();});
  $('capture-tags').addEventListener('input',()=>{const keys=tags().map(tag=>tag.toLocaleLowerCase());for(const item of tagChecks)item.check.checked=keys.includes(item.tag.toLocaleLowerCase());});
  $('capture-favorite-search').addEventListener('input',renderFavorites);$('capture-tag-search').addEventListener('input',renderTags);
- for(const [id,kind] of [['capture-add-file','file'],['capture-add-folder','folder'],['capture-clear-paths','clear']])$(id).addEventListener('click',async()=>{if(busy||completed)return;lock(true);try{const result=await(kind==='clear'?api.clearAttachments():api.choose(kind));$('capture-attachments').replaceChildren(...(result.attachments||[]).map(item=>node('p',item.path)));token=null;$('capture-preview').hidden=true;}catch(error){status(String(error.message||error),true);}finally{lock(false);}});
+ for(const [id,kind] of [['capture-add-file','file'],['capture-add-folder','folder'],['capture-clear-paths','clear']])$(id).addEventListener('click',async()=>{if(busy||completed)return;lock(true);try{const result=await(kind==='clear'?api.clearAttachments():api.choose(kind));renderAttachments(result);}catch(error){status(String(error.message||error),true);}finally{lock(false);}});
+ function renderAttachments(result){data.attachments=result.attachments||[];$('capture-attachments').replaceChildren(...data.attachments.map(item=>node('p',item.path)));$('capture-locations').open=true;token=null;$('capture-preview').hidden=true;}
+ for(const name of ['dragenter','dragover'])$('capture-form').addEventListener(name,event=>{if(!Array.from(event.dataTransfer?.types||[]).includes('Files'))return;event.preventDefault();if(data?.kind==='new-record'&&!busy&&!completed){event.dataTransfer.dropEffect='link';$('capture-drop-zone').classList.add('drag-over');}});
+ $('capture-form').addEventListener('dragleave',event=>{if(!$('capture-form').contains(event.relatedTarget))$('capture-drop-zone').classList.remove('drag-over');});
+ $('capture-form').addEventListener('drop',async event=>{
+  event.preventDefault();$('capture-drop-zone').classList.remove('drag-over');
+  if(busy||completed||data?.kind!=='new-record')return;
+  const files=Array.from(event.dataTransfer?.files||[]);if(!files.length)return;
+  lock(true);try{const paths=files.map(file=>api.pathForFile(file));if(paths.some(path=>!path))throw new Error('無法讀取拖放位置，請從檔案總管拖放或使用選取位置');renderAttachments(await api.addAttachments(paths));status('已附加位置；原有欄位已保留，儲存後才建立紀錄。');}catch(error){status(String(error.message||error),true);}finally{lock(false);}
+ });
+ // Prevent a file dropped outside the form from navigating away from the draft.
+ window.addEventListener?.('dragover',event=>{if(Array.from(event.dataTransfer?.types||[]).includes('Files'))event.preventDefault();});
+ window.addEventListener?.('drop',event=>event.preventDefault());
  $('capture-close').addEventListener('click',()=>{if(!busy)api.close().catch(error=>status(String(error.message||error),true));});init();
 })();

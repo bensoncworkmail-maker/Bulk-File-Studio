@@ -310,3 +310,5 @@ div.file-location-group, tr.file-location-group td { padding: 10px 12px; border-
 #quick-action-editor { border:1px solid var(--line); padding:10px; border-radius:8px; margin:10px 0; }
 #quick-action-editor summary { cursor:pointer; }
 @media(max-width:700px) { .quick-action-row { grid-template-columns:auto minmax(0,1fr) auto; }.quick-action-row button { grid-row:auto; } }
+
+.notes-panel-tools{flex:0 0 auto;min-width:0;margin:6px 0;}.notes-panel-tools>summary{cursor:pointer;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:12px;overflow-wrap:anywhere;}.notes-panel-tools>summary span{color:var(--muted);font-weight:400;}.notes-panel-tools[open]>summary{margin-bottom:6px;}.notes-panel-tools[data-detail="false"]>summary{display:none;}
