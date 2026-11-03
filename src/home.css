@@ -34,3 +34,7 @@
 #home-custom-dialog[open]{display:flex;flex-direction:column;overflow:hidden;height:min(610px,calc(100dvh - 40px));max-height:calc(100dvh - 40px);}
 #home-widget-options{min-height:0;overflow:auto;flex:1;}
 #home-custom-dialog>.home-custom-layout,#home-custom-dialog>.modal-buttons{flex-shrink:0;}
+
+.home-widget[data-sized=true]{overflow:auto;}.home-widget-head{gap:8px;flex-wrap:wrap;}
+@media(max-width:1000px){.home-widgets[data-columns="3"] .home-widget[data-span="3"]{grid-column:span 2!important;}}
+@media(max-width:650px){.home-widgets .home-widget{grid-column:span 1!important;}}

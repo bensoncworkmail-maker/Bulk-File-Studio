@@ -176,3 +176,14 @@
 .settings-categories .settings-tabs>button:focus-visible{outline-offset:-3px;}
 .quick-form-row{display:grid;grid-template-columns:20px minmax(90px,1fr) minmax(100px,1fr) 30px 30px;gap:6px;align-items:center;padding:7px;border-bottom:1px solid var(--line);}.quick-form-row input{min-width:0;}.settings-inline{display:flex;flex-wrap:wrap;gap:10px;}.settings-inline label{flex:1 1 100px;}.settings-inline input{max-width:100%;}
 #record-reminder-banner{position:fixed;right:18px;bottom:12px;z-index:75;box-shadow:0 6px 24px #0003;display:flex;align-items:center;gap:12px;}#record-reminder-banner[hidden]{display:none;}#record-reminders-dialog{width:min(800px,calc(100vw - 30px));max-height:calc(100vh - 30px);overflow:auto;}#record-reminders-list{display:grid;gap:8px;margin:12px 0;}#record-reminder-form{display:grid;gap:8px;}#record-reminder-form .field{margin:0;}
+
+.home-widget[data-layout-editing=true]{resize:vertical;overflow:auto;min-height:120px;max-height:800px;}.layout-drag-handle{cursor:grab;outline:1px dashed var(--accent);outline-offset:3px;}.home-widget-head .btn{flex-shrink:0;}
+
+
+:root[data-layout-editing=true] :is(#source-panel,#rules-panel)>.panel-heading{cursor:grab;outline:1px dashed var(--accent);outline-offset:-3px;}
+:root[data-file-panel-side=rules-left] #rules-panel{grid-column:auto;height:auto;}
+
+:root[data-file-panel-side=rules-left] #rename-workspace{grid-template-columns:min(var(--rules-width,420px),42vw) 8px minmax(0,1fr);grid-template-areas:"rules rules-resize preview";}
+:root[data-file-panel-side=rules-left][data-source-open=true] #rename-workspace{grid-template-columns:min(var(--rules-width,420px),42vw) 8px minmax(0,1fr) 8px min(var(--source-panel-width,220px),28vw);grid-template-areas:"rules rules-resize preview source-resize source";}
+:root[data-file-panel-side=rules-left][data-rules-open=false] #rename-workspace{grid-template-columns:minmax(0,1fr);grid-template-areas:"preview";}
+:root[data-file-panel-side=rules-left][data-source-open=true][data-rules-open=false] #rename-workspace{grid-template-columns:minmax(0,1fr) 8px min(var(--source-panel-width,220px),28vw);grid-template-areas:"preview source-resize source";}

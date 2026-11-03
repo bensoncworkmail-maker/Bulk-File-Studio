@@ -124,7 +124,7 @@ function showFailure(title, error) {
   if (!$('error-dialog').open) $('error-dialog').showModal();
 }
 function applyTheme(theme) {
-  const value = theme === 'light' ? 'light' : 'dark';
+  const value = ['light','dark','graphite'].includes(theme) ? theme : 'dark';
   document.documentElement.dataset.theme = value;
   $('theme-select').value = value;
   try { localStorage.setItem('brs-theme', value); } catch { /* Session-only choice. */ }
@@ -575,9 +575,10 @@ function wireEvents() {
     if(!e.dataTransfer?.types.includes('Files'))return;
     e.preventDefault();dragDepth++;$('drop-overlay').classList.remove('hidden');
   });
-  document.addEventListener('dragover',e=>{e.preventDefault();});
+  document.addEventListener('dragover',e=>{if(Array.from(e.dataTransfer?.types||[]).includes('application/x-bfs-layout'))return;e.preventDefault();});
   document.addEventListener('dragleave',e=>{e.preventDefault();dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$('drop-overlay').classList.add('hidden');});
   document.addEventListener('drop',async e=>{
+    if(Array.from(e.dataTransfer?.types||[]).includes('application/x-bfs-layout'))return;
     e.preventDefault();dragDepth=0;$('drop-overlay').classList.add('hidden');
     if(busy||window.favoritesUI.isSettings())return;
     try {

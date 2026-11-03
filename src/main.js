@@ -133,7 +133,7 @@ const readHistory = () => {
 };
 const saveHistory = history => writeHistory(historyFile(),history,fs);
 
-function searchLocalData(query,options,transient){const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],templates:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('檢視／範本讀取失敗：'+error.message);}return {...require('./app-search-model').search({document,favorites:favorites.read().items,tools,transient:transient||{}},query,options||{}),warnings};}
+function searchLocalData(query,options,transient){const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],templates:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('檢視／範本讀取失敗：'+error.message);}return {...require('./app-search-model').search({document,favorites:favorites.read().items,tools,transient:transient||{}},query,{...options,includeAreas:false}),warnings};}
 function floatingSearchController(){
  if(!floatingSearch)floatingSearch=new(require('./floating-search').FloatingSearch)({BrowserWindow,screen,secureWindow,settings:()=>desktop.settings,parent:()=>{if(!floating||floating.isDestroyed())showFloating();return floating;},returnFocus:()=>{if(floating&&!floating.isDestroyed()&&floating.isVisible())floating.focus();},favorites,run:searchLocalData,copy:value=>clipboard.writeText(value),visit:item=>{const M=require('./notes-model');if(['record','sheet'].includes(item.kind)){const doc=notesStore().get().document;if(item.kind==='record'&&!doc.records.some(record=>record.id===item.id&&M.live(doc,record))||item.kind==='sheet'&&!doc.sheets.some(sheet=>sheet.id===item.id&&!sheet.deletedAt))throw new Error('資料已移除，請重新搜尋');}if(item.kind==='favorite')favorites.get(item.id);focusMain();send(win,'studio-search-target',item);},fileAction:async(action,item)=>{if(fileOperationBusy)throw new Error('檔案操作進行中，請稍後再試');if(action==='show'){shell.showItemInFolder(assertLocalPath(item.path));return;}assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);}});return floatingSearch;
 }
@@ -196,7 +196,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
+    const floatingAllowed=['floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
     return loggedInvocation(main?'main-renderer':mini?'floating':'untrusted',channel,()=>{
       if(!main&&!(mini&&floatingAllowed.includes(channel))&&!(channel==='diagnostics-report'&&(capture?.owns(event)||recordAttention?.owns(event)||floatingSearch?.owns(event))))throw new Error('不受信任的操作來源');
       return handler(event,...args);
@@ -239,6 +239,8 @@ app.whenReady().then(() => {
     return {sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
   });
   handle('floating-search-open',(_,query)=>floatingSearchController().open(query));
+  handle('floating-layout-order',(_,order)=>{if(!desktop.settings.floatingLayoutEditing)throw new Error('請先在設定啟用浮動版面拖曳');if(!Array.isArray(order)||order.length!==3||new Set(order).size!==3||order.some(key=>!['search','tools','tags'].includes(key)))throw new Error('浮動列順序無效');const settings=desktop.update({floatingControlOrder:order});const result={settings};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;});
+  handle('floating-search-toggle',(_,query,anchor)=>{if(floatingSearch?.window&&!floatingSearch.window.isDestroyed()){floatingSearch.destroy();return {closed:true};}if(!floating||floating.isDestroyed())throw new Error('請先開啟浮動工具');const bounds=floating.getContentBounds?.()||floating.getNormalBounds();if(!anchor||!['x','y','width','height'].every(key=>Number.isFinite(anchor[key]))||anchor.x<0||anchor.y<0||anchor.x>bounds.width||anchor.y>bounds.height+8||anchor.width<0||anchor.width>bounds.width||anchor.height<0||anchor.height>bounds.height)throw new Error('搜尋按鈕位置無效');return floatingSearchController().open(query,{anchor:{x:bounds.x+anchor.x,y:bounds.y+anchor.y,width:anchor.width,height:anchor.height}});});
   handle('floating-search-prepare',(_,query,key)=>floatingSearchController().prepareLive(query,key));
   handle('floating-search-cancel',(_,key)=>floatingSearch?.cancelLive(key)||{closed:true});
   handle('floating-search-preview',(_,query,key,activate)=>{if(!floating||floating.isDestroyed()||!floating.isVisible()||!floating.isFocused())return {opened:false};return floatingSearchController().previewLive(query,key,activate);});
@@ -560,9 +562,9 @@ app.whenReady().then(() => {
     const error=await shell.openPath(folder);if(error)throw new Error(error);
   });
   handle('set-theme', (_, theme) => {
-    if (!['light', 'dark'].includes(theme)) throw new Error('不支援的主題');
-    nativeTheme.themeSource = theme;
-    win?.setBackgroundColor(theme === 'light' ? '#f4f6fb' : '#090e1b');
+    if (!['light', 'dark','graphite'].includes(theme)) throw new Error('不支援的主題');
+    nativeTheme.themeSource = theme==='light'?'light':'dark';
+    win?.setBackgroundColor(theme === 'light' ? '#f4f6fb' : theme==='graphite'?'#101215':'#090e1b');
   });
   handle('choose-files', async () => {
     const d = await dialog.showOpenDialog(win, { title: '選擇檔案（可多選）', properties: ['openFile', 'multiSelections'] });

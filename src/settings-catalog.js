@@ -11,7 +11,7 @@ const config={
     },
     {
       "id": "appearance",
-      "label": "顯示與閱讀",
+      "label": "外觀與版面",
       "description": "主題、字級、間距與操作提示",
       "keywords": "theme font density display"
     },
@@ -33,6 +33,8 @@ const config={
       "description": "主檔明細、卡片、輸入與工作區搜尋",
       "keywords": "notes records cards master details"
     },
+    {"id":"sharing","label":"匯入與共享","description":"資料搬移、預覽預設與來源接收","keywords":"import export share source backup"},
+    {"id":"reminders","label":"提醒排程","description":"全部提醒、通知方式與強提醒","keywords":"reminders schedule alarm notification"},
     {
       "id": "search",
       "label": "全域搜尋",
@@ -59,6 +61,7 @@ const config={
     }
   ],
   "controls": {
+    "notesGridEnter":"settings-notes-grid-enter","notesGridTab":"settings-notes-grid-tab","notesGridEditNext":"settings-notes-grid-edit-next","notesDeleteKey":"settings-notes-delete-key","layoutEditing":"settings-layout-editing","filePanelSide":"settings-file-panel-side",
     "notesImportChangesOnly":"settings-notes-import-changes-only","notesShareQuickActions":"settings-notes-share-quick",
     "notesImportMode":"settings-notes-import-mode","notesSharedImportMode":"settings-notes-shared-import-mode",
     "notesExpandFilters": "settings-notes-expand-filters",
@@ -141,6 +144,7 @@ const config={
     "searchFileActions": "settings-search-file-actions"
   },
   "nativeControls": {
+    "floatingSearchPresentation":"settings-floating-search-presentation","floatingLayoutEditing":"settings-floating-layout-editing",
     "floatingSearchMode":"settings-floating-search-mode","floatingSearchDelay":"settings-floating-search-delay","floatingSearchMinLength":"settings-floating-search-min",
     "floatingGlobalSearch":"settings-floating-global-search","floatingSearchWidth":"settings-floating-search-width","floatingSearchHeight":"settings-floating-search-height",
     "reminderAttentionSound":"settings-reminder-attention-sound","reminderAttentionRepeatMinutes":"settings-reminder-attention-repeat","remindersEnabled":"settings-reminders-enabled","reminderDelivery":"settings-reminder-delivery","reminderBringToFront":"settings-reminder-focus","reminderSnoozeMinutes":"settings-reminder-snooze",
@@ -215,13 +219,15 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
+    "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
     "floatingSearchMode":"floating","floatingSearchDelay":"floating","floatingSearchMinLength":"floating",
     "floatingGlobalSearch":"floating","floatingSearchWidth":"floating","floatingSearchHeight":"floating",
-    "reminderAttentionSound":"notes","reminderAttentionRepeatMinutes":"notes","remindersEnabled":"notes","reminderDelivery":"notes","reminderBringToFront":"notes","reminderSnoozeMinutes":"notes",
+    "reminderAttentionSound":"reminders","reminderAttentionRepeatMinutes":"reminders","remindersEnabled":"reminders","reminderDelivery":"reminders","reminderBringToFront":"reminders","reminderSnoozeMinutes":"reminders",
     "floatingQuickPlacement":"floating","floatingQuickColumns":"floating",
     "floatingCaptureKeepValues":"floating",
-    "notesImportChangesOnly":"notes","notesShareQuickActions":"notes",
-    "notesImportMode":"notes","notesSharedImportMode":"notes",
+    "notesImportChangesOnly":"sharing","notesShareQuickActions":"sharing",
+    "notesImportMode":"sharing","notesSharedImportMode":"sharing",
     "diagnosticsEnabled":"data","diagnosticsIncludeStack":"data","diagnosticsIncludePaths":"data","diagnosticsRetentionDays":"data",
     "renameVerification": "workspace",
     "floatingTitle": "floating",
@@ -360,7 +366,7 @@ const config={
     "notesSidebarShowDetails": "notes",
     "notesSidebarSections": "notes",
     "searchFileActions": "search",
-    "homeWidgets": "home",
+    "homeWidgets": "home","homeWidgetHeights":"home","homeWidgetSpans":"home",
     "floatingShowCaption": "floating",
     "notesCollapsedGroups": "notes",
     "notesExpandedGroups": "notes"

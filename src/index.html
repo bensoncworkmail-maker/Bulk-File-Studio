@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="home.css">
     <link rel="stylesheet" href="operation-ui.css">
     <script src="operation-ui.js" defer></script>
-  </head>
+  <link rel="stylesheet" href="graphite-theme.css"></head>
   <body>
     <div class="app-shell">
       <header class="app-header">
@@ -267,7 +267,7 @@
               <button id="settings-tab-appearance" class="btn btn-ghost" role="tab" aria-controls="settings-panel-appearance" aria-selected="true" tabindex="0">
                 <span class="settings-category-icon" aria-hidden="true">◐</span>
                 <span class="settings-category-copy">
-                  <strong>顯示與閱讀</strong>
+                  <strong>外觀與版面</strong>
                   <small>主題、字級與間距</small>
                 </span>
               </button>
@@ -292,6 +292,7 @@
                   <small>主檔、明細與卡片</small>
                 </span>
               </button>
+              <button id="settings-tab-sharing" class="btn btn-ghost" role="tab" aria-controls="settings-panel-sharing" aria-selected="false" tabindex="-1"><span class="settings-tab-icon" aria-hidden="true">⇄</span><span><strong>匯入與共享</strong><small>搬移、預覽與接收</small></span></button><button id="settings-tab-reminders" class="btn btn-ghost" role="tab" aria-controls="settings-panel-reminders" aria-selected="false" tabindex="-1"><span class="settings-tab-icon" aria-hidden="true">◷</span><span><strong>提醒排程</strong><small>全部提醒與通知</small></span></button>
               <button id="settings-tab-search" class="btn btn-ghost" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1">
                 <span class="settings-category-icon" aria-hidden="true">⌕</span>
                 <span class="settings-category-copy">
@@ -336,7 +337,7 @@
               <div id="settings-panel-home" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-home" hidden>
                 <section class="settings-card">
                   <h2>首頁工作台</h2>
-                  <p>首頁提供本機資料概覽、快速入口、釘選主檔、群組、最近資料與儲存檢視。顯示區塊與順序可自行設定。</p>
+                  <p>首頁提供本機資料概覽、快速入口、釘選主檔、主表、最近資料與儲存檢視。顯示區塊與順序可自行設定。</p>
                   <label class="field">
                     <span>首頁欄數</span>
                     <select id="settings-home-columns">
@@ -357,7 +358,7 @@
                   <p class="notes-hint">自訂顯示只影響這台電腦的偏好，不會刪除資料；小視窗會自動減少實際欄數。</p>
                 </section>
               </div>
-              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance"><section class="settings-card"><h2>主視窗版面預設</h2><p class="rule-hint">套用後仍可逐項調整密度、字體及各面板寬度；不改資料。</p><div class="notes-tools"><button id="layout-main-compact" class="btn btn-secondary">精簡</button><button id="layout-main-standard" class="btn btn-secondary">標準</button><button id="layout-main-readable" class="btn btn-secondary">大字易讀</button></div><div class="settings-inline"><label>視窗寬<input id="settings-main-width" type="number" min="800" max="8000" value="1400"></label><label>視窗高<input id="settings-main-height" type="number" min="500" max="8000" value="900"></label></div><button id="settings-main-size-apply" class="btn btn-secondary">套用視窗尺寸</button><p id="settings-main-size-status" class="rule-hint"></p></section>
+              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance"><section class="settings-card"><h2>主視窗版面預設</h2><label class="check-row"><input id="settings-layout-editing" type="checkbox"><span>啟用首頁區塊與檔案側欄的拖曳版面編輯</span></label><label class="field"><span>檔案工具側欄位置</span><select id="settings-file-panel-side"><option value="source-left">來源在左、規則在右</option><option value="rules-left">規則在左、來源在右</option></select></label><button id="settings-layout-reset" class="btn btn-ghost">還原區塊順序與尺寸</button><p class="rule-hint">首頁可拖曳標題調整順序、拖曳右下角調整高度，並切換區塊寬度；檔案工具可將來源／規則標題互相拖放以交換側欄。工作區與收藏側欄仍用分隔線調寬，不提供任意疊放的自由座標版面。</p><p class="rule-hint">套用後仍可逐項調整密度、字體及各面板寬度；不改資料。</p><div class="notes-tools"><button id="layout-main-compact" class="btn btn-secondary">精簡</button><button id="layout-main-standard" class="btn btn-secondary">標準</button><button id="layout-main-readable" class="btn btn-secondary">大字易讀</button></div><div class="settings-inline"><label>視窗寬<input id="settings-main-width" type="number" min="800" max="8000" value="1400"></label><label>視窗高<input id="settings-main-height" type="number" min="500" max="8000" value="900"></label></div><button id="settings-main-size-apply" class="btn btn-secondary">套用視窗尺寸</button><p id="settings-main-size-status" class="rule-hint"></p></section>
                 <section class="settings-card">
                   <h2>外觀與閱讀</h2>
                   <label class="check-row">
@@ -368,7 +369,7 @@
                     <span>外觀主題</span>
                     <select id="theme-select">
                       <option value="light">☀ 淺色</option>
-                      <option value="dark">☾ 深色</option>
+                      <option value="dark">☾ 深色</option><option value="graphite">石墨交易風格</option>
                     </select>
                   </label>
                   <label class="field">
@@ -526,7 +527,7 @@
                   <button id="btn-shortcuts-reset" class="btn btn-secondary">還原預設快捷鍵</button>
                 </section>
               </div>
-              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
+              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden><section class="settings-card"><h2>儲存格與鍵盤操作</h2><label class="field"><span>編輯中按 Enter 後</span><select id="settings-notes-grid-enter"><option value="next">儲存並移到右格（列尾移下一列）</option><option value="down">儲存並移到下方同欄</option><option value="stay">儲存並留在原格</option></select></label><label class="check-row"><input id="settings-notes-grid-tab" type="checkbox"><span>Tab 儲存並移到下一格，Shift+Tab 反向</span></label><label class="check-row"><input id="settings-notes-grid-edit-next" type="checkbox"><span>移動後直接編輯下一格</span></label><label class="check-row"><input id="settings-notes-delete-key" type="checkbox"><span>選取工作區紀錄後按 Delete 開啟刪除確認</span></label><p class="rule-hint">沒有修改的儲存格只移動，不重複儲存。驗證失敗保留輸入；最後一筆不會自動建立新列。輸入框與儲存格編輯中的 Delete 仍是刪除文字／清空格，不刪除紀錄。</p></section>
                 <section class="settings-card">
                   <h2>資料工作區版面</h2>
                   <label hidden class="field"><span>側欄導覽方式</span><select id="settings-notes-sidebar-mode"><option value="flat">平列全部主檔（最精簡）</option><option value="masters">按主檔分類</option><option value="groups">完整群組與表格</option></select></label>
@@ -612,7 +613,7 @@
                   <p class="rule-hint">標題與選取操作固定保留；資料欄位可依每張表格個別選擇，不會改動資料。</p>
                   <label class="check-row">
                     <input id="settings-notes-card-context" type="checkbox">
-                    <span>群組／表格</span>
+                    <span>表格脈絡</span>
                   </label>
                   <label class="check-row">
                     <input id="settings-notes-card-parent" type="checkbox">
@@ -659,7 +660,7 @@
                     <input id="settings-notes-search-case" type="checkbox">
                     <span>區分英文大小寫</span>
                   </label>
-                  <p class="rule-hint">標題、群組與表格名稱一律搜尋；可額外包含：</p>
+                  <p class="rule-hint">標題與表格名稱一律搜尋；可額外包含：</p>
                   <label class="check-row">
                     <input id="settings-notes-search-fields" type="checkbox">
                     <span>自訂欄位</span>
@@ -723,13 +724,15 @@
                   </label>
                   <p class="rule-hint">資料工作區偏好包含於「匯出設定 JSON」；資料本身請使用工作區資料包匯出。</p>
                 </section>
-                <section class="settings-card">
+
+
+              </div>
+              <div id="settings-panel-sharing" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-sharing" hidden><section class="settings-card">
                   <h2>匯入預設與備份</h2><p class="rule-hint">程式版本與資料格式獨立；目前資料格式 3，可讀取舊資料包 1／2／3；指定主表共享採封裝 4，避免舊接收端誤套用全部。只傳送資料與連結，不含實體檔案。</p><button id="settings-notes-compat-check" class="btn btn-secondary">檢查舊資料包相容性（不匯入）</button><p id="settings-notes-compat-status" class="rule-hint"></p><label class="check-row"><input id="settings-notes-import-changes-only" type="checkbox"><span>匯入預覽預設只看有差異的紀錄</span></label>
                   <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="skip">合併，略過重複紀錄</option><option value="update">合併，更新相同識別碼</option></select></label>
                   <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option><option value="update">合併，更新相同識別碼（持續接收更新）</option><option value="copy">另存副本（獨立參考）</option><option value="skip">合併，略過重複紀錄</option></select></label>
                   <p class="rule-hint">只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。來源複製會取代資料包未包含的本機表格與紀錄，須再次確認；保留 ID，不建立重複副本。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
-                </section><section class="settings-card"><h2>紀錄提醒</h2><label class="check-row"><input id="settings-reminders-enabled" type="checkbox"><span>啟用本機紀錄提醒（只在程式執行時）</span></label><label class="field"><span>預設提醒方式</span><select id="settings-reminder-delivery"><option value="notification">Windows 系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option><option value="attention">強提醒（獨立置頂視窗＋提示音）</option></select></label><label class="check-row"><input id="settings-reminder-focus" type="checkbox"><span>到期時顯示並聚焦主視窗（不關閉未儲存表單）</span></label><label class="field"><span>預設延後</span><select id="settings-reminder-snooze"><option value="5">5 分鐘</option><option value="10">10 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label><label class="check-row"><input id="settings-reminder-attention-sound" type="checkbox"><span>強提醒播放系統提示音</span></label><label class="field"><span>強提醒提示音重播間隔</span><select id="settings-reminder-attention-repeat"><option value="0">只播放一次</option><option value="1">每 1 分鐘</option><option value="5">每 5 分鐘</option><option value="10">每 10 分鐘</option><option value="15">每 15 分鐘</option></select></label><p class="rule-hint">強提醒另開置頂視窗並閃爍工作列，可直接完成／延後；關閉會停止本次重播，待處理提醒仍保留。聲音受系統音量影響。是否切換輸入焦點沿用上方設定。</p><button id="settings-reminders-open" class="btn btn-secondary">管理提醒排程</button><p class="rule-hint">程式完全結束時不提醒；下次執行補列逾期提醒。Windows 通知可能被系統限制，程式內待辦提示仍保留。排程保存在本機，不隨資料包共享。</p></section>
-<section class="settings-card">
+                </section><section class="settings-card">
                   <h2>共享資料包</h2><label class="check-row"><input id="settings-notes-share-quick" type="checkbox"><span>在工作區標題列顯示共享快捷操作</span></label><p class="rule-hint">快捷列只控制顯示。共享啟用、資料夾、接收方式與檢查間隔獨立儲存，不隨介面偏好還原。</p>
                   <p>可選擇指定分享資料夾、啟停定期檢查及自動發佈。主資料庫不會移到共享磁碟；新資料可選提醒、自動套用指定來源或忽略。</p>
                   <p class="rule-hint">發佈／接收可指定主表及其明細；請開啟管理視窗的「共享設定與來源資訊 → 指定主表」。來源版本可從資料包的「版本資訊」核對，舊版仍須預覽、確認並備份。</p><p id="settings-notes-share-status" class="rule-hint">共享資料包預設停用</p>
@@ -738,8 +741,7 @@
 <label class="field"><span>跟隨的發布來源 ID</span><select id="settings-share-source"><option value="">所有其他來源（只提醒）</option></select></label>
 <p class="rule-hint">先啟用共享並立即檢查，選擇一個發布來源。首次須以更新模式或「複製來源到本機」手動確認匯入，建立接收基準；來源 ID 可請發布者在共享視窗核對。自動套用前先備份；本機有修改、表單或預覽未關閉時會暫停。自動接收與自動發佈不可同時開啟。資料包未提供的紀錄不會自動刪除。</p>
 <p id="settings-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="settings-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="settings-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
-                </section>
-              </div>
+                </section></div><div id="settings-panel-reminders" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-reminders" hidden><section class="settings-card"><h2>紀錄提醒</h2><label class="check-row"><input id="settings-reminders-enabled" type="checkbox"><span>啟用本機紀錄提醒（只在程式執行時）</span></label><label class="field"><span>預設提醒方式</span><select id="settings-reminder-delivery"><option value="notification">Windows 系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option><option value="attention">強提醒（獨立置頂視窗＋提示音）</option></select></label><label class="check-row"><input id="settings-reminder-focus" type="checkbox"><span>到期時顯示並聚焦主視窗（不關閉未儲存表單）</span></label><label class="field"><span>預設延後</span><select id="settings-reminder-snooze"><option value="5">5 分鐘</option><option value="10">10 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label><label class="check-row"><input id="settings-reminder-attention-sound" type="checkbox"><span>強提醒播放系統提示音</span></label><label class="field"><span>強提醒提示音重播間隔</span><select id="settings-reminder-attention-repeat"><option value="0">只播放一次</option><option value="1">每 1 分鐘</option><option value="5">每 5 分鐘</option><option value="10">每 10 分鐘</option><option value="15">每 15 分鐘</option></select></label><p class="rule-hint">強提醒另開置頂視窗並閃爍工作列，可直接完成／延後；關閉會停止本次重播，待處理提醒仍保留。聲音受系統音量影響。是否切換輸入焦點沿用上方設定。</p><button id="settings-reminders-open" class="btn btn-secondary">管理提醒排程</button><p class="rule-hint">程式完全結束時不提醒；下次執行補列逾期提醒。Windows 通知可能被系統限制，程式內待辦提示仍保留。排程保存在本機，不隨資料包共享。</p></section></div>
               <div id="settings-panel-search" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-search" hidden>
                 <section class="settings-card">
                   <h2>搜尋來源</h2>
@@ -761,7 +763,7 @@
                   </label>
                   <label class="check-row">
                     <input id="settings-search-structure" type="checkbox">
-                    <span>群組／表格／欄位名稱</span>
+                    <span>表格／欄位名稱</span>
                   </label>
                   <label class="check-row">
                     <input id="settings-search-tools" type="checkbox">
@@ -817,10 +819,10 @@
                   <p class="notes-hint">位置引用以完整路徑去重，主檔數也去重。文字路徑、分享待確認連結仍可列出關係，但搜尋不會自動開啟或授權它們。搜尋文字不寫入持久紀錄。</p>
                 </section>
               </div>
-              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden><section class="settings-card"><h2>浮動工具版面預設</h2><button id="layout-floating-minimal" class="btn btn-secondary">精簡小窗</button><button id="layout-floating-balanced" class="btn btn-secondary">平衡雙欄</button><p class="rule-hint">可繼續自訂寬高、透明度、列高、快捷列位置與欄數、顯示按鈕；各快捷表單可另設尺寸與欄位。</p></section>
+              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden><section class="settings-card"><h2>浮動工具版面預設</h2><label class="check-row"><input id="settings-floating-layout-editing" type="checkbox"><span>拖曳調整搜尋／工具／標籤控制列順序</span></label><button id="settings-floating-layout-reset" class="btn btn-ghost">還原浮動控制列順序</button><button id="layout-floating-minimal" class="btn btn-secondary">精簡小窗</button><button id="layout-floating-balanced" class="btn btn-secondary">平衡雙欄</button><p class="rule-hint">可繼續自訂寬高、透明度、列高、快捷列位置與欄數、顯示按鈕；各快捷表單可另設尺寸與欄位。</p></section>
                 <section class="settings-card">
-                  <h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-global-search" type="checkbox"><span>啟用浮動全域搜尋（結果顯示在外部面板）</span></label><label class="field"><span>浮動搜尋欄的搜尋模式</span><select id="settings-floating-search-mode"><option value="local">工具內篩選（預設）</option><option value="live">外部即時全域搜尋</option></select></label><label class="field"><span>即時搜尋延遲</span><select id="settings-floating-search-delay"><option value="150">150 毫秒</option><option value="300">300 毫秒（預設）</option><option value="500">500 毫秒</option><option value="800">800 毫秒</option></select></label><label class="field"><span>即時搜尋最少字數</span><select id="settings-floating-search-min"><option value="1">1 字（預設，適合中文）</option><option value="2">2 字</option><option value="3">3 字</option></select></label><p class="rule-hint">即時模式會在停止輸入後顯示外部結果，焦點保留在原搜尋欄；中文選字完成後才搜尋。Enter／向下鍵移入結果，Esc 先收起結果並保留浮動工具。清空或不足字數時收起即時面板；「全域」按鈕仍可手動搜尋。停用上方全域搜尋時，搜尋欄會使用工具內篩選。</p><label class="field"><span>全域搜尋面板寬度</span><input id="settings-floating-search-width" type="number" min="360" max="1200"></label><label class="field"><span>全域搜尋面板高度</span><input id="settings-floating-search-height" type="number" min="320" max="1200"></label><p class="rule-hint">浮動工具搜尋列按「全域」，或在浮動工具按 Ctrl+Shift+F。可搜尋已登記紀錄、收藏、標籤及位置，結果每類 25 項；不掃描磁碟。面板內可切類型、翻頁與選擇包含主從關聯；預設尺寸在下次開啟面板時套用。</p>
-                  <label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
+                  <h2>浮動搜尋</h2><label class="field"><span>搜尋列顯示方式</span><select id="settings-floating-search-presentation"><option value="field">工具內顯示輸入框（預設）</option><option value="button">只顯示搜尋按鈕，點擊後在按鈕下方開啟</option></select></label><p class="rule-hint">按鈕模式節省一列高度，文字在外部面板輸入；即時搜尋模式適用工具內輸入框。</p><label class="check-row"><input id="settings-floating-global-search" type="checkbox"><span>啟用浮動全域搜尋（結果顯示在外部面板）</span></label><label class="field"><span>浮動搜尋欄的搜尋模式</span><select id="settings-floating-search-mode"><option value="local">工具內篩選（預設）</option><option value="live">外部即時全域搜尋</option></select></label><label class="field"><span>即時搜尋延遲</span><select id="settings-floating-search-delay"><option value="150">150 毫秒</option><option value="300">300 毫秒（預設）</option><option value="500">500 毫秒</option><option value="800">800 毫秒</option></select></label><label class="field"><span>即時搜尋最少字數</span><select id="settings-floating-search-min"><option value="1">1 字（預設，適合中文）</option><option value="2">2 字</option><option value="3">3 字</option></select></label><p class="rule-hint">即時模式會在停止輸入後顯示外部結果，焦點保留在原搜尋欄；中文選字完成後才搜尋。Enter／向下鍵移入結果，Esc 先收起結果並保留浮動工具。清空或不足字數時收起即時面板；「全域」按鈕仍可手動搜尋。停用上方全域搜尋時，搜尋欄會使用工具內篩選。</p><label class="field"><span>全域搜尋面板寬度</span><input id="settings-floating-search-width" type="number" min="360" max="1200"></label><label class="field"><span>全域搜尋面板高度</span><input id="settings-floating-search-height" type="number" min="320" max="1200"></label><p class="rule-hint">浮動工具搜尋列按「全域」，或在浮動工具按 Ctrl+Shift+F。可搜尋已登記紀錄、收藏、標籤及位置，結果每類 25 項；不掃描磁碟。面板內可切類型、翻頁與選擇包含主從關聯；預設尺寸在下次開啟面板時套用。</p>
+                  </section><section class="settings-card"><h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
                   <label class="check-row"><input id="settings-floating-show-new-master" type="checkbox"><span>顯示「＋新增主檔」按鈕（工作區／混合檢視）</span></label>
                   <p class="rule-hint">內建新增主檔與自訂快捷按鈕顯示在同一列；關閉快捷動作列會一起隱藏。</p>
                   <p class="rule-hint">自訂快捷按鈕單擊執行，最多 12 項。可在浮動工具旁填寫及預覽，確認後才儲存。</p>
@@ -1397,7 +1399,7 @@
             <button id="source-page-next" class="btn btn-ghost" aria-label="來源下一頁">›</button>
           </div>
         </aside>
-        <div id="source-panel-resizer" class="tag-panel-resizer" role="separator" aria-label="來源面板寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整來源寬度；雙擊還原；← 縮窄、→ 加寬"></div>
+        <div id="source-panel-resizer" class="tag-panel-resizer" role="separator" aria-label="來源面板寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整來源寬度；雙擊還原；左右鍵微調"></div>
         <section class="panel preview-panel">
           <div class="panel-heading preview-heading">
             <div>
@@ -1480,7 +1482,7 @@
             </div>
           </div>
         </section>
-        <div id="rules-panel-resizer" class="tag-panel-resizer rules-panel-resizer" role="separator" aria-label="命名規則面板寬度" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="720" aria-valuenow="420" tabindex="0" title="拖曳調整命名規則寬度；雙擊還原；← 加寬、→ 縮窄"></div>
+        <div id="rules-panel-resizer" class="tag-panel-resizer rules-panel-resizer" role="separator" aria-label="命名規則面板寬度" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="720" aria-valuenow="420" tabindex="0" title="拖曳調整命名規則寬度；雙擊還原；左右鍵微調"></div>
         <aside id="rules-panel" class="panel rules-panel">
           <div class="panel-heading">
             <div>
@@ -2149,7 +2151,7 @@
           </label>
           <label class="check-row">
             <input id="notes-card-show-context" type="checkbox">
-            <span>群組／表格</span>
+            <span>表格脈絡</span>
           </label>
           <label class="check-row">
             <input id="notes-card-show-parent" type="checkbox">
@@ -2368,13 +2370,13 @@
     <script src="everything.js" defer></script>
     <script src="notes-model.js" defer></script>
     <aside id="record-reminder-banner" class="notes-share-status-card" hidden><span id="record-reminder-count"></span><button id="record-reminder-review" class="btn btn-secondary">查看提醒</button></aside>
-    <dialog id="record-reminders-dialog" class="modal notes-modal" aria-labelledby="record-reminders-title"><h2 id="record-reminders-title">紀錄提醒排程</h2><p class="notes-hint">關閉程式後不會通知；既有編輯內容會保留。</p><form id="record-reminder-form"><input id="record-reminder-search" type="search" placeholder="搜尋紀錄與表格…"><label class="field"><span>紀錄</span><select id="record-reminder-record" required></select></label><label class="field"><span>提醒時間（本機時間）</span><input id="record-reminder-at" type="datetime-local" required></label><label class="field"><span>重複</span><select id="record-reminder-repeat"><option value="none">一次</option><option value="daily">每天（完成後排下一次）</option><option value="weekly">每週（完成後排下一次）</option></select></label><label class="field"><span>提醒方式</span><select id="record-reminder-delivery"><option value="default">依設定頁</option><option value="notification">系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option><option value="attention">強提醒（獨立置頂視窗＋提示音）</option></select></label><button class="btn btn-primary" type="submit">儲存提醒</button><button id="record-reminder-new" class="btn btn-ghost" type="button">新增另一個</button></form><p id="record-reminder-status" role="status"></p><div id="record-reminders-list"></div><div class="modal-buttons"><button id="record-reminders-close" class="btn btn-secondary">關閉</button></div></dialog>
+    <dialog id="record-reminders-dialog" class="modal notes-modal" aria-labelledby="record-reminders-title"><h2 id="record-reminders-title">全部提醒排程</h2><p class="notes-hint">列出已設定的提醒；單次提醒完成後會移除，循環提醒會排下一次。程式結束時不通知。</p><div class="notes-tools"><input id="record-reminders-query" type="search" placeholder="搜尋提醒的紀錄或表格…"><select id="record-reminders-filter" aria-label="提醒狀態"><option value="all">全部排程</option><option value="pending">尚未到期</option><option value="fired">待處理</option><option value="unavailable">紀錄已回收／不存在</option></select><button id="record-reminders-add" class="btn btn-primary" type="button">＋ 新增提醒</button></div><p id="record-reminders-summary" class="notes-hint" role="status"></p><div id="record-reminders-list"></div><details id="record-reminder-editor"><summary>新增／編輯提醒</summary><form id="record-reminder-form"><input id="record-reminder-search" type="search" placeholder="搜尋紀錄與表格…"><label class="field"><span>紀錄</span><select id="record-reminder-record" required></select></label><label class="field"><span>提醒時間（本機時間）</span><input id="record-reminder-at" type="datetime-local" required></label><label class="field"><span>重複</span><select id="record-reminder-repeat"><option value="none">一次</option><option value="daily">每天（完成後排下一次）</option><option value="weekly">每週（完成後排下一次）</option></select></label><label class="field"><span>提醒方式</span><select id="record-reminder-delivery"><option value="default">依設定頁</option><option value="notification">系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option><option value="attention">強提醒（獨立置頂視窗＋提示音）</option></select></label><button class="btn btn-primary" type="submit">儲存提醒</button><button id="record-reminder-new" class="btn btn-ghost" type="button">新增另一個</button></form><p id="record-reminder-status" role="status"></p></details><div class="modal-buttons"><button id="record-reminders-close" class="btn btn-secondary">關閉</button></div></dialog>
     <script src="record-reminders-ui.js" defer></script>
     <script src="share-view-model.js" defer></script>
     <script src="share-receive-ui.js" defer></script>
-    <script src="notes.js" defer></script>
+    <script src="menu-dismiss.js" defer></script><script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
-    <script src="home.js" defer></script>
+    <script src="layout-editor.js" defer></script><script src="home.js" defer></script>
     <script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>
 </body>

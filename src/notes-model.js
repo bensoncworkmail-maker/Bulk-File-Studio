@@ -98,7 +98,7 @@
  }
  function parentField(doc,sheet){const area=doc.areas.find(area=>area.id===sheet.areaId);return area?.masterSheetId&&area.masterSheetId!==sheet.id?sheet.fields.find(field=>field.type==='relation'&&field.targetSheetId===area.masterSheetId):undefined;}
  function detailSheets(doc,areaId){return doc.sheets.filter(sheet=>sheet.areaId===areaId&&!sheet.deletedAt&&parentField(doc,sheet));}
- function missingClientDetails(doc,areaId){const sheets=doc.sheets.filter(sheet=>sheet.areaId===areaId),names=new Set(sheets.map(sheet=>sheet.name==='跟進紀錄'?'紀錄':sheet.name));return ['聯絡人','文件／位置','紀錄','合約'].filter(name=>!names.has(name));}
+ function missingClientDetails(doc,target){const area=doc.areas.find(area=>area.id===target||area.masterSheetId===target),sheets=area?doc.sheets.filter(sheet=>sheet.areaId===area.id):[],names=new Set(sheets.map(sheet=>sheet.name==='跟進紀錄'?'紀錄':sheet.name));return ['聯絡人','文件／位置','紀錄','合約'].filter(name=>!names.has(name));}
  function deletionPlan(doc,entries,includeDetails=false){
   if(!Array.isArray(entries)||!entries.length||entries.length>LIMITS.records||typeof includeDetails!=='boolean')fail('批次刪除範圍無效');const byId=new Map(doc.records.map(record=>[record.id,record])),selected=new Set();
   for(const entry of entries){if(!isObject(entry))fail('批次選取無效');id(entry.id);const record=byId.get(entry.id);if(selected.has(entry.id))fail('批次選取重複');if(!record||!live(doc,record)||record.version!==entry.version)fail('選取紀錄已變更或刪除，請重新整理');selected.add(entry.id);}

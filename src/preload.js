@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  dropFiles:(paths,tag)=>invoke('floating-drop',paths,tag),
- prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
+ toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>invoke('floating-header-menu'),
  headerDoubleClick:()=>invoke('floating-header-double-click'),
@@ -94,7 +94,7 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  setFloatingView:mode=>invoke('floating-view',mode),
  importPaths:tag=>invoke('floating-import',tag),togglePin:()=>invoke('floating-pin'),
  diagnosticsStatus:recent=>invoke('diagnostics-status',recent),openDiagnostics:()=>invoke('diagnostics-open'),exportDiagnostics:()=>invoke('diagnostics-export'),clearDiagnostics:()=>invoke('diagnostics-clear'),
- resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),
+ resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),setFloatingLayoutOrder:order=>invoke('floating-layout-order',order),
  resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),showMain:tag=>invoke('floating-main',tag),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));

@@ -1,0 +1,14 @@
+/* Optional charcoal palette. Light and dark retain their existing rules. */
+:root[data-theme=graphite]{color-scheme:dark;--bg:#101215;--panel:#191d23;--surface:#202630;--surface-2:#29313d;--line:#3c4655;--line-light:#2c333d;--text:#e5eaf1;--muted:#a9b8ce;--dim:#7e8ea7;--accent:#a7c6ee;--violet:#87a9d6;--good:#79cbb2;--bad:#f29591;--amber:#e8c486;--warning:#e8c486;--shadow:0 12px 28px #0004;--radius:9px;--ui-radius:6px;}
+:root[data-theme=graphite] body{background:var(--bg);color:var(--text);}
+:root[data-theme=graphite] :is(.app-header,.action-footer,.panel,.settings-card,.notes-sidebar,.notes-content,.notes-detail,dialog.modal,.modal,.mini-header,.home-widget){background:var(--panel);border-color:var(--line);color:var(--text);box-shadow:none;}
+:root[data-theme=graphite] :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background:var(--bg);color:var(--text);border-color:var(--line);}
+:root[data-theme=graphite] :is(.btn,.studio-tab,.mini-tools button,.mini-search button,.mini-quick-action){background:var(--surface);color:var(--text);border-color:var(--line);box-shadow:none;}
+:root[data-theme=graphite] :is(.btn-primary,.settings-tabs button[aria-selected=true],.studio-tab[aria-current=page]){background:#334862;color:#f0f6ff;border-color:#8fadd3;}
+:root[data-theme=graphite] :is(.brand-icon,.step-tag){background:#354a67;color:#dceaff;box-shadow:none;}
+:root[data-theme=graphite] :is(.brand-name span,.eyebrow,.text-action,.notes-record-link,.notes-master-heading){color:var(--accent);}
+:root[data-theme=graphite] :is(.count-pill,.notes-chip,.version){background:#293443;color:#c9dffa;border-color:var(--line);}
+:root[data-theme=graphite] :is(.preview-table thead,.notes-table th,.panel-heading,.notes-form-header){background:#222a35;color:var(--text);border-color:var(--line);}
+:root[data-theme=graphite] :is(.modal p,.modal-note,.legend,.preview-table td,.file-name,.rule-label){color:var(--text);}
+:root[data-theme=graphite] :is(.modal-note,.dropzone,.stat,.toast){background:var(--surface);border-color:var(--line);}
+:root[data-theme=graphite] input[type=checkbox]{accent-color:var(--accent);}
