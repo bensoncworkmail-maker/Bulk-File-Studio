@@ -219,6 +219,7 @@ const config={
     "drop-hint": "拖放提示"
   },
   "groupsByKey": {
+    "globalSearchCriteria":"search",
     "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
     "floatingSearchMode":"floating","floatingSearchDelay":"floating","floatingSearchMinLength":"floating",

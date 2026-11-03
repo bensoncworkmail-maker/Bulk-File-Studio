@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,LIMIT=12;
- const TYPES=Object.freeze({'new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','share-check':'檢查共享更新','share-publish':'發佈共享快照'});
+ const TYPES=Object.freeze({'new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','share-check':'檢查共享更新','share-publish':'發佈共享快照','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-reminders':'管理提醒排程'});
  function entry(input){
   if(!input||typeof input!=='object'||!ID.test(input.id)||!Object.hasOwn(TYPES,input.type)||typeof input.label!=='string'||!input.label.trim()||input.label.trim().length>30||/[\x00-\x1f\x7f]/.test(input.label))throw new Error('快捷動作名稱或類型無效');
   if(input.enabled!==undefined&&typeof input.enabled!=='boolean'||input.useClipboard!==undefined&&typeof input.useClipboard!=='boolean')throw new Error('快捷動作開關無效');
@@ -9,7 +9,7 @@
   if(input.type==='import-paths'){
    if(!Array.isArray(input.tags)||input.tags.length>20||input.tags.some(tag=>typeof tag!=='string'||!tag.trim()||tag.trim().length>32||/[\x00-\x1f\x7f]/.test(tag)))throw new Error('快捷標籤無效，每個最多 32 字元、每項最多 20 個');
    const tags=new Map();for(const tag of input.tags)tags.set(tag.trim().toLocaleLowerCase(),tag.trim());result.tags=[...tags.values()];result.useClipboard=input.useClipboard===true;
-  }else if(input.type==='open-page'){if(!['home','notes','favorites','search','rename','settings'].includes(input.page))throw new Error('請選擇有效頁面');result.page=input.page;}else if(['share-check','share-publish'].includes(input.type)){}else{
+  }else if(['open-tag-menu','copy-tag-paths','open-search'].includes(input.type)){if(input.query!==undefined&&(typeof input.query!=='string'||input.query.length>256))throw new Error('快捷搜尋最多 256 字元');result.query=input.query||'';if(input.type!=='open-search'){const tag=input.tag??null;if(tag!==null&&(typeof tag!=='string'||tag.length>64||/[\x00-\x1f\x7f]/.test(tag)))throw new Error('快捷標籤無效');result.tag=tag;}}else if(input.type==='open-page'){if(!['home','notes','favorites','search','rename','settings'].includes(input.page))throw new Error('請選擇有效頁面');result.page=input.page;}else if(['share-check','share-publish','open-reminders'].includes(input.type)){}else{
    if(!ID.test(input.sheetId))throw new Error('請選擇快捷動作的表格');result.sheetId=input.sheetId;
    if(input.type==='new-record'&&input.form!==undefined)result.form=form(input.form);if(input.type==='new-record'&&input.tags!==undefined){if(!Array.isArray(input.tags)||input.tags.length>20||input.tags.some(tag=>typeof tag!=='string'||!tag.trim()||tag.length>32))throw new Error('預設標籤無效');result.tags=[...new Set(input.tags.map(tag=>tag.trim()))];}if(input.type==='new-record'&&input.masterId){if(!ID.test(input.masterId))throw new Error('預設主紀錄無效');result.masterId=input.masterId;}
   }

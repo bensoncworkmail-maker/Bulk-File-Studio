@@ -15,3 +15,13 @@ test('search location actions expose only current favorite IDs and use short tit
 test('custom master categories are searchable across group, table and record results',t=>{
  const h=fixture(t),state=h.store.get(),area=state.document.areas[0];h.store.saveArea({...area,category:'供應商資料',baseRevision:state.revision});const result=h.run('供應商資料');assert.ok(section(result,'records').items.some(record=>record.id===h.acme));assert.ok(section(result,'records').items.some(record=>record.id===h.alice));assert.ok(section(result,'structure').items.some(item=>item.kind==='area'&&item.id===area.id));assert.ok(section(result,'structure').items.some(item=>item.kind==='sheet'&&item.id===h.contacts.id));
 });
+
+test('saved criteria constrain master/detail records and related expansion never escapes chosen tables',t=>{
+ const h=fixture(t);const result=h.run('Acme',{criteria:{tableMode:'selected',sheetIds:[h.contacts.id],sources:['records']},includeRelated:true});assert.deepEqual(result.sections.map(section=>section.kind),['records']);assert.ok(result.sections[0].items.every(item=>item.id===h.alice));assert.equal(result.matchedRecords,1);assert.match(result.criteriaSummary,/指定 1/);assert.equal(h.run('Acme',{criteria:{tableMode:'selected',sheetIds:[],sources:['records']}}).total,0);
+});
+test('saved criteria independently exclude notes, tags and file paths from matches',t=>{
+ const h=fixture(t),extra=h.add(h.root,'Plain',{}, {notes:'UniqueNote',tags:['UniqueTag'],fileLinks:[{path:'C:\\UniquePath\\one.txt',favoriteId:null,label:'',type:'file'}]});for(const [query,key] of [['UniqueNote','includeNotes'],['UniqueTag','includeTags'],['UniquePath','includePaths']]){assert.ok(h.run(query,{sources:['records'],includeRelated:false}).total);assert.equal(h.run(query,{includeRelated:true,criteria:{[key]:false,sources:['records']}}).total,0);}assert.ok(extra);
+});
+test('modified date bounds include the whole local day and apply before relation expansion',t=>{
+ const h=fixture(t);h.store.change(doc=>{for(const record of doc.records)record.updatedAt='2026-11-01T12:00:00';doc.records.find(record=>record.id===h.alice).updatedAt='2026-11-03T23:59:59';});const r=h.run('Alice',{criteria:{modifiedFrom:'2026-11-03',modifiedTo:'2026-11-03',sources:['records']},includeRelated:true});assert.deepEqual(r.sections[0].items.map(item=>item.id),[h.alice]);assert.equal(h.run('Alice',{criteria:{modifiedTo:'2026-11-02',sources:['records']}}).total,0);const C=require('../src/search-criteria');assert.throws(()=>C.normalize({modifiedFrom:'2026-11-04',modifiedTo:'2026-11-03'},true),/起日/);assert.throws(()=>C.normalize({modifiedFrom:'2026-02-30'},true),/格式/);assert.equal(C.normalize({sources:['records','run-command']}).sources.length,1);
+});

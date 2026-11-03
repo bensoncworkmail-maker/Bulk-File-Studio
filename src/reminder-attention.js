@@ -7,7 +7,7 @@ class ReminderAttention{
   this.timer=setIntervalFn(()=>{try{this.sync();}catch(error){onError(error);}},5000);this.timer?.unref?.();
  }
  due(){const prefs=this.settings();return prefs.remindersEnabled?this.list().items.filter(item=>item.available&&item.status==='fired'&&(item.delivery==='default'?prefs.reminderDelivery:item.delivery)==='attention'):[];}
- data(){const prefs=this.settings();return {items:this.due().filter(item=>!this.dismissed.has(key(item))).map(({id,title,sheet,at})=>({id,title,sheet,at})),snoozeMinutes:prefs.reminderSnoozeMinutes,theme:prefs.theme,fontSize:prefs.fontSize,sound:prefs.reminderAttentionSound,repeatMinutes:prefs.reminderAttentionRepeatMinutes};}
+ data(){const prefs=this.settings();return {items:this.due().filter(item=>!this.dismissed.has(key(item))).map(({id,title,sheet,at,messageContent})=>({id,title,sheet,at,messageContent})),snoozeMinutes:prefs.reminderSnoozeMinutes,theme:prefs.theme,fontSize:prefs.fontSize,sound:prefs.reminderAttentionSound,repeatMinutes:prefs.reminderAttentionRepeatMinutes};}
  owns(event){return this.window&&!this.window.isDestroyed()&&event?.sender===this.window.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'reminder-attention.html')).href;}
  suppress(){for(const value of this.visibleKeys)this.dismissed.add(value);}
  dismiss(){this.suppress();this.destroyWindow();}

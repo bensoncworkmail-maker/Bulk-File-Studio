@@ -20,6 +20,6 @@ function tagMenu(items,tag,query,actions){
  if(!found.length)template.push({label:'沒有符合條件的收藏',enabled:false});
  else if(found.length<=40)template.push(...found.map(entry));
  else for(let index=0;index<found.length;index+=40)template.push({label:`第 ${index+1}–${Math.min(index+40,found.length)} 項`,submenu:found.slice(index,index+40).map(entry)});
- return {template,count:found.length};
+ return {template,count:found.length,ids:found.map(item=>item.id)};
 }
 module.exports={tagMenu};
