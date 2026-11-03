@@ -128,6 +128,7 @@
           </aside>
           <div id="notes-panel-resizer" class="notes-panel-resizer" role="separator" aria-label="調整主表側欄寬度" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" tabindex="0"></div>
           <main class="notes-content">
+            <div id="notes-search-context" class="notes-search-context" hidden><strong id="notes-search-heading">全域搜尋</strong><small id="notes-search-context-help"></small></div>
             <div id="notes-master-context" class="notes-master-context" hidden>
               <div class="notes-master-title-row">
                 <button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button>
@@ -229,7 +230,7 @@
               </div>
             </div>
             </details>
-            <label id="notes-status-filter-wrap" class="notes-status-filter" hidden><span id="notes-status-filter-label">狀態</span><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select></label>
+            <div id="notes-status-filter-wrap" class="notes-status-filter" role="group" aria-label="目前表格狀態篩選" hidden><label for="notes-status-filter" id="notes-status-filter-label">狀態</label><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select><button id="notes-status-clear" type="button" aria-label="清除此表狀態篩選" title="清除此表狀態篩選" hidden>×</button></div>
             </div>
             <div id="notes-table" class="notes-table" role="region" aria-label="紀錄列表"></div>
             <div id="notes-pagination" class="notes-pagination">
@@ -665,7 +666,7 @@
                 <section class="settings-card">
                   <h2>工作區搜尋</h2>
                   <label class="field">
-                    <span>開啟工作區時的預設搜尋範圍</span>
+                    <span>輸入搜尋文字時的預設範圍</span>
                     <select id="settings-notes-search-scope">
                       <option value="sheet">目前表格</option>
                       <option value="master">目前主紀錄與明細（未選主檔時使用目前表格）</option>
@@ -673,6 +674,7 @@
                       <option value="all">全域：所有主表與明細</option>
                       <option value="masters">全域：只搜尋主檔</option>
                     </select>
+                    <small>開啟工作區先顯示目前主表；輸入文字才套用此預設。手動選擇搜尋範圍後，以你的選擇為準。</small>
                   </label>
                   <label class="field">
                     <span>多個關鍵字（以空格分隔）</span>
