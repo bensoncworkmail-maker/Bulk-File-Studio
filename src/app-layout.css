@@ -127,7 +127,7 @@
 #settings-page .settings-tabs>button .settings-category-copy strong,#settings-page .settings-tabs>button .settings-category-icon{color:var(--settings-nav-text);}
 #settings-page .settings-tabs>button .settings-category-copy small{color:var(--settings-nav-secondary);}
 #settings-page .settings-tabs>button:hover{background:var(--settings-nav-bg);border-color:var(--settings-nav-text);}
-#settings-page .settings-tabs>button[aria-selected=true]{background:var(--settings-nav-selected-bg);border-color:var(--settings-nav-selected-text);box-shadow:inset 4px 0 var(--settings-nav-selected-text);}
+#settings-page .settings-tabs>button[aria-selected=true]{color:var(--settings-nav-selected-text);background:var(--settings-nav-selected-bg);border-color:var(--settings-nav-selected-text);box-shadow:inset 4px 0 var(--settings-nav-selected-text);}
 #settings-page .settings-tabs>button[aria-selected=true] .settings-category-copy strong,#settings-page .settings-tabs>button[aria-selected=true] .settings-category-icon{color:var(--settings-nav-selected-text);}
 #settings-page .settings-tabs>button[aria-selected=true] .settings-category-copy small{color:var(--settings-nav-selected-secondary);}
 .notes-nav-search{display:flex;gap:4px;align-items:center;margin:6px 0;}
