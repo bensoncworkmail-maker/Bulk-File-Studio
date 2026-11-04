@@ -94,3 +94,16 @@ test('the subtle resize grip occupies its own space in the footer',()=>{
  assert.match(grip.getAttribute('aria-label'),/調整/);
  assert.equal(save.type,'submit');
 });
+
+test('floating month uses unpaginated day counts and searches the related master name',()=>{
+ const {randomUUID}=require('node:crypto'),M=require('../src/notes-model');
+ const now='2026-11-01T12:00:00Z',doc=M.template(randomUUID,now,'clients');
+ const root=doc.sheets[0],detail=doc.sheets.find(sheet=>sheet.name==='紀錄');
+ const master={id:randomUUID(),sheetId:root.id,title:'北區客戶',notes:'',tags:[],values:{},createdAt:now,updatedAt:now,fileLinks:[],favoriteTagLinks:[],deletedAt:null,version:1};
+ const parent=M.parentField(doc,detail),date=detail.fields.find(field=>field.type==='date');
+ doc.records=[master,...Array.from({length:32},(_,i)=>({...master,id:randomUUID(),sheetId:detail.id,title:'行程 '+i,values:{[parent.id]:[master.id],[date.id]:'2026-11-03'}}))];
+ const result=viewData(doc,[],[],configuration({kind:'planning'}),{mode:'calendar',month:'2026-11',day:'2026-11-03',query:'北區'});
+ assert.equal(result.counts['2026-11-03'],32);
+ assert.equal(result.rows.length,30);
+ assert.match(result.rows[0].detail,/北區客戶/);
+});

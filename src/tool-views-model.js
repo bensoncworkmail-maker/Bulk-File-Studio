@@ -21,29 +21,40 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
   return {rows:rows.slice(current*PAGE_SIZE,(current+1)*PAGE_SIZE),total:rows.length,page:current,last};
  };
  if(config.kind==='snippets'){
-  return paginate(snippets.filter(item=>[item.name,item.category,item.body].some(value=>value.toLocaleLowerCase().includes(query)))
-   .map(({id,name,category,body})=>({id,title:name,detail:category,summary:body.slice(0,220)})));
+  const categories=[...new Set(snippets.map(item=>item.category).filter(Boolean))].sort();
+  const rows=snippets.filter(item=>(!filters.category||item.category===filters.category)&&
+   [item.name,item.category,item.body].some(value=>value.toLocaleLowerCase().includes(query)))
+   .map(({id,name,category,body})=>({id,title:name,detail:category,summary:body.slice(0,220)}));
+  return {...paginate(rows),categories};
  }
  const sheets=doc.sheets.filter(sheet=>!sheet.deletedAt);
  const records=doc.records.filter(record=>M.live(doc,record));
  if(config.kind==='planning'){
   if(filters.mode==='board'){
+   const masterLabel=P.masterLabels(doc);
    const tables=sheets.filter(sheet=>sheet.fields.some(field=>field.type==='select'));
    const table=tables.find(sheet=>sheet.id===filters.sheetId)||tables[0];
    const stateFields=table?.fields.filter(field=>field.type==='select')||[];
    const state=stateFields.find(field=>field.id===filters.stateField)||stateFields[0];
    const columns=state?P.board(doc,table.id,state.id):[];
    const rows=columns.filter(column=>!filters.value||column.value===filters.value).flatMap(column=>
-    column.records.filter(record=>(record.title+' '+record.notes).toLocaleLowerCase().includes(query))
-     .map(record=>({id:record.id,title:record.title,group:column.label,detail:table.name,summary:record.notes.slice(0,180)})));
+    column.records.filter(record=>(record.title+' '+record.notes+' '+masterLabel(record)).toLocaleLowerCase().includes(query))
+     .map(record=>({id:record.id,title:record.title,group:column.label,detail:[table.name,masterLabel(record)].filter(Boolean).join(' · '),summary:record.notes.slice(0,180)})));
    return {...paginate(rows),tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
     stateFields:stateFields.map(({id,label})=>({id,label})),stateField:state?.id,states:state?.options||[]};
   }
   const month=filters.month||new Date().toLocaleDateString('sv-SE').slice(0,7);
+  const byId=new Map(records.map(record=>[record.id,record]));
   const rows=P.agenda(doc,reminders,month)
-   .filter(event=>[event.title,event.sheet,event.label].some(value=>value.toLocaleLowerCase().includes(query)))
-   .map(event=>({id:event.recordId,title:event.title,group:event.date,detail:event.sheet+' · '+event.label,eventKind:event.kind}));
-  return paginate(rows);
+   .filter(event=>[event.title,event.sheet,event.label,event.master,byId.get(event.recordId)?.notes||''].some(value=>value.toLocaleLowerCase().includes(query)))
+   .map(event=>({id:event.recordId,title:event.title,group:event.date,detail:[event.sheet,event.master,event.label].filter(Boolean).join(' · '),eventKind:event.kind}));
+  if(filters.mode!=='calendar')return paginate(rows);
+  const counts={};
+  for(const row of rows)counts[row.group]=(counts[row.group]||0)+1;
+  const today=new Date().toLocaleDateString('sv-SE');
+  const day=typeof filters.day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(filters.day)&&filters.day.startsWith(month+'-')?
+   filters.day:today.startsWith(month+'-')?today:month+'-01';
+  return {...paginate(rows.filter(row=>row.group===day)),month,day,counts};
  }
  const settings=normalizeLogs(logView);
  const tables=sheets.filter(sheet=>allowedSheet(config,settings,sheet.id));

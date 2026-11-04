@@ -59,7 +59,7 @@
    const records=new Map(doc.records.map(record=>[record.id,record]));
    const events=model.agenda(doc,state.reminders.items,month.value).filter(event=>
     (!sheet.value||records.get(event.recordId)?.sheetId===sheet.value)&&
-    (event.title+' '+event.sheet+' '+event.label).toLocaleLowerCase().includes(text));
+    (event.title+' '+event.sheet+' '+event.label+' '+event.master+' '+(records.get(event.recordId)?.notes||'')).toLocaleLowerCase().includes(text));
    const byDate=new Map();
    for(const event of events){
     if(!byDate.has(event.date))byDate.set(event.date,[]);
@@ -93,7 +93,7 @@
     for(const event of rows){
      const open=button(event.title,()=>openRecord(event.recordId),'btn btn-ghost productivity-event');
      const time=event.at?new Date(event.at).toLocaleTimeString('zh-Hant',{hour:'2-digit',minute:'2-digit'})+' · ':'';
-     open.append(node('small',time+event.sheet+' ／ '+event.label));
+     open.append(node('small',[time+event.sheet,event.master,event.label].filter(Boolean).join(' ／ ')));
      open.dataset.eventKind=event.kind;
      agenda.append(open);
     }
@@ -115,7 +115,7 @@
     if(rows.length)dayHeading.append(node('span',String(rows.length),'planning-count'));
     cell.append(dayHeading);
     for(const event of rows.slice(0,2)){
-     const preview=node('span',event.title,'planning-day-preview');
+     const preview=node('span',event.master?event.master+' · '+event.title:event.title,'planning-day-preview');
      preview.dataset.eventKind=event.kind;
      cell.append(preview);
     }
@@ -135,11 +135,11 @@
   }
   const table=doc.sheets.find(table=>table.id===sheet.value);
   const fieldId=field.value,columnLabel=table.fields.find(column=>column.id===fieldId).label;
-  const columns=model.board(doc,sheet.value,fieldId);
+  const columns=model.board(doc,sheet.value,fieldId),masterLabel=model.masterLabels(doc);
   const board=node('div',undefined,'productivity-board');
   board.tabIndex=0;board.setAttribute('role','region');board.setAttribute('aria-label','依狀態瀏覽紀錄');
   for(const column of columns){
-   const records=column.records.filter(record=>(record.title+' '+record.notes).toLocaleLowerCase().includes(text));
+   const records=column.records.filter(record=>(record.title+' '+record.notes+' '+masterLabel(record)).toLocaleLowerCase().includes(text));
    const group=node('section',undefined,'productivity-column');
    const heading=node('h3',column.label+' ');
    heading.append(node('span',String(records.length),'planning-count'));
@@ -164,6 +164,8 @@
     });
     card.addEventListener('dragend',()=>draggedRecord=null);
     card.append(button(record.title,()=>openRecord(record.id),'btn btn-ghost planning-card-title'));
+    const master=masterLabel(record);
+    if(master)card.append(node('small','所屬：'+master,'planning-column-empty'));
     if(record.notes)card.append(node('p',record.notes.slice(0,200)));
     const select=node('select');
     select.setAttribute('aria-label',record.title+' 的'+columnLabel);

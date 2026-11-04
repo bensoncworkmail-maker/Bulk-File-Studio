@@ -34,7 +34,7 @@
   const filterPanel=node('div',undefined,'tool-view-filter-panel');
   filterPanel.append(controls);
   root.replaceChildren(toolbar,filterPanel,status,results);
-  if(config.embedded)title.hidden=true;
+  if(config.embedded){title.hidden=true;root.dataset.embeddedKind=config.kind;}
   const inputs={};
   function field(key,label,type,parent=controls){
    const wrap=node('label',undefined,key==='query'?'tool-view-query':undefined);
@@ -42,13 +42,17 @@
    if(type!=='select')input.type=type;
    input.setAttribute('aria-label',label);inputs[key]=input;
    input.value=filters[key]||'';
+   if(config.embedded&&(type==='search'||type==='text'))input.placeholder=label;
    const typing=type==='text'||type==='search';
    input.addEventListener(typing?'input':'change',()=>{
-    filters[key]=input.value;filters.page=0;
+    filters[key]=input.value;
+    if(key==='customer')return;
+    filters.page=0;
     if(key==='sheetId'){
      for(const dependent of ['masterId','dateField','stateField','value'])delete filters[dependent];
     }
     if(key==='stateField'||key==='mode')delete filters.value;
+    if(key==='month')delete filters.day;
     request++;
     clearTimeout(timer);timer=setTimeout(load,typing?140:0);
    });
@@ -75,6 +79,8 @@
     field(key,label,'select').parentElement.hidden=filters.mode!=='board';
    }
   }else{
+   field('layout','顯示方式','select');
+   field('category','分類','select');
    field('customer','客戶／稱呼','text').maxLength=200;
   }
   function choices(key,options,selected=filters[key]){
@@ -85,7 +91,36 @@
    }
    input.value=options.some(([value])=>value===selected)?selected:(options[0]?.[0]||'');
   }
-  if(inputs.mode)choices('mode',[['calendar','月曆行程'],['board','狀態看板']]);
+  if(inputs.mode)choices('mode',config.embedded?
+   [['calendar','月曆'],['list','行程清單'],['board','看板']]:[['list','行程清單'],['board','看板']]);
+  if(config.kind==='snippets'){
+   filters.layout||=config.embedded?'compact':'preview';
+   choices('layout',[['compact','精簡'],['preview','預覽']]);
+  }
+  const calendar=node('section',undefined,'tool-view-month-grid');
+  calendar.hidden=true;
+  if(config.embedded&&config.kind==='planning')filterPanel.append(calendar);
+  function renderMonth(data,restoreFocus){
+   calendar.hidden=!data.month;
+   if(!data.month)return;
+   calendar.replaceChildren();
+   calendar.setAttribute('aria-label','選擇日期');
+   const format=new Intl.DateTimeFormat('zh-Hant',{month:'long',day:'numeric'});
+   for(const label of ['日','一','二','三','四','五','六'])calendar.append(node('small',label));
+   const start=new Date(data.month+'-01T12:00:00'),last=new Date(start);
+   last.setMonth(last.getMonth()+1,0);
+   for(let index=0;index<start.getDay();index++)calendar.append(node('span'));
+   for(let number=1;number<=last.getDate();number++){
+    const day=data.month+'-'+String(number).padStart(2,'0'),count=data.counts[day]||0;
+    const control=button(String(number),()=>{filters.day=day;filters.page=0;load(false,true);});
+    control.setAttribute('aria-pressed',String(day===data.day));
+    control.setAttribute('aria-label',format.format(new Date(day+'T12:00:00'))+'，'+count+' 項行程');
+    if(count)control.append(node('small',String(count),'tool-view-day-count'));
+    if(day===new Date().toLocaleDateString('sv-SE'))control.setAttribute('aria-current','date');
+    calendar.append(control);
+    if(restoreFocus&&day===data.day)control.focus();
+   }
+  }
   async function act(action,value){
    try{
     await api.action(action,value,inputs.customer?.value||'');
@@ -97,7 +132,8 @@
    const body=node('div',undefined,'tool-view-result-body');
    body.append(node('h3',row.title));
    if(row.detail)body.append(node('small',row.detail));
-   if(row.summary)body.append(node('p',row.summary));
+   if(row.summary&&(config.kind!=='snippets'||filters.layout==='preview'))body.append(node('p',row.summary));
+   if(config.embedded&&config.kind==='snippets')body.title=row.summary||row.title;
    item.append(body,button(config.kind==='snippets'?'複製':'開啟紀錄',()=>act(config.kind==='snippets'?'copy':'visit',row.id)));
    if(row.eventKind)item.dataset.eventKind=row.eventKind;
    return item;
@@ -135,7 +171,7 @@
     results.append(pager);
    }
   }
-  async function load(focusResults=false){
+  async function load(focusResults=false,restoreDayFocus=false){
    if(disposed)return;
    const version=++request;
    results.setAttribute('aria-busy','true');
@@ -163,7 +199,9 @@
       choices('value',[['','全部狀態'],...data.states.map(value=>[value,value])]);
      }
     }
-    status.textContent='共 '+data.total+' 筆';
+    if(config.kind==='snippets')choices('category',[['','全部分類'],...(data.categories||[]).map(value=>[value,value])]);
+    if(config.kind==='planning'&&config.embedded)renderMonth(data,restoreDayFocus);
+    status.textContent=(data.day?data.day+' · ':'')+'共 '+data.total+' 筆';
     showRows(data);
     if(focusResults){status.tabIndex=-1;status.focus();}
    }catch(error){

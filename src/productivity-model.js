@@ -23,12 +23,27 @@
  }
  function matches(rule,file){const extension=file.name.includes('.')?file.name.split('.').pop().toLowerCase():'';return (!rule.extensions||rule.extensions.split(',').includes(extension))&&(!rule.contains||file.name.toLocaleLowerCase().includes(rule.contains.toLocaleLowerCase()))&&(!rule.after||file.date>=rule.after)&&(!rule.before||file.date<=rule.before);}
  function expandSnippet(body,{today,customer}={}){return body.replace(/\{\{(today|customer)\}\}/g,(_,key)=>key==='today'?today||new Date().toLocaleDateString('sv-SE'):customer||'');}
+ function masterLabels(doc){
+  const sheets=new Map(doc.sheets.filter(sheet=>!sheet.deletedAt).map(sheet=>[sheet.id,sheet]));
+  const areas=new Map((doc.areas||[]).map(area=>[area.id,area.masterSheetId]));
+  const records=new Map(doc.records.filter(record=>!record.deletedAt&&sheets.has(record.sheetId)).map(record=>[record.id,record]));
+  const fields=new Map([...sheets.values()].map(sheet=>{
+   const masterId=areas.get(sheet.areaId);
+   return [sheet.id,masterId!==sheet.id?sheet.fields.find(field=>field.type==='relation'&&field.targetSheetId===masterId):undefined];
+  }));
+  return record=>{
+   const parent=fields.get(record.sheetId);
+   if(!parent)return '';
+   return (record.values[parent.id]||[]).map(id=>records.get(id))
+    .filter(master=>master?.sheetId===parent.targetSheetId).map(master=>master.title).join('、');
+  };
+ }
  function agenda(document,reminders,month){
-  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('月份無效');const sheets=new Map(document.sheets.filter(value=>!value.deletedAt).map(value=>[value.id,value])),records=new Map(document.records.filter(value=>!value.deletedAt&&sheets.has(value.sheetId)).map(value=>[value.id,value])),events=[];
-  for(const record of records.values())for(const field of sheets.get(record.sheetId).fields.filter(value=>value.type==='date')){const date=record.values[field.id];if(date?.startsWith(month+'-'))events.push({recordId:record.id,title:record.title,sheet:sheets.get(record.sheetId).name,label:field.label,date,kind:'date'});}
-  for(const item of reminders){const record=records.get(item.recordId);if(!record)continue;const time=new Date(item.at),date=time.getFullYear()+'-'+String(time.getMonth()+1).padStart(2,'0')+'-'+String(time.getDate()).padStart(2,'0');if(date.startsWith(month+'-'))events.push({recordId:record.id,title:record.title,sheet:sheets.get(record.sheetId).name,label:'提醒',date,at:item.at,status:item.status,kind:'reminder'});}
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('月份無效');const sheets=new Map(document.sheets.filter(value=>!value.deletedAt).map(value=>[value.id,value])),records=new Map(document.records.filter(value=>!value.deletedAt&&sheets.has(value.sheetId)).map(value=>[value.id,value])),events=[],masterLabel=masterLabels(document);
+  for(const record of records.values())for(const field of sheets.get(record.sheetId).fields.filter(value=>value.type==='date')){const date=record.values[field.id];if(date?.startsWith(month+'-'))events.push({recordId:record.id,title:record.title,sheet:sheets.get(record.sheetId).name,label:field.label,master:masterLabel(record),date,kind:'date'});}
+  for(const item of reminders){const record=records.get(item.recordId);if(!record)continue;const time=new Date(item.at),date=time.getFullYear()+'-'+String(time.getMonth()+1).padStart(2,'0')+'-'+String(time.getDate()).padStart(2,'0');if(date.startsWith(month+'-'))events.push({recordId:record.id,title:record.title,sheet:sheets.get(record.sheetId).name,label:'提醒',master:masterLabel(record),date,at:item.at,status:item.status,kind:'reminder'});}
   return events.sort((a,b)=>a.date.localeCompare(b.date)||a.title.localeCompare(b.title));
  }
  function board(document,sheetId,fieldId){const sheet=document.sheets.find(value=>value.id===sheetId&&!value.deletedAt),field=sheet?.fields.find(value=>value.id===fieldId&&value.type==='select');if(!field)throw new Error('請選取單選狀態欄位');return ['',...field.options].map(value=>({value,label:value||'未設定',records:document.records.filter(record=>record.sheetId===sheetId&&!record.deletedAt&&(record.values[fieldId]||'')===value)}));}
- const api={ID,text,entry,normalize,matches,expandSnippet,agenda,board};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.studioProductivity=Object.freeze(api);
+ const api={ID,text,entry,normalize,matches,expandSnippet,agenda,board,masterLabels};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.studioProductivity=Object.freeze(api);
 })();
