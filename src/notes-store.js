@@ -4,6 +4,31 @@ const model=require('./notes-model');
 const Audit=require('./notes-audit');
 const SharedMerge=require('./notes-shared-merge');
 const {assertLocalPath}=require('./offline-policy');
+const {locationPath,inspectLinks}=require('./notes-location-links');
+
+function tabularFileLinks(){
+ const cache=new Map();
+ return value=>{
+  const paths=value.split(/\r\n?|\n/).map(line=>line.trim().replace(/^"([^"]+)"$/,'$1')).filter(Boolean);
+  if(paths.length>100)throw new Error('每筆紀錄最多匯入 100 個檔案／資料夾路徑');
+  const links=new Map();
+  for(const raw of paths){
+   const filepath=locationPath(raw),key=process.platform==='win32'?filepath.toLowerCase():filepath;
+   if(!cache.has(key)){
+    if(cache.size>=1000)throw new Error('每次最多驗證 1,000 個不同的附件路徑');
+    if(!path.isAbsolute(filepath)||/^[\\/]{2}/.test(filepath))throw new Error('附件須為目前電腦可存取的本機完整路徑');
+    try{
+     const [{path:linkPath,type}]=inspectLinks([filepath]);
+     cache.set(key,{path:linkPath,type,favoriteId:null,label:''});
+    }catch(error){cache.set(key,error);}
+   }
+   const link=cache.get(key);
+   if(link instanceof Error)throw link;
+   links.set(key,link);
+  }
+  return [...links.values()];
+ };
+}
 class NotesStore {
  constructor(filename){
   assertLocalPath(filename);fs.mkdirSync(path.dirname(filename),{recursive:true});this.filename=filename;this.pending=null;
@@ -108,7 +133,7 @@ class NotesStore {
  batchSheets(entries,revision){if(!Number.isSafeInteger(revision))throw new Error('請重新整理表格選取');return this.change(doc=>{const plan=model.sheetDeletionPlan(doc,entries),now=new Date().toISOString();for(const entry of plan.sheets){const sheet=doc.sheets.find(sheet=>sheet.id===entry.id);sheet.deletedAt=now;sheet.updatedAt=now;sheet.version++;}return {count:plan.sheets.length,records:plan.records};},revision,{operation:'批次回收主表／明細表'});}
 
  batchAreas(ids,revision){if(!Number.isSafeInteger(revision)||!Array.isArray(ids)||!ids.length||ids.length>50||new Set(ids).size!==ids.length)throw new Error('群組選取無效');return this.change(doc=>{if(ids.some(id=>!doc.areas.some(area=>area.id===id)))throw new Error('群組已變更');doc.areas=doc.areas.filter(area=>!ids.includes(area.id));for(const sheet of doc.sheets)if(ids.includes(sheet.areaId)){sheet.areaId=null;sheet.version++;sheet.updatedAt=new Date().toISOString();}return {count:ids.length};},revision);}
- tabularPreview(input){this.pending=null;const current=this.get();if(!Number.isSafeInteger(input?.revision)||input.revision!==current.revision)throw new Error('工作區已變更，請重新整理後再預覽');const result=model.createTabular(current.document,input,()=>crypto.randomUUID(),new Date().toISOString()),sheet=current.document.sheets.find(sheet=>sheet.id===input.sheetId),token=result.errors.length||!result.records.length?null:crypto.randomUUID();if(token)this.pending={kind:'tabular',token,revision:current.revision,records:result.records,expires:Date.now()+600000};return {token,count:result.records.length,skipped:result.skipped,errorCount:result.errors.length,errors:result.errors.slice(0,100),records:result.records.slice(0,50).map(record=>({title:record.title,values:sheet.fields.map(field=>({label:field.label,value:model.cell(current.document,field,record.values[field.id])})).filter(item=>item.value)}))};}
+ tabularPreview(input){this.pending=null;const current=this.get();if(!Number.isSafeInteger(input?.revision)||input.revision!==current.revision)throw new Error('工作區已變更，請重新整理後再預覽');const result=model.createTabular(current.document,input,()=>crypto.randomUUID(),new Date().toISOString(),tabularFileLinks()),sheet=current.document.sheets.find(sheet=>sheet.id===input.sheetId),token=result.errors.length||!result.records.length?null:crypto.randomUUID();if(token)this.pending={kind:'tabular',token,revision:current.revision,records:result.records,expires:Date.now()+600000};return {token,count:result.records.length,skipped:result.skipped,errorCount:result.errors.length,errors:result.errors.slice(0,100),records:result.records.slice(0,50).map(record=>({title:record.title,values:sheet.fields.map(field=>({label:field.label,value:model.cell(current.document,field,record.values[field.id])})).filter(item=>item.value),paths:record.fileLinks.map(link=>link.path)}))};}
  tabularCommit(token){const pending=this.takePreview(token,'tabular'),backup=this.backup('before-import');return this.change(doc=>{doc.records.push(...pending.records);return {count:pending.records.length,id:pending.records[0]?.id,backup};},pending.revision);}
  updateCells(entries,revision){if(!Number.isSafeInteger(revision)||!Array.isArray(entries)||!entries.length||entries.length>500)throw new Error('每次請編輯 1–500 格');return this.change(doc=>{const seen=new Set(),changed=new Set(),now=new Date().toISOString();for(const entry of entries){const key=entry.recordId+':'+entry.fieldId;if(seen.has(key))throw new Error('儲存格重複');seen.add(key);const record=doc.records.find(record=>record.id===entry.recordId&&model.live(doc,record));if(!record)throw new Error('紀錄已移除');if(entry.fieldId==='title')record.title=model.text(entry.value,200,'標題',true);else{const field=doc.sheets.find(sheet=>sheet.id===record.sheetId).fields.find(field=>field.id===entry.fieldId);record.values[entry.fieldId]=model.gridValue(field,entry.value);}changed.add(record);}for(const record of changed){record.version++;record.updatedAt=now;}return {cells:entries.length,records:changed.size};},revision,{operation:'編輯儲存格'});}
  applyCustomTemplate(document,revision){const incoming=model.normalizeDocument(document);if(incoming.records.length||incoming.areas.length!==1)throw new Error('範本無效');return this.change(doc=>{const old=new Set(doc.areas.map(area=>area.id)),merged=model.mergeDocument(doc,incoming,'copy',()=>crypto.randomUUID(),new Date().toISOString()).document,newArea=merged.areas.find(area=>!old.has(area.id));newArea.name=incoming.areas[0].name;for(const [i,sheet] of merged.sheets.filter(sheet=>sheet.areaId===newArea.id).entries())sheet.name=incoming.sheets[i].name;Object.assign(doc,merged);return {areaId:newArea.id};},revision);}

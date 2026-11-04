@@ -145,7 +145,7 @@ const config={
     "notesSidebarSections": "settings-notes-sidebar-sections",
     "searchFileActions": "settings-search-file-actions"
   },
-  "nativeControls": {"draftShortcut":"settings-draft-shortcut","searchShortcut":"settings-search-shortcut","floatingSearchRememberConditions":"settings-floating-search-remember",
+  "nativeControls": {"draftRememberWindow":"settings-draft-remember-window","draftWindowWidth":"settings-draft-width","draftWindowHeight":"settings-draft-height","draftShortcut":"settings-draft-shortcut","searchShortcut":"settings-search-shortcut","floatingSearchRememberConditions":"settings-floating-search-remember",
     "floatingSearchFiltersExpanded":"settings-floating-search-filters-expanded","floatingSearchPresentation":"settings-floating-search-presentation","floatingLayoutEditing":"settings-floating-layout-editing",
     "floatingSearchMode":"settings-floating-search-mode","floatingSearchDelay":"settings-floating-search-delay","floatingSearchMinLength":"settings-floating-search-min",
     "floatingGlobalSearch":"settings-floating-global-search","floatingSearchWidth":"settings-floating-search-width","floatingSearchHeight":"settings-floating-search-height",
@@ -220,7 +220,7 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"draftShortcut":"system","planningDayShowMaster":"notes","floatingPanels":"floating","logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"draftRememberWindow":"system","draftWindowWidth":"system","draftWindowHeight":"system","draftShortcut":"system","planningDayShowMaster":"notes","floatingPanels":"floating","logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
@@ -376,7 +376,7 @@ const config={
     "notesCollapsedGroups": "notes",
     "notesExpandedGroups": "notes"
   },
-  "numericKeys": ["notesCardMaxWidth",
+  "numericKeys": ["draftWindowWidth","draftWindowHeight","notesCardMaxWidth",
     "floatingSearchDelay","floatingSearchMinLength",
     "floatingSearchWidth","floatingSearchHeight",
     "reminderAttentionRepeatMinutes",

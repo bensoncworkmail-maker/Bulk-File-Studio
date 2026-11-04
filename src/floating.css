@@ -57,7 +57,7 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 [data-layout-editing=true]{outline:1px dashed var(--accent);outline-offset:-2px;cursor:grab;flex-wrap:wrap;}[data-layout-editing=true]::before{content:'⠿ 拖曳調整 ' attr(data-layout-label);display:block;flex-basis:100%;font-size:10px;color:var(--accent);padding:2px 4px;}
 
 :root[data-collapsed=true] #mini-header>[hidden]{display:none!important}
-:root[data-collapsed=true] #mini-header>:is(#mini-caption-bar,#mini-search-toggle,#mini-main,#mini-collapsed-actions):not([hidden]){display:flex!important}
+:root[data-collapsed=true] #mini-header>:is(#mini-caption-bar,#mini-search-toggle,#mini-main,#mini-draft,#mini-collapsed-actions):not([hidden]){display:flex!important}
 :root[data-collapsed=true] #mini-caption-bar{max-width:160px;flex:0 1 auto}:root[data-collapsed=true] #mini-heading{display:none}
 #mini-collapsed-actions{display:flex;align-items:center;gap:3px;min-width:0;overflow-x:auto;flex:1 1 auto;scrollbar-width:thin}#mini-collapsed-actions button{max-width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 

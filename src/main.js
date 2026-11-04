@@ -154,7 +154,7 @@ function captureController(){
 }
 function openDrafts(){
  if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
- drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,secureWindow,store:notesStore,settings:()=>desktop.settings,
+ drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,secureWindow,desktop,store:notesStore,settings:()=>desktop.settings,
   imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
   onSent:notesChanged,quit:()=>app.quit()});
  closeFloatingMenu();

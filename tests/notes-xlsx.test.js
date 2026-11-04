@@ -33,10 +33,11 @@ test('XLSX export preserves literal formulas, escaped text and ambiguous headers
  const mapping=M.suggestMapping(sheet,rows,true);
  assert.equal(rows[0].at(-1),'檔案／資料夾路徑');
  assert.equal(rows[1].at(-1),'/tmp/a.txt\n/tmp/子資料夾');
- assert.deepEqual(mapping.slice(-8),[...fields.map(field=>field.id),'notes','tags','']);
- const result=M.createTabular(doc,{sheetId:sheet.id,header:true,rows,mapping},randomUUID,now);
+ assert.deepEqual(mapping.slice(-8),[...fields.map(field=>field.id),'notes','tags','fileLinks']);
+ const result=M.createTabular(doc,{sheetId:sheet.id,header:true,rows,mapping},randomUUID,now,value=>{assert.equal(value,rows[1].at(-1));return record.fileLinks;});
  assert.deepEqual(result.errors,[]);
  assert.deepEqual(result.records[0].values,values);
  assert.deepEqual(result.records[0].tags,record.tags);
  assert.equal(result.records[0].notes,record.notes);
+ assert.deepEqual(result.records[0].fileLinks,record.fileLinks);
 });

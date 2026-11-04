@@ -21,3 +21,16 @@ test('mixed floating sources and item limit persist within supported bounds',()=
 });
 
 test('floating contextual caption visibility is a persisted boolean preference',t=>{const file=path.join(dir(t),'desktop.json'),state=new DesktopState(file);assert.equal(state.settings.floatingShowCaption,true);state.update({floatingShowCaption:false});assert.equal(new DesktopState(file).settings.floatingShowCaption,false);assert.equal(normalize({floatingShowCaption:'false'}).floatingShowCaption,true);});
+
+test('draft window keeps independent geometry, fits a removed display, and can disable memory',t=>{
+ const file=path.join(dir(t),'desktop.json'),desktop=new DesktopState(file),normal={x:120,y:85,width:830,height:625};
+ desktop.update({rememberWindow:false,floatingCollapsedItems:['draft'],draftWindowWidth:600,draftWindowHeight:500});
+ desktop.record('draft',{isDestroyed:()=>false,isMinimized:()=>false,isMaximized:()=>false,getNormalBounds:()=>normal});
+ const restored=new DesktopState(file),options={width:600,height:500,minWidth:460,minHeight:460};
+ assert.deepEqual(restored.settings.floatingCollapsedItems,['draft']);
+ assert.deepEqual(restored.bounds('draft',displays,options),{...normal,minWidth:460,minHeight:460});
+ const moved=restored.bounds('draft',[{workArea:{x:-900,y:0,width:900,height:700}}],options);
+ assert.equal(moved.x,-865);assert.equal(moved.width,830);
+ restored.update({draftRememberWindow:false});
+ assert.equal(restored.bounds('draft',displays,options).width,600);
+});
