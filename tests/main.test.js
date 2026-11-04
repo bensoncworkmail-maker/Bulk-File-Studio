@@ -612,3 +612,38 @@ test('floating content uses the same native window and rejects disabled panels a
  assert.throws(()=>open(null,'logs'),/未啟用/);
  assert.throws(()=>h.rawHandlers.get('floating-panel-open')(event,'planning'),/不受信任/);
 });
+
+test('floating external menus copy snippets and open only the requested calendar day',async t=>{
+ const h=harness(t),{randomUUID}=require('node:crypto'),today=new Date().toLocaleDateString('sv-SE');
+ const state=h.handlers.get('notes-template')(null,'clients');
+ const root=state.document.sheets[0],logs=state.document.sheets.find(sheet=>sheet.name==='紀錄');
+ const parent=logs.fields.find(field=>field.type==='relation'),date=logs.fields.find(field=>field.type==='date');
+ const save=(sheet,title,values)=>h.handlers.get('notes-record-save')(null,{sheetId:sheet.id,title,values,notes:'',tags:[],favoriteIds:[],keepUnlinked:[]});
+ const master=save(root,'甲客戶',{}).document.records[0];
+ const eventRecord=save(logs,'日曆紀錄',{[parent.id]:[master.id],[date.id]:today}).document.records.at(-1);
+ h.handlers.get('productivity-save')(null,'snippets',{name:'跟進回覆',body:'已收到，謝謝。',category:'工作'});
+ const [snippet,planning]=['open-snippets','open-planning'].map(type=>({id:randomUUID(),type,label:type,display:'menu'}));
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[snippet,planning],floatingCollapsed:true});
+ h.handlers.get('floating-show')();
+ const mini=h.windows.at(-1),event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ const quick=h.rawHandlers.get('floating-quick-action'),act=h.rawHandlers.get('floating-panel-action');
+ assert.equal(quick(event,snippet.id).menu,true);
+ assert.equal(h.popup().options.window,mini);
+ await h.popup().template.find(item=>item.label?.includes('跟進回覆')).click();
+ assert.equal(h.getCopied(),'已收到，謝謝。');
+ assert.equal(h.windows.length,2);
+ assert.equal(quick(event,planning.id).menu,true);
+ await h.popup().template.find(item=>item.label?.startsWith(today)).click();
+ assert.ok(h.popup().template.some(item=>item.label?.includes('日曆紀錄')));
+ assert.throws(()=>act(event,'planning','day-menu',{day:today}),/展開/);
+ h.rawHandlers.get('floating-collapse')(event,false);
+ assert.throws(()=>act(event,'planning','day-menu',{day:'2026-02-30'}),/日期無效/);
+ assert.throws(()=>act({...event,sender:{}},'planning','day-menu',{day:today}),/不受信任/);
+ assert.equal(act(event,'planning','day-menu',{day:today,query:'不相符'}).menu,true);
+ assert.ok(h.popup().template.some(item=>item.label==='當天沒有符合條件的行程'));
+ act(event,'planning','day-menu',{day:today,query:'甲客戶',anchor:{x:20,y:45}});
+ assert.equal(h.popup().options.x,mini.bounds.x+20);
+ assert.equal(h.popup().options.y,mini.bounds.y+45);
+ await h.popup().template.find(item=>item.label?.includes('日曆紀錄')).click();
+ assert.ok(h.messages.some(([channel,value])=>channel==='studio-search-target'&&value.id===eventRecord.id));
+});

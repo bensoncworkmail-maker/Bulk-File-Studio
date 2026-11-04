@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const {PANELS,normalize}=window.floatingPanelsModel;
+ const {PANELS,FILES_LABEL,normalize}=window.floatingPanelsModel;
  const $=id=>document.getElementById(id);
  function init(){
   const form=$('floating-panel-settings'),list=$('floating-panel-options'),initial=$('floating-panel-default');
@@ -14,7 +14,7 @@
    initial.replaceChildren();
    for(const id of ['files',...draft.order.filter(id=>draft.enabled.includes(id))]){
     const option=document.createElement('option');option.value=id;
-    option.textContent=id==='files'?'原有工具':PANELS[id];initial.append(option);
+    option.textContent=id==='files'?FILES_LABEL:PANELS[id];initial.append(option);
    }
    initial.value=draft.defaultPanel;
   }

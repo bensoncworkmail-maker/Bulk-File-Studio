@@ -73,3 +73,14 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 #floating-panel-settings fieldset{min-width:0;padding:0;border:0;margin:0}
 .floating-panel-setting-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .floating-panel-setting-row label{flex:1 1 130px}
+
+.tool-view-result:has(.tool-view-snippet-copy){padding:0}
+.tool-view-snippet-copy{
+ display:block;width:100%;padding:8px;text-align:start;font:inherit;color:inherit;
+ background:transparent;border:1px solid transparent;border-radius:inherit;cursor:pointer;
+}
+.tool-view-snippet-copy:is(:hover,:focus-visible){border-color:var(--accent)}
+.tool-view-copy-mark{float:inline-end;color:var(--muted);margin-inline-start:5px}
+
+.tool-view-snippet-copy small{display:block}
+.tool-view-snippet-preview{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3px}

@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const {PANELS,normalize,enabledPanels}=window.floatingPanelsModel;
+ const {PANELS,FILES_LABEL,normalize,enabledPanels}=window.floatingPanelsModel;
  // Each factory owns its view and per-session filters. The host owns placement and lifecycle.
  const builtins={
   planning:{preferences:['planningMode'],mount:(root,api,prefs)=>mountTool(root,api,'planning',{mode:prefs.planningMode})},
@@ -60,7 +60,7 @@
     tabs.replaceChildren();
     for(const id of ['files',...enabledPanels(prefs)]){
      const button=document.createElement('button');button.type='button';button.dataset.panel=id;
-     button.textContent=id==='files'?'原有工具':PANELS[id];
+     button.textContent=id==='files'?FILES_LABEL:PANELS[id];
      button.addEventListener('click',()=>select(id,true));
      tabs.append(button);
     }
