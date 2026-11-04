@@ -40,3 +40,21 @@ test('calendar selection updates the day agenda and clears successful loading fe
  await days.find(day=>day.dataset.today==='true').dispatch('click');
  assert.match(calendar.querySelector('.planning-agenda').textContent,/客戶 A/);
 });
+
+test('calendar cells render a detail title before its long master name and keep the master in the agenda',async()=>{
+ const h=harness(),doc=h.state.workspace.document,sheet=doc.sheets.find(item=>item.name==='任務');
+ const parent=M.parentField(doc,sheet),date=sheet.fields.find(field=>field.type==='date');
+ const today=new Date().toLocaleDateString('sv-SE'),master='很長的專案主紀錄名稱'.repeat(8);
+ h.record.title=master;
+ doc.records.push({...h.record,id:crypto.randomUUID(),sheetId:sheet.id,title:'確認報價',
+  values:{[parent.id]:[h.record.id],[date.id]:today}});
+ await h.load();
+ const root=h.$('planning-content');
+ const detail=root.querySelectorAll('.planning-day-preview').find(item=>item.children[0].textContent==='確認報價');
+ assert.ok(detail);
+ assert.equal(detail.children[0].className,'planning-day-title');
+ assert.equal(detail.children[0].title,'確認報價');
+ assert.equal(detail.children[1].className,'planning-day-master');
+ assert.equal(detail.children[1].textContent,master);
+ assert.ok(root.querySelector('.planning-agenda').textContent.includes(master));
+});

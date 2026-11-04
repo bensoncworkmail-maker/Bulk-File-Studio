@@ -60,7 +60,7 @@ const config={
       "keywords": "data backup reset export"
     }
   ],
-  "controls": {"notesCardWidthMode":"settings-notes-card-width-mode","notesCardMaxWidth":"settings-notes-card-max-width",
+  "controls": {"planningDayShowMaster":"settings-planning-day-show-master","notesCardWidthMode":"settings-notes-card-width-mode","notesCardMaxWidth":"settings-notes-card-max-width",
     "notesGridEnter":"settings-notes-grid-enter","notesGridTab":"settings-notes-grid-tab","notesGridEditNext":"settings-notes-grid-edit-next","notesDeleteKey":"settings-notes-delete-key","layoutEditing":"settings-layout-editing","filePanelSide":"settings-file-panel-side",
     "notesImportChangesOnly":"settings-notes-import-changes-only","notesShareQuickActions":"settings-notes-share-quick",
     "notesImportMode":"settings-notes-import-mode","notesSharedImportMode":"settings-notes-shared-import-mode",
@@ -220,7 +220,7 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"floatingPanels":"floating","logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"planningDayShowMaster":"notes","floatingPanels":"floating","logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",

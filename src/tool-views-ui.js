@@ -136,7 +136,7 @@
    for(let index=0;index<start.getDay();index++)calendar.append(node('span'));
    for(let number=1;number<=last.getDate();number++){
     const day=data.month+'-'+String(number).padStart(2,'0'),count=data.counts[day]||0;
-    const control=button(String(number),()=>{
+    const control=button('',()=>{
      filters.day=day;
      for(const cell of calendar.querySelectorAll('button[aria-pressed]'))cell.setAttribute('aria-pressed',String(cell===control));
      const rect=control.getBoundingClientRect();
@@ -144,7 +144,9 @@
     });
     control.setAttribute('aria-pressed',String(day===filters.day));
     control.setAttribute('aria-haspopup','menu');
-    control.setAttribute('aria-label',format.format(new Date(day+'T12:00:00'))+'，'+count+' 項行程');
+    control.title=format.format(new Date(day+'T12:00:00'))+'，'+count+' 項行程';
+    control.setAttribute('aria-label',control.title);
+    control.append(node('span',String(number),'tool-view-day-number'));
     if(count){
      control.dataset.hasEvents='true';
      const badge=node('small',count>99?'99+':String(count),'tool-view-day-count');

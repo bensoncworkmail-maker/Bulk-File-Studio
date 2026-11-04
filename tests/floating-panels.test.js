@@ -8,6 +8,9 @@ test('floating panel order is normalized and unknown components are rejected on 
  assert.deepEqual(old.floatingPanels.enabled,[]);
  const value=model.normalize({order:['snippets','snippets','unknown'],enabled:['snippets']});
  assert.deepEqual(value.order,['snippets','planning']);
+ assert.equal(value.planningDayMarker,'dot');
+ assert.equal(model.normalize({...value,planningDayMarker:'count'},true).planningDayMarker,'count');
+ assert.throws(()=>model.normalize({...value,planningDayMarker:'invalid'},true),/設定無效/);
  assert.deepEqual(model.enabledPanels(value),['snippets']);
  assert.throws(()=>model.normalize({...value,enabled:['external-script']},true),/設定無效/);
 });
@@ -43,18 +46,21 @@ test('component host preserves each mounted view across switching and collapse',
 
 test('embedded month marks dates and opens the external agenda without keeping an inline list',async()=>{
  const document=documentFromHTML('<html><body><section id="view"></section></body></html>');
- const window={},calls=[],day='2026-11-03';
+ const window={},calls=[],day='2026-11-23';
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document});
  const root=document.getElementById('view');
  window.toolViewsUI.mount(root,{
-  data:async()=>({month:'2026-11',day,counts:{[day]:2},rows:[{id:'r',title:'行程'}],page:0,last:0}),
+  data:async()=>({month:'2026-11',day,counts:{[day]:102},rows:[{id:'r',title:'行程'}],page:0,last:0}),
   action:async(...args)=>calls.push(args)
  },{kind:'planning',embedded:true},{mode:'calendar',query:'跟進',page:0});
  await new Promise(setImmediate);
  const cell=root.querySelectorAll('button').find(node=>node.dataset.hasEvents==='true');
  assert.ok(cell);
  assert.equal(cell.getAttribute('aria-haspopup'),'menu');
- assert.match(cell.getAttribute('aria-label'),/2 項行程/);
+ assert.match(cell.getAttribute('aria-label'),/102 項行程/);
+ assert.equal(cell.title,cell.getAttribute('aria-label'));
+ assert.equal(cell.querySelector('.tool-view-day-number').textContent,'23');
+ assert.equal(cell.querySelector('.tool-view-day-count').textContent,'99+');
  assert.equal(root.querySelector('.tool-view-results').hidden,true);
  cell.getBoundingClientRect=()=>({left:20,bottom:40});
  await cell.dispatch('click');

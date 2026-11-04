@@ -105,3 +105,11 @@ test('changed favorites arriving on refocus retain the pressed tag until its fir
  await button.click();assert.deepEqual(Array.from(h.popup()),['work','']);
  await new Promise(resolve=>setTimeout(resolve,10));assert.equal(h.els.get('mini-list').children.includes(section),false);
 });
+
+test('floating month marker defaults to a dot and applies the count option live',async()=>{
+ const h=harness(2,'auto');
+ await new Promise(setImmediate);
+ assert.equal(h.root.dataset.planningDayMarker,'dot');
+ h.set({floatingPanels:{planningDayMarker:'count'}});
+ assert.equal(h.root.dataset.planningDayMarker,'count');
+});

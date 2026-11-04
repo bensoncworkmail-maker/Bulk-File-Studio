@@ -114,14 +114,22 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 #mini-panel-content .tool-view-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;margin-top:5px;text-align:center}
 #mini-panel-content .tool-view-month-grid > small{color:var(--muted);font-size:.78em}
 #mini-panel-content .tool-view-month-grid button{
- display:flex;align-items:center;justify-content:center;gap:3px;
- min-height:25px;border-color:transparent;background:transparent;border-radius:4px;
+ display:grid;grid-template-rows:minmax(0,1fr) 5px;place-items:center;
+ min-width:0;min-height:25px;border-color:transparent;background:transparent;border-radius:4px;
 }
 #mini-panel-content .tool-view-month-grid button[data-has-events=true]{background:var(--panel)}
 #mini-panel-content .tool-view-month-grid button[aria-current=date]{border-color:var(--line);color:var(--accent);font-weight:750}
 #mini-panel-content .tool-view-month-grid button[aria-pressed=true]{border-color:var(--accent)}
+#mini-panel-content .tool-view-day-number{grid-row:1;line-height:1;font-variant-numeric:tabular-nums}
 #mini-panel-content .tool-view-day-count{
- margin:0;padding:0 3px;border-radius:8px;background:var(--accent);color:var(--bg);font-weight:700;
+ grid-row:2;width:4px;height:4px;overflow:hidden;border-radius:8px;background:var(--accent);font-size:0;
+}
+:root[data-planning-day-marker=count] #mini-panel-content .tool-view-month-grid button{
+ grid-template-rows:minmax(0,1fr) 13px;min-height:32px;
+}
+:root[data-planning-day-marker=count] #mini-panel-content .tool-view-day-count{
+ width:auto;height:auto;max-width:100%;padding:0 2px;color:var(--bg);
+ font-size:min(.68rem,10px);font-weight:700;line-height:12px;white-space:nowrap;
 }
 #mini-panel-content .tool-view-result:has(.tool-view-snippet-copy){padding:0}
 #mini-panel-content .tool-view-snippet-copy{

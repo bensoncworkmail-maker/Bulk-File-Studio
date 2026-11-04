@@ -47,8 +47,14 @@
 .planning-day-preview{
  width:100%;padding:2px 4px;border-inline-start:2px solid var(--planning-date);
  background:color-mix(in srgb,var(--planning-date) 10%,var(--surface));
- overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+ overflow:hidden
 }
+.planning-day-title,.planning-day-master{
+ display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.planning-day-title{font-weight:600}
+.planning-day-master{display:none;color:var(--muted);font-size:.85em}
+:root[data-planning-day-show-master=true] .planning-day-master{display:block}
 .planning-day-preview[data-event-kind=reminder]{
  border-color:var(--planning-reminder);
  background:color-mix(in srgb,var(--planning-reminder) 12%,var(--surface))
@@ -84,5 +90,6 @@
 }
 @media(max-width:650px){
  .productivity-day{min-height:42px;padding:3px}
- .planning-day-preview,.planning-day-more{display:none}
+ .planning-day-preview{padding-inline:2px}
+ .planning-day-more{display:none}
 }

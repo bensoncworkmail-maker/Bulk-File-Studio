@@ -13,6 +13,7 @@
    !Array.isArray(value.order)||order.length!==value.order.length||
    !(value.defaultPanel==='files'||enabled.includes(value.defaultPanel))||
    typeof value.collapsedMenu!=='boolean'||!['calendar','list','board'].includes(value.planningMode)||
+   (value.planningDayMarker!==undefined&&!['dot','count'].includes(value.planningDayMarker))||
    (value.snippetLayout!==undefined&&!['compact','preview'].includes(value.snippetLayout))||
    typeof value.snippetQuery!=='string'||value.snippetQuery.length>256||value.snippetQuery.includes('\0'))){
    throw new Error('浮動內容設定無效');
@@ -22,6 +23,7 @@
    defaultPanel:enabled.includes(value.defaultPanel)?value.defaultPanel:'files',
    collapsedMenu:value.collapsedMenu!==false,
    planningMode:['list','board'].includes(value.planningMode)?value.planningMode:'calendar',
+   planningDayMarker:value.planningDayMarker==='count'?'count':'dot',
    snippetLayout:value.snippetLayout==='preview'?'preview':'compact',
    snippetQuery:typeof value.snippetQuery==='string'?value.snippetQuery.replace(/\0/g,'').slice(0,256):''
   };

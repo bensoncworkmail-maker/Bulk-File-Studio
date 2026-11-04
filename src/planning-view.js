@@ -115,8 +115,16 @@
     if(rows.length)dayHeading.append(node('span',String(rows.length),'planning-count'));
     cell.append(dayHeading);
     for(const event of rows.slice(0,2)){
-     const preview=node('span',event.master?event.master+' · '+event.title:event.title,'planning-day-preview');
+     const preview=node('span',undefined,'planning-day-preview');
      preview.dataset.eventKind=event.kind;
+     const title=node('span',event.title,'planning-day-title');
+     title.title=event.title;
+     preview.append(title);
+     if(event.master){
+      const master=node('span',event.master,'planning-day-master');
+      master.title=event.master;
+      preview.append(master);
+     }
      cell.append(preview);
     }
     if(rows.length>2)cell.append(node('span','另有 '+(rows.length-2)+' 項','planning-day-more'));
