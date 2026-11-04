@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,LIMIT=12;
- const TYPES=Object.freeze({'new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','share-check':'檢查共享更新','share-publish':'發佈共享快照','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-reminders':'管理提醒排程','view-logs':'查看紀錄','open-planning':'日曆／看板','open-snippets':'常用文字片段'});
+ const TYPES=Object.freeze({'new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','share-check':'檢查共享更新','share-publish':'發佈共享快照','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-drafts':'開啟草稿筆記','open-reminders':'管理提醒排程','view-logs':'查看紀錄','open-planning':'日曆／看板','open-snippets':'常用文字片段'});
  function displayOptions(type){
   if(type==='view-logs')return [['overlay','浮動視窗'],['main','主視窗']];
   if(['open-planning','open-snippets'].includes(type))return [
@@ -26,7 +26,7 @@
     if(input.query!==undefined&&(typeof input.query!=='string'||input.query.length>256))throw new Error('快捷搜尋最多 256 字元');
     result.sheetId=input.sheetId;result.scope=input.scope||'all';result.query=input.query||'';
    }
-  }else if(input.type==='open-page'){if(!['home','notes','favorites','search','rename','settings','productivity','planning','logs'].includes(input.page))throw new Error('請選擇有效頁面');result.page=input.page;}else if(['share-check','share-publish','open-reminders'].includes(input.type)){}else{
+  }else if(input.type==='open-page'){if(!['home','notes','favorites','search','rename','settings','productivity','planning','logs'].includes(input.page))throw new Error('請選擇有效頁面');result.page=input.page;}else if(['share-check','share-publish','open-reminders','open-drafts'].includes(input.type)){}else{
    if(!ID.test(input.sheetId))throw new Error('請選擇快捷動作的表格');result.sheetId=input.sheetId;
    if(input.type==='new-record'&&input.form!==undefined)result.form=form(input.form);if(input.type==='new-record'&&input.tags!==undefined){if(!Array.isArray(input.tags)||input.tags.length>20||input.tags.some(tag=>typeof tag!=='string'||!tag.trim()||tag.length>32))throw new Error('預設標籤無效');result.tags=[...new Set(input.tags.map(tag=>tag.trim()))];}if(input.type==='new-record'&&input.masterId){if(!ID.test(input.masterId))throw new Error('預設主紀錄無效');result.masterId=input.masterId;}
   }

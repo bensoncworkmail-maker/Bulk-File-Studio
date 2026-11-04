@@ -23,7 +23,7 @@ test('XLSX export preserves literal formulas, escaped text and ambiguous headers
  sheet.fields.push(...fields);
  const values=Object.fromEntries(fields.map((field,i)=>[field.id,['文字 _x0041_ <>&',fields[1].options,false,'2026-11-04',12.5][i]]));
  const record={id:randomUUID(),sheetId:sheet.id,title:'=1+1',notes:'  首行\r\n次行\u0001  ',
-  tags:['工作;個人','"原文"'],values,fileLinks:[],favoriteTagLinks:[],
+  tags:['工作;個人','"原文"'],values,fileLinks:[{path:'/tmp/a.txt',type:'file',label:'',favoriteId:null},{path:'/tmp/子資料夾',type:'folder',label:'',favoriteId:null}],favoriteTagLinks:[],
   createdAt:now,updatedAt:now,deletedAt:null,version:1};
  doc.records.push(record);
  const book=await writeXlsx(M.tabularExport(doc,sheet.id,[record.id]));
@@ -31,7 +31,9 @@ test('XLSX export preserves literal formulas, escaped text and ambiguous headers
  assert.deepEqual(warnings,[]);
  assert.equal(rows[1][0],'=1+1');
  const mapping=M.suggestMapping(sheet,rows,true);
- assert.deepEqual(mapping.slice(-7),[...fields.map(field=>field.id),'notes','tags']);
+ assert.equal(rows[0].at(-1),'檔案／資料夾路徑');
+ assert.equal(rows[1].at(-1),'/tmp/a.txt\n/tmp/子資料夾');
+ assert.deepEqual(mapping.slice(-8),[...fields.map(field=>field.id),'notes','tags','']);
  const result=M.createTabular(doc,{sheetId:sheet.id,header:true,rows,mapping},randomUUID,now);
  assert.deepEqual(result.errors,[]);
  assert.deepEqual(result.records[0].values,values);
