@@ -13,8 +13,14 @@ function configuration(input={}){
  return {kind,sheetId,scope:input.scope==='master'?'master':'all',query:P.text(input.query||'',256,'搜尋')};
 }
 
+function snippetRows(snippets,query,category){
+ const folded=P.text(query,256,'搜尋').toLocaleLowerCase();
+ return snippets.filter(item=>(!category||item.category===category)&&
+  [item.name,item.category,item.body].some(value=>value.toLocaleLowerCase().includes(folded)))
+  .map(({id,name,category,body})=>({id,title:name,detail:category,summary:body.slice(0,220)}));
+}
+
 function viewData(doc,reminders,snippets,config,filters={},logView){
- const query=P.text(filters.query??config.query,256,'搜尋').toLocaleLowerCase();
  const page=Number.isSafeInteger(filters.page)?Math.max(0,filters.page):0;
  const paginate=rows=>{
   const last=Math.max(0,Math.ceil(rows.length/PAGE_SIZE)-1),current=Math.min(page,last);
@@ -22,11 +28,10 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
  };
  if(config.kind==='snippets'){
   const categories=[...new Set(snippets.map(item=>item.category).filter(Boolean))].sort();
-  const rows=snippets.filter(item=>(!filters.category||item.category===filters.category)&&
-   [item.name,item.category,item.body].some(value=>value.toLocaleLowerCase().includes(query)))
-   .map(({id,name,category,body})=>({id,title:name,detail:category,summary:body.slice(0,220)}));
+  const rows=snippetRows(snippets,filters.query??config.query,filters.category);
   return {...paginate(rows),categories};
  }
+ const query=P.text(filters.query??config.query,256,'搜尋').toLocaleLowerCase();
  const sheets=doc.sheets.filter(sheet=>!sheet.deletedAt);
  const records=doc.records.filter(record=>M.live(doc,record));
  if(config.kind==='planning'){
@@ -98,4 +103,4 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
   stateFields:stateFields.map(({id,label})=>({id,label})),states,checkbox:stateField?.type==='checkbox'};
 }
 
-module.exports={configuration,viewData};
+module.exports={configuration,viewData,snippetRows};

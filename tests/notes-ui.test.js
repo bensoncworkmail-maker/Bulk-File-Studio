@@ -389,3 +389,23 @@ test('shared conflict UI requires a choice, previews the merged result and write
  assert.equal(saved.notes,'<b>Local</b>');
  assert.deepEqual(h.errors,[]);
 });
+
+test('Excel toolbar export sends the current table and only matching record IDs',async t=>{
+ const h=setup(t),sheet=h.store.saveSheet({name:'紀錄',fields:[]}).document.sheets[0],calls=[];
+ const save=title=>h.store.saveRecord({sheetId:sheet.id,title,notes:'',tags:[],values:{},fileLinks:[]}).result.id;
+ const match=save('要匯出的紀錄');
+ save('其他內容');
+ h.api.exportTable=async(...args)=>{calls.push(args);return {canceled:false,count:1};};
+ h.ui.activate();
+ await flush();
+ h.els.get('notes-search').value='要匯出';
+ h.els.get('notes-search').events.input();
+ const control=h.els.get('notes-export-excel');
+ assert.equal(control.disabled,false);
+ await control.events.click();
+ assert.deepEqual(JSON.parse(JSON.stringify(calls)),[[sheet.id,[match],h.store.get().revision]]);
+ assert.match(h.els.get('notes-status').textContent,/已匯出 1 筆/);
+ h.els.get('notes-search-scope').value='all';
+ h.els.get('notes-search-scope').events.change();
+ assert.equal(control.disabled,true);
+});
