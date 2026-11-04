@@ -622,14 +622,23 @@ test('floating external menus copy snippets and open only the requested calendar
  const master=save(root,'甲客戶',{}).document.records[0];
  const eventRecord=save(logs,'日曆紀錄',{[parent.id]:[master.id],[date.id]:today}).document.records.at(-1);
  h.handlers.get('productivity-save')(null,'snippets',{name:'跟進回覆',body:'已收到，謝謝。',category:'工作'});
+ h.handlers.get('productivity-save')(null,'snippets',{name:'安排會議',body:'請選時間。',category:'工作'});
+ h.handlers.get('productivity-save')(null,'snippets',{name:'通用回覆',body:'收到。',category:''});
  const [snippet,planning]=['open-snippets','open-planning'].map(type=>({id:randomUUID(),type,label:type,display:'menu'}));
  h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[snippet,planning],floatingCollapsed:true});
  h.handlers.get('floating-show')();
  const mini=h.windows.at(-1),event={sender:mini.webContents,senderFrame:{url:mini.url}};
  const quick=h.rawHandlers.get('floating-quick-action'),act=h.rawHandlers.get('floating-panel-action');
- assert.equal(quick(event,snippet.id).menu,true);
+ mini.setBounds({...mini.bounds,x:400,y:100});
+ mini.webContents.getZoomFactor=()=>1.25;
+ assert.equal(quick(event,snippet.id,{x:20,y:32}).menu,true);
  assert.equal(h.popup().options.window,mini);
- await h.popup().template.find(item=>item.label?.includes('跟進回覆')).click();
+ assert.equal(h.popup().options.x,25);
+ assert.equal(h.popup().options.y,40);
+ const menu=h.popup().template;
+ const work=menu.find(item=>item.label==='工作 · 2 項');
+ assert.equal(menu.find(item=>item.label==='未分類 · 1 項').submenu[0].label,'通用回覆');
+ await work.submenu.find(item=>item.label==='跟進回覆').click();
  assert.equal(h.getCopied(),'已收到，謝謝。');
  assert.equal(h.windows.length,2);
  assert.equal(quick(event,planning.id).menu,true);
@@ -642,8 +651,45 @@ test('floating external menus copy snippets and open only the requested calendar
  assert.equal(act(event,'planning','day-menu',{day:today,query:'不相符'}).menu,true);
  assert.ok(h.popup().template.some(item=>item.label==='當天沒有符合條件的行程'));
  act(event,'planning','day-menu',{day:today,query:'甲客戶',anchor:{x:20,y:45}});
- assert.equal(h.popup().options.x,mini.bounds.x+20);
- assert.equal(h.popup().options.y,mini.bounds.y+45);
+ assert.equal(h.popup().options.x,25);
+ assert.equal(h.popup().options.y,56);
  await h.popup().template.find(item=>item.label?.includes('日曆紀錄')).click();
  assert.ok(h.messages.some(([channel,value])=>channel==='studio-search-target'&&value.id===eventRecord.id));
+});
+
+test('filtered Excel export round trips through the native import dialog and creates fresh record IDs',async t=>{
+ const h=harness(t),M=require('../src/notes-model');
+ const template=h.handlers.get('notes-template')(),[root,contacts]=template.document.sheets;
+ const relation=M.parentField(template.document,contacts),phone=contacts.fields.find(field=>field.type==='phone');
+ const save=(sheet,title,values,notes='')=>h.handlers.get('notes-record-save')(null,{
+  sheetId:sheet.id,title,notes,tags:['a,b','工作'],values,favoriteIds:[],keepUnlinked:[]
+ }).result.id;
+ const master=save(root,'原主檔',{}),destination=save(root,'目標主檔',{});
+ const contact=save(contacts,'=文字',{[relation.id]:[master],[phone.id]:'00123'},'首行\n次行');
+ save(contacts,'不在篩選結果',{[relation.id]:[master]});
+ const before=h.handlers.get('notes-get')();
+ const exportFile=h.handlers.get('notes-tabular-export'),file=path.join(h.dir,'contacts.xlsx');
+ let dialogs=0;
+ h.dialog.showSaveDialog=async()=>{dialogs++;return {canceled:false,filePath:file};};
+ await assert.rejects(exportFile(null,contacts.id,[master],before.revision),/紀錄已變更/);
+ await assert.rejects(exportFile(null,contacts.id,[contact],before.revision-1),/重新整理/);
+ assert.equal(dialogs,0);
+ h.handlers.get('floating-show')();
+ const mini=h.windows.at(-1),event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ assert.throws(()=>h.rawHandlers.get('notes-tabular-export')(event,contacts.id,[contact],before.revision),/不受信任/);
+ assert.equal((await exportFile(null,contacts.id,[contact],before.revision)).count,1);
+ h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});
+ const {sheets,warnings}=await h.handlers.get('notes-tabular-file')(),rows=sheets[0].rows;
+ assert.equal(rows.length,2);
+ assert.equal(warnings.length,0);
+ const preview=h.handlers.get('notes-tabular-preview')(null,{sheetId:contacts.id,masterId:destination,
+  revision:before.revision,rows,header:true,mapping:M.suggestMapping(contacts,rows,true)});
+ assert.equal(preview.count,1);
+ assert.equal(h.handlers.get('notes-get')().revision,before.revision);
+ const saved=h.handlers.get('notes-tabular-commit')(null,preview.token);
+ const record=saved.document.records.find(item=>item.title==='=文字'&&item.id!==contact);
+ assert.equal(record.values[phone.id],'00123');
+ assert.deepEqual(record.values[relation.id],[destination]);
+ assert.deepEqual(record.tags,['a,b','工作']);
+ assert.equal(record.notes,'首行\n次行');
 });

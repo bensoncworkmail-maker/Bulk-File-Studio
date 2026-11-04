@@ -10,7 +10,7 @@ const {Buffer}=require('node:buffer');
 const {NotesStore}=require('./notes-store');
 const {NotesToolsStore}=require('./notes-tools-store');
 const {NotesShareProfiles}=require('./notes-share-profiles');
-const {writePackageFile}=require('./notes-files');
+const {writePackageFile,writeWorkspaceFile}=require('./notes-files');
 const {readImportPackageFile,packageImportName}=require('./notes-import-files');
 const {DesktopShell}=require('./desktop-shell');
 const {FloatingWindow,windowDefaults}=require('./floating-window');
@@ -60,9 +60,11 @@ function popupFloatingMenu(template,{allowCollapsed=false,anchor}={}){
  if(!floating||floating.isDestroyed()||!floating.isVisible()||!allowCollapsed&&desktop.settings.floatingCollapsed)throw new Error('請先展開浮動工具');
  closeFloatingMenu();const menu=Menu.buildFromTemplate(template);floatingMenu=menu;
  const bounds=anchor&&(floating.getContentBounds?.()||floating.getNormalBounds());
+ const zoom=floating.webContents.getZoomFactor?.()||1;
+ // Electron Menu.popup takes window-content coordinates on Windows.
  const point=bounds&&Number.isFinite(anchor.x)&&Number.isFinite(anchor.y)?
-  {x:bounds.x+Math.round(Math.min(bounds.width,Math.max(0,anchor.x))),
-   y:bounds.y+Math.round(Math.min(bounds.height,Math.max(0,anchor.y)))}:{};
+  {x:Math.round(Math.min(bounds.width,Math.max(0,anchor.x*zoom))),
+   y:Math.round(Math.min(bounds.height,Math.max(0,anchor.y*zoom)))}:{};
  menu.popup({window:floating,...point,callback:()=>{if(floatingMenu===menu)floatingMenu=null;}});
 }
 const pendingTagIds=new Set();
@@ -268,6 +270,20 @@ app.whenReady().then(() => {
   handle('notes-batch-sheets',(_,entries,revision)=>notesChanged(notesStore().batchSheets(entries,revision)));
   handle('notes-batch-areas',(_,ids,revision)=>notesChanged(notesStore().batchAreas(ids,revision)));
   handle('notes-tabular-file',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取 Excel 活頁簿（只讀取儲存值）',filters:[{name:'Excel',extensions:['xlsx']}],properties:['openFile']});if(result.canceled)return {canceled:true};const resultData=await require('./notes-xlsx').readSpreadsheetFile(result.filePaths[0]);return {...resultData,name:path.basename(result.filePaths[0]),canceled:false};});
+  handle('notes-tabular-export',async(_,sheetId,ids,revision)=>{
+    const state=notesStore().get();
+    if(state.revision!==revision)throw new Error('資料工作區已變更，請重新整理後再匯出');
+    const rows=require('./notes-model').tabularExport(state.document,sheetId,ids);
+    const buffer=await require('./notes-xlsx').writeXlsx(rows);
+    const result=await dialog.showSaveDialog(win,{title:'匯出目前表格的篩選結果',
+      defaultPath:'BulkFileStudio-紀錄.xlsx',filters:[{name:'Excel 活頁簿',extensions:['xlsx']}]});
+    if(result.canceled||!result.filePath)return {canceled:true};
+    const extension=path.extname(result.filePath);
+    if(extension&&extension.toLowerCase()!=='.xlsx')throw new Error('請使用 .xlsx 副檔名');
+    const filename=extension?result.filePath:result.filePath+'.xlsx';
+    writeWorkspaceFile(filename,buffer);
+    return {canceled:false,count:rows.length-1};
+  });
   handle('notes-tabular-preview',(_,input)=>notesStore().tabularPreview(input));
   handle('notes-tabular-commit',(_,token)=>notesChanged(notesStore().tabularCommit(token)));
   handle('notes-grid-save',(_,entries,revision)=>notesChanged(notesStore().updateCells(entries,revision)));
@@ -294,7 +310,7 @@ app.whenReady().then(() => {
     });
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
-  handle('floating-quick-action',(_,id)=>{
+  handle('floating-quick-action',(event,id,anchor)=>{
     const action=configuredQuick(id);
     if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
@@ -304,7 +320,7 @@ app.whenReady().then(() => {
       const config=require('./tool-views-model').configuration({...action,kind});
       if(action.display==='menu'){
         if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();
-        return openQuickToolMenu(config);
+        return openQuickToolMenu(config,event.sender===floating.webContents?anchor:undefined);
       }
       if(action.display==='overlay')return kind==='logs'?toolOverlay.open(config):openInlinePanel(kind);
       focusMain();
@@ -757,14 +773,13 @@ app.whenReady().then(() => {
   }));
   const menuLabel=text=>text.replace(/[\x00-\x1f\x7f]+/g,' ').slice(0,100).replace(/&/g,'&&');
   function showToolRows(config,filters,{allowCollapsed=false,anchor,back}={}){
-    const data=productivity.viewData(config,filters),snippets=config.kind==='snippets';
-    const template=[{label:snippets?'常用文字片段 · 點選複製':data.day+' · '+data.total+' 項行程',enabled:false}];
+    const data=productivity.viewData(config,filters);
+    const template=[{label:data.day+' · '+data.total+' 項行程',enabled:false}];
     for(const row of data.rows){
       const label=menuLabel([row.title,row.detail].filter(Boolean).join(' · '));
-      template.push({label,toolTip:snippets?row.summary:row.detail,
-        click:floatingAction(()=>actOnTool(config,snippets?'copy':'visit',row.id,''))});
+      template.push({label,toolTip:row.detail,click:floatingAction(()=>actOnTool(config,'visit',row.id))});
     }
-    if(!data.rows.length)template.push({label:snippets?'沒有符合條件的片段':'當天沒有符合條件的行程',enabled:false});
+    if(!data.rows.length)template.push({label:'當天沒有符合條件的行程',enabled:false});
     const go=page=>floatingAction(()=>showToolRows(config,{...filters,page},{allowCollapsed,anchor,back}));
     if(data.last){
       template.push({type:'separator'},{label:'第 '+(data.page+1)+' / '+(data.last+1)+' 頁',enabled:false},
@@ -775,9 +790,39 @@ app.whenReady().then(() => {
     popupFloatingMenu(template,{allowCollapsed,anchor});
     return {opened:true,menu:true};
   }
-  function openQuickToolMenu(config){
+  function openQuickToolMenu(config,anchor){
+    const options={allowCollapsed:true,anchor};
     if(config.kind==='snippets'){
-      return showToolRows(config,{query:desktop.settings.floatingPanels.snippetQuery},{allowCollapsed:true});
+      const {snippetRows}=require('./tool-views-model');
+      const groups=new Map();
+      const query=desktop.settings.floatingPanels.snippetQuery;
+      for(const row of snippetRows(productivity.store.get().snippets,query)){
+        const category=row.detail==='未分類'?'':row.detail;
+        if(!groups.has(category))groups.set(category,[]);
+        groups.get(category).push({label:menuLabel(row.title),toolTip:row.summary,
+          click:floatingAction(()=>actOnTool(config,'copy',row.id,''))});
+      }
+      const compare=new Intl.Collator('zh-Hant',{numeric:true});
+      const categories=[...groups].sort(([a],[b])=>a&&b?compare.compare(a,b):Number(!a)-Number(!b));
+      const menuSize=25;
+      function showCategories(page=0){
+        const last=Math.max(0,Math.ceil(categories.length/menuSize)-1);
+        const template=[{label:'常用文字片段 · 點選複製',enabled:false}];
+        for(const [category,items] of categories.slice(page*menuSize,(page+1)*menuSize)){
+          const submenu=items.length<=menuSize?items:Array.from({length:Math.ceil(items.length/menuSize)},(_,index)=>{
+            const start=index*menuSize,end=Math.min(start+menuSize,items.length);
+            return {label:'第 '+(start+1)+'–'+end+' 項',submenu:items.slice(start,end)};
+          });
+          template.push({label:menuLabel(category||'未分類')+' · '+items.length+' 項',submenu});
+        }
+        if(!categories.length)template.push({label:'沒有符合條件的片段',enabled:false});
+        if(last)template.push({type:'separator'},
+          {label:'上一頁分類',enabled:page>0,click:floatingAction(()=>showCategories(page-1))},
+          {label:'下一頁分類',enabled:page<last,click:floatingAction(()=>showCategories(page+1))});
+        popupFloatingMenu(template,options);
+        return {opened:true,menu:true};
+      }
+      return showCategories();
     }
     function showMonth(month){
       const data=productivity.viewData(config,{mode:'calendar',month});
@@ -785,7 +830,7 @@ app.whenReady().then(() => {
       for(const [day,count] of Object.entries(data.counts)){
         template.push({label:day+' · '+count+' 項',click:floatingAction(()=>showToolRows(
           config,{mode:'calendar',month:data.month,day},
-          {allowCollapsed:true,back:floatingAction(()=>showMonth(data.month))}))});
+          {...options,back:floatingAction(()=>showMonth(data.month))}))});
       }
       if(!Object.keys(data.counts).length)template.push({label:'本月沒有行程',enabled:false});
       const move=delta=>floatingAction(()=>{
@@ -795,7 +840,7 @@ app.whenReady().then(() => {
         showMonth(next.toISOString().slice(0,7));
       });
       template.push({type:'separator'},{label:'上個月',click:move(-1)},{label:'下個月',click:move(1)});
-      popupFloatingMenu(template,{allowCollapsed:true});
+      popupFloatingMenu(template,options);
       return {opened:true,menu:true};
     }
     return showMonth();

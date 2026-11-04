@@ -14,19 +14,62 @@ const lname=name=>(name||'').split(':').pop(),children=(node,name)=>(node?.eleme
 const content=node=>(node?.elements||[]).map(item=>item.type==='text'||item.type==='cdata'?item.text||item.cdata||'':content(item)).join('');
 function parse(text){if(/<!DOCTYPE|<!ENTITY/i.test(text))throw new Error('活頁簿 XML 不接受外部實體');return XML.xml2js(text,{compact:false,ignoreComment:true,ignoreDeclaration:true});}
 function excelDate(value,date1904){const serial=Number(value);if(!Number.isFinite(serial)||serial<0||serial>2958465||!date1904&&Math.floor(serial)===60)throw new Error('Excel 日期超出支援範圍');const epoch=date1904?Date.UTC(1904,0,1):serial<60?Date.UTC(1899,11,31):Date.UTC(1899,11,30);return new Date(epoch+Math.floor(serial)*86400000).toISOString().slice(0,10);}
+const decodeExcelText=value=>value.replace(/_x([0-9a-f]{4})_/gi,(_,hex)=>String.fromCharCode(parseInt(hex,16)));
+function encodeExcelText(value){
+ if(!value.isWellFormed())throw new Error('資料含有無效的 Unicode 字元');
+ return value.replace(/_x[0-9a-f]{4}_|[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]/gi,item=>
+  item.length>1?'_x005F_'+item.slice(1):'_x'+item.charCodeAt(0).toString(16).padStart(4,'0')+'_')
+  .replace(/[&<>\r]/g,item=>({'&':'&amp;','<':'&lt;','>':'&gt;','\r':'&#13;'})[item]);
+}
+function excelColumn(index){
+ let name='';
+ for(let n=index+1;n>0;n=Math.floor((n-1)/26))name=String.fromCharCode(65+(n-1)%26)+name;
+ return name;
+}
+async function writeXlsx(input){
+ const rows=require('./notes-model').tabularRows(input);
+ const spreadsheet='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+ const documentRel='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+ const packageRel='http://schemas.openxmlformats.org/package/2006/relationships';
+ const declaration='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+ const contents=rows.map((row,index)=>{
+  const line=index+1;
+  const cells=row.map((value,column)=>value===''?'':'<c r="'+excelColumn(column)+line+
+   '" t="inlineStr"><is><t xml:space="preserve">'+encodeExcelText(value)+'</t></is></c>').join('');
+  return '<row r="'+line+'">'+cells+'</row>';
+ }).join('');
+ const worksheet=declaration+'<worksheet xmlns="'+spreadsheet+'"><sheetData>'+contents+'</sheetData></worksheet>';
+ if(Buffer.byteLength(worksheet)>MAX_XML)throw new Error('Excel 內容超過匯入上限，請先縮小篩選範圍');
+ const zip=new JSZip();
+ const add=(name,value)=>zip.file(name,value,{createFolders:false});
+ add('[Content_Types].xml',declaration+
+  '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+  '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+  '<Default Extension="xml" ContentType="application/xml"/>'+
+  '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+  '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+ const relation=(target,type)=>declaration+'<Relationships xmlns="'+packageRel+'"><Relationship Id="rId1" Type="'+
+  documentRel+'/'+type+'" Target="'+target+'"/></Relationships>';
+ add('_rels/.rels',relation('xl/workbook.xml','officeDocument'));
+ add('xl/_rels/workbook.xml.rels',relation('worksheets/sheet1.xml','worksheet'));
+ add('xl/workbook.xml',declaration+'<workbook xmlns="'+spreadsheet+'" xmlns:r="'+documentRel+
+  '"><sheets><sheet name="紀錄" sheetId="1" r:id="rId1"/></sheets></workbook>');
+ add('xl/worksheets/sheet1.xml',worksheet);
+ return zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
+}
 async function readXlsx(buffer){
  if(!Buffer.isBuffer(buffer)||buffer.length>MAX_FILE)throw new Error('Excel 檔案上限 20 MB');preflight(buffer);const zip=await JSZip.loadAsync(buffer,{checkCRC32:true,createFolders:false});
  const xml=async name=>{const file=zip.file(name);if(!file)throw new Error('活頁簿缺少 '+name);const value=await file.async('nodebuffer');if(value.length>MAX_XML)throw new Error('活頁簿 XML 過大');return parse(new TextDecoder('utf-8',{fatal:true}).decode(value));};
  const workbook=first(await xml('xl/workbook.xml'),'workbook'),relationships=children(first(await xml('xl/_rels/workbook.xml.rels'),'Relationships'),'Relationship'),links=new Map(relationships.filter(item=>attr(item,'TargetMode')!=='External').map(item=>[attr(item,'Id'),attr(item,'Target')])),date1904=['1','true'].includes(attr(first(workbook,'workbookPr'),'date1904'));
- let shared=[];if(zip.file('xl/sharedStrings.xml')){const root=first(await xml('xl/sharedStrings.xml'),'sst');shared=children(root,'si').map(content);if(shared.length>100000)throw new Error('活頁簿字串過多');}
+ let shared=[];if(zip.file('xl/sharedStrings.xml')){const root=first(await xml('xl/sharedStrings.xml'),'sst');shared=children(root,'si').map(item=>decodeExcelText(content(item)));if(shared.length>100000)throw new Error('活頁簿字串過多');}
  let styles=[],formats=new Map();if(zip.file('xl/styles.xml')){const root=first(await xml('xl/styles.xml'),'styleSheet');for(const item of children(first(root,'numFmts'),'numFmt'))formats.set(Number(attr(item,'numFmtId')),attr(item,'formatCode'));styles=children(first(root,'cellXfs'),'xf').map(item=>Number(attr(item,'numFmtId')));}
  let formulas=0,errors=0,totalChars=0,totalCells=0;const sheets=[];
  for(const sheet of children(first(workbook,'sheets'),'sheet')){if(sheets.length>=20)throw new Error('每次最多 20 張工作表');const target=links.get(attr(sheet,'id'));if(!target)throw new Error('工作表關聯遺失');const entry=target.startsWith('/')?target.slice(1):path.posix.normalize('xl/'+target);if(!/^xl\/worksheets\/[^/]+\.xml$/.test(entry))throw new Error('工作表位置無效');const root=first(await xml(entry),'worksheet'),rows=[],seenRows=new Set();
-  for(const row of children(first(root,'sheetData'),'row')){const values=[];let previousColumn=0,rowNumber=Number(attr(row,'r')||rows.length+1);if(!Number.isInteger(rowNumber)||rowNumber<1||rowNumber>1001)throw new Error('每張工作表最多讀取 1001 列（含標題）');if(seenRows.has(rowNumber))throw new Error('工作表列位置重複');seenRows.add(rowNumber);while(rows.length<rowNumber)rows.push([]);for(const cell of children(row,'c')){const address=attr(cell,'r');let column=previousColumn+1;if(address){const match=/^([A-Z]+)([1-9][0-9]*)$/.exec(address);if(!match||Number(match[2])!==rowNumber)throw new Error('儲存格位置無效');column=0;for(const ch of match[1])column=column*26+ch.charCodeAt(0)-64;}if(Object.hasOwn(values,column-1))throw new Error('儲存格位置重複');previousColumn=column;if(column>100)throw new Error('每張工作表最多 100 欄');if(++totalCells>50000)throw new Error('每次最多讀取 50,000 格');const type=attr(cell,'t'),raw=content(first(cell,'v')),formatId=styles[Number(attr(cell,'s')||0)]||0,format=formats.get(formatId)||'';let value=raw;if(first(cell,'f'))formulas++;if(type==='s'){const index=Number(raw);if(!Number.isInteger(index)||index<0||index>=shared.length)throw new Error('活頁簿字串索引無效');value=shared[index];}else if(type==='inlineStr')value=content(first(cell,'is'));else if(type==='b')value=raw==='1'?'true':'false';else if(type==='e'){value='';errors++;}else if(type==='d')value=raw.slice(0,10);else if(raw&&(!type||type==='n')){const cleaned=format.replace(/"[^"]*"|\[[^\]]*\]|\\./g,'');if(formatId>=14&&formatId<=22||formatId>=45&&formatId<=47||/[dy]/i.test(cleaned))value=excelDate(raw,date1904);else if(/^0+$/.test(format)&&/^\d+$/.test(raw))value=raw.padStart(format.length,'0');}if(value.length>20000)throw new Error('單一儲存格超過 20,000 字');totalChars+=value.length;if(totalChars>2*1024*1024)throw new Error('活頁簿文字超過 2 MB');values[column-1]=value;}rows[rowNumber-1]=values.map(value=>value??'');}
+  for(const row of children(first(root,'sheetData'),'row')){const values=[];let previousColumn=0,rowNumber=Number(attr(row,'r')||rows.length+1);if(!Number.isInteger(rowNumber)||rowNumber<1||rowNumber>1001)throw new Error('每張工作表最多讀取 1001 列（含標題）');if(seenRows.has(rowNumber))throw new Error('工作表列位置重複');seenRows.add(rowNumber);while(rows.length<rowNumber)rows.push([]);for(const cell of children(row,'c')){const address=attr(cell,'r');let column=previousColumn+1;if(address){const match=/^([A-Z]+)([1-9][0-9]*)$/.exec(address);if(!match||Number(match[2])!==rowNumber)throw new Error('儲存格位置無效');column=0;for(const ch of match[1])column=column*26+ch.charCodeAt(0)-64;}if(Object.hasOwn(values,column-1))throw new Error('儲存格位置重複');previousColumn=column;if(column>100)throw new Error('每張工作表最多 100 欄');if(++totalCells>50000)throw new Error('每次最多讀取 50,000 格');const type=attr(cell,'t'),raw=content(first(cell,'v')),formatId=styles[Number(attr(cell,'s')||0)]||0,format=formats.get(formatId)||'';let value=raw;if(first(cell,'f'))formulas++;if(type==='s'){const index=Number(raw);if(!Number.isInteger(index)||index<0||index>=shared.length)throw new Error('活頁簿字串索引無效');value=shared[index];}else if(type==='inlineStr')value=decodeExcelText(content(first(cell,'is')));else if(type==='b')value=raw==='1'?'true':'false';else if(type==='e'){value='';errors++;}else if(type==='d')value=raw.slice(0,10);else if(raw&&(!type||type==='n')){const cleaned=format.replace(/"[^"]*"|\[[^\]]*\]|\\./g,'');if(formatId>=14&&formatId<=22||formatId>=45&&formatId<=47||/[dy]/i.test(cleaned))value=excelDate(raw,date1904);else if(/^0+$/.test(format)&&/^\d+$/.test(raw))value=raw.padStart(format.length,'0');}if(value.length>20000)throw new Error('單一儲存格超過 20,000 字');totalChars+=value.length;if(totalChars>2*1024*1024)throw new Error('活頁簿文字超過 2 MB');values[column-1]=value;}rows[rowNumber-1]=values.map(value=>value??'');}
   sheets.push({name:String(attr(sheet,'name')||'Sheet').slice(0,100),rows});
  }
  if(!sheets.length)throw new Error('活頁簿沒有工作表');return {sheets,warnings:[...(formulas?['包含 '+formulas+' 個公式：只讀取已儲存的結果，不會重新計算；未儲存結果視為空白。']:[]),...(errors?['包含 '+errors+' 個錯誤值，已視為空白。']:[])]};
 }
 async function readSpreadsheetFile(filename){assertLocalPath(filename);if(!/\.xlsx$/i.test(filename))throw new Error('請選擇 .xlsx；舊式 .xls 請先另存為 .xlsx');return readXlsx(readStableBytes(filename,{maxBytes:MAX_FILE,label:'Excel 檔案'}));}
 
-module.exports={readXlsx,readSpreadsheetFile,excelDate};
+module.exports={readXlsx,readSpreadsheetFile,excelDate,writeXlsx};

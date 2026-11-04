@@ -8,7 +8,7 @@ const operationLabels={
  'favorites-import-preview':'檢查路徑與標籤','favorites-import-paths':'匯入收藏連結','favorites-list':'讀取收藏狀態','favorites-remove':'處理收藏移除要求','favorites-manage-tag':'更新標籤與收藏',
  'favorites-add':'加入收藏','favorites-update':'儲存收藏','favorites-add-tags':'更新收藏標籤','floating-collect':'加入收藏位置',
  'favorites-to-rename':'讀取收藏檔案','notes-get':'讀取資料工作區','notes-favorites':'讀取連結位置','studio-search':'搜尋應用程式資料','studio-home':'載入工作台',
- 'favorites-choose':'讀取選取位置','favorites-open-locations':'定位檔案位置','favorites-batch-open-confirmed':'開啟已確認檔案','notes-tabular-file':'讀取試算表檔案','floating-quick-action':'開啟快捷動作','export-csv':'匯出檔案預覽','export-settings':'匯出設定','everything-search':'搜尋本機檔案','everything-favorite':'加入搜尋結果','everything-to-rename':'讀取搜尋結果'
+ 'favorites-choose':'讀取選取位置','favorites-open-locations':'定位檔案位置','favorites-batch-open-confirmed':'開啟已確認檔案','notes-tabular-file':'讀取試算表檔案','notes-tabular-export':'匯出 Excel','floating-quick-action':'開啟快捷動作','export-csv':'匯出檔案預覽','export-settings':'匯出設定','everything-search':'搜尋本機檔案','everything-favorite':'加入搜尋結果','everything-to-rename':'讀取搜尋結果'
 };
 function notifyOperation(event){for(const listener of operationListeners)try{listener(event);}catch{/* A UI listener must not prevent an operation or its completion. */}}
 async function invoke(channel,...args){
@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  dropFiles:(paths,tag)=>invoke('floating-drop',paths,tag),
- toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
+ toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:(id,anchor)=>invoke('floating-quick-action',id,anchor),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>invoke('floating-header-menu'),
  headerDoubleClick:()=>invoke('floating-header-double-click'),
@@ -108,7 +108,7 @@ contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>invoke
 
 contextBridge.exposeInMainWorld('appSearchAPI',Object.freeze({search:(query,options,transient)=>invoke('studio-search',query,options,transient),copyPath:value=>invoke('studio-search-copy',value),onTarget:callback=>{const listener=(_,item)=>callback(item);ipcRenderer.on('studio-search-target',listener);return ()=>ipcRenderer.removeListener('studio-search-target',listener);}}));
 contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
- checkPackage:()=>invoke('notes-check-package'),chooseTableFile:()=>invoke('notes-tabular-file'),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
+ checkPackage:()=>invoke('notes-check-package'),chooseTableFile:()=>invoke('notes-tabular-file'),exportTable:(sheetId,ids,revision)=>invoke('notes-tabular-export',sheetId,ids,revision),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
  tools:()=>invoke('notes-tools-get'),saveView:(name,state)=>invoke('notes-view-save',name,state),removeTool:(kind,id)=>invoke('notes-tool-remove',kind,id),saveTemplate:(name,areaId)=>invoke('notes-template-save',name,areaId),applyTemplate:(id,revision)=>invoke('notes-template-apply',id,revision),pin:id=>invoke('notes-pin',id),batchSheets:(entries,revision)=>invoke('notes-batch-sheets',entries,revision),batchAreas:(ids,revision)=>invoke('notes-batch-areas',ids,revision),saveCells:(entries,revision)=>invoke('notes-grid-save',entries,revision),navigation:()=>invoke('notes-navigation'),onNavigate:callback=>ipcRenderer.on('notes-navigate',()=>callback()),onToolsChanged:callback=>ipcRenderer.on('notes-tools-changed',(_,value)=>callback(value)),
 
  onShareOpenRequest:callback=>ipcRenderer.on('notes-share-open-request',()=>callback()),cancelPreview:token=>invoke('notes-preview-cancel',token),importDetails:(token,key)=>invoke('notes-import-details',token,key),

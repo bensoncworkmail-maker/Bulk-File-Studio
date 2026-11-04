@@ -8,3 +8,33 @@ test('duplicate worksheet row coordinates are rejected instead of silently repla
  const data=await fixture('<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Keep</t></is></c></row><row r="1"><c r="A1" t="inlineStr"><is><t>Overwrite</t></is></c></row></sheetData></worksheet>');
  await assert.rejects(readXlsx(data),/列.*重複/);
 });
+
+test('XLSX export preserves literal formulas, escaped text and ambiguous headers',async()=>{
+ const {randomUUID}=require('node:crypto'),M=require('../src/notes-model'),{writeXlsx}=require('../src/notes-xlsx');
+ const now='2026-11-04T00:00:00.000Z';
+ const doc=M.template(randomUUID,now,'clients'),sheet=doc.sheets[0];
+ const fields=[
+  {id:randomUUID(),label:'筆記',type:'text'},
+  {id:randomUUID(),label:'筆記',type:'multiselect',options:['a,b','a"b','日本，香港']},
+  {id:randomUUID(),label:'已完成',type:'checkbox'},
+  {id:randomUUID(),label:'日期',type:'date'},
+  {id:randomUUID(),label:'數值',type:'number'}
+ ];
+ sheet.fields.push(...fields);
+ const values=Object.fromEntries(fields.map((field,i)=>[field.id,['文字 _x0041_ <>&',fields[1].options,false,'2026-11-04',12.5][i]]));
+ const record={id:randomUUID(),sheetId:sheet.id,title:'=1+1',notes:'  首行\r\n次行\u0001  ',
+  tags:['工作;個人','"原文"'],values,fileLinks:[],favoriteTagLinks:[],
+  createdAt:now,updatedAt:now,deletedAt:null,version:1};
+ doc.records.push(record);
+ const book=await writeXlsx(M.tabularExport(doc,sheet.id,[record.id]));
+ const {sheets,warnings}=await readXlsx(book),rows=sheets[0].rows;
+ assert.deepEqual(warnings,[]);
+ assert.equal(rows[1][0],'=1+1');
+ const mapping=M.suggestMapping(sheet,rows,true);
+ assert.deepEqual(mapping.slice(-7),[...fields.map(field=>field.id),'notes','tags']);
+ const result=M.createTabular(doc,{sheetId:sheet.id,header:true,rows,mapping},randomUUID,now);
+ assert.deepEqual(result.errors,[]);
+ assert.deepEqual(result.records[0].values,values);
+ assert.deepEqual(result.records[0].tags,record.tags);
+ assert.equal(result.records[0].notes,record.notes);
+});

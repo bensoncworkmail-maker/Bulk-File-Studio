@@ -180,14 +180,72 @@
  function tabularRows(input){
   if(!Array.isArray(input)||input.length>1001)fail('每次最多 1000 筆資料（另加一列標題）');let total=0,cells=0;return input.map(row=>{if(!Array.isArray(row)||row.length>100)fail('每列最多 100 欄');return Array.from(row,value=>{if(++cells>50000)fail('每次最多 50,000 格');const textValue=value===null||value===undefined?'':value;if(typeof textValue!=='string'||textValue.length>20000||textValue.includes('\0'))fail('儲存格文字無效或超過 20,000 字');total+=textValue.length;if(total>2*1024*1024)fail('資料文字超過 2 MB');return textValue;});});
  }
+ const tabularHeading=value=>value.trim().toLowerCase().replace(/[ _／/()-]/g,'');
  function suggestMapping(sheet,rows,header){
-  const columns=Math.max(0,...rows.map(row=>row.length)),used=new Set(),scalar=sheet.fields.filter(field=>field.type!=='relation');return Array.from({length:columns},(_,index)=>{let target='';if(!header)target=index===0?'title':scalar[index-1]?.id||'';else{const label=String(rows[0]?.[index]||'').trim().toLowerCase().replace(/[ _／/()-]/g,'');if(['name','title','姓名','名稱','標題','標題名稱','客戶名稱','客户名称'].includes(label))target='title';else if(['note','notes','筆記','備註','备注'].includes(label))target='notes';else if(['tag','tags','標籤','标签'].includes(label))target='tags';else{const field=scalar.find(field=>field.label.toLowerCase().replace(/[ _／/()-]/g,'')===label)||scalar.find(field=>field.type==='phone'&&['phone','tel','telephone','電話','电话'].includes(label)||field.type==='email'&&['email','e-mail','電郵'].includes(label));target=field?.id||'';}}if(!target||used.has(target))return '';used.add(target);return target;});
+  const columns=Math.max(0,...rows.map(row=>row.length)),used=new Set(),scalar=sheet.fields.filter(field=>field.type!=='relation');
+  return Array.from({length:columns},(_,index)=>{
+   let target='';
+   if(!header)target=index===0?'title':scalar[index-1]?.id||'';
+   else{
+    const heading=String(rows[0]?.[index]||''),identified=/^([\s\S]+) \[BFS:([0-9a-f-]{36})\]$/i.exec(heading);
+    const label=tabularHeading(identified?.[1]||heading);
+    if(identified){
+     target=scalar.find(field=>field.id===identified[2])?.id||
+      scalar.find(field=>!used.has(field.id)&&tabularHeading(field.label)===label)?.id||'';
+    }else if(['name','title','姓名','名稱','標題','標題名稱','客戶名稱','客户名称'].includes(label))target='title';
+    else if(['note','notes','筆記','備註','备注'].includes(label))target='notes';
+    else if(['tag','tags','標籤','标签'].includes(label))target='tags';
+    else{
+     const field=scalar.find(field=>tabularHeading(field.label)===label)||
+      scalar.find(field=>field.type==='phone'&&['phone','tel','telephone','電話','电话'].includes(label)||
+       field.type==='email'&&['email','e-mail','電郵'].includes(label));
+     target=field?.id||'';
+    }
+   }
+   if(!target||used.has(target))return '';
+   used.add(target);
+   return target;
+  });
+ }
+ const writeTabularList=values=>values.map(value=>/[,，;"]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value).join(', ');
+ function readTabularList(value){
+  // Quoted entries from Excel can contain separators. Keep the legacy split for malformed or plain input.
+  if(value.includes('"')){
+   const tokens=value.match(/(?:^|[,，;])\s*(?:"(?:[^"]|"")*"|[^,，;]*)/g);
+   if(tokens?.join('')===value)return tokens.map(token=>{
+    const item=token.replace(/^[,，;]/,'').trim();
+    return /^"(?:[^"]|"")*"$/.test(item)?item.slice(1,-1).replace(/""/g,'"'):item;
+   }).filter(Boolean);
+  }
+  return value.split(/[,，;]/).map(item=>item.trim()).filter(Boolean);
+ }
+ function tabularExport(doc,sheetId,ids){
+  const sheet=activeSheet(doc,sheetId);
+  if(!sheet||!Array.isArray(ids)||!ids.length||ids.length>1000||new Set(ids).size!==ids.length){
+   fail('請選擇一張有效表格及 1–1,000 筆紀錄，資料較多時請先縮小篩選範圍');
+  }
+  const byId=new Map(doc.records.filter(record=>record.sheetId===sheetId&&!record.deletedAt).map(record=>[record.id,record]));
+  const fields=sheet.fields.filter(field=>field.type!=='relation');
+  const header=['標題',...fields.map(field=>field.label),'筆記','標籤'];
+  const suggested=suggestMapping(sheet,[header],true);
+  for(const [index,field] of fields.entries()){
+   if(suggested[index+1]!==field.id)header[index+1]=field.label+' [BFS:'+field.id+']';
+  }
+  const rows=ids.map(id=>{
+   const record=byId.get(id);
+   if(!record)fail('表格或紀錄已變更，請重新整理後再匯出');
+   return [record.title,...fields.map(field=>{
+    const value=record.values[field.id];
+    return Array.isArray(value)?writeTabularList(value):String(value??'');
+   }),record.notes,writeTabularList(record.tags)];
+  });
+  return tabularRows([header,...rows]);
  }
  function createTabular(doc,input,makeId,now){
   if(!input||typeof input.header!=='boolean'||!['ymd','dmy','mdy'].includes(input.dateFormat||'ymd'))fail('匯入設定無效');const rows=tabularRows(input.rows),sheet=doc.sheets.find(sheet=>sheet.id===input.sheetId&&!sheet.deletedAt);if(!sheet)fail('請選擇可用表格');const parent=parentField(doc,sheet);if(parent&&!doc.records.some(record=>record.id===input.masterId&&record.sheetId===parent.targetSheetId&&live(doc,record)))fail('匯入明細前請先選取主紀錄');
   const mapping=input.mapping;if(!Array.isArray(mapping)||mapping.length>100||mapping.some(value=>typeof value!=='string')||mapping.filter(value=>value==='title').length!==1)fail('請且只能對應一欄到必填名稱');const selected=mapping.filter(Boolean);if(new Set(selected).size!==selected.length)fail('目標欄位不可重複對應');for(const target of selected)if(!['title','notes','tags'].includes(target)&&!sheet.fields.some(field=>field.id===target&&field.type!=='relation'))fail('不支援的目標欄位；關聯請由目前主檔帶入');
   const data=rows.slice(input.header?1:0);if(data.length>1000)fail('每次最多建立 1000 筆');let skipped=0;const records=[],errors=[];
-  for(const [index,row] of data.entries()){if(row.every(value=>!value.trim())){skipped++;continue;}try{const record={id:makeId(),sheetId:sheet.id,title:'',notes:'',tags:[],values:parent?{[parent.id]:[input.masterId]}:{},fileLinks:[],favoriteTagLinks:[],version:1,createdAt:now,updatedAt:now,deletedAt:null};for(const [column,target] of mapping.entries()){if(!target)continue;let value=row[column]||'';if(target==='title'){record.title=text(value,200,'名稱',true).trim();continue;}if(target==='notes'){record.notes=text(value,100000,'筆記');continue;}if(target==='tags'){record.tags=strings(value.split(/[,，;]/).map(value=>value.trim()).filter(Boolean),32,20,'標籤');continue;}const field=sheet.fields.find(field=>field.id===target);if(!value){continue;}if(field.type==='date'){const match=/^(\d{1,4})[/.\-](\d{1,2})[/.\-](\d{1,4})$/.exec(value.trim());if(!match)fail(field.label+'：日期請使用 YYYY-MM-DD 或選擇正確日期順序');const format=match[1].length===4?'ymd':input.dateFormat||'ymd',parts=match.slice(1),year=format==='ymd'?parts[0]:parts[2],month=format==='dmy'?parts[1]:format==='mdy'?parts[0]:parts[1],day=format==='dmy'?parts[0]:format==='mdy'?parts[1]:parts[2];value=date(year.padStart(4,'0')+'-'+month.padStart(2,'0')+'-'+day.padStart(2,'0'));}else if(field.type==='multiselect'){value=strings(value.split(/[,，;]/).map(value=>value.trim()).filter(Boolean),100,100,field.label);if(value.some(value=>!field.options.includes(value)))fail(field.label+'：值不在選項中');}else{value=gridValue(field,value);if(field.type==='select'&&!field.options.includes(value))fail(field.label+'：值不在選項中');if(['text','phone','email','longtext'].includes(field.type))text(value,field.type==='longtext'?20000:2000,field.label);}record.values[field.id]=value;}records.push(record);}catch(error){errors.push({row:index+(input.header?2:1),message:error.message});}}
+  for(const [index,row] of data.entries()){if(row.every(value=>!value.trim())){skipped++;continue;}try{const record={id:makeId(),sheetId:sheet.id,title:'',notes:'',tags:[],values:parent?{[parent.id]:[input.masterId]}:{},fileLinks:[],favoriteTagLinks:[],version:1,createdAt:now,updatedAt:now,deletedAt:null};for(const [column,target] of mapping.entries()){if(!target)continue;let value=row[column]||'';if(target==='title'){record.title=text(value,200,'名稱',true).trim();continue;}if(target==='notes'){record.notes=text(value,100000,'筆記');continue;}if(target==='tags'){record.tags=strings(readTabularList(value),32,20,'標籤');continue;}const field=sheet.fields.find(field=>field.id===target);if(!value){continue;}if(field.type==='date'){const match=/^(\d{1,4})[/.\-](\d{1,2})[/.\-](\d{1,4})$/.exec(value.trim());if(!match)fail(field.label+'：日期請使用 YYYY-MM-DD 或選擇正確日期順序');const format=match[1].length===4?'ymd':input.dateFormat||'ymd',parts=match.slice(1),year=format==='ymd'?parts[0]:parts[2],month=format==='dmy'?parts[1]:format==='mdy'?parts[0]:parts[1],day=format==='dmy'?parts[0]:format==='mdy'?parts[1]:parts[2];value=date(year.padStart(4,'0')+'-'+month.padStart(2,'0')+'-'+day.padStart(2,'0'));}else if(field.type==='multiselect'){value=strings(readTabularList(value),100,100,field.label);if(value.some(value=>!field.options.includes(value)))fail(field.label+'：值不在選項中');}else{value=gridValue(field,value);if(field.type==='select'&&!field.options.includes(value))fail(field.label+'：值不在選項中');if(['text','phone','email','longtext'].includes(field.type))text(value,field.type==='longtext'?20000:2000,field.label);}record.values[field.id]=value;}records.push(record);}catch(error){errors.push({row:index+(input.header?2:1),message:error.message});}}
   if(!errors.length)normalizeDocument({...doc,records:[...doc.records,...records]});return {records,errors,skipped};
  }
  function sortRecords(doc,records,key='updatedAt',direction='desc'){
@@ -216,6 +274,6 @@
   const groups=[...doc.areas.map(area=>({id:area.id,title:area.name,masterSheetId:area.masterSheetId,category:areaCategory(doc,area)})),{id:'ungrouped',title:'未分組',masterSheetId:null,category:'未分組'}];
   return groups.filter(group=>(!category||group.category===category)&&(tokens.length||areaId==='all'||areaId===group.id)).map(group=>{const all=sheets.filter(sheet=>(sheet.areaId||'ungrouped')===group.id),groupMatch=tokens.length&&matches(group.title+' '+group.category),masterSheet=all.find(sheet=>sheet.id===group.masterSheetId),masters=tokens.length&&masterSheet?records.filter(record=>record.sheetId===masterSheet.id&&matches(record.title+' '+masterSheet.fields.map(field=>cell(doc,field,record.values[field.id])).join(' '))):[];const visible=all.filter(sheet=>!tokens.length||groupMatch||matches(sheet.name)).sort((a,b)=>Number(b.id===group.masterSheetId)-Number(a.id===group.masterSheetId));return {...group,sheets:visible.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields.length,role:sheet.id===group.masterSheetId?'master':parentField(doc,sheet)?'detail':'other',count:counts.get(sheet.id)||0})),masters:masters.slice(0,30).map(record=>({id:record.id,title:record.title})),masterTotal:masters.length,tableTotal:all.length,match:Boolean(groupMatch)};}).filter(group=>tokens.length?group.sheets.length||group.masterTotal||group.match:group.tableTotal||areaId===group.id||group.id!=='ungrouped');
  }
- const api={masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();
