@@ -2,6 +2,7 @@
 // Workspace links can refer to a user-selected network share. This does not change
 // the browser request policy or grant network paths to rename/delete operations.
 const fs=require('node:fs'),path=require('node:path');
+const {withIntranetPaths}=require('./intranet-path');
 const {assertLocalPath}=require('./offline-policy');
 const BLOCKED=/\.(exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|wsh|msi|scr|lnk|url|website|hta|reg|appref-ms|scf|desktop|sh)$/i;
 function locationPath(value){
@@ -37,7 +38,7 @@ async function openRecordLink({document,favorites,recordId,index,action,shell,cl
  if(action==='copy'){clipboard.writeText(filepath);return;}
  // Existing local favorites retain their original identity checks.
  if(current)favorites.get(current.id,true);
- const actual=inspectLocation(filepath);if(actual.type!==link.type)throw new Error('連結位置類型已變更，請重新連結');
+ const actual=await withIntranetPaths([locationPath(filepath)],()=>inspectLocation(filepath));if(actual.type!==link.type)throw new Error('連結位置類型已變更，請重新連結');
  if(action==='show'){shell.showItemInFolder(actual.path);return;}
  if(actual.type==='file'&&BLOCKED.test(actual.path))throw new Error('此類程式或捷徑請使用「定位」後自行開啟');
  const error=await shell.openPath(actual.path);if(error)throw new Error(error);

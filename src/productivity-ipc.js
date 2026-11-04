@@ -2,13 +2,13 @@
 const fs=require('node:fs'),path=require('node:path'),M=require('./notes-model'),{ProductivityStore,writeJSON}=require('./productivity-store'),{ProfileService,readJSON}=require('./profile-service'),{PathRepair}=require('./path-repair'),{FileRules}=require('./file-rules'),{DocumentPreview}=require('./document-preview'),{assertLocalPath}=require('./offline-policy');
 function registerProductivity(options){
  const {handle,root,notes,favorites,tools,desktop,reminders,dialog,parent,clipboard,BrowserWindow,fileOperation,changed,notifyFavorites,navigate,openPath,blocked,pauseSharing,reload}=options;
- const store=new ProductivityStore(path.join(root,'productivity.json')),profile=new ProfileService({root,notes,favorites,tools,productivity:store,desktop,reminders,onIncomplete:options.onIncomplete,reload:()=>{store.reload();reload();}}),repair=new PathRepair(profile),rules=new FileRules({store,favorites}),preview=new DocumentPreview({BrowserWindow,root:path.join(root,'document-preview-cache'),parent});let chooser=0;
+ const store=new ProductivityStore(path.join(root,'productivity.json')),profile=new ProfileService({root,notes,favorites,tools,productivity:store,desktop,reminders,onIncomplete:options.onIncomplete,reload:()=>{store.reload();reload();}}),repair=new PathRepair(profile),rules=new FileRules({store,favorites}),preview=new DocumentPreview({BrowserWindow,root:path.join(root,'document-preview-cache'),parent,screen:options.screen,size:options.previewSize,remember:options.rememberPreview});let chooser=0;
  function ensure(ignoreBusy=false){if(blocked(ignoreBusy))throw new Error('另一項操作或浮動表單仍在使用，請先完成');}
  function state(){return {data:store.get(),workspace:notes().get(),favorites:favorites.list(),reminders:reminders().list(),backups:profile.history()};}
  const confirm=async(title,message,detail)=>{const result=await dialog.showMessageBox(parent(),{type:'warning',title,message,detail,buttons:['確認','取消'],defaultId:1,cancelId:1,noLink:true});return result.response===0&&!parent().isDestroyed();};
  handle('productivity-get',()=>state());
- handle('productivity-save',(_,kind,input)=>{ensure();if(kind==='worksets'){const doc=notes().get().document;for(const id of input.recordIds||[])if(!doc.records.some(record=>record.id===id&&M.live(doc,record)))throw new Error('工作集紀錄已移除');for(const id of input.favoriteIds||[])favorites.get(id);}return store.save(kind,input);});
- handle('productivity-remove',(_,kind,id)=>{ensure();return store.remove(kind,id);});
+ handle('productivity-save',(_,kind,input)=>{ensure();if(kind==='worksets'){const doc=notes().get().document;for(const id of input.recordIds||[])if(!doc.records.some(record=>record.id===id&&M.live(doc,record)))throw new Error('工作集紀錄已移除');for(const id of input.favoriteIds||[])favorites.get(id);}const result=store.save(kind,input);if(kind==='snippets')options.overlayChanged?.();return result;});
+ handle('productivity-remove',(_,kind,id)=>{ensure();const result=store.remove(kind,id);if(kind==='snippets')options.overlayChanged?.();return result;});
  handle('productivity-folder',async()=>{const result=await dialog.showOpenDialog(parent(),{title:'選取本機／已對應磁碟資料夾',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
  handle('productivity-repair-preview',(_,from,to)=>{ensure();return repair.preview(from,to);});
  handle('productivity-repair-apply',(_,token,keys,ui)=>{ensure();return fileOperation(async()=>{if(!await confirm('批次修復路徑','更新 '+(keys?.length||0)+' 個收藏／紀錄位置？','只改連結與獨立路徑欄位，不搬移原始檔案。修復前會自動建立完整備份。'))return {canceled:true};ensure(true);const result=repair.apply(token,keys,ui);changed(notes().get());notifyFavorites();return result;});});
@@ -21,11 +21,30 @@ function registerProductivity(options){
  handle('productivity-rules-choose',async()=>{const result=await dialog.showOpenDialog(parent(),{title:'選取要檢查整理建議的檔案',properties:['openFile','multiSelections']});return result.canceled?[]:result.filePaths;});
  handle('productivity-rules-preview',(_,id,paths)=>{ensure();return rules.preview(id,paths);});
  handle('productivity-rules-action',(_,token,paths,action)=>{ensure();if(action==='tag'){const result=rules.tag(token,paths);notifyFavorites();return result;}if(!['rename','move'].includes(action))throw new Error('整理動作無效');const selected=rules.selected(token,paths);return {paths:selected.rows.map(row=>row.source),prefix:selected.rule.prefix,folder:selected.rule.folder};});
- handle('productivity-snippet-copy',(_,id,customer)=>{const value=store.get().snippets.find(value=>value.id===id);if(!value)throw new Error('文字片段已移除');const name=require('./productivity-model').text(customer||'',200,'客戶名稱');clipboard.writeText(require('./productivity-model').expandSnippet(value.body,{customer:name}));return {copied:true};});
+ function snippetText(id,customer){
+  const snippet=store.get().snippets.find(item=>item.id===id);
+  if(!snippet)throw new Error('文字片段已移除');
+  const model=require('./productivity-model'),name=model.text(customer||'',200,'客戶名稱');
+  return model.expandSnippet(snippet.body,{customer:name});
+ }
+ function copySnippet(id,customer){
+  clipboard.writeText(snippetText(id,customer));
+  return {copied:true};
+ }
+ function viewData(config,filters){
+  const doc=config.kind==='snippets'?null:notes().get().document;
+  const dates=config.kind==='planning'?reminders().list().items:[];
+  return require('./tool-views-model').viewData(doc,dates,config.kind==='snippets'?store.get().snippets:[],config,filters);
+ }
+ handle('productivity-snippet-copy',(_,id,customer)=>copySnippet(id,customer));
+ handle('productivity-snippet-list',()=>store.get().snippets.map(({id,name,category})=>({id,name,category})));
+ handle('productivity-snippet-text',(_,id,customer)=>snippetText(id,customer));
+ handle('tool-view-data',(_,input,filters)=>viewData(require('./tool-views-model').configuration(input),filters));
+
  handle('productivity-workset-open',(_,id)=>{ensure();const value=store.get().worksets.find(value=>value.id===id);if(!value)throw new Error('工作集已移除');return fileOperation(async()=>{const doc=notes().get().document,records=value.recordIds.filter(id=>doc.records.some(record=>record.id===id&&M.live(doc,record))),available=value.favoriteIds.filter(id=>{try{return favorites.get(id,true).status==='ready';}catch{return false;}});if(!available.length&&!records.length)throw new Error('工作集的連結已不存在或暫時無法使用');const batch=available.length?require('./favorites-batch').prepareBatch(favorites,available,'open'):null;if(!await confirm('開啟情境工作集','開啟「'+value.name+'」？',available.length+' 個可用檔案／資料夾；'+records.length+' 筆紀錄（先開啟第一筆，其餘可從工作集清單進入）。'+(value.favoriteIds.length-available.length)+' 個位置無法使用。'))return {canceled:true};if(JSON.stringify(store.get().worksets.find(item=>item.id===id))!==JSON.stringify(value))throw new Error('工作集已變更');const result=available.length?await require('./favorites-batch').executeBatch(favorites,batch,openPath):{opened:0,failures:[]};return {...result,records:records.length,recordId:!result.canceled?records[0]||null:null};});});
- handle('productivity-preview-choose',async()=>{const result=await dialog.showOpenDialog(parent(),{title:'選取文件預覽',filters:[{name:'可預覽文件',extensions:['pdf','png','jpg','jpeg','gif','webp','bmp','txt','md','csv','log','json','xml','yaml','yml','ini']}],properties:['openFile']});return result.canceled?{canceled:true}:preview.show(result.filePaths[0]);});
+ handle('productivity-preview-choose',async()=>{const result=await dialog.showOpenDialog(parent(),{title:'選取文件預覽',filters:[{name:'可預覽文件',extensions:['pdf','png','jpg','jpeg','gif','webp','bmp','txt','html','htm','md','csv','log','json','xml','yaml','yml','ini']}],properties:['openFile']});return result.canceled?{canceled:true}:preview.show(result.filePaths[0]);});
  handle('productivity-preview-link',(_,recordId,index)=>{const doc=notes().get().document,record=doc.records.find(value=>value.id===recordId&&M.live(doc,value));if(!record||!Number.isSafeInteger(index)||index<0||!record.fileLinks[index])throw new Error('文件連結已移除');const link=record.fileLinks[index],favorite=link.favoriteId?favorites.read().items.find(value=>value.id===link.favoriteId):null;return preview.show(favorite?favorites.get(favorite.id,true).path:link.path);});
  handle('productivity-board-move',(_,recordId,fieldId,value,revision)=>{ensure();const state=notes().get(),record=state.document.records.find(record=>record.id===recordId&&M.live(state.document,record)),field=state.document.sheets.find(sheet=>sheet.id===record?.sheetId)?.fields.find(field=>field.id===fieldId&&field.type==='select');if(!field||value!==''&&!field.options.includes(value)||state.revision!==revision)throw new Error('看板資料已變更，請重新整理');return changed(notes().updateCells([{recordId,fieldId,value}],revision));});
- return {close:()=>preview.close(),store,profile,repair,rules};
+ return {close:()=>preview.close(),store,profile,repair,rules,viewData,copySnippet};
 }
 module.exports={registerProductivity};

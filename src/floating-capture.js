@@ -1,6 +1,7 @@
 'use strict';
 const path=require('node:path'),crypto=require('node:crypto'),{pathToFileURL}=require('node:url');
-const {inspectLocation,inspectLinks}=require('./notes-location-links');
+const {withIntranetPaths}=require('./intranet-path');
+const {inspectLocation,inspectLinks,locationPath}=require('./notes-location-links');
 const M=require('./notes-model'),{inspectPath,sameIdentity,cleanTags}=require('./favorites-store');
 const {previewPathImport,importPathList}=require('./path-import-core'),{fitBounds}=require('./desktop-state');
 const key=value=>process.platform==='win32'?path.resolve(value).toLowerCase():path.resolve(value);
@@ -20,8 +21,8 @@ class FloatingCapture{
  open(request){
   this.assertAvailable();const action=request.resolve();if(!['import-paths','new-record'].includes(action.type))throw new Error('此操作需使用主視窗');
   const items=request.paths?checkedPaths(request.paths):[];this.request={...request,action:JSON.parse(JSON.stringify(action)),items,attachments:[]};this.pending=null;
-  try{this.target();const parent=this.parent(),settings=this.settings();this.window=new this.BrowserWindow({...captureBounds(parent.getNormalBounds(),this.screen.getAllDisplays(),action.form),parent,modal:false,show:true,skipTaskbar:true,alwaysOnTop:settings.floatingOnTop,autoHideMenuBar:true,title:'浮動快捷 · '+action.label,backgroundColor:settings.theme==='light'?'#f7f9fe':'#0c1221',webPreferences:{preload:path.join(__dirname,'floating-capture-preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:false}});
-   const current=this.window;this.secureWindow(current);current.on('close',event=>{if(this.busy)event.preventDefault();});current.on('closed',()=>{if(this.window===current){this.window=null;this.request=null;this.pending=null;}});current.loadFile(path.join(__dirname,'floating-capture.html'));current.show();current.focus();return {opened:true,popup:true};
+  try{this.target();const parent=this.parent(),settings=this.settings();this.window=new this.BrowserWindow({...captureBounds(parent.getNormalBounds(),this.screen.getAllDisplays(),this.size?.()||action.form),parent,modal:false,show:true,skipTaskbar:true,alwaysOnTop:settings.floatingOnTop,autoHideMenuBar:true,title:'浮動快捷 · '+action.label,backgroundColor:settings.theme==='light'?'#f7f9fe':'#0c1221',webPreferences:{preload:path.join(__dirname,'floating-capture-preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:false}});
+   const current=this.window;this.secureWindow(current);this.remember?.(current);current.on('close',event=>{if(this.busy)event.preventDefault();});current.on('closed',()=>{if(this.window===current){this.window=null;this.request=null;this.pending=null;}});current.loadFile(path.join(__dirname,'floating-capture.html'));current.show();current.focus();return {opened:true,popup:true};
   }catch(error){this.destroy();throw error;}
  }
  target(){
@@ -65,9 +66,15 @@ class FloatingCapture{
  async choose(kind){if(this.busy||!['file','folder'].includes(kind)||this.target().action.type!=='new-record'||this.request.items.length)throw new Error('此表單不能選取位置');const request=this.request,owner=this.window,paths=await this.choosePaths(kind,owner);if(this.request!==request||this.window!==owner)throw new Error('表單已關閉或變更，請在目前表單重新選取位置');this.target();if(!paths?.length)return {attachments:(this.request.attachments||[]).map(item=>({path:item.path,type:item.type}))};return this.addAttachments(paths);}
  addAttachments(paths){
   if(this.busy||this.target().action.type!=='new-record'||this.request.items.length||this.request.directSaved)throw new Error('此表單不能附加位置');
-  const additions=inspectLinks(paths),all=[...new Map([...(this.request.attachments||[]),...additions].map(item=>[key(item.path),item])).values()];
+  if(!Array.isArray(paths)||!paths.length||paths.length>100)throw new Error('每次請加入 1–100 個完整位置');
+  const request=this.request,normalized=paths.map(locationPath);
+  return withIntranetPaths(normalized,()=>{
+  if(this.request!==request||this.busy||request.directSaved)throw new Error('浮動表單已變更');
+  this.target();
+  const additions=inspectLinks(normalized),all=[...new Map([...(this.request.attachments||[]),...additions].map(item=>[key(item.path),item])).values()];
   if(all.length>100)throw new Error('每筆最多 100 個位置');this.request.attachments=all;this.pending=null;
   return {attachments:all.map(item=>({path:item.path,type:item.type}))};
+  });
  }
  clearAttachments(){this.target();if(this.busy)throw new Error('正在儲存');this.request.attachments=[];this.pending=null;return {attachments:[]};}
  save(input){if(this.target().action.type!=='new-record'||this.request.items.length)throw new Error('批次操作請先預覽');if(this.request.directSaved)throw new Error('本次已儲存');const preview=this.preview(input),result=this.commit(preview.token);this.request.directSaved=true;return result;}

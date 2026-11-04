@@ -215,9 +215,38 @@
  function renderFields(){
   const parent=$('notes-field-editor');parent.replaceChildren();for(const [index,field] of sheetDraft.fields.entries()){
    const row=el('div',undefined,'notes-field-row'),label=el('input');label.value=field.label;label.maxLength=80;label.required=true;label.placeholder='欄位名稱';label.setAttribute('aria-label','欄位名稱');label.addEventListener('input',()=>field.label=label.value);
-   const type=el('select');type.setAttribute('aria-label','欄位類型');for(const [key,name] of Object.entries(M.TYPES)){const option=el('option',name);option.value=key;type.append(option);}type.value=field.type;type.addEventListener('change',()=>{field.type=type.value;field.options=[];field.targetSheetId=field.type==='relation'?doc().sheets.find(sheet=>!sheet.deletedAt)?.id||null:null;renderFields();});
+   const type=el('select');type.setAttribute('aria-label','欄位類型');for(const [key,name] of Object.entries(M.TYPES)){const option=el('option',name);option.value=key;type.append(option);}type.value=field.type;type.addEventListener('change',()=>{field.type=type.value;const from=sheetMap.get(sheetDraft.id)?.fields.find(item=>item.id===field.id);field.options=from?.type==='checkbox'&&field.type==='select'?['未完成','已完成']:[];field.targetSheetId=field.type==='relation'?doc().sheets.find(sheet=>!sheet.deletedAt)?.id||null:null;renderFields();});
    let extra=el('span','—','notes-sub');if(field.type==='relation'){extra=el('select');extra.setAttribute('aria-label','關聯目標表格');const empty=el('option','選擇目標表格');empty.value='';extra.append(empty);for(const sheet of doc().sheets){if(sheet.deletedAt&&sheet.id!==field.targetSheetId)continue;const option=el('option',sheet.name+(sheet.deletedAt?'（已刪除）':''));option.value=sheet.id;extra.append(option);}extra.value=field.targetSheetId||'';extra.addEventListener('change',()=>field.targetSheetId=extra.value);}
    if(['select','multiselect'].includes(field.type)){extra=el('input');extra.value=field.options.join(', ');extra.placeholder='選項，以逗號分隔';extra.setAttribute('aria-label','選項');extra.addEventListener('input',()=>field.options=extra.value.split(/[,，]/).map(value=>value.trim()).filter(Boolean));}
+   const original=sheetMap.get(sheetDraft.id)?.fields.find(item=>item.id===field.id);
+   if(original?.type==='checkbox'&&field.type==='select'){
+    const count=doc().records.filter(record=>record.sheetId===sheetDraft.id&&typeof record.values[field.id]==='boolean').length;
+    if(count){
+     const mapping=sheetDraft.checkboxMappings??={};
+     const form=el('div',undefined,'notes-checkbox-migration');
+     form.append(el('p','轉換 '+count+' 筆既有值（含回收筒），空白仍保留。','notes-hint'));
+     const controls=[];
+     const values=()=>{
+      for(const [key,select] of controls){
+       const previous=mapping[field.id]?.[key]||({checked:'已完成',unchecked:'未完成'})[key];
+       select.replaceChildren();
+       for(const value of ['',...field.options]){
+        const option=el('option',value||'請選擇');option.value=value;select.append(option);
+       }
+       select.value=field.options.includes(previous)?previous:'';
+       (mapping[field.id]??={})[key]=select.value;
+      }
+     };
+     for(const [key,title] of [['checked','已勾選 →'],['unchecked','未勾選 →']]){
+      const wrap=el('label',title),select=el('select');
+      select.setAttribute('aria-label',field.label+' '+title);
+      select.addEventListener('change',()=>mapping[field.id][key]=select.value);
+      wrap.append(select);form.append(wrap);controls.push([key,select]);
+     }
+     extra.addEventListener('input',values);values();
+     extra=(()=>{const group=el('div',undefined,'notes-checkbox-options');group.append(extra,form);return group;})();
+    }
+   }
    const actions=el('div',undefined,'notes-tools');actions.append(button('↑',()=>{if(index){[sheetDraft.fields[index-1],sheetDraft.fields[index]]=[sheetDraft.fields[index],sheetDraft.fields[index-1]];renderFields();}}),button('移除',()=>{sheetDraft.fields.splice(index,1);renderFields();}));row.append(label,type,extra,actions);parent.append(row);
   }
  }
@@ -227,14 +256,29 @@
  }
  function editRecord(record,targetSheetId=sheetId,seed={}){
   if(busy||!sheetMap.has(targetSheetId))return;if(searchScope()==='all')searchReturn=viewState();const parentField=M.parentField(doc(),sheetMap.get(targetSheetId));if(!record&&parentField&&!masterId&&!(seed[parentField.id]||[]).length){status('請先選取一筆主紀錄，再新增明細。',true);return;}if(!record&&masterId)for(const field of sheetMap.get(targetSheetId).fields)if(field.type==='relation'&&field.targetSheetId===recordMap.get(masterId).sheetId)seed[field.id]=[masterId];directLinks=[];$('notes-direct-paths').value='';editingRecord=record?M.clone(record):{id:null,sheetId:targetSheetId,values:seed,title:'',notes:'',tags:[],fileLinks:[]};selectedFavoriteTags=new Set((editingRecord.favoriteTagLinks||[]).filter(link=>link.authorized).map(link=>link.tag));pendingFavoriteTags=(editingRecord.favoriteTagLinks||[]).filter(link=>!link.authorized).map(link=>link.tag);selectedFavorites=new Set(editingRecord.fileLinks.filter(link=>link.favoriteId&&favorites.some(item=>item.id===link.favoriteId)).map(link=>link.favoriteId));unlinkedPaths=editingRecord.fileLinks.filter(link=>!link.favoriteId||!favorites.some(item=>item.id===link.favoriteId)).map(link=>link.path);
-  $('notes-record-title-label').textContent=sheetMap.get(editingRecord.sheetId).name==='聯絡人'?'姓名（必填）':'標題／名稱（必填）';$('notes-record-hint').textContent=sheetMap.get(editingRecord.sheetId).name==='聯絡人'?'只需填寫姓名；電話、Email、職位、筆記與標籤均可留空。':sheetMap.get(editingRecord.sheetId).name==='文件／位置'?'可連結收藏中的檔案／資料夾，或填入標籤；相同名稱的收藏標籤可從詳細頁查看。文字路徑只作記錄，不會自動開啟。':'欄位、檔案位置與標籤可依需要填寫。';$('notes-record-title').value=editingRecord.title;$('notes-record-tags').value=editingRecord.tags.join(', ');$('notes-record-body').value=editingRecord.notes;const area=$('notes-record-fields');area.replaceChildren();fieldGetters=[];
+  $('notes-record-title-label').textContent=sheetMap.get(editingRecord.sheetId).name==='聯絡人'?'姓名（必填）':'標題／名稱（必填）';$('notes-record-hint').textContent=sheetMap.get(editingRecord.sheetId).name==='聯絡人'?'只需填寫姓名；電話、Email、職位、筆記與標籤均可留空。':sheetMap.get(editingRecord.sheetId).name==='文件／位置'?'可連結收藏中的檔案／資料夾，或填入標籤；相同名稱的收藏標籤可從詳細頁查看。文字路徑只作記錄，不會自動開啟。':'欄位、檔案位置與標籤可依需要填寫。';$('notes-record-title').value=editingRecord.title;$('notes-record-tags').value=editingRecord.tags.join(', ');$('notes-record-body').value=editingRecord.notes;
+  const snippetCustomer=()=>{
+   const selected=parentField&&fieldGetters.find(item=>item.id===parentField.id)?.get()?.[0];
+   return recordMap.get(selected||masterId)?.title||'';
+  };
+  const snippetHost=$('notes-record-snippet');
+  if(snippetHost&&window.productivityUI?.snippetPicker){
+   snippetHost.replaceChildren(window.productivityUI.snippetPicker($('notes-record-body'),snippetCustomer));
+  }
+  const area=$('notes-record-fields');area.replaceChildren();fieldGetters=[];
   for(const field of sheetMap.get(editingRecord.sheetId).fields){
    const label=el('div',undefined,'field'+(['longtext','relation','multiselect'].includes(field.type)?' notes-wide':''));label.append(el('span',field.label));let input,get;
    if(field.id===parentField?.id&&(editingRecord.values[field.id]||[]).length<=1){input=el('select');const empty=el('option','選取所屬'+sheetMap.get(field.targetSheetId).name);empty.value='';input.append(empty);for(const record of doc().records.filter(record=>record.sheetId===field.targetSheetId&&(live(record)||(editingRecord.values[field.id]||[]).includes(record.id)))){const option=el('option',record.title+(live(record)?'':'（已刪除）'));option.value=record.id;input.append(option);}input.value=editingRecord.values[field.id]?.[0]||'';input.required=true;get=()=>input.value?[input.value]:[];}else if(field.type==='relation'||field.type==='multiselect'){
     const options=field.type==='relation'?doc().records.filter(record=>record.sheetId===field.targetSheetId&&(live(record)||(editingRecord.values[field.id]||[]).includes(record.id))).map(record=>({id:record.id,label:record.title+(live(record)?'':'（已刪除）')})):field.options.map(value=>({id:value,label:value}));const choose=picker(options,editingRecord.values[field.id]||[]);input=choose.element;get=choose.value;
    }else if(field.type==='select'){input=el('select');const empty=el('option','—');empty.value='';input.append(empty);for(const value of field.options){const option=el('option',value);option.value=value;input.append(option);}input.value=editingRecord.values[field.id]||'';get=()=>input.value;}
    else{input=el(field.type==='longtext'?'textarea':'input');if(field.type==='longtext'){input.rows=3;input.maxLength=20000;}else input.type=({number:'number',date:'date',checkbox:'checkbox',email:'email',phone:'tel'})[field.type]||'text';if(field.type==='checkbox')input.checked=Boolean(editingRecord.values[field.id]);else input.value=editingRecord.values[field.id]??'';if(field.type==='number')input.step='any';if(['text','phone','email'].includes(field.type))input.maxLength=2000;get=()=>field.type==='checkbox'?input.checked:field.type==='number'?(input.value===''?null:Number(input.value)):input.value;}
-   input.setAttribute('aria-label',field.label);const controls=el('div',undefined,'notes-input-controls');controls.append(input);if(!['relation','multiselect'].includes(field.type)&&field.id!==parentField?.id){const actions=el('div',undefined,'notes-field-buttons');if(field.type==='date')actions.append(button('今天',()=>{const now=new Date();input.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');}));actions.append(button('清除',()=>{if(field.type==='checkbox')input.checked=false;else input.value='';input.focus();}));controls.append(actions);}label.append(controls);area.append(label);fieldGetters.push({id:field.id,get});
+   input.setAttribute('aria-label',field.label);const controls=el('div',undefined,'notes-input-controls');controls.append(input);
+   if(!['relation','multiselect'].includes(field.type)&&field.id!==parentField?.id){const actions=el('div',undefined,'notes-field-buttons');if(field.type==='date')actions.append(button('今天',()=>{const now=new Date();input.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');}));actions.append(button('清除',()=>{if(field.type==='checkbox')input.checked=false;else input.value='';input.focus();}));controls.append(actions);}
+   label.append(controls);
+   if(field.type==='longtext'&&window.productivityUI?.snippetPicker){
+    label.append(window.productivityUI.snippetPicker(input,snippetCustomer));
+   }
+   area.append(label);fieldGetters.push({id:field.id,get});
   }
   $('notes-record-dialog-title').textContent=(record?'編輯':'新增')+' '+sheetMap.get(editingRecord.sheetId).name;$('notes-record-context').textContent=(doc().areas.find(area=>area.id===sheetMap.get(editingRecord.sheetId).areaId)?.name||'未分組')+(parentField?' ／ '+(recordMap.get(editingRecord.values[parentField.id]?.[0])?.title||'待選主檔'):'');saveAndNew=false;setFormTab('basic');renderRecordFiles();$('notes-record-dialog').showModal();$('notes-record-title').focus();
  }
@@ -290,7 +334,7 @@
   shareState=value;for(const id of ['notes-share-quick-check','notes-share-quick-publish']){$(id).disabled=!value.enabled||Boolean(value.busy);$(id).title=!value.enabled?'請先在共享設定選取資料夾並啟用':'只存取已設定的共享資料夾';}$('notes-share-quick').hidden=!prefs().notesShareQuickActions;$('notes-share-quick-preview').hidden=!value.enabled||value.receiveMode==='ignore'||!value.notice;$('notes-share-quick-preview').disabled=Boolean(value.busy);
 
   window.shareReceiveUI?.render(value);$('notes-share-device').textContent=value.deviceId||'—';
-  $('notes-share-open').textContent='共享資料包'+(value.enabled&&value.notice?' · 有更新':value.enabled&&value.total?' · '+value.total:'');$('notes-share-enabled').checked=value.enabled;$('notes-share-auto').checked=value.autoPublish;$('notes-share-interval').value=value.intervalMinutes;$('notes-share-folder').textContent=value.folder||'尚未選取資料夾';$('notes-share-auto').disabled=!value.enabled;$('notes-share-check').disabled=!value.enabled||value.busy;$('notes-share-publish').disabled=!value.enabled||value.busy;$('notes-share-enabled').disabled=!value.folder;$('notes-share-status').textContent=value.error||(!value.enabled?'已停用，不會檢查或發佈。':value.busy?'正在存取分享資料夾…':'已啟用 · '+(value.lastCheckAt?'上次檢查 '+new Date(value.lastCheckAt).toLocaleTimeString():'等待首次檢查')+' · '+value.total+' 份資料包');$('settings-notes-share-status').textContent=(value.anyEnabled??value.enabled)?'已啟用指定資料夾分享（可能經區域網路）':'共享資料包預設停用';$('app-connection-label').textContent=(value.anyEnabled??value.enabled)?'已啟用共享資料包 · 指定資料夾':'完全離線 · 僅處理本機檔案';
+  $('notes-share-open').textContent='共享資料包'+(value.enabled&&value.notice?' · 有更新':value.enabled&&value.total?' · '+value.total:'');$('notes-share-enabled').checked=value.enabled;$('notes-share-auto').checked=value.autoPublish;$('notes-share-interval').value=value.intervalMinutes;$('notes-share-folder').textContent=value.folder||'尚未選取資料夾';$('notes-share-auto').disabled=!value.enabled;$('notes-share-check').disabled=!value.enabled||value.busy;$('notes-share-publish').disabled=!value.enabled||value.busy;$('notes-share-enabled').disabled=!value.folder;$('notes-share-status').textContent=value.error||(!value.enabled?'已停用，不會檢查或發佈。':value.busy?'正在存取分享資料夾…':'已啟用 · '+(value.lastCheckAt?'上次檢查 '+new Date(value.lastCheckAt).toLocaleTimeString():'等待首次檢查')+' · '+value.total+' 份資料包');$('settings-notes-share-status').textContent=(value.anyEnabled??value.enabled)?'已啟用指定資料夾分享（可能經區域網路）':'共享資料包預設停用';$('app-connection-label').textContent=(value.anyEnabled??value.enabled)?'已啟用共享資料包 · 指定資料夾':'本機與指定內網檔案 · 封鎖網頁連線';
   const files=$('notes-share-files'),scope=$('notes-share-file-scope').value||'others';files.replaceChildren();let shown=0;for(const file of value.files||[]){const info=shareView.packageInfo(file,value.deviceId,value.followSource);if(scope==='others'&&info.own||scope==='followed'&&!info.followed)continue;shown++;const row=el('article',undefined,'notes-share-package'),head=el('div',undefined,'notes-share-package-head'),meta=el('div'),actions=el('div',undefined,'notes-tools');meta.append(el('strong',info.title),el('small',info.time,'notes-audit-meta'));actions.append(button('版本資訊',()=>inspectShareVersion(file.name),'btn btn-ghost'),button('比較並匯入',()=>previewShared(file.name),'btn btn-secondary'),button('複製到本機',()=>previewShared(file.name,'clone'),'btn btn-ghost'));for(const action of actions.children)action.disabled=!value.enabled||Boolean(value.busy);head.append(meta,actions);const details=el('details',undefined,'notes-package-details');details.append(el('summary','資料包資訊'),el('p',info.source?'來源 ID：'+info.source:'來源 ID 未提供','notes-hint'),el('code',file.name));row.append(head,details);files.append(row);}if(!shown)files.append(el('p',!value.enabled?'請展開共享設定，選取資料夾並啟用。':scope==='followed'&&!value.followSource?'尚未選定跟隨來源；可在共享設定選取。':value.files?.length?'此範圍沒有資料包；可切換為全部來源。':'尚無資料包；按「立即檢查」重新讀取。','notes-hint'));
 
   renderCurrentShare();

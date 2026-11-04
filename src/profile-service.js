@@ -4,7 +4,7 @@ const M=require('./notes-model'),P=require('./productivity-model'),{validateFavo
 const MAX=48*1024*1024,FILES=['favorites.json','record-reminders.json','workspace-tools.json','desktop-state.json','productivity.json','restored-ui.json'];
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function readJSON(filename,maxBytes=MAX){assertLocalPath(filename);return JSON.parse(readStableBytes(filename,{maxBytes,label:'完整備份'}).toString('utf8'));}
-function cleanUI(input,desktop){input=input||{};return createSettingsExport({settings:input.settings,shortcuts:input.shortcuts,rules:input.naming?.activeRules||input.rules,presets:input.naming?.presets||input.presets},desktop,'1.65.0');}
+function cleanUI(input,desktop){input=input||{};return createSettingsExport({settings:input.settings,shortcuts:input.shortcuts,rules:input.naming?.activeRules||input.rules,presets:input.naming?.presets||input.presets},desktop,require('../package.json').version);}
 function normalizeBundle(input){
  if(!input||input.format!=='BulkFileStudio.Profile'||input.schemaVersion!==1||!Number.isFinite(Date.parse(input.createdAt)))throw new Error('不是支援的完整備份');
  const doc=M.normalizeDocument(input.workspace),favorites=validateFavorites(input.favorites),tools=normalizeTools(input.tools),productivity=P.normalize(input.productivity);

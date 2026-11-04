@@ -26,6 +26,7 @@ function packageImportName(filename){return /^(?:[a-z]:[\\/]|[\\/]{2})/i.test(fi
 async function readImportPackageFile(input){
  const filename=packageImportPath(input),windows=/^(?:[a-z]:\\|\\\\)/i.test(filename),p=windows?path.win32:path.posix;
  try{
+  await require('./intranet-path').withIntranetPaths([filename],()=>{});
   let initial,current=filename;
   while(true){const stat=await fs.promises.lstat(current);if(stat.isSymbolicLink())throw new Error('資料包路徑不支援符號連結或重新解析連結');if(current===filename){initial=stat;if(!stat.isFile()||!Number.isSafeInteger(stat.size)||stat.size<0||stat.size>LIMITS.bytes)throw new Error('資料包必須是 20 MB 以內的一般 JSON 檔案');}else if(!stat.isDirectory())throw new Error('資料包的上層位置不是資料夾');const parent=p.dirname(current);if(parent===current)break;current=parent;}
   const handle=await fs.promises.open(filename,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));

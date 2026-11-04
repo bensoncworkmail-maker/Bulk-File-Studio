@@ -123,6 +123,8 @@ contextBridge.exposeInMainWorld('productivityAPI',Object.freeze({
  repairPreview:(from,to)=>invoke('productivity-repair-preview',from,to),repairApply:(token,keys,ui)=>invoke('productivity-repair-apply',token,keys,ui),
  backupCreate:ui=>invoke('productivity-backup-create',ui),backupExport:name=>invoke('productivity-backup-export',name),backupPreview:name=>invoke('productivity-backup-preview',name),backupRestore:(token,ui)=>invoke('productivity-backup-restore',token,ui),restoredUI:()=>invoke('productivity-restored-ui'),ackRestored:()=>invoke('productivity-restored-ack'),
  rulesChoose:()=>invoke('productivity-rules-choose'),rulesPreview:(id,paths)=>invoke('productivity-rules-preview',id,paths),rulesAction:(token,paths,action)=>invoke('productivity-rules-action',token,paths,action),
+ viewData:(config,filters)=>invoke('tool-view-data',config,filters),openOverlay:config=>invoke('tool-view-open',config),onToolOpen:callback=>ipcRenderer.on('tool-view-open',(_,config)=>callback(config)),
+ snippetList:()=>invoke('productivity-snippet-list'),snippetText:(id,customer)=>invoke('productivity-snippet-text',id,customer),
  snippetCopy:(id,customer)=>invoke('productivity-snippet-copy',id,customer),worksetOpen:id=>invoke('productivity-workset-open',id),previewChoose:()=>invoke('productivity-preview-choose'),previewLink:(recordId,index)=>invoke('productivity-preview-link',recordId,index),boardMove:(recordId,fieldId,value,revision)=>invoke('productivity-board-move',recordId,fieldId,value,revision)
 }));
 

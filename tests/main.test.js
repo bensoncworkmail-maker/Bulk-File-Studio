@@ -544,3 +544,22 @@ test('closing or quitting during an in-flight OS recycle operation is deferred u
  quitBlocked=false;h.events.get('before-quit')({preventDefault(){quitBlocked=true;}});assert.equal(quitBlocked,false);
  assert.equal(h.handlers.get('favorites-list')().items.length,0);
 });
+
+test('floating snippets use a restricted IPC surface and remember each resized window',async t=>{
+ const h=harness(t);
+ h.handlers.get('productivity-save')(null,'snippets',{name:'回覆',body:'您好 {{customer}}',category:'工作'});
+ const id=h.handlers.get('productivity-snippet-list')()[0].id;
+ h.handlers.get('tool-view-open')(null,{kind:'snippets'});
+ const overlay=h.windows.at(-1);
+ const event={sender:overlay.webContents,senderFrame:{url:overlay.url}};
+ assert.equal(h.rawHandlers.get('tool-overlay-data')(event,{}).rows[0].title,'回覆');
+ assert.throws(()=>h.rawHandlers.get('tool-overlay-data')({...event,sender:h.windows[0].webContents},{}),/不受信任/);
+ assert.throws(()=>h.rawHandlers.get('tool-overlay-action')(event,'visit',id),/只可複製/);
+ h.rawHandlers.get('tool-overlay-action')(event,'copy',id,'陳先生');
+ assert.equal(h.getCopied(),'您好 陳先生');
+ overlay.setBounds({...overlay.getNormalBounds(),width:675,height:590});overlay.emit('resized');
+ assert.deepEqual(h.handlers.get('desktop-settings-get')().toolWindowSizes.snippets,{width:675,height:590});
+ overlay.destroy();
+ h.handlers.get('tool-view-open')(null,{kind:'snippets'});
+ assert.equal(h.windows.at(-1).options.width,675);
+});

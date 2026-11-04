@@ -23,4 +23,4 @@ function perform(input){
  throw new Error('分享操作無效');
 }
 module.exports={FILE,validateFolder,packageIdentity,perform};
-if(require.main===module){const reply=message=>process.parentPort?process.parentPort.postMessage(message):process.send(message);const handle=input=>{try{reply({ok:true,result:perform(input)});}catch(error){reply({ok:false,error:String(error.message||error)});}};if(process.parentPort)process.parentPort.once('message',event=>handle(event.data));else process.once('message',handle);}
+if(require.main===module){const reply=message=>process.parentPort?process.parentPort.postMessage(message):process.send(message);const handle=async input=>{try{const folder=validateFolder(input.folder);const result=await require('./intranet-path').withIntranetPaths([folder],()=>perform(input));reply({ok:true,result});}catch(error){reply({ok:false,error:String(error.message||error)});}};if(process.parentPort)process.parentPort.once('message',event=>handle(event.data));else process.once('message',handle);}

@@ -135,3 +135,29 @@ test('master table creation and legacy detail adoption need no user-created grou
 test('client detail completion accepts a master table ID and preserves an independent legacy master',t=>{
  const {store}=setup(t),root=store.saveSheet({name:'客戶清單',fields:[]}).document.sheets[0];record(store,root,'Existing');const result=store.completeClientDetails(root.id,store.get().revision);assert.equal(result.result.added.length,4);assert.equal(result.document.records[0].title,'Existing');assert.equal(result.document.sheets[0].id,root.id);for(const sheet of result.document.sheets.slice(1))assert.equal(M.parentField(result.document,sheet).targetSheetId,root.id);assert.deepEqual(store.completeClientDetails(root.id,result.revision).result.added,[]);
 });
+
+test('checkbox-to-select migration maps both stored values, keeps blanks and updates recycled rows atomically',t=>{
+ const {store}=setup(t),doc=store.addTemplate().document;
+ const master=doc.sheets[0],sheet=doc.sheets.find(item=>item.name==='紀錄');
+ const relation=sheet.fields.find(field=>field.type==='relation');
+ const checkbox=sheet.fields.find(field=>field.type==='checkbox');
+ const owner=record(store,master,'客戶').result.id;
+ const create=(title,value)=>record(store,sheet,title,{[relation.id]:[owner],
+  ...(value===undefined?{}:{[checkbox.id]:value})}).result.id;
+ const done=create('完成',true),pending=create('未完成',false),blank=create('未設定');
+ store.trash('record',pending,1);
+ const before=store.get();
+ const input={...sheet,expectedVersion:sheet.version,baseRevision:before.revision,
+  fields:sheet.fields.map(field=>field===checkbox?{...field,type:'select',options:['待處理','已處理','暫停']}:field)};
+ assert.throws(()=>store.saveSheet(input),/各自對應/);
+ assert.deepEqual(store.get(),before);
+ const {document}=store.saveSheet({...input,checkboxMappings:{[checkbox.id]:{checked:'已處理',unchecked:'待處理'}}});
+ const find=id=>document.records.find(item=>item.id===id);
+ assert.equal(find(done).values[checkbox.id],'已處理');
+ assert.equal(find(pending).values[checkbox.id],'待處理');
+ assert.ok(find(pending).deletedAt);
+ assert.equal(find(blank).values[checkbox.id],undefined);
+ assert.equal(find(blank).version,1);
+ assert.equal(store.history(done)[0].record.values[checkbox.id],true);
+ assert.throws(()=>store.saveSheet(input),/已變更/);
+});

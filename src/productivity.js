@@ -6,10 +6,24 @@
  let callbacks,busy=false,dirty=true,loaded=false,section='repair',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),dragging=null,refreshRequest=0;
  const liveRecords=()=>state?.workspace.document.records.filter(record=>!record.deletedAt&&state.workspace.document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt))||[];
  const configuration=()=>({settings:window.settingsUI.get(),shortcuts:window.studioShortcuts.getBindings(),...callbacks.configuration()});
- function status(text,error=false){$('productivity-status').textContent=text;$('productivity-status').classList.toggle('error',error);}
+ function status(text,error=false){
+  for(const id of ['productivity-status','planning-status']){
+   const target=$(id);if(!target)continue;
+   target.textContent=text;target.classList.toggle('error',error);
+  }
+ }
  async function run(task,message){if(busy||callbacks.isBusy())return;busy=true;status('處理中…');const disabled=[...$('productivity-page').querySelectorAll('button,input,textarea,select')].map(el=>[el,el.disabled]);disabled.forEach(([el])=>el.disabled=true);try{const result=await task();if(message)status(typeof message==='function'?message(result):message);return result;}catch(error){status(String(error.message||error),true);callbacks.showFailure('操作未完成',error);return undefined;}finally{busy=false;disabled.forEach(([el,value])=>{if(el.isConnected)el.disabled=value;});updateActions();}}
  async function load(){const request=++refreshRequest,data=await api.get();if(request!==refreshRequest)return;state=data;loaded=true;dirty=false;render();}
- function show(value){if(busy)return;section=value;for(const el of $('productivity-nav').querySelectorAll('button'))el.setAttribute('aria-pressed',String(el.dataset.productivity===value));for(const el of $('productivity-page').querySelectorAll('.productivity-panel'))el.hidden=el.id!=='productivity-'+value;if(value==='calendar')renderPlanning();}
+ function show(value){
+  if(value==='calendar'||value==='logs'){
+   window.favoritesUI.show(value==='calendar'?'planning':'logs');
+   return;
+  }
+  section=value;
+  for(const item of $('productivity-nav').querySelectorAll('button'))item.setAttribute('aria-pressed',String(item.dataset.productivity===value));
+  for(const panel of $('productivity-page').querySelectorAll('.productivity-panel'))panel.hidden=panel.id!=='productivity-'+value;
+ }
+
  function options(id,items,empty='請選擇'){const select=$(id),old=select.value;select.replaceChildren();if(empty!==null){const option=node('option',empty);option.value='';select.append(option);}for(const item of items){const option=node('option',item.label);option.value=item.id;select.append(option);}if(items.some(item=>item.id===old))select.value=old;}
  function empty(root,text){if(!root.children.length)root.append(node('p',text,'productivity-empty'));}
  function render(){renderBackups();renderRules();renderSnippets();renderWorksets();renderWorkChoices();const sheets=state.workspace.document.sheets.filter(sheet=>!sheet.deletedAt);options('planning-sheet',sheets.map(sheet=>({id:sheet.id,label:sheet.name})),'全部表格');renderFields();renderPlanning();updateActions();}
@@ -33,19 +47,85 @@
  async function remove(kind,id){if(!window.confirm('確定刪除此項目？'))return;await run(async()=>{await api.remove(kind,id);await load();},'已刪除。');}
  function renderFields(){const sheet=state?.workspace.document.sheets.find(value=>value.id===$('planning-sheet').value);options('planning-field',(sheet?.fields||[]).filter(field=>field.type==='select').map(field=>({id:field.id,label:field.label})));if(!$('planning-field').value&&$('planning-field').options.length>1)$('planning-field').selectedIndex=1;}
  function renderPlanning(){if(!state)return;const board=$('planning-mode').value==='board',root=$('planning-content');$('planning-month-wrap').hidden=board;$('planning-field-wrap').hidden=!board;root.replaceChildren();const query=$('planning-query').value.toLocaleLowerCase(),document=state.workspace.document,sheetId=$('planning-sheet').value;if(board){if(!sheetId||!$('planning-field').value){root.append(node('p','請選擇表格及單選狀態欄位。','productivity-empty'));return;}const columns=M.board(document,sheetId,$('planning-field').value),area=node('div',undefined,'productivity-board');for(const column of columns){const group=node('section',undefined,'productivity-column');group.append(node('h3',column.label+' · '+column.records.length));group.addEventListener('dragover',event=>{if(dragging&&!busy)event.preventDefault();});group.addEventListener('drop',event=>{event.preventDefault();if(dragging&&!busy){const id=dragging;dragging=null;moveCard(id,column.value);}});for(const record of column.records.filter(record=>(record.title+' '+record.notes).toLocaleLowerCase().includes(query))){const card=node('article',undefined,'productivity-card productivity-board-card');card.draggable=true;card.addEventListener('dragstart',event=>{if(busy){event.preventDefault();return;}dragging=record.id;event.dataTransfer.setData('application/x-bfs-board',record.id);});card.addEventListener('dragend',()=>dragging=null);card.append(button(record.title,()=>openRecord(record.id)),node('p',record.notes.slice(0,200)));const select=node('select');select.setAttribute('aria-label',record.title+' 的'+document.sheets.find(sheet=>sheet.id===sheetId).fields.find(field=>field.id===$('planning-field').value).label);for(const target of columns){const option=node('option',target.label);option.value=target.value;select.append(option);}select.value=column.value;select.addEventListener('change',()=>moveCard(record.id,select.value));card.append(select);group.append(card);}area.append(group);}root.append(area);return;}
-  const month=$('planning-month').value;if(!month)return;const events=M.agenda(document,state.reminders.items,month).filter(event=>(!sheetId||document.records.find(record=>record.id===event.recordId)?.sheetId===sheetId)&&(event.title+' '+event.sheet+' '+event.label).toLocaleLowerCase().includes(query)),area=node('div',undefined,'productivity-month');for(const day of ['日','一','二','三','四','五','六'])area.append(node('strong',day));const [year,number]=month.split('-').map(Number),first=new Date(year,number-1,1).getDay(),count=new Date(year,number,0).getDate(),today=new Date().toLocaleDateString('sv-SE');for(let i=0;i<first;i++)area.append(node('div'));for(let day=1;day<=count;day++){const date=month+'-'+String(day).padStart(2,'0'),cell=node('div',undefined,'productivity-day');cell.dataset.today=String(today===date);cell.append(node('strong',String(day)));for(const event of events.filter(event=>event.date===date)){const control=button((event.kind==='reminder'?'◷ ':'')+event.title+' · '+event.label,()=>openRecord(event.recordId),'btn btn-ghost productivity-event');control.title=event.sheet+(event.at?' ／ '+new Date(event.at).toLocaleString():'');cell.append(control);}area.append(cell);}root.append(node('p',events.length+' 個日期／提醒','notes-hint'),area);
+  const month=$('planning-month').value;if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return;const events=M.agenda(document,state.reminders.items,month).filter(event=>(!sheetId||document.records.find(record=>record.id===event.recordId)?.sheetId===sheetId)&&(event.title+' '+event.sheet+' '+event.label).toLocaleLowerCase().includes(query)),area=node('div',undefined,'productivity-month');for(const day of ['日','一','二','三','四','五','六'])area.append(node('strong',day));const [year,number]=month.split('-').map(Number),first=new Date(year,number-1,1).getDay(),count=new Date(year,number,0).getDate(),today=new Date().toLocaleDateString('sv-SE');for(let i=0;i<first;i++)area.append(node('div'));for(let day=1;day<=count;day++){const date=month+'-'+String(day).padStart(2,'0'),cell=node('div',undefined,'productivity-day');cell.dataset.today=String(today===date);cell.append(node('strong',String(day)));for(const event of events.filter(event=>event.date===date)){const control=button((event.kind==='reminder'?'◷ ':'')+event.title+' · '+event.label,()=>openRecord(event.recordId),'btn btn-ghost productivity-event');control.title=event.title+' · '+event.label+' ／ '+event.sheet+(event.at?' ／ '+new Date(event.at).toLocaleString():'');cell.append(control);}area.append(cell);}root.append(node('p',events.length+' 個日期／提醒','notes-hint'),area);
  }
  async function moveCard(id,value){await run(async()=>{await api.boardMove(id,$('planning-field').value,value,state.workspace.revision);await load();},'狀態已更新。');}
  async function showPreview(value){if(!value||value.canceled)return;if(value.type==='pdf'){status('已開啟 PDF 預覽視窗：'+value.name);return;}$('document-preview-title').textContent=value.name;$('document-preview-path').textContent=value.path;const root=$('document-preview-content');root.replaceChildren();if(value.type==='image'){const image=node('img');image.alt=value.name;image.addEventListener('error',()=>root.replaceChildren(node('p','此圖片無法解碼，請確認格式與檔案是否完整。')));image.src=value.data;root.append(image);}else root.append(node('pre',value.text));$('document-preview-dialog').showModal();}
  function updateActions(){const hasRepair=Boolean(repair?.rows.some(row=>row.ready));$('repair-select').disabled=busy||!hasRepair;$('repair-apply').disabled=busy||!hasRepair||!repairKeys().length;for(const action of ['tag','rename','move'])$('rule-'+action).disabled=busy||!suggestions||!rulePaths().length;$('backup-restore').disabled=busy||!restore;}
- function init(config){callbacks=config;$('tab-productivity').addEventListener('click',()=>window.favoritesUI.show('productivity'));$('productivity-nav').addEventListener('click',event=>{const target=event.target.closest('[data-productivity]');if(target)show(target.dataset.productivity);});$('productivity-refresh').addEventListener('click',()=>run(load,'已重新整理。'));
+ let logView,pendingLogs;
+ function openLogs(reset=false){
+  const config=pendingLogs||{kind:'logs'};
+  pendingLogs=null;
+  if(!reset&&logView&&config.sheetId===undefined){logView.refresh();return;}
+  logView?.dispose();
+  logView=window.toolViewsUI?.mount($('logs-page'),{
+   data:filters=>api.viewData(config,filters),
+   clearScope:config.sheetId?()=>openLogs(true):null,
+   action:(_,id)=>window.notesUI.openSearchTarget('record',id)
+  },config);
+ }
+ function snippetPicker(target,customer=()=>''){
+  const details=node('details',undefined,'snippet-picker');
+  details.append(node('summary','插入常用文字片段'));
+  const list=node('select');list.setAttribute('aria-label','選擇常用文字片段');
+  const feedback=node('small');feedback.setAttribute('role','status');
+  const insert=button('插入',async()=>{
+   const id=list.value;if(!id)return;
+   const start=target.selectionStart??target.value.length,end=target.selectionEnd??start;
+   const previous=target.value;insert.disabled=true;
+   try{
+    const value=await api.snippetText(id,customer());
+    if(!details.isConnected||!details.open||!target.isConnected||target.value!==previous)throw new Error('欄位已變更，請重新插入');
+    if(target.maxLength>=0&&previous.length-(end-start)+value.length>target.maxLength)throw new Error('插入後會超過欄位字數上限');
+    target.setRangeText(value,start,end,'end');
+    target.dispatchEvent(new Event('input',{bubbles:true}));
+    target.focus();feedback.textContent='已插入文字片段';
+   }catch(error){feedback.textContent=error.message;}finally{insert.disabled=!list.value;}
+  });
+  const copy=button('開啟浮動片段',()=>api.openOverlay({kind:'snippets'}).catch(error=>feedback.textContent=error.message));
+  insert.disabled=true;
+  details.append(list,insert,copy,feedback);
+  list.addEventListener('change',()=>insert.disabled=!list.value);
+  details.addEventListener('toggle',async()=>{
+   if(!details.open)return;
+   try{
+    const rows=await api.snippetList(),previous=list.value;
+    list.replaceChildren();
+    const hint=node('option',rows.length?'選擇文字片段…':'尚未建立文字片段');hint.value='';list.append(hint);
+    for(const item of rows){const option=node('option',[item.category,item.name].filter(Boolean).join(' ／ '));option.value=item.id;list.append(option);}
+    list.value=rows.some(item=>item.id===previous)?previous:'';insert.disabled=!list.value;
+   }catch(error){feedback.textContent=error.message;}
+  });
+  return details;
+ }
+ function init(config){callbacks=config;
+  $('tab-planning')?.addEventListener('click',()=>window.favoritesUI.show('planning'));
+  $('tab-logs')?.addEventListener('click',()=>window.favoritesUI.show('logs'));
+  for(const [id,kind] of [['planning-overlay','planning'],['snippets-overlay','snippets']]){
+   $(id)?.addEventListener('click',()=>api.openOverlay({kind}).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
+  }
+  api.onToolOpen?.(config=>{
+   const page=config.kind==='snippets'?'productivity':config.kind;
+   if(config.kind==='logs')pendingLogs=config;
+   if(!window.favoritesUI.show(page)){
+    pendingLogs=null;
+    callbacks.showFailure('請先完成目前操作','原有輸入已保留');
+    return;
+   }
+   if(config.kind==='snippets')show('snippets');
+  });
+$('tab-productivity').addEventListener('click',()=>window.favoritesUI.show('productivity'));$('productivity-nav').addEventListener('click',event=>{const target=event.target.closest('[data-productivity]');if(target)show(target.dataset.productivity);});$('productivity-refresh').addEventListener('click',()=>run(load,'已重新整理。'));
   $('repair-folder').addEventListener('click',()=>run(async()=>{const value=await api.folder();if(value)$('repair-to').value=value;}));$('repair-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{repair=null;$('repair-list').replaceChildren();repair=await api.repairPreview($('repair-from').value,$('repair-to').value);renderRepair();},value=>'請核對新舊位置後勾選修復項目。');});for(const id of ['repair-from','repair-to'])$(id).addEventListener('input',()=>{repair=null;$('repair-list').replaceChildren();updateActions();});$('repair-select').addEventListener('click',()=>{for(const check of $('repair-list').querySelectorAll('input'))check.checked=!check.disabled;updateActions();});$('repair-list').addEventListener('change',updateActions);$('repair-apply').addEventListener('click',()=>run(async()=>{const result=await api.repairApply(repair.token,repairKeys(),configuration());if(!result.canceled){repair=null;$('repair-list').replaceChildren();await load();}return result;},result=>result.canceled?'已取消':'已修復 '+result.updated+' 項；修復前備份已保留。'));
   $('backup-create').addEventListener('click',()=>run(async()=>{const result=await api.backupCreate(configuration());await load();return result;},'完整備份已建立。'));$('backup-import').addEventListener('click',()=>previewBackup());$('backup-cancel').addEventListener('click',()=>{restore=null;$('backup-preview').hidden=true;updateActions();});$('backup-restore').addEventListener('click',()=>run(async()=>{const result=await api.backupRestore(restore.token,configuration());if(!result.canceled)await applyRestored(result.ui);return result;},result=>result.canceled?'已取消':'還原完成，正在重新載入。'));
   $('rule-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{const input={};for(const key of ['id','name','extensions','contains','after','before','prefix','folder'])input[key]=$(key==='prefix'?'organize-prefix':'rule-'+key).value;input.tags=$('rule-tags').value.split(/[,，]/).map(value=>value.trim()).filter(Boolean);await api.save('rules',input);clearRule();suggestions=null;renderSuggestions();await load();},'規則已儲存。');});$('rule-new').addEventListener('click',clearRule);$('rule-pick-folder').addEventListener('click',()=>run(async()=>{const value=await api.folder();if(value)$('rule-folder').value=value;}));$('rule-preview').addEventListener('click',()=>run(async()=>{suggestions=null;renderSuggestions();if(!$('rule-select').value)throw new Error('請先選擇整理規則');const paths=await api.rulesChoose();if(!paths.length)return;suggestions=await api.rulesPreview($('rule-select').value,paths);renderSuggestions();},'已產生建議，確認後才套用。'));$('rule-select').addEventListener('change',()=>{suggestions=null;renderSuggestions();});$('rule-results').addEventListener('change',updateActions);for(const action of ['tag','rename','move'])$('rule-'+action).addEventListener('click',()=>ruleAction(action));
   $('workset-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{if(!workFavorites.size&&!workRecords.size)throw new Error('請至少選取一個收藏或紀錄');await api.save('worksets',{id:$('workset-id').value,name:$('workset-name').value,favoriteIds:[...workFavorites],recordIds:[...workRecords]});clearWorkset();await load();},'工作集已儲存。');});$('workset-query').addEventListener('input',renderWorkChoices);$('workset-new').addEventListener('click',clearWorkset);
   $('snippet-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{await api.save('snippets',{id:$('snippet-id').value,name:$('snippet-name').value,category:$('snippet-category').value,body:$('snippet-body').value});clearSnippet();await load();},'文字片段已儲存。');});$('snippet-new').addEventListener('click',clearSnippet);$('snippet-query').addEventListener('input',renderSnippets);$('snippet-customer').addEventListener('input',renderSnippets);
   $('planning-month').value=new Date().toLocaleDateString('sv-SE').slice(0,7);$('planning-mode').addEventListener('change',renderPlanning);$('planning-month').addEventListener('change',renderPlanning);$('planning-field').addEventListener('change',renderPlanning);$('planning-query').addEventListener('input',renderPlanning);$('planning-sheet').addEventListener('change',()=>{renderFields();renderPlanning();});$('document-choose').addEventListener('click',async()=>showPreview(await run(()=>api.previewChoose())));$('document-preview-close').addEventListener('click',()=>$('document-preview-dialog').close());$('document-preview-dialog').addEventListener('close',()=>$('document-preview-content').replaceChildren());
-  const changed=()=>{dirty=true;};window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
+  const changed=()=>{
+   dirty=true;
+   if(!$('logs-page')?.classList.contains('hidden'))logView?.refresh();
+   if(!busy&&$('planning-page')&&!$('planning-page').classList.contains('hidden'))run(load);
+  };window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
  }
- window.productivityUI=Object.freeze({init,canLeave:()=>!busy,activate:()=>{if(!loaded||dirty)return run(load);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
+ window.productivityUI=Object.freeze({init,openLogs,snippetPicker,canLeave:()=>!busy,activate:()=>{if(!loaded||dirty)return run(load);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();

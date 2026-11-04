@@ -34,7 +34,7 @@
     catch(e){$('settings-data-path').textContent=String(e.message||e);}
   }
   function init(options) {
-    callbacks=options;window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(page=>{if(['home','notes','favorites','search','rename','settings','productivity'].includes(page)){if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}window.favoritesUI.show(page);}});syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();
+    callbacks=options;window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(page=>{if(['home','notes','favorites','search','rename','settings','productivity','planning','logs'].includes(page)){if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}window.favoritesUI.show(page);}});syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();
     let nativeValues={},availableTags=[];
     const makeCheck=(parent,text,checked,onChange)=>{const label=document.createElement('label'),input=document.createElement('input'),span=document.createElement('span');label.className='check-row';input.type='checkbox';input.checked=checked;input.addEventListener('change',()=>onChange(input.checked));span.textContent=text;label.append(input,span);parent.appendChild(label);return input;};
     const buttonChecks=new Map();

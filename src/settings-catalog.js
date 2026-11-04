@@ -220,7 +220,7 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
