@@ -347,3 +347,45 @@ test('choosing a package automatically previews after the busy read finishes wit
 test('shared preview defaults can be saved separately while an explicit source clone remains a one-time choice',async t=>{
  const h=setup(t);h.store.addTemplate();const packet=M.exportPackage(h.store.get().document,{scope:'all'});h.api.shareStatus=async()=>({enabled:true,folder:'/share',files:[{name:'source.json'}],total:1});h.api.shareLoad=async name=>({name});h.api.importPreview=async mode=>h.store.importPreview(packet,mode);h.ui.activate();await flush();h.els.get('notes-share-open').events.click();await flush();findButton(h.els.get('notes-share-files'),'複製到本機').events.click();await flush();assert.equal(h.els.get('notes-import-mode').value,'clone');assert.match(h.els.get('notes-import-default-hint').textContent,/共享資料包.*預設：共享差異合併.*本次使用：複製來源/);assert.equal(h.preferences.notesSharedImportMode,'merge');h.els.get('notes-import-save-default').events.click();assert.equal(h.preferences.notesSharedImportMode,'clone');assert.equal(h.preferences.notesImportMode,'copy');assert.equal(h.els.get('notes-transfer-apply').disabled,false);assert.deepEqual(h.errors,[]);
 });
+
+test('shared conflict UI requires a choice, previews the merged result and writes only on confirmation',async t=>{
+ const h=setup(t),sheet=h.store.addTemplate().document.sheets[0];
+ h.store.saveRecord({sheetId:sheet.id,title:'Before',notes:'Common',tags:[],values:{},fileLinks:[]});
+ const packet=M.exportPackage(h.store.get().document,{scope:'all'});
+ const meta={source:crypto.randomUUID(),profileId:'default',sourceRevision:1,sourceVersion:1};
+ h.store.importCommit(h.store.importPreview(packet,'merge',meta).token);
+ const record=h.store.get().document.records[0];
+ h.store.saveRecord({...record,expectedVersion:record.version,notes:'<b>Local</b>'});
+ packet.document.records[0].title='Renamed';
+ packet.document.records[0].notes='Source';
+ const incoming={...meta,sourceRevision:2,sourceVersion:2};
+ h.api.shareStatus=async()=>({enabled:true,folder:'/share',files:[{name:'source.json'}],total:1});
+ h.api.shareLoad=async name=>({name,supportsMerge:true});
+ h.api.importPreview=async(mode,resolution)=>h.store.importPreview(packet,mode,incoming,{reviewConflicts:true,resolution});
+ h.api.importCommit=async token=>h.store.importCommit(token);
+ h.ui.activate();
+ await flush();
+ h.els.get('notes-share-open').events.click();
+ await flush();
+ findButton(h.els.get('notes-share-files'),'比較並匯入').events.click();
+ await flush();
+ const apply=h.els.get('notes-transfer-apply'),resolve=h.els.get('notes-transfer-resolve');
+ const list=h.els.get('notes-transfer-conflict-list');
+ assert.match(list.textContent,/Common.*<b>Local<\/b>.*Source/);
+ assert.equal(apply.disabled,true);
+ assert.equal(resolve.disabled,true);
+ const choice=descendants(list).find(node=>node.tagName==='SELECT');
+ choice.value='local';
+ choice.events.change();
+ assert.equal(resolve.disabled,false);
+ await resolve.onclick();
+ assert.equal(h.els.get('notes-transfer-conflicts').hidden,true);
+ assert.equal(apply.disabled,false);
+ assert.equal(h.store.get().document.records[0].title,'Before');
+ apply.events.click();
+ await flush();
+ const saved=h.store.get().document.records[0];
+ assert.equal(saved.title,'Renamed');
+ assert.equal(saved.notes,'<b>Local</b>');
+ assert.deepEqual(h.errors,[]);
+});

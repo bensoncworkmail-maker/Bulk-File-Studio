@@ -98,12 +98,16 @@ class NotesStore {
  hasSharedBase(context){return Boolean(this.sharedBase(SharedMerge.identity(context)));}
  saveSharedBase(value){
   if(!value)return;
-  const data=JSON.stringify(value);
+  let data=JSON.stringify(value);
+  if(Buffer.byteLength(data)>model.LIMITS.bytes&&value.display){
+   const {display,...hashes}=value;
+   data=JSON.stringify(hashes);
+  }
   if(Buffer.byteLength(data)>model.LIMITS.bytes)throw new Error('共享基準超過 20 MB，請縮小接收範圍');
   this.db.prepare('INSERT OR REPLACE INTO share_merge_base VALUES (?,?)').run(value.profileId,data);
   this.db.exec('DELETE FROM share_merge_base WHERE profile_id NOT IN (SELECT profile_id FROM share_merge_base ORDER BY rowid DESC LIMIT 51)');
  }
- planImport(state,input,mode,context){
+ planImport(state,input,mode,context,review){
   const sharing=require('./notes-sharing-model'),now=new Date().toISOString();
   const meta=SharedMerge.identity(context);
   if(mode!=='merge'){
@@ -115,19 +119,45 @@ class NotesStore {
   const projected=sharing.project(input,context.scope),incoming=model.readPackage(projected.data);
   const prior=this.sharedBase(meta),base=SharedMerge.baseline(incoming,meta);
   if(prior&&SharedMerge.older(prior,meta))throw new SharedMerge.MergeConflict('這份資料包早於已接收版本，請選擇較新的版本。');
-  if(prior&&SharedMerge.sameVersion(prior,meta)&&SharedMerge.digest(prior)!==SharedMerge.digest(base)){
+  if(prior&&SharedMerge.sameVersion(prior,meta)&&SharedMerge.contentDigest(prior)!==SharedMerge.contentDigest(base)){
    throw new SharedMerge.MergeConflict('同一發布版本的資料內容有變更，請來源重新發布。');
   }
-  return {...SharedMerge.merge(state.document,incoming,prior,now,projected.managed),incoming,base,scope:projected.config};
+  return {...SharedMerge.merge(state.document,incoming,prior,now,projected.managed,review),incoming,base,scope:projected.config};
  }
- importPreview(input,mode,context={}){
-  this.pending=null;const state=this.get(),merged=this.planImport(state,input,mode,context),incoming=merged.incoming;if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
+ importPreview(input,mode,context={},options={}){
+  let review=options.reviewConflicts&&mode==='merge'?{}:undefined;
+  const resolution=options.resolution;
+  if(resolution!==undefined){
+   if(!review||!resolution)throw new Error('請先預覽共享差異合併');
+   const pending=this.takePreview(resolution.token,'merge-review');
+   if(pending.input!==input||!Array.isArray(resolution.choices)||resolution.choices.length!==pending.conflictIds.size){
+    throw new Error('請處理所有共享衝突後再預覽');
+   }
+   const decisions=new Map();
+   for(const decision of resolution.choices){
+    if(!pending.conflictIds.has(decision?.id)||decisions.has(decision.id))throw new Error('無效的共享衝突選擇');
+    decisions.set(decision.id,decision);
+   }
+   review={decisions};
+  }else this.pending=null;
+  const state=this.get(),previewContext={...context,packageVersion:input.packageVersion,localRevision:state.revision};
+  let merged;
+  try{merged=this.planImport(state,input,mode,context,review);}
+  catch(error){
+   if(!review||resolution||!(error instanceof SharedMerge.MergeConflict)||!error.review)throw error;
+   const token=crypto.randomUUID();
+   this.pending={kind:'merge-review',token,revision:state.revision,input,expires:Date.now()+600000,
+    conflictIds:new Set(error.review.map(conflict=>conflict.id))};
+   return {token,mode,context:previewContext,scope:context.scope,conflicts:error.review};
+  }
+  const incoming=merged.incoming;
+  if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
   if(mode==='update'||mode==='clone')Audit.preserveUnchanged(state.document,merged.document);
   const resultIds=new Set(merged.document.records.map(record=>record.id));
   const auditInput=mode==='merge'?{...incoming,records:incoming.records.filter(record=>resultIds.has(record.id))}:incoming;
   const records=Audit.importRows(state.document,auditInput,merged.document,mode),structure=Audit.structureChanges(state.document,merged.document),counts=Object.fromEntries(['added','updated','skipped','unchanged',...(mode==='clone'?['removed']:[])].map(status=>[status,records.filter(row=>row.status===status).length]));
   const summary={...merged.summary,...counts,counts};this.pending={kind:'import',token:crypto.randomUUID(),revision:state.revision,data:merged.document,expires:Date.now()+600000,summary,context:{operation:mode==='clone'?'複製來源到本機':mode==='merge'?'共享差異合併':'匯入資料包',...context},mode,base:merged.base,incoming:mode==='skip'?incoming:null,recordKeys:new Set(records.map(row=>row.key))};
-  return {token:this.pending.token,...summary,mode,scope:merged.scope,context:{...context,packageVersion:input.packageVersion,localRevision:state.revision},structure,tagLinks:incoming.records.reduce((sum,record)=>sum+record.favoriteTagLinks.length,0),links:incoming.records.reduce((sum,record)=>sum+record.fileLinks.length,0),records,sheets:incoming.sheets.map(sheet=>({name:sheet.name,count:incoming.records.filter(record=>record.sheetId===sheet.id).length}))};
+  return {token:this.pending.token,...summary,mode,scope:merged.scope,context:previewContext,structure,tagLinks:incoming.records.reduce((sum,record)=>sum+record.favoriteTagLinks.length,0),links:incoming.records.reduce((sum,record)=>sum+record.fileLinks.length,0),records,sheets:incoming.sheets.map(sheet=>({name:sheet.name,count:incoming.records.filter(record=>record.sheetId===sheet.id).length}))};
  }
  cancelPreview(token){if(this.pending?.token===token)this.pending=null;return {canceled:true};}
  importDetails(token,key){const pending=this.takePreview(token,'import');if(!pending.recordKeys.has(key))throw new Error('預覽紀錄無效');const state=this.get(),before=Audit.view(state.document),after=Audit.view(pending.data),old=before.records.get(key),next=pending.mode==='skip'?pending.incoming.records.find(record=>record.id===key):after.records.get(key);return {key,title:next?.title||old.title,status:!next?'removed':!old?'added':pending.mode==='skip'?'skipped':'compared',changes:Audit.recordChanges(old,next,before,pending.mode==='skip'?Audit.view(pending.incoming):after),note:!next?'來源複製會移除此筆本機紀錄；確認前會備份。':pending.mode==='skip'&&old?'略過模式保留本機版本；不套用這筆來源內容。':'顯示本次匯入將造成的差異；不是發布者完整操作歷史。'};}
