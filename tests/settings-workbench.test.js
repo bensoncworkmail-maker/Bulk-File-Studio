@@ -92,3 +92,16 @@ test('the info page displays recent history and searches across earlier releases
  assert.equal(list.hidden,false);
  assert.equal(results.hidden,true);
 });
+
+test('calendar master label setting applies to the view and persists with workspace preferences',async()=>{
+ const h=setup();
+ await flush();
+ const control=h.$('settings-planning-day-show-master');
+ assert.equal(control.checked,false);
+ assert.equal(h.document.documentElement.dataset.planningDayShowMaster,'false');
+ control.checked=true;
+ await control.dispatch('change');
+ assert.equal(h.document.documentElement.dataset.planningDayShowMaster,'true');
+ assert.equal(JSON.parse(h.saved[Settings.KEY]).planningDayShowMaster,true);
+ assert.equal(Catalog.resetPatch('renderer','notes',Settings.DEFAULTS).planningDayShowMaster,false);
+});

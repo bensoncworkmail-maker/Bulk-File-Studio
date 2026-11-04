@@ -5,7 +5,7 @@
  function init(){
   const form=$('floating-panel-settings'),list=$('floating-panel-options'),initial=$('floating-panel-default');
   const collapsed=$('floating-panel-collapsed'),mode=$('floating-panel-calendar-mode');
-  const layout=$('floating-panel-snippet-layout');
+  const layout=$('floating-panel-snippet-layout'),marker=$('floating-panel-calendar-marker');
   const query=$('floating-panel-snippet-query'),status=$('floating-panel-settings-status');
   const fields=form.querySelector('fieldset');
   let draft=normalize(),dirty=false,saving=false,last;
@@ -52,14 +52,14 @@
    if(last===signature)return;
    draft=next;last=signature;
    rows();selectOptions();
-   collapsed.checked=draft.collapsedMenu;mode.value=draft.planningMode;query.value=draft.snippetQuery;layout.value=draft.snippetLayout;
+   collapsed.checked=draft.collapsedMenu;mode.value=draft.planningMode;marker.value=draft.planningDayMarker;query.value=draft.snippetQuery;layout.value=draft.snippetLayout;
    fields.disabled=false;
   }
   initial.addEventListener('change',()=>{draft.defaultPanel=initial.value;edit();});
-  for(const control of [collapsed,mode,query,layout])control.addEventListener('input',edit);
+  for(const control of [collapsed,mode,marker,query,layout])control.addEventListener('input',edit);
   form.addEventListener('submit',async event=>{
    event.preventDefault();if(saving)return;
-   const value={...draft,collapsedMenu:collapsed.checked,planningMode:mode.value,snippetQuery:query.value,snippetLayout:layout.value};
+   const value={...draft,collapsedMenu:collapsed.checked,planningMode:mode.value,planningDayMarker:marker.value,snippetQuery:query.value,snippetLayout:layout.value};
    saving=true;fields.disabled=true;
    try{
     const result=await window.desktopAPI.configure({floatingPanels:value});

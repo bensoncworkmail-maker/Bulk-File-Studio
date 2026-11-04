@@ -623,6 +623,11 @@
               </div>
               <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
                 <section class="settings-card">
+                  <h2>日曆／看板</h2>
+                  <label class="check-row"><input id="settings-planning-day-show-master" type="checkbox"><span>在月曆日期格顯示主紀錄名稱</span></label>
+                  <p class="rule-hint">日期格先顯示行程的紀錄名稱。開啟後，所屬主紀錄會另列在下方。點選日期可查看完整行程。</p>
+                </section>
+                <section class="settings-card">
                   <h2>查看紀錄</h2>
                   <p class="rule-hint">設定主視窗與浮動紀錄的預設表格、顯示方式及排序。指定單一表格的浮動快捷仍直接開啟該表格。</p>
                   <form id="log-settings-form">
@@ -946,6 +951,7 @@
                       <label class="field"><span>浮動工具啟動分頁</span><select id="floating-panel-default"></select></label>
                       <label class="check-row"><input id="floating-panel-collapsed" type="checkbox"><span>收合時在標題列選單保留分頁入口</span></label>
                       <label class="field"><span>浮動日曆預設檢視</span><select id="floating-panel-calendar-mode"><option value="calendar">月曆</option><option value="list">行程清單</option><option value="board">狀態看板</option></select></label>
+                      <label class="field"><span>浮動月曆行程標記</span><select id="floating-panel-calendar-marker"><option value="dot">圓點（精簡）</option><option value="count">筆數（日期下方）</option></select></label>
                       <label class="field"><span>浮動文字片段預設顯示</span><select id="floating-panel-snippet-layout"><option value="compact">精簡</option><option value="preview">內容預覽</option></select></label>
                       <label class="field"><span>浮動文字片段預設搜尋</span><input id="floating-panel-snippet-query" type="search" maxlength="256" placeholder="例如 常用的片段分類"></label>
                       <button id="floating-panel-save" type="submit" class="btn btn-secondary">套用浮動內容設定</button>

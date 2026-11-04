@@ -34,6 +34,7 @@
  function paint(){
   painted=true;
   panels.sync(settings);
+  document.documentElement.dataset.planningDayMarker=settings.floatingPanels?.planningDayMarker==='count'?'count':'dot';
   layoutEditor?.apply();
   liveSearch.settingsChanged();$('mini-search-toggle').hidden=settings.floatingSearchPresentation!=='button'||settings.floatingShowSearch===false||settings.floatingGlobalSearch===false;$('mini-search').setAttribute('aria-label',liveSearch.enabled()?'即時全域搜尋':'搜尋目前模式');$('mini-search').title=liveSearch.enabled()?'停止輸入後顯示外部結果；Enter／向下鍵進入結果，Esc 收起。':'';$('mini-global-search').hidden=settings.floatingGlobalSearch===false;
   renderQuickActions();
