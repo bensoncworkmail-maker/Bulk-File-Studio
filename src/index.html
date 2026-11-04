@@ -104,29 +104,23 @@
       </section>
       <section id="planning-page" class="productivity-page hidden">
         <section id="productivity-calendar" class="productivity-panel">
-          <header class="tool-view-heading">
-            <div><h1>日曆／看板</h1><p>選擇日期查看當日行程，或用看板整理紀錄狀態。</p></div>
-            <button id="planning-overlay" type="button" class="btn btn-secondary">在浮動工具查看</button>
-          </header>
-          <div class="planning-controls">
+          <header class="planning-toolbar">
+            <h1>日曆／看板</h1>
             <div class="planning-modes" role="group" aria-label="日曆與看板檢視">
               <button id="planning-calendar-mode" type="button" class="btn btn-secondary" aria-pressed="true">月曆</button>
-              <button id="planning-board-mode" type="button" class="btn btn-secondary" aria-pressed="false">狀態看板</button>
+              <button id="planning-board-mode" type="button" class="btn btn-secondary" aria-pressed="false">看板</button>
             </div>
-            <div class="tool-view-filters">
-              <div id="planning-month-wrap">
-                <label>月份 <input id="planning-month" type="month"></label>
-                <div class="planning-month-actions" role="group" aria-label="切換月份">
-                  <button id="planning-month-prev" type="button" class="btn btn-ghost" aria-label="上個月">‹</button>
-                  <button id="planning-month-today" type="button" class="btn btn-ghost">本月</button>
-                  <button id="planning-month-next" type="button" class="btn btn-ghost" aria-label="下個月">›</button>
-                </div>
-              </div>
-              <label id="planning-sheet-wrap">表格 <select id="planning-sheet"></select></label>
-              <label id="planning-field-wrap" hidden>狀態欄位 <select id="planning-field"></select></label>
-              <label>搜尋 <input id="planning-query" type="search" maxlength="200" placeholder="搜尋標題或內容"></label>
+            <div id="planning-month-wrap" role="group" aria-label="切換月份">
+              <button id="planning-month-prev" type="button" class="btn btn-ghost" aria-label="上個月">‹</button>
+              <input id="planning-month" type="month" aria-label="月份">
+              <button id="planning-month-next" type="button" class="btn btn-ghost" aria-label="下個月">›</button>
+              <button id="planning-month-today" type="button" class="btn btn-ghost">今天</button>
             </div>
-          </div>
+            <select id="planning-sheet" aria-label="表格"></select>
+            <label id="planning-field-wrap" hidden><span class="sr-only">狀態欄位</span><select id="planning-field" aria-label="狀態欄位"></select></label>
+            <input id="planning-query" aria-label="搜尋行程或紀錄" type="search" maxlength="200" placeholder="搜尋行程或紀錄…">
+            <button id="planning-overlay" type="button" class="btn btn-secondary">浮動工具</button>
+          </header>
           <p id="planning-status" role="status"></p>
           <div id="planning-content"></div>
         </section>
@@ -711,7 +705,7 @@
                   </label>
                 </section>
                 <section class="settings-card">
-                  <h2>卡片顯示內容</h2><label class="field"><span>明細卡片寬度</span><select id="settings-notes-card-width-mode"><option value="title">隨標題調整（有上限）</option><option value="uniform">整齊等寬</option></select></label><label class="field"><span>明細卡片寬度上限（240–720 px）</span><input id="settings-notes-card-max-width" type="number" min="240" max="720" value="420"></label>
+                  <h2>卡片顯示內容</h2><label class="field"><span>主表與明細卡片寬度</span><select id="settings-notes-card-width-mode"><option value="title">隨標題調整（有上限）</option><option value="uniform">整齊等寬</option></select></label><label class="field"><span>主表與明細卡片寬度上限（240–720 px）</span><input id="settings-notes-card-max-width" type="number" min="240" max="720" value="420"></label>
                   <label class="field">
                     <span>卡片高度（px；0 為自動）</span>
                     <input id="settings-notes-card-height" type="number" min="0" max="600" step="1" value="0">
@@ -850,7 +844,7 @@
               <div id="settings-panel-sharing" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-sharing" hidden><section class="settings-card">
                   <h2>匯入預設與備份</h2><p class="rule-hint">程式版本與資料格式獨立；目前資料格式 3，可讀取舊資料包 1／2／3；指定主表共享採封裝 4，避免舊接收端誤套用全部。只傳送資料與連結，不含實體檔案。</p><button id="settings-notes-compat-check" class="btn btn-secondary">檢查舊資料包相容性（不匯入）</button><p id="settings-notes-compat-status" class="rule-hint"></p><label class="check-row"><input id="settings-notes-import-changes-only" type="checkbox"><span>匯入預覽預設只看有差異的紀錄</span></label>
                   <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="update">合併，更新相同識別碼</option><option value="skip">合併，略過重複紀錄</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select></label>
-                  <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="update">合併，更新相同識別碼（持續接收更新）</option><option value="skip">合併，略過重複紀錄</option><option value="copy">另存副本（獨立參考）</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select></label>
+                  <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="merge">差異合併（保留本機獨立修改）</option><option value="update">更新相同識別碼（以預覽的來源內容為準）</option><option value="skip">合併，略過重複紀錄</option><option value="copy">另存副本（獨立參考）</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select></label>
                   <p class="rule-hint">建議：一般獨立參考用「另存副本」，持續接收同一來源用「更新」，首次完整接收可手動選「複製來源到本機」。只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。來源複製會取代資料包未包含的本機表格與紀錄，須再次確認；保留 ID，不建立重複副本。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
                 </section><section class="settings-card">
                   <h2>共享資料包</h2><label class="check-row"><input id="settings-notes-share-quick" type="checkbox"><span>在工作區標題列顯示共享快捷操作</span></label><p class="rule-hint">快捷列只控制顯示。共享啟用、資料夾、接收方式與檢查間隔獨立儲存，不隨介面偏好還原。</p>
@@ -950,7 +944,8 @@
                       <div id="floating-panel-options"></div>
                       <label class="field"><span>浮動工具啟動分頁</span><select id="floating-panel-default"></select></label>
                       <label class="check-row"><input id="floating-panel-collapsed" type="checkbox"><span>收合時在標題列選單保留分頁入口</span></label>
-                      <label class="field"><span>浮動日曆預設檢視</span><select id="floating-panel-calendar-mode"><option value="calendar">月曆行程</option><option value="board">狀態看板</option></select></label>
+                      <label class="field"><span>浮動日曆預設檢視</span><select id="floating-panel-calendar-mode"><option value="calendar">月曆</option><option value="list">行程清單</option><option value="board">狀態看板</option></select></label>
+                      <label class="field"><span>浮動文字片段預設顯示</span><select id="floating-panel-snippet-layout"><option value="compact">精簡</option><option value="preview">內容預覽</option></select></label>
                       <label class="field"><span>浮動文字片段預設搜尋</span><input id="floating-panel-snippet-query" type="search" maxlength="256" placeholder="例如 常用的片段分類"></label>
                       <button id="floating-panel-save" type="submit" class="btn btn-secondary">套用浮動內容設定</button>
                     </fieldset>
@@ -2276,7 +2271,7 @@
     <dialog id="notes-card-dialog" class="modal notes-modal notes-small-modal" aria-labelledby="notes-card-dialog-title">
       <h2 id="notes-card-dialog-title">卡片版面與顯示欄位</h2>
       <details id="notes-card-display" open>
-        <summary>所有紀錄卡片的顯示設定</summary><label class="field"><span>明細卡片寬度</span><select id="notes-card-width-mode"><option value="title">隨標題調整（有上限）</option><option value="uniform">整齊等寬</option></select></label><label class="field"><span>寬度上限（240–720 px）</span><input id="notes-card-max-width" type="number" min="240" max="720" value="420"></label><p class="notes-hint">短標題保留基本寬度，長標題可加寬至上限並換行。主表卡片與混合搜尋維持等寬，避免排列跳動。</p>
+        <summary>所有紀錄卡片的顯示設定</summary><label class="field"><span>主表與明細卡片寬度</span><select id="notes-card-width-mode"><option value="title">隨標題調整（有上限）</option><option value="uniform">整齊等寬</option></select></label><label class="field"><span>寬度上限（240–720 px）</span><input id="notes-card-max-width" type="number" min="240" max="720" value="420"></label><p class="notes-hint">短標題保留基本寬度，長標題可加寬至上限並換行。主表與明細均套用此設定。跨表搜尋維持等寬。</p>
         <label class="field">
           <span>卡片高度（px；0 為自動）</span>
           <input id="notes-card-height" type="number" min="0" max="600" step="1" value="0">
@@ -2456,7 +2451,7 @@
       <div id="notes-import-options">
         <label class="field">
           <span>匯入方式</span>
-          <select id="notes-import-mode"><option value="copy">另存副本（獨立資料，重新建立識別碼）</option><option value="update">合併，更新相同識別碼的紀錄</option><option value="skip">合併，略過重複紀錄</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select>
+          <select id="notes-import-mode"><option id="notes-import-merge-option" value="merge" hidden disabled>共享差異合併（保留本機獨立修改）</option><option value="copy">另存副本（獨立資料，重新建立識別碼）</option><option value="update">合併，更新相同識別碼的紀錄</option><option value="skip">合併，略過重複紀錄</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select>
         </label>
         <div class="notes-import-default-tools"><small id="notes-import-default-hint"></small><button id="notes-import-save-default" type="button" class="btn btn-ghost">設為此類匯入預設</button></div>
         <p class="notes-hint">可在「設定 → 匯入與共享 → 匯入預設與備份」分別設定一般與共享預設；只改下拉選單只影響本次。</p>

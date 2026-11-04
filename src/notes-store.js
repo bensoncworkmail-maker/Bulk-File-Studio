@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const model=require('./notes-model');
 const Audit=require('./notes-audit');
+const SharedMerge=require('./notes-shared-merge');
 const {assertLocalPath}=require('./offline-policy');
 class NotesStore {
  constructor(filename){
@@ -13,7 +14,7 @@ class NotesStore {
    const version=this.db.prepare('PRAGMA user_version').get().user_version;if(version>3)throw new Error('資料工作區來自較新版本，請更新 Studio');
    this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;');
    this.db.exec('CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, document TEXT NOT NULL); CREATE TABLE IF NOT EXISTS record_history (id TEXT PRIMARY KEY, record_id TEXT NOT NULL, saved_at TEXT NOT NULL, document TEXT NOT NULL); CREATE INDEX IF NOT EXISTS history_by_record ON record_history(record_id,saved_at);');
-   this.db.exec('CREATE TABLE IF NOT EXISTS record_history_details (history_id TEXT PRIMARY KEY, metadata TEXT NOT NULL);');
+   this.db.exec('CREATE TABLE IF NOT EXISTS record_history_details (history_id TEXT PRIMARY KEY, metadata TEXT NOT NULL); CREATE TABLE IF NOT EXISTS share_merge_base (profile_id TEXT PRIMARY KEY, data TEXT NOT NULL);');
    if(!this.db.prepare('SELECT id FROM workspace WHERE id=1').get()){if(version>=1)throw new Error('工作區主資料遺失，已停止寫入；請保留檔案並使用備份還原');const document={schemaVersion:3,id:crypto.randomUUID(),name:'我的資料工作區',sheets:[],records:[]};this.db.prepare('INSERT INTO workspace VALUES (1,0,?)').run(JSON.stringify(document));}
    this.get();if(version===1||version===2)this.backup('before-upgrade');this.db.exec('PRAGMA user_version=3;');
   }catch(error){this.db.close();throw error;}
@@ -26,6 +27,9 @@ class NotesStore {
    const state=this.get();if(expectedRevision!==undefined&&expectedRevision!==state.revision)throw new Error('工作區已變更，請重新整理後再試');
    const beforeDocument=model.clone(state.document),before=new Map(beforeDocument.records.map(record=>[record.id,JSON.stringify(record)]));
    const result=task(state.document),doc=model.normalizeDocument(state.document),json=JSON.stringify(doc);if(Buffer.byteLength(json)>model.LIMITS.bytes)throw new Error('工作區超過 20 MB 上限，請分批匯出整理');
+   if(context.operation==='共享差異合併'&&JSON.stringify(beforeDocument)===json){
+    this.db.exec('COMMIT');this.pending=null;return {...state,result};
+   }
    const beforeView=Audit.view(beforeDocument),afterView=Audit.view(doc);
    for(const record of doc.records)if(before.has(record.id)&&before.get(record.id)!==JSON.stringify(record)){
     const id=crypto.randomUUID(),previous=JSON.parse(before.get(record.id));this.db.prepare('INSERT INTO record_history VALUES (?,?,?,?)').run(id,record.id,new Date().toISOString(),before.get(record.id));
@@ -85,11 +89,44 @@ class NotesStore {
  restoreHistory(recordId,historyId,expectedVersion){const entry=this.db.prepare('SELECT document FROM record_history WHERE id=? AND record_id=?').get(historyId,recordId);if(!entry)throw new Error('找不到修改歷史');const previous=JSON.parse(entry.document);return this.saveRecord({...previous,favoriteTagLinks:previous.favoriteTagLinks||[],expectedVersion},{operation:'還原修改歷史'});}
  exportPreview(options){const state=this.get(),data=model.exportPackage(state.document,options);this.pending={kind:'export',token:crypto.randomUUID(),revision:state.revision,data,expires:Date.now()+600000};return {token:this.pending.token,sheets:data.document.sheets.map(sheet=>({name:sheet.name,count:data.document.records.filter(record=>record.sheetId===sheet.id).length})),records:data.document.records.map(record=>({title:record.title,sheet: data.document.sheets.find(sheet=>sheet.id===record.sheetId).name})),links:data.document.records.reduce((sum,record)=>sum+record.fileLinks.length,0),tagLinks:data.document.records.reduce((sum,record)=>sum+record.favoriteTagLinks.length,0),omittedRelations:data.omittedRelations};}
  takePreview(token,kind){const state=this.get(),pending=this.pending;if(!pending||pending.kind!==kind||token!==pending.token||pending.expires<Date.now()||pending.revision!==state.revision)throw new Error('預覽已失效，請重新預覽');return pending;}
+ sharedBase(meta){
+  if(!meta)return null;
+  const row=this.db.prepare('SELECT data FROM share_merge_base WHERE profile_id=?').get(meta.profileId);
+  const base=row?JSON.parse(row.data):null;
+  return SharedMerge.matches(base,meta)?base:null;
+ }
+ hasSharedBase(context){return Boolean(this.sharedBase(SharedMerge.identity(context)));}
+ saveSharedBase(value){
+  if(!value)return;
+  const data=JSON.stringify(value);
+  if(Buffer.byteLength(data)>model.LIMITS.bytes)throw new Error('共享基準超過 20 MB，請縮小接收範圍');
+  this.db.prepare('INSERT OR REPLACE INTO share_merge_base VALUES (?,?)').run(value.profileId,data);
+  this.db.exec('DELETE FROM share_merge_base WHERE profile_id NOT IN (SELECT profile_id FROM share_merge_base ORDER BY rowid DESC LIMIT 51)');
+ }
+ planImport(state,input,mode,context){
+  const sharing=require('./notes-sharing-model'),now=new Date().toISOString();
+  const meta=SharedMerge.identity(context);
+  if(mode!=='merge'){
+   const result=sharing.merge(state.document,input,mode,()=>crypto.randomUUID(),now,context.scope);
+   if(meta&&['update','clone'].includes(mode))result.base=SharedMerge.baseline(result.incoming,meta);
+   return result;
+  }
+  if(!meta)throw new Error('差異合併只適用於具有效來源版本的共享資料包。');
+  const projected=sharing.project(input,context.scope),incoming=model.readPackage(projected.data);
+  const prior=this.sharedBase(meta),base=SharedMerge.baseline(incoming,meta);
+  if(prior&&SharedMerge.older(prior,meta))throw new SharedMerge.MergeConflict('這份資料包早於已接收版本，請選擇較新的版本。');
+  if(prior&&SharedMerge.sameVersion(prior,meta)&&SharedMerge.digest(prior)!==SharedMerge.digest(base)){
+   throw new SharedMerge.MergeConflict('同一發布版本的資料內容有變更，請來源重新發布。');
+  }
+  return {...SharedMerge.merge(state.document,incoming,prior,now,projected.managed),incoming,base,scope:projected.config};
+ }
  importPreview(input,mode,context={}){
-  this.pending=null;const state=this.get(),merged=require('./notes-sharing-model').merge(state.document,input,mode,()=>crypto.randomUUID(),new Date().toISOString(),context.scope),incoming=merged.incoming;if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
+  this.pending=null;const state=this.get(),merged=this.planImport(state,input,mode,context),incoming=merged.incoming;if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
   if(mode==='update'||mode==='clone')Audit.preserveUnchanged(state.document,merged.document);
-  const records=Audit.importRows(state.document,incoming,merged.document,mode),structure=Audit.structureChanges(state.document,merged.document),counts=Object.fromEntries(['added','updated','skipped','unchanged',...(mode==='clone'?['removed']:[])].map(status=>[status,records.filter(row=>row.status===status).length]));
-  const summary={...merged.summary,...counts,counts};this.pending={kind:'import',token:crypto.randomUUID(),revision:state.revision,data:merged.document,expires:Date.now()+600000,summary,context:{operation:mode==='clone'?'複製來源到本機':'匯入資料包',...context},mode,incoming:mode==='skip'?incoming:null,recordKeys:new Set(records.map(row=>row.key))};
+  const resultIds=new Set(merged.document.records.map(record=>record.id));
+  const auditInput=mode==='merge'?{...incoming,records:incoming.records.filter(record=>resultIds.has(record.id))}:incoming;
+  const records=Audit.importRows(state.document,auditInput,merged.document,mode),structure=Audit.structureChanges(state.document,merged.document),counts=Object.fromEntries(['added','updated','skipped','unchanged',...(mode==='clone'?['removed']:[])].map(status=>[status,records.filter(row=>row.status===status).length]));
+  const summary={...merged.summary,...counts,counts};this.pending={kind:'import',token:crypto.randomUUID(),revision:state.revision,data:merged.document,expires:Date.now()+600000,summary,context:{operation:mode==='clone'?'複製來源到本機':mode==='merge'?'共享差異合併':'匯入資料包',...context},mode,base:merged.base,incoming:mode==='skip'?incoming:null,recordKeys:new Set(records.map(row=>row.key))};
   return {token:this.pending.token,...summary,mode,scope:merged.scope,context:{...context,packageVersion:input.packageVersion,localRevision:state.revision},structure,tagLinks:incoming.records.reduce((sum,record)=>sum+record.favoriteTagLinks.length,0),links:incoming.records.reduce((sum,record)=>sum+record.fileLinks.length,0),records,sheets:incoming.sheets.map(sheet=>({name:sheet.name,count:incoming.records.filter(record=>record.sheetId===sheet.id).length}))};
  }
  cancelPreview(token){if(this.pending?.token===token)this.pending=null;return {canceled:true};}
@@ -105,18 +142,19 @@ class NotesStore {
   const state=this.get();if(document.id!==state.document.id)throw new Error('備份不屬於目前工作區');
   this.pending={kind:'restore',token:crypto.randomUUID(),revision:state.revision,data:document,expires:Date.now()+600000};return {token:this.pending.token,records:document.records.map(record=>({title:record.title,sheet:document.sheets.find(sheet=>sheet.id===record.sheetId).name})),sheets:document.sheets.map(sheet=>({name:sheet.name,count:document.records.filter(record=>record.sheetId===sheet.id).length})),name:path.basename(filename)};
  }
- restoreCommit(token){const pending=this.takePreview(token,'restore'),backup=this.backup('before-restore');return this.change(doc=>{Object.assign(doc,pending.data);return {backup};},pending.revision,{operation:'完整還原備份'});}
+ restoreCommit(token){const pending=this.takePreview(token,'restore'),backup=this.backup('before-restore');return this.change(doc=>{Object.assign(doc,pending.data);this.db.exec('DELETE FROM share_merge_base');return {backup};},pending.revision,{operation:'完整還原備份'});}
  importShared(input,expectedRevision,context={}){
   if(this.pending&&this.pending.expires>Date.now())return {deferred:true,reason:'目前有尚未完成的匯入／匯出預覽，稍後會重試。'};
   const state=this.get();if(state.revision!==expectedRevision)return {deferred:true,reason:'本機資料已變更，請手動預覽匯入。'};
-  const merged=require('./notes-sharing-model').merge(state.document,input,'update',()=>crypto.randomUUID(),new Date().toISOString(),context.scope);
+  const mode=SharedMerge.identity(context)?'merge':'update';
+  const merged=this.planImport(state,input,mode,context);
   if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
-  Audit.preserveUnchanged(state.document,merged.document);
-  const backup=this.backup('before-import');return this.change(doc=>{Object.assign(doc,merged.document);return {backup,...merged.summary};},expectedRevision,{operation:'自動接收共享資料包',...context});
+  if(mode==='update')Audit.preserveUnchanged(state.document,merged.document);
+  const backup=this.backup('before-import');return this.change(doc=>{Object.assign(doc,merged.document);this.saveSharedBase(merged.base);return {backup,...merged.summary};},expectedRevision,{operation:mode==='merge'?'共享差異合併':'自動接收共享資料包',...context});
  }
  importCommit(token,options={}){
   const pending=this.takePreview(token,'import');if(pending.mode==='clone'&&options?.confirmClone!==true)throw new Error('複製來源到本機須再次確認取代範圍');const backup=this.backup('before-import');
-  const result=this.change(doc=>{Object.assign(doc,pending.data);return {backup,...pending.summary};},pending.revision,pending.context);return result;
+  const result=this.change(doc=>{Object.assign(doc,pending.data);this.saveSharedBase(pending.base);return {backup,...pending.summary};},pending.revision,pending.context);return result;
  }
 }
 module.exports={NotesStore};

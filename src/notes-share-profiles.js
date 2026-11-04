@@ -14,7 +14,10 @@ class NotesShareProfiles{
  create(id,allowRemoved=false){if(this.channels.has(id))return this.channels.get(id);if(id!=='default'&&(!M.ID.test(id)||!allowRemoved&&!this.masters().some(master=>master.id===id)))throw new Error('主表已移除，請重新選擇共享設定');
   if(this.retired.has(id)){const channel=this.retired.get(id);this.retired.delete(id);this.channels.set(id,channel);return channel;}
   let channel;const selection=id==='default'?null:{mode:'masters',masterIds:[id]};
-  channel=new NotesShare(this.file(id),{...this.options,scopeFingerprint:id!=='default',snapshot:scope=>{const snapshot=this.options.snapshot(selection||scope);if(id==='default')return snapshot;return {...snapshot,fingerprint:crypto.createHash('sha256').update(JSON.stringify(snapshot.data.document)).digest('hex')};},onChange:()=>{if(!this.loading)this.emit();}});
+  channel=new NotesShare(this.file(id),{...this.options,
+   canMerge:this.options.canMerge?(context=>this.options.canMerge({...context,profileId:id})):undefined,
+   applyUpdate:this.options.applyUpdate?((data,revision,active,context)=>this.options.applyUpdate(data,revision,active,{...context,profileId:id})):undefined,
+   scopeFingerprint:id!=='default',snapshot:scope=>{const snapshot=this.options.snapshot(selection||scope);if(id==='default')return snapshot;return {...snapshot,fingerprint:crypto.createHash('sha256').update(JSON.stringify(snapshot.data.document)).digest('hex')};},onChange:()=>{if(!this.loading)this.emit();}});
   if(selection){channel.config={...channel.config,publishScope:selection,receiveScope:selection};const start=channel.start.bind(channel);channel.start=()=>{if(this.masters().some(master=>master.id===id))start();else channel.close();};const tick=channel.tick.bind(channel);channel.tick=async()=>{if(this.masters().some(master=>master.id===id))return tick();};}
   this.channels.set(id,channel);return channel;
  }

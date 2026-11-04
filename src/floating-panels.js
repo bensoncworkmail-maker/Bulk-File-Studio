@@ -3,8 +3,8 @@
  const {PANELS,normalize,enabledPanels}=window.floatingPanelsModel;
  // Each factory owns its view and per-session filters. The host owns placement and lifecycle.
  const builtins={
-  planning:{preference:'planningMode',mount:(root,api,value)=>mountTool(root,api,'planning',{mode:value})},
-  snippets:{preference:'snippetQuery',mount:(root,api,value)=>mountTool(root,api,'snippets',{query:value})}
+  planning:{preferences:['planningMode'],mount:(root,api,prefs)=>mountTool(root,api,'planning',{mode:prefs.planningMode})},
+  snippets:{preferences:['snippetQuery','snippetLayout'],mount:(root,api,prefs)=>mountTool(root,api,'snippets',{query:prefs.snippetQuery,layout:prefs.snippetLayout})}
  };
  function mountTool(root,api,kind,initial){
   return window.toolViewsUI.mount(root,{
@@ -36,7 +36,7 @@
     const area=document.createElement('section');
     root.append(area);
     const component=components[id];
-    views.set(id,{root:area,view:component.mount(area,api,prefs[component.preference])});
+    views.set(id,{root:area,view:component.mount(area,api,prefs)});
    }else if(changed&&!collapsed)views.get(id)?.view.refresh();
    display();
    if(focus){
@@ -52,8 +52,8 @@
     const previous=prefs;
     prefs=next;signature=key;
     for(const id of views.keys()){
-     const {preference}=components[id];
-     if(!prefs.enabled.includes(id)||previous[preference]!==prefs[preference])remove(id);
+     const {preferences=[]}=components[id];
+     if(!prefs.enabled.includes(id)||preferences.some(key=>previous[key]!==prefs[key]))remove(id);
     }
     if(!previous||previous.defaultPanel!==prefs.defaultPanel)active=prefs.defaultPanel;
     if(!prefs.enabled.includes(active))active='files';

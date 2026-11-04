@@ -86,3 +86,17 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 #mini-panel-content .tool-view-pager{display:flex;align-items:center;justify-content:center;gap:5px;margin:6px 0}
 #mini-panel-content .tool-view-result[data-event-kind=reminder]{border-inline-start:3px solid var(--accent)}
 :root[data-mini-panel]:not([data-mini-panel=files]) #mini-heading{display:none}
+
+#mini-panel-content .tool-view-heading{display:flex;justify-content:flex-end;margin:0 0 4px}
+#mini-panel-content .tool-view-heading:not(:has(.tool-view-actions)){display:none}
+#mini-panel-content .tool-view-filters label{flex-basis:75px}
+#mini-panel-content .tool-view-filters label>span{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden}
+#mini-panel-content .tool-view-result{padding:4px 6px;align-items:center}
+#mini-panel-content .tool-view-result .btn{padding:3px 5px;min-height:25px}
+#mini-panel-content .tool-view-month-grid{
+ display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin:6px 0 0;text-align:center
+}
+#mini-panel-content .tool-view-month-grid button{min-height:25px;padding:1px;position:relative}
+#mini-panel-content .tool-view-month-grid button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+#mini-panel-content .tool-view-month-grid button[aria-current=date]{font-weight:750;color:var(--accent)}
+#mini-panel-content .tool-view-day-count{font-size:.68em;color:var(--accent);margin-inline-start:2px}
