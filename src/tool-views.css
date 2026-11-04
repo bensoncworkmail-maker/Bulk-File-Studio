@@ -59,9 +59,17 @@ dialog.dialog-has-size,dialog.modal.dialog-has-size{
 }
 dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overflow:hidden}
 .dialog-size-grip{
- flex:0 0 26px;width:26px;height:26px;align-self:center;
- border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--text);
- cursor:nwse-resize;touch-action:none
+ display:grid;place-items:end;flex:0 0 16px;width:16px;height:16px;align-self:center;
+ border:0;padding:2px;background:transparent;color:var(--muted);
+ cursor:nwse-resize;touch-action:none;opacity:.35
 }
-.dialog-size-row{display:flex;justify-content:flex-end;margin-top:8px}
-.notes-form-footer .dialog-size-row{flex:1 0 100%;margin-top:0}
+.dialog-size-grip::before{
+ content:'';width:9px;height:9px;border-inline-end:1px solid currentColor;border-bottom:1px solid currentColor
+}
+.dialog-size-grip:hover,.dialog-size-grip:focus-visible,.dialog-size-grip:active{opacity:1;color:var(--accent)}
+.dialog-size-grip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dialog-size-row{display:flex;justify-content:flex-end}
+
+#floating-panel-settings fieldset{min-width:0;padding:0;border:0;margin:0}
+.floating-panel-setting-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.floating-panel-setting-row label{flex:1 1 130px}

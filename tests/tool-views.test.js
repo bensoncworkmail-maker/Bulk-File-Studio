@@ -74,7 +74,7 @@ test('saved log table scope and display defaults apply without expanding a missi
  assert.deepEqual(viewData(doc,[],[],config,{},settings).tables,[]);
 });
 
-test('dialog resizing has its own row inside the record footer',()=>{
+test('the subtle resize grip occupies its own space in the footer',()=>{
  const fs=require('node:fs'),vm=require('node:vm');
  const {documentFromHTML}=require('./helpers/dom');
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/index.html'),'utf8'));
@@ -89,7 +89,8 @@ test('dialog resizing has its own row inside the record footer',()=>{
  const save=document.getElementById('notes-record-save');
  const footer=save.parentElement,grip=footer.querySelector('.dialog-size-grip');
  assert.equal(grip.type,'button');
- assert.equal(grip.parentElement.className,'dialog-size-row');
- assert.equal(grip.parentElement.parentElement,footer);
+ assert.equal(grip.textContent,'');
+ assert.equal(grip.parentElement,footer);
+ assert.match(grip.getAttribute('aria-label'),/調整/);
  assert.equal(save.type,'submit');
 });

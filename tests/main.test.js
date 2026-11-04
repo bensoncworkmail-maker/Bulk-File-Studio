@@ -586,3 +586,29 @@ test('log preferences persist, validate and belong to the workspace settings res
  const {DEFAULTS}=require('../src/desktop-state');
  assert.deepEqual(resetPatch('native','notes',DEFAULTS).logView,DEFAULTS.logView);
 });
+
+test('floating content uses the same native window and rejects disabled panels and unknown actions',t=>{
+ const h=harness(t);
+ const open=h.handlers.get('floating-panel-open');
+ h.handlers.get('productivity-save')(null,'snippets',{name:'回覆',body:'你好 {{customer}}',category:''});
+ const snippet=h.handlers.get('productivity-snippet-list')()[0];
+ h.handlers.get('desktop-settings-set')(null,{floatingCollapsed:true});
+ assert.equal(open(null,'planning').inline,true);
+ const mini=h.windows.at(-1);
+ assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,false);
+ assert.match(mini.url,/floating\.html$/);
+ open(null,'snippets');
+ assert.equal(h.windows.at(-1),mini);
+ assert.deepEqual(h.messages.filter(([name])=>name==='floating-panel-open').map(([,id])=>id),['planning','snippets']);
+ const event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ const data=h.rawHandlers.get('floating-panel-data'),act=h.rawHandlers.get('floating-panel-action');
+ assert.equal(data(event,'snippets',{}).rows[0].title,'回覆');
+ assert.throws(()=>act(event,'snippets','visit',snippet.id),/只可複製/);
+ act(event,'snippets','copy',snippet.id,'陳小姐');
+ assert.equal(h.getCopied(),'你好 陳小姐');
+ const prefs=h.handlers.get('desktop-settings-get')().floatingPanels;
+ h.handlers.get('desktop-settings-set')(null,{floatingPanels:{...prefs,enabled:['planning']}});
+ assert.throws(()=>data(event,'snippets',{}),/未啟用/);
+ assert.throws(()=>open(null,'logs'),/未啟用/);
+ assert.throws(()=>h.rawHandlers.get('floating-panel-open')(event,'planning'),/不受信任/);
+});

@@ -6,13 +6,28 @@
  let callbacks,busy=false,dirty=true,loaded=false,section='repair',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),refreshRequest=0,planning;
  const liveRecords=()=>state?.workspace.document.records.filter(record=>!record.deletedAt&&state.workspace.document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt))||[];
  const configuration=()=>({settings:window.settingsUI.get(),shortcuts:window.studioShortcuts.getBindings(),...callbacks.configuration()});
- function status(text,error=false){
-  for(const id of ['productivity-status','planning-status']){
-   const target=$(id);if(!target)continue;
-   target.textContent=text;target.classList.toggle('error',error);
+ function status(text,error=false,id='productivity-status'){
+  const target=$(id);
+  target.textContent=text;target.classList.toggle('error',error);
+ }
+ async function run(task,message){
+  if(busy||callbacks.isBusy())return;
+  const onPlanning=!$('planning-page').classList.contains('hidden');
+  const target=onPlanning?'planning-status':'productivity-status';
+  busy=true;status('處理中…',false,target);
+  const disabled=[...$('productivity-page').querySelectorAll('button,input,textarea,select')].map(el=>[el,el.disabled]);
+  disabled.forEach(([el])=>el.disabled=true);
+  try{
+   const result=await task();
+   status(typeof message==='function'?message(result):(message||''),false,target);
+   return result;
+  }catch(error){
+   status(String(error.message||error),true,target);callbacks.showFailure('操作未完成',error);
+   return undefined;
+  }finally{
+   busy=false;disabled.forEach(([el,value])=>{if(el.isConnected)el.disabled=value;});updateActions();
   }
  }
- async function run(task,message){if(busy||callbacks.isBusy())return;busy=true;status('處理中…');const disabled=[...$('productivity-page').querySelectorAll('button,input,textarea,select')].map(el=>[el,el.disabled]);disabled.forEach(([el])=>el.disabled=true);try{const result=await task();if(message)status(typeof message==='function'?message(result):message);return result;}catch(error){status(String(error.message||error),true);callbacks.showFailure('操作未完成',error);return undefined;}finally{busy=false;disabled.forEach(([el,value])=>{if(el.isConnected)el.disabled=value;});updateActions();}}
  async function load(){const request=++refreshRequest,data=await api.get();if(request!==refreshRequest)return;state=data;loaded=true;dirty=false;render();}
  function show(value){
   if(value==='calendar'||value==='logs'){
@@ -80,7 +95,7 @@
     target.focus();feedback.textContent='已插入文字片段';
    }catch(error){feedback.textContent=error.message;}finally{insert.disabled=!list.value;}
   });
-  const copy=button('開啟浮動片段',()=>api.openOverlay({kind:'snippets'}).catch(error=>feedback.textContent=error.message));
+  const copy=button('開啟浮動片段',()=>window.desktopAPI.openFloatingPanel('snippets').catch(error=>feedback.textContent=error.message));
   insert.disabled=true;
   details.append(list,insert,copy,feedback);
   list.addEventListener('change',()=>insert.disabled=!list.value);
@@ -100,7 +115,7 @@
   $('tab-planning')?.addEventListener('click',()=>window.favoritesUI.show('planning'));
   $('tab-logs')?.addEventListener('click',()=>window.favoritesUI.show('logs'));
   for(const [id,kind] of [['planning-overlay','planning'],['snippets-overlay','snippets']]){
-   $(id)?.addEventListener('click',()=>api.openOverlay({kind}).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
+   $(id)?.addEventListener('click',()=>window.desktopAPI.openFloatingPanel(kind).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
   }
   api.onToolOpen?.(config=>{
    const page=config.kind==='snippets'?'productivity':config.kind;

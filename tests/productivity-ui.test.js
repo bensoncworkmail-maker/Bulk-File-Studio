@@ -24,3 +24,19 @@ test('calendar renders existing dates and board offers accessible status moves w
 test('document preview renders plain text safely and clears document data on close',async()=>{const h=harness();await h.load();await h.click('document-choose');assert.equal(h.$('document-preview-dialog').open,true);assert.match(h.$('document-preview-content').textContent,/<img src=x/);assert.equal(h.$('document-preview-content').querySelectorAll('img').length,0);await h.click('document-preview-close');assert.equal(h.$('document-preview-content').children.length,0);});
 test('tool operations lock navigation until completion and errors leave it usable',async()=>{const h=harness();await h.load();let resolve;h.api.backupCreate=()=>new Promise(done=>resolve=done);h.$('backup-create').dispatch('click');assert.equal(h.window.productivityUI.canLeave(),false);resolve({});await tick();assert.equal(h.window.productivityUI.canLeave(),true);h.api.backupCreate=async()=>{throw new Error('disk full');};await h.click('backup-create');assert.match(h.$('productivity-status').textContent,/disk full/);assert.equal(h.window.productivityUI.canLeave(),true);assert.equal(h.$('backup-create').disabled,false);});
 test('interface storage failure retains pending restore settings without acknowledging or reloading',async()=>{const h=harness();await h.load();await h.click('backup-import');h.storage.set('brs-settings-v1','{"theme":"dark"}');h.setRestore({settings:{theme:'light'},shortcuts:{},naming:{presets:[],activeRules:{prefix:'R_'}}});const write=h.localStorage.setItem;let once=true;h.localStorage.setItem=(key,value)=>{if(once&&key==='brs-presets-v1'){once=false;throw new Error('quota exceeded');}return write(key,value);};await h.click('backup-restore');assert.equal(h.reloaded(),0);assert.equal(h.calls.some(value=>value[0]==='ack'),false);assert.equal(JSON.parse(h.storage.get('brs-settings-v1')).theme,'dark');assert.match(h.$('productivity-status').textContent,/quota exceeded/);});
+
+test('calendar selection updates the day agenda and clears successful loading feedback',async()=>{
+ const h=harness();
+ h.$('planning-page').classList.remove('hidden');
+ await h.load();
+ assert.equal(h.$('planning-status').textContent,'');
+ const calendar=h.$('planning-content');
+ const days=calendar.querySelectorAll('.productivity-day');
+ const other=days.find(day=>day.dataset.today==='false');
+ assert.match(calendar.querySelector('.planning-agenda').textContent,/客戶 A/);
+ await other.dispatch('click');
+ assert.equal(other.getAttribute('aria-pressed'),'true');
+ assert.match(calendar.querySelector('.planning-agenda').textContent,/沒有符合條件/);
+ await days.find(day=>day.dataset.today==='true').dispatch('click');
+ assert.match(calendar.querySelector('.planning-agenda').textContent,/客戶 A/);
+});

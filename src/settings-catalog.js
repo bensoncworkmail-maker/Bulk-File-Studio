@@ -216,12 +216,11 @@ const config={
     "view-tags": "標籤模式",
     "view-workspace": "工作區模式",
     "view-mixed": "混合模式",
-    "planning": "日程／片段按鈕",
     "import": "匯入路徑",
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"floatingPanels":"floating","logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",

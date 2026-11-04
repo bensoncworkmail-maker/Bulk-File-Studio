@@ -60,3 +60,29 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 :root[data-collapsed=true] #mini-header>:is(#mini-caption-bar,#mini-search-toggle,#mini-main,#mini-collapsed-actions):not([hidden]){display:flex!important}
 :root[data-collapsed=true] #mini-caption-bar{max-width:160px;flex:0 1 auto}:root[data-collapsed=true] #mini-heading{display:none}
 #mini-collapsed-actions{display:flex;align-items:center;gap:3px;min-width:0;overflow-x:auto;flex:1 1 auto;scrollbar-width:thin}#mini-collapsed-actions button{max-width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Expanded modules share the window with the original file views. */
+#mini-panels{
+ display:flex;flex:0 0 auto;gap:4px;padding:5px 6px;overflow-x:auto;
+ border-bottom:1px solid var(--line)
+}
+#mini-panels button{flex:0 0 auto;padding:4px 6px;white-space:nowrap}
+#mini-panels button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:700}
+#mini-panel-content{flex:1;min-height:0;overflow:auto;padding:6px}
+#mini-panels[hidden],#mini-panel-content[hidden],#mini-panel-content [hidden]{display:none!important}
+:root[data-mini-panel]:not([data-mini-panel=files]) :is(#mini-search-bar,#mini-search-toggle,#mini-tools-bar,#mini-tags,#mini-list,#mini-pager){display:none!important}
+#mini-panel-content .tool-view-heading{margin-bottom:6px}
+#mini-panel-content .tool-view-filters{display:flex;flex-wrap:wrap;gap:6px}
+#mini-panel-content .tool-view-filters label{flex:1 1 100px;min-width:0;display:grid;gap:3px;color:var(--muted)}
+#mini-panel-content :is(input,select){width:100%;min-width:0;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:4px}
+#mini-panel-content .tool-view-status{margin:7px 0;color:var(--muted)}
+#mini-panel-content .tool-view-group h2{font-size:1rem;margin:8px 0 4px}
+#mini-panel-content .tool-view-result{display:flex;gap:5px;align-items:start;padding:6px;margin-bottom:4px;border:1px solid var(--line);border-radius:6px;overflow-wrap:anywhere}
+#mini-panel-content .tool-view-result-body{flex:1;min-width:0}
+#mini-panel-content h3{font-size:1rem;margin:0 0 2px}
+#mini-panel-content .tool-view-result p{margin:3px 0;white-space:pre-wrap}
+#mini-panel-content .tool-view-result small{color:var(--muted)}
+#mini-panel-content .tool-view-result button{flex:0 0 auto}
+#mini-panel-content .tool-view-pager{display:flex;align-items:center;justify-content:center;gap:5px;margin:6px 0}
+#mini-panel-content .tool-view-result[data-event-kind=reminder]{border-inline-start:3px solid var(--accent)}
+:root[data-mini-panel]:not([data-mini-panel=files]) #mini-heading{display:none}
