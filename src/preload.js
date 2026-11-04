@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  dropFiles:(paths,tag)=>invoke('floating-drop',paths,tag),
- toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),openFloatingPlanning:()=>invoke('floating-planning-open'),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
+ toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:id=>invoke('floating-quick-action',id),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>invoke('floating-header-menu'),
  headerDoubleClick:()=>invoke('floating-header-double-click'),
@@ -90,6 +90,11 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  setFloatingCollapsed:value=>invoke('floating-collapse',value),compactFloatingSize:()=>invoke('floating-compact-size'),
  setFloatingCompact:value=>invoke('floating-tools',value),
  openStartupSettings:()=>invoke('startup-open-settings'),startup:()=>invoke('startup-get'),setStartup:enabled=>invoke('startup-set',enabled),hideToTray:()=>invoke('app-hide-to-tray'),
+ openFloatingPanel:kind=>invoke('floating-panel-open',kind),
+ floatingPanelData:(kind,filters)=>invoke('floating-panel-data',kind,filters),
+ floatingPanelAction:(kind,action,value,customer)=>invoke('floating-panel-action',kind,action,value,customer),
+ onFloatingPanelOpen:callback=>ipcRenderer.on('floating-panel-open',(_,kind)=>callback(kind)),
+ onFloatingPanelChanged:callback=>ipcRenderer.on('floating-panel-changed',(_,kind)=>callback(kind)),
  newWorkspaceMaster:()=>invoke('floating-workspace-new'),workspaceList:query=>invoke('floating-workspace-list',query),workspaceOpen:(id,action)=>invoke('floating-workspace-open',id,action),onWorkspaceChanged:callback=>ipcRenderer.on('notes-changed',()=>callback()),
  setFloatingView:mode=>invoke('floating-view',mode),
  importPaths:tag=>invoke('floating-import',tag),togglePin:()=>invoke('floating-pin'),

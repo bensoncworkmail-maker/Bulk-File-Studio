@@ -34,6 +34,7 @@
   const filterPanel=node('div',undefined,'tool-view-filter-panel');
   filterPanel.append(controls);
   root.replaceChildren(toolbar,filterPanel,status,results);
+  if(config.embedded)title.hidden=true;
   const inputs={};
   function field(key,label,type,parent=controls){
    const wrap=node('label',undefined,key==='query'?'tool-view-query':undefined);

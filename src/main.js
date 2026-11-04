@@ -20,6 +20,7 @@ const {prepareBatch,executeBatch}=require('./favorites-batch');
 const {tagList,basename}=require('./favorites-model');
 let recordReminders,recordNotification,recordAttention,floatingSearch,productivity,toolOverlay;
 const quickActions=require('./quick-actions-model');
+const panelModel=require('./floating-panels-model');
 const {prepareTrash,executeTrash}=require('./favorites-trash');
 const globalShortcuts=require('./global-shortcuts');
 const {normalize:normalizeDesktop}=require('./desktop-state');
@@ -74,7 +75,7 @@ function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(ap
 function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});floatingSearch?.invalidate();return result;}
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
-function notesChanged(result){try{if(notesShare?.reconcile())notesShare.emit();}catch(error){diagnostics.record('main','share-profiles-reconcile',error);}send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();toolOverlay?.invalidate();recordAttention?.sync();return result;}
+function notesChanged(result){try{if(notesShare?.reconcile())notesShare.emit();}catch(error){diagnostics.record('main','share-profiles-reconcile',error);}send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(floating,'floating-panel-changed','planning');send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();toolOverlay?.invalidate();recordAttention?.sync();return result;}
 let fileOperationBusy=false;
 function fileOperation(task){if(fileOperationBusy||trashing)throw new Error('另一項改名、搬移或復原仍在執行，請稍候');fileOperationBusy=true;try{const result=task();if(result&&typeof result.then==='function')return result.finally(()=>{fileOperationBusy=false;});fileOperationBusy=false;return result;}catch(error){fileOperationBusy=false;throw error;}}
 function renameProgress(event,context){return value=>{if(event.sender!==win?.webContents||!Number.isSafeInteger(context?.operationId)||context.operationId<=0)return;const labels={snapshot:'建立內容校驗（第 1／2 遍）',verify:'執行前複核（第 2／2 遍）','undo-verify':'復原內容檢查（第 1／2 遍）',staging:'暫存檔名',renaming:'套用檔名'},title=labels[value.phase]||'處理改名';const bytes=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';const detail=typeof value.totalBytes==='number'?`第 ${value.fileIndex}／${value.totalFiles} 個：${value.name}；已讀取 ${bytes(value.completedBytes)}／${bytes(value.totalBytes)}（本階段）`:`${value.fileIndex}／${value.totalFiles} 個：${value.name}`;send(win,'rename-progress',{id:context.operationId,title,detail});};}
@@ -219,7 +220,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['floating-planning-open','floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
+    const floatingAllowed=['floating-panel-data','floating-panel-action','floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
     return loggedInvocation(main?'main-renderer':mini?'floating':'untrusted',channel,()=>{
       if(!main&&!(mini&&floatingAllowed.includes(channel))&&!(channel==='diagnostics-report'&&(capture?.owns(event)||recordAttention?.owns(event)||floatingSearch?.owns(event))))throw new Error('不受信任的操作來源');
       if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json'))&&!['diagnostics-report','diagnostics-status','app-info'].includes(channel))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
@@ -290,7 +291,7 @@ app.whenReady().then(() => {
     if(['view-logs','open-planning','open-snippets'].includes(action.type)){
       const kind={'view-logs':'logs','open-planning':'planning','open-snippets':'snippets'}[action.type];
       const config=require('./tool-views-model').configuration({...action,kind});
-      if(action.display==='overlay')return toolOverlay.open(config);
+      if(action.display==='overlay')return kind==='logs'?toolOverlay.open(config):openInlinePanel(kind);
       focusMain();
       const target=win;
       if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',()=>send(target,'tool-view-open',config));
@@ -422,10 +423,10 @@ app.whenReady().then(() => {
   handle('desktop-main-size',(_,width,height)=>{if(!Number.isFinite(width)||!Number.isFinite(height)||width<800||width>8000||height<500||height>8000)throw new Error('視窗尺寸無效');if(win.isMaximized())win.unmaximize();const bounds=require('./desktop-state').fitBounds({...win.getNormalBounds(),width,height},screen.getAllDisplays(),{width:1400,height:900,minWidth:win.getMinimumSize?.()[0]||800,minHeight:win.getMinimumSize?.()[1]||500});win.setBounds(bounds);return win.getBounds?.()||bounds;});
   handle('notes-check-package',async()=>{const result=await dialog.showOpenDialog(win,{title:'只檢查資料包相容性，不匯入',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};const input=await readImportPackageFile(result.filePaths[0]),projection=require('./notes-sharing-model').project(input),doc=require('./notes-model').readPackage(projection.data);return {packageVersion:input.packageVersion,schemaVersion:input.document.schemaVersion,sheets:doc.sheets.length,records:doc.records.length};});
   recordReminders=new(require('./record-reminders').RecordReminders)(path.join(app.getPath('userData'),'record-reminders.json'),{document:()=>notesStore().get().document,settings:()=>desktop.settings,onError:error=>diagnostics.record('main','record-reminders',error),onDue:value=>{const due=value.items.filter(item=>item.status==='fired'&&item.available),prefs=desktop.settings;const notices=due.filter(item=>['notification','both'].includes(item.delivery==='default'?prefs.reminderDelivery:item.delivery));if(notices.length&&Notification?.isSupported?.()){try{recordNotification?.close?.();const notice=new Notification({title:'紀錄提醒',body:('有 '+notices.length+' 筆紀錄到期，點擊查看。'+notices.filter(item=>item.messageContent).map(item=>'\n'+item.sheet+' ／ '+item.title+'\n'+item.messageContent).join('\n')).slice(0,1200),silent:false});notice.on('click',()=>{focusMain();send(win,'record-reminders-open',{});});notice.on('failed',(_,error)=>diagnostics.record('main','record-reminder-notification',String(error)));recordNotification=notice;notice.show();}catch(error){diagnostics.record('main','record-reminder-notification',error);}}if(prefs.reminderBringToFront&&!capture?.window&&!fileOperationBusy&&due.some(item=>(item.delivery==='default'?prefs.reminderDelivery:item.delivery)!=='attention'))focusMain();recordAttention?.sync();send(win,'record-reminders-changed',{...value,popup:due.some(item=>['overlay','both'].includes(item.delivery==='default'?prefs.reminderDelivery:item.delivery))});}});
-  recordAttention=new(require('./reminder-attention').ReminderAttention)({BrowserWindow,screen,secureWindow,size:()=>desktop.settings.toolWindowSizes.reminder,remember:window=>rememberAuxSize('reminder',window),settings:()=>desktop.settings,list:()=>recordReminders.list(),blocked:()=>Boolean(capture?.window&&!capture.window.isDestroyed()||fileOperationBusy),beep:()=>shell.beep(),onError:error=>diagnostics.record('main','reminder-attention',error),act:(kind,id)=>{const value=kind==='ack'?recordReminders.ack(id):recordReminders.snooze(id,desktop.settings.reminderSnoozeMinutes);send(win,'record-reminders-changed',value);}});
+  recordAttention=new(require('./reminder-attention').ReminderAttention)({BrowserWindow,screen,secureWindow,size:()=>desktop.settings.toolWindowSizes.reminder,remember:window=>rememberAuxSize('reminder',window),settings:()=>desktop.settings,list:()=>recordReminders.list(),blocked:()=>Boolean(capture?.window&&!capture.window.isDestroyed()||fileOperationBusy),beep:()=>shell.beep(),onError:error=>diagnostics.record('main','reminder-attention',error),act:(kind,id)=>{const value=kind==='ack'?recordReminders.ack(id):recordReminders.snooze(id,desktop.settings.reminderSnoozeMinutes);send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');}});
   for(const [channel,method] of [['reminder-attention-get','get'],['reminder-attention-ack','ack'],['reminder-attention-snooze','snooze'],['reminder-attention-dismiss','dismiss']])ipcMain.handle(channel,(event,id)=>loggedInvocation('reminder-attention',channel,()=>{if(!recordAttention.owns(event))throw new Error('不受信任的提醒視窗來源');if(method==='get')return recordAttention.data();if(method==='dismiss'){recordAttention.dismiss();return {closed:true};}return recordAttention.action(method,id);}));
   handle('reminders-ready',(_,automatic)=>{if(automatic===true&&!desktop.settings.remindersEnabled)return false;if(capture?.window&&!capture.window.isDestroyed()||fileOperationBusy)return false;if(desktop.settings.reminderBringToFront)focusMain();return true;});
-  for(const [channel,method] of [['reminders-list','list'],['reminders-save','save'],['reminders-remove','remove'],['reminders-ack','ack'],['reminders-snooze','snooze']])handle(channel,(_, ...args)=>{const value=recordReminders[method](...args);if(method!=='list'){send(win,'record-reminders-changed',value);recordAttention.sync();toolOverlay?.invalidate('planning');}return value;});
+  for(const [channel,method] of [['reminders-list','list'],['reminders-save','save'],['reminders-remove','remove'],['reminders-ack','ack'],['reminders-snooze','snooze']])handle(channel,(_, ...args)=>{const value=recordReminders[method](...args);if(method!=='list'){send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');recordAttention.sync();toolOverlay?.invalidate('planning');}return value;});
   handle('startup-get',()=>desktopShell.loginStatus());
   handle('startup-open-settings',()=>desktopShell.openLoginSettings());
   handle('startup-set',(_,enabled)=>desktopShell.setLogin(enabled));
@@ -438,6 +439,7 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingSearchLastState'))require('./floating-search-state').normalize(patch.floatingSearchLastState,true);
     if(Object.hasOwn(patch,'floatingSearchTablePresets'))require('./floating-search-state').tablePresets(patch.floatingSearchTablePresets,true);
     if(Object.hasOwn(patch,'floatingSearchDatePresets'))require('./search-date-presets').normalize(patch.floatingSearchDatePresets,true);
+    if(Object.hasOwn(patch,'floatingPanels'))panelModel.normalize(patch.floatingPanels,true);
     if(Object.hasOwn(patch,'logView'))require('./log-view-settings-model').normalize(patch.logView,true);
     if(Object.hasOwn(patch,'globalSearchCriteria'))require('./search-criteria').normalize(patch.globalSearchCriteria,true);
     if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');
@@ -483,7 +485,10 @@ app.whenReady().then(() => {
       {type:'separator'},
       {label:'全域搜尋…',enabled:settings.floatingGlobalSearch,click:floatingAction(()=>floatingSearchController().open())},
       {label:'查看紀錄…',click:floatingAction(()=>openToolOverlay('logs'))},
-      {label:'日曆／看板與文字片段…',click:floatingAction(()=>openToolOverlay('planning'))},
+      ...(!settings.floatingCollapsed||settings.floatingPanels.collapsedMenu?
+       panelModel.enabledPanels(settings.floatingPanels).map(kind=>({
+        label:panelModel.PANELS[kind]+'…',click:floatingAction(()=>openInlinePanel(kind))
+       })):[]),
       {label:'顯示主視窗',click:floatingAction(()=>focusMain())},
       {label:'關閉浮動工具（隱藏）',click:floatingAction(()=>{floatingSearch?.destroy();floating.hide();})}
     ],{allowCollapsed:true});
@@ -694,7 +699,25 @@ app.whenReady().then(() => {
     error:error=>diagnostics.record('main','tool-overlay',error)
   });
   const openToolOverlay=kind=>toolOverlay.open(require('./tool-views-model').configuration({kind}));
-  handle('floating-planning-open',()=>openToolOverlay('planning'));
+  function inlinePanelConfig(kind){
+    if(typeof kind!=='string'||!Object.hasOwn(panelModel.PANELS,kind)||!desktop.settings.floatingPanels.enabled.includes(kind)){
+      throw new Error('此內容分頁未啟用，請到設定 → 浮動工具 → 浮動內容分頁調整');
+    }
+    return require('./tool-views-model').configuration({kind});
+  }
+  function openInlinePanel(kind){
+    inlinePanelConfig(kind);
+    if(desktop.settings.floatingCollapsed)setFloatingCollapsed(false);
+    showFloating();
+    const target=floating;
+    if(target.webContents.isLoadingMainFrame?.()){
+      target.webContents.once('did-finish-load',()=>send(target,'floating-panel-open',kind));
+    }else send(target,'floating-panel-open',kind);
+    return {opened:true,inline:true};
+  }
+  handle('floating-panel-open',(_,kind)=>openInlinePanel(kind));
+  handle('floating-panel-data',(_,kind,filters)=>productivity.viewData(inlinePanelConfig(kind),filters));
+  handle('floating-panel-action',(_,kind,action,value,customer)=>actOnTool(inlinePanelConfig(kind),action,value,customer));
   const overlayAction=(event,task)=>{
     const entry=toolOverlay.owner(event);
     if(!entry)throw new Error('不受信任的浮動工具來源');
@@ -707,8 +730,8 @@ app.whenReady().then(() => {
     if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
     return productivity.viewData(config,filters);
   }));
-  ipcMain.handle('tool-overlay-action',(event,kind,action,value,customer)=>overlayAction(event,({config})=>{
-    if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
+  function actOnTool(config,action,value,customer){
+    const {kind}=config;
     if(config.kind==='snippets'&&action==='copy')return productivity.copySnippet(value,customer);
     if(config.kind==='snippets')throw new Error('此工具只可複製文字片段');
     if(action==='main'&&config.kind==='planning'){focusMain();send(win,'open-app-page','planning');return;}
@@ -720,10 +743,14 @@ app.whenReady().then(() => {
       throw new Error('紀錄已移除或不在選定表格');
     }
     focusMain();send(win,'studio-search-target',{kind:'record',id:value});
+  }
+  ipcMain.handle('tool-overlay-action',(event,kind,action,value,customer)=>overlayAction(event,({config})=>{
+    if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
+    return actOnTool(config,action,value,customer);
   }));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
-  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,overlayChanged:()=>toolOverlay.invalidate('snippets'),previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();send(win,'record-reminders-changed',recordReminders.list());}});
+  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,overlayChanged:()=>{toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();send(win,'record-reminders-changed',recordReminders.list());}});
   const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
   if(desktop.settings.closeToTray)desktopShell.ensureTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));

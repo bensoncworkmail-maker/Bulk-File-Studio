@@ -61,13 +61,14 @@
   }
   for(const dialog of dialogs){
    const grip=document.createElement('button');
-   grip.type='button';grip.className='dialog-size-grip';grip.textContent='↘';
+   grip.type='button';grip.className='dialog-size-grip';
    grip.title='拖曳調整視窗大小，也可使用方向鍵';
    grip.setAttribute('aria-label','調整'+labelOf(dialog)+'尺寸');
    const row=document.createElement('div');
    row.className='dialog-size-row';
-   row.append(grip);
-   (dialog.querySelector('.notes-form-footer')||dialog).append(row);
+   const footer=dialog.querySelector('.notes-form-footer');
+   if(footer)footer.append(grip);
+   else{row.append(grip);dialog.append(row);}
    new MutationObserver(()=>{
     if(dialog.open)apply(dialog,window.settingsUI.get().dialogSizes[dialog.id]);
    }).observe(dialog,{attributes:true,attributeFilter:['open']});
