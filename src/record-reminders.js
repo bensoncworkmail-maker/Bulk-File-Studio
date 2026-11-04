@@ -11,5 +11,6 @@ class RecordReminders{
  remove(id){if(!this.items.some(item=>item.id===id))throw new Error('提醒已不存在');this.persist(this.items.filter(item=>item.id!==id));return this.list();}
  tick(){if(this.error||!this.settings().remindersEnabled||!this.items.length)return;const doc=this.document(),due=this.items.filter(item=>item.status==='pending'&&Date.parse(item.at)<=this.now()&&doc.records.some(record=>record.id===item.recordId&&M.live(doc,record)));if(!due.length)return;const ids=new Set(due.map(item=>item.id));this.persist(this.items.map(item=>ids.has(item.id)?{...item,status:'fired'}:item));this.onDue(this.list());}
  close(){this.clearIntervalFn(this.timer);}
+ reload(){this.items=[];delete this.error;try{const data=JSON.parse(fs.readFileSync(this.filename,'utf8'));if(data.version!==1||!Array.isArray(data.items)||data.items.length>500)throw new Error('提醒檔案格式無效');this.items=data.items.map(item=>this.validate(item));}catch(error){if(error.code!=='ENOENT'){this.error='提醒檔案無法讀取，已停止寫入：'+error.message;throw error;}}}
 }
 module.exports={RecordReminders};

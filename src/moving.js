@@ -35,11 +35,11 @@
    else{$('move-count').textContent='來源範圍未能確認，請調整搬移方式。';$('move-source-list').textContent=String(error.message||error);$('move-source-summary').textContent='來源未能確認';$('move-preview-list').textContent='';}
   }finally{previewing=false;controls();}
  }
- async function start(selected,{sourceLabel:label='目前選取',scope='selected'}={}){
+ async function start(selected,{sourceLabel:label='目前選取',scope='selected',targetFolder=''}={}){
   if(busy||previewing||callbacks.isBusy?.()||!selected.length||$('move-dialog').open)return;
-  original=[...new Set(selected)];sourceLabel=label;plan=[];paths=[];folder='';
+  original=[...new Set(selected)];sourceLabel=label;plan=[];paths=[];folder=targetFolder;
   $('move-scope').value=scope==='folders'?'folders':'selected';$('move-conflict').value='stop';
-  $('move-target').textContent='尚未選取';$('move-source-summary').textContent='正在核對來源…';$('move-source-list').textContent='';$('move-preview-list').textContent='';
+  $('move-target').textContent=folder||'尚未選取';$('move-source-summary').textContent='正在核對來源…';$('move-source-list').textContent='';$('move-preview-list').textContent='';
   $('move-dialog').showModal();await refreshSources();
  }
  async function chooseSources(){

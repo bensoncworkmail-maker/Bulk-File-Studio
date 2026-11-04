@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="app-layout.css">
     <link rel="stylesheet" href="notes-sharing.css">
     <link rel="stylesheet" href="home.css">
+    <link rel="stylesheet" href="productivity.css">
     <link rel="stylesheet" href="operation-ui.css">
     <script src="operation-ui.js" defer></script>
   <link rel="stylesheet" href="graphite-theme.css"></head>
@@ -40,6 +41,7 @@
           <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
           <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button>
           <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
+          <button id="tab-productivity" class="studio-tab" aria-pressed="false">▧ 生活／工作工具</button>
           <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
           <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
         </nav>
@@ -70,6 +72,21 @@
         </form>
         <p id="home-status" class="notes-hint" role="status"></p>
         <div id="home-widgets" class="home-widgets"></div>
+      </section>
+      <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
+        <div class="productivity-heading"><div><h1 id="productivity-title">生活／工作工具</h1><p>整理文件、保存重要資料，將每天要用的內容放在一起。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
+        <p id="productivity-status" class="productivity-status" role="status" aria-live="polite"></p>
+        <div class="productivity-layout"><nav id="productivity-nav" class="productivity-nav" aria-label="工具分類">
+          <button class="btn btn-secondary" data-productivity="repair" aria-pressed="true">批次修復路徑</button><button class="btn btn-secondary" data-productivity="backup" aria-pressed="false">備份還原中心</button><button class="btn btn-secondary" data-productivity="rules" aria-pressed="false">檔案整理規則</button><button class="btn btn-secondary" data-productivity="preview" aria-pressed="false">文件預覽</button><button class="btn btn-secondary" data-productivity="worksets" aria-pressed="false">情境工作集</button><button class="btn btn-secondary" data-productivity="snippets" aria-pressed="false">常用文字片段</button><button class="btn btn-secondary" data-productivity="calendar" aria-pressed="false">日曆／看板</button>
+        </nav><div>
+          <section id="productivity-repair" class="productivity-panel"><h2>批次修復路徑</h2><p>舊磁碟或資料夾搬家後，更新收藏、紀錄文件連結及獨立路徑文字欄位。只修復連結；不搬移原始檔案。網絡磁碟請先對應磁碟代號。</p><form id="repair-form"><label class="field"><span>舊根路徑</span><input id="repair-from" required maxlength="4096" placeholder="例如 D:\舊資料"></label><label class="field"><span>新根路徑</span><input id="repair-to" required maxlength="4096" placeholder="例如 E:\資料"></label><div class="productivity-actions"><button id="repair-folder" class="btn btn-secondary" type="button">選擇新位置</button><button class="btn btn-primary" type="submit">預覽修復</button></div></form><div class="productivity-actions"><button id="repair-select" class="btn btn-ghost" disabled>全選可修復項目</button><button id="repair-apply" class="btn btn-primary" disabled>確認修復所選連結</button></div><div id="repair-list" class="productivity-list"></div></section>
+          <section id="productivity-backup" class="productivity-panel" hidden><h2>完整備份／還原中心</h2><p>保存工作區、收藏、提醒、檢視、範本、設定與本頁工具；保留每次備份的歷史版本。原始文件、共享授權與系統登記另行管理。</p><div class="productivity-actions"><button id="backup-create" class="btn btn-primary">建立完整備份</button><button id="backup-import" class="btn btn-secondary">選取備份並預覽還原</button></div><div id="backup-list" class="productivity-list"></div><div id="backup-preview" class="productivity-card" hidden><h3>還原預覽</h3><p id="backup-summary"></p><div id="backup-counts"></div><button id="backup-restore" class="btn btn-primary">確認還原</button><button id="backup-cancel" class="btn btn-ghost">取消預覽</button></div></section>
+          <section id="productivity-rules" class="productivity-panel" hidden><h2>檔案整理規則</h2><p>依副檔名、名稱及修改日期提出整理建議。預覽後可加入標籤，或交給檔案工具檢查改名／搬移。</p><form id="rule-form"><input id="rule-id" type="hidden"><label class="field"><span>規則名稱</span><input id="rule-name" required maxlength="100" placeholder="例如 每月收據"></label><div class="productivity-fields"><label class="field"><span>副檔名（逗號分隔；留空為全部）</span><input id="rule-extensions" maxlength="200" placeholder="pdf,jpg,png"></label><label class="field"><span>名稱包含</span><input id="rule-contains" maxlength="100" placeholder="例如 收據"></label><label class="field"><span>修改日期由（選填）</span><input id="rule-after" type="date"></label><label class="field"><span>修改日期至（選填）</span><input id="rule-before" type="date"></label><label class="field"><span>建議加上檔名前綴</span><input id="organize-prefix" maxlength="100" placeholder="例如 收據_"></label><label class="field"><span>建議標籤（逗號分隔）</span><input id="rule-tags" maxlength="650" placeholder="家庭,收據"></label></div><label class="field"><span>建議搬移至（選填）</span><input id="rule-folder" maxlength="4096"></label><div class="productivity-actions"><button id="rule-pick-folder" type="button" class="btn btn-ghost">選擇目標資料夾</button><button type="submit" class="btn btn-primary">儲存規則</button><button id="rule-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="rule-list"></div><div class="productivity-actions"><label>套用規則 <select id="rule-select"></select></label><button id="rule-preview" class="btn btn-secondary">選擇檔案並產生建議</button></div><div id="rule-results" class="productivity-list"></div><div class="productivity-actions"><button id="rule-tag" class="btn btn-secondary" disabled>收藏並套用標籤</button><button id="rule-rename" class="btn btn-secondary" disabled>交給改名工具</button><button id="rule-move" class="btn btn-secondary" disabled>交給搬移工具</button></div></section>
+          <section id="productivity-preview" class="productivity-panel" hidden><h2>文件內建預覽</h2><p>圖片、純文字與 PDF 可直接預覽。也可以從工作區紀錄的「相關檔案」按「預覽」。文字上限 2 MB，圖片／PDF 上限 25 MB。</p><button id="document-choose" class="btn btn-primary">選擇文件預覽</button></section>
+          <section id="productivity-worksets" class="productivity-panel" hidden><h2>情境工作集</h2><p>組合客戶、帳單或旅行相關的收藏與紀錄。最多組合 20 個收藏位置與 100 筆紀錄；開啟前會核對位置，並顯示確認。</p><form id="workset-form"><input id="workset-id" type="hidden"><label class="field"><span>工作集名稱</span><input id="workset-name" required maxlength="100"></label><label class="field"><span>篩選收藏與紀錄</span><input id="workset-query" type="search" maxlength="200" placeholder="搜尋名稱、路徑或表格"></label><h3>收藏位置</h3><div id="workset-favorites" class="productivity-choice-list"></div><h3>工作區紀錄</h3><div id="workset-records" class="productivity-choice-list"></div><p id="workset-count" class="notes-hint"></p><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存工作集</button><button id="workset-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="workset-list"></div></section>
+          <section id="productivity-snippets" class="productivity-panel" hidden><h2>常用文字片段</h2><p>手動保存常用內容，一鍵複製。可使用 {{today}}（今天）及 {{customer}}（客戶／稱呼）。</p><form id="snippet-form"><input id="snippet-id" type="hidden"><div class="productivity-fields"><label class="field"><span>名稱</span><input id="snippet-name" required maxlength="100"></label><label class="field"><span>分類</span><input id="snippet-category" maxlength="60"></label></div><label class="field"><span>文字內容</span><textarea id="snippet-body" required maxlength="20000" rows="5"></textarea></label><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存片段</button><button id="snippet-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div class="productivity-fields"><label class="field"><span>搜尋名稱、分類或內容</span><input id="snippet-query" type="search" maxlength="200"></label><label class="field"><span>客戶／稱呼變數</span><input id="snippet-customer" maxlength="200"></label></div><div id="snippet-list"></div></section>
+          <section id="productivity-calendar" class="productivity-panel" hidden><h2>日曆／看板</h2><p>日曆顯示現有日期欄位及提醒。看板使用表格的單選欄位，可拖動卡片或用選單改變狀態。</p><div class="productivity-actions"><label>檢視 <select id="planning-mode"><option value="calendar">月曆</option><option value="board">狀態看板</option></select></label><label id="planning-month-wrap">月份 <input id="planning-month" type="month"></label><label id="planning-sheet-wrap">表格 <select id="planning-sheet"></select></label><label id="planning-field-wrap" hidden>狀態欄位 <select id="planning-field"></select></label><label>篩選 <input id="planning-query" type="search" maxlength="200" placeholder="搜尋標題或表格"></label></div><div id="planning-content"></div></section>
+        </div></div>
       </section>
       <section id="search-page" class="settings-page app-search-page hidden" aria-labelledby="app-search-title">
         <div class="settings-heading">
@@ -1141,6 +1158,7 @@
                       <option value="favorites">我的收藏</option>
                       <option value="notes">資料工作區</option>
                       <option value="search">全域搜尋</option>
+                      <option value="productivity">生活／工作工具</option>
                     </select>
                   </label>
                   <label class="check-row">
@@ -2383,6 +2401,7 @@
         <button id="notes-history-close" class="btn btn-secondary">關閉</button>
       </div>
     </dialog>
+<dialog id="document-preview-dialog" class="modal productivity-preview" aria-labelledby="document-preview-title"><h2 id="document-preview-title">文件預覽</h2><p id="document-preview-path" class="notes-hint"></p><div id="document-preview-content"></div><div class="modal-buttons"><button id="document-preview-close" class="btn btn-secondary">關閉</button></div></dialog>
     <div id="toast-container" aria-live="polite"></div>
     <script src="presets.js" defer></script>
     <script src="list-pagination.js" defer></script>
@@ -2407,6 +2426,7 @@
     <script src="share-receive-ui.js" defer></script>
     <script src="menu-dismiss.js" defer></script><script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
+    <script src="productivity-model.js" defer></script><script src="productivity.js" defer></script>
     <script src="layout-editor.js" defer></script><script src="home.js" defer></script>
     <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>

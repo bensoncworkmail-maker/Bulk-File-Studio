@@ -118,6 +118,13 @@ contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
 }));
 
 contextBridge.exposeInMainWorld('homeAPI',Object.freeze({snapshot:()=>invoke('studio-home')}));
+contextBridge.exposeInMainWorld('productivityAPI',Object.freeze({
+ get:()=>invoke('productivity-get'),save:(kind,input)=>invoke('productivity-save',kind,input),remove:(kind,id)=>invoke('productivity-remove',kind,id),folder:()=>invoke('productivity-folder'),
+ repairPreview:(from,to)=>invoke('productivity-repair-preview',from,to),repairApply:(token,keys,ui)=>invoke('productivity-repair-apply',token,keys,ui),
+ backupCreate:ui=>invoke('productivity-backup-create',ui),backupExport:name=>invoke('productivity-backup-export',name),backupPreview:name=>invoke('productivity-backup-preview',name),backupRestore:(token,ui)=>invoke('productivity-backup-restore',token,ui),restoredUI:()=>invoke('productivity-restored-ui'),ackRestored:()=>invoke('productivity-restored-ack'),
+ rulesChoose:()=>invoke('productivity-rules-choose'),rulesPreview:(id,paths)=>invoke('productivity-rules-preview',id,paths),rulesAction:(token,paths,action)=>invoke('productivity-rules-action',token,paths,action),
+ snippetCopy:(id,customer)=>invoke('productivity-snippet-copy',id,customer),worksetOpen:id=>invoke('productivity-workset-open',id),previewChoose:()=>invoke('productivity-preview-choose'),previewLink:(recordId,index)=>invoke('productivity-preview-link',recordId,index),boardMove:(recordId,fieldId,value,revision)=>invoke('productivity-board-move',recordId,fieldId,value,revision)
+}));
 
 contextBridge.exposeInMainWorld('diagnosticsAPI',Object.freeze({report:entry=>ipcRenderer.invoke('diagnostics-report',entry)}));
 
