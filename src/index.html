@@ -2236,7 +2236,7 @@
         <button id="notes-table-close" type="button" class="btn btn-ghost" aria-label="關閉匯入">✕</button>
       </header>
       <div class="notes-table-import-body">
-        <p class="notes-hint">只新增紀錄，不覆蓋既有資料。每次最多 1000 筆、50,000 格。電話含前置 0 時請在 Excel 儲存成文字。關聯目前主檔會自動帶入。附件每行填一個本機檔案或資料夾完整路徑，預覽時驗證。</p>
+        <p class="notes-hint">只新增紀錄，不覆蓋既有資料。每次最多 1000 筆、50,000 格。電話含前置 0 時請在 Excel 儲存成文字。關聯目前主檔會自動帶入。附件每行填一個檔案或資料夾完整路徑。內網 UNC 共享須勾選下方選項，預覽時驗證。</p>
         <div class="notes-tools">
           <button id="notes-table-file" class="btn btn-secondary" title="亦可將 .xlsx 拖入此視窗">選擇 Excel .xlsx</button>
           <select id="notes-table-sheet" aria-label="Excel 工作表" hidden></select>
@@ -2248,7 +2248,7 @@
         </label>
         <div class="notes-tools">
           <button id="notes-table-read" class="btn btn-secondary">讀取貼上內容</button>
-          <label class="check-row"><input id="notes-table-header" type="checkbox" checked>第一列是欄名</label>
+          <label class="check-row"><input id="notes-table-header" type="checkbox" checked>第一列是欄名</label><label class="check-row"><input id="notes-table-intranet" type="checkbox">允許驗證內網 UNC 附件</label>
           <label>文字日期順序 <select id="notes-table-date-format"><option value="ymd">年／月／日</option><option value="dmy">日／月／年</option><option value="mdy">月／日／年</option></select></label>
         </div>
         <p id="notes-table-warning" class="notes-hint"></p>
