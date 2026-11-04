@@ -33,6 +33,62 @@
     try {$('settings-data-path').textContent=await window.renameAPI.dataLocation();}
     catch(e){$('settings-data-path').textContent=String(e.message||e);}
   }
+  function showReleaseHistory({version,history=[]}) {
+    $('info-version').textContent='v'+version;
+    $('app-version').textContent='v'+version;
+    const list=$('info-history'),results=$('info-history-results');
+    const search=$('info-history-search'),status=$('info-history-count');
+    const releaseCard=(item,latest=false)=>{
+      const card=document.createElement('article'),heading=document.createElement('h3');
+      const body=document.createElement('p');
+      card.className='info-release';
+      heading.textContent='v'+item.version;
+      if(latest){
+        card.classList.add('info-release-latest');
+        const label=document.createElement('span');
+        label.className='info-release-badge';
+        label.textContent='目前版本';
+        heading.append(label);
+      }
+      card.append(heading);
+      if(item.date){
+        const time=document.createElement('time');
+        time.setAttribute('datetime',item.date);
+        time.textContent=item.date;
+        card.append(time);
+      }
+      body.textContent=item.text;
+      card.append(body);
+      return card;
+    };
+    const recent=history.slice(0,5),older=history.slice(5);
+    list.replaceChildren(...recent.map(item=>releaseCard(item,item.version===version)));
+    if(older.length){
+      const archive=document.createElement('details'),summary=document.createElement('summary');
+      archive.className='info-release-archive';
+      summary.textContent='展開較早的 '+older.length+' 個版本';
+      archive.append(summary,...older.map(item=>releaseCard(item)));
+      list.append(archive);
+    }
+    status.textContent=history.length?'共 '+history.length+' 個版本':'目前沒有更新紀錄。';
+    search.disabled=!history.length;
+    search.addEventListener('input',()=>{
+      const terms=search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+      list.hidden=terms.length>0;
+      results.hidden=!terms.length;
+      if(!terms.length){
+        results.replaceChildren();
+        status.textContent='共 '+history.length+' 個版本';
+        return;
+      }
+      const matches=history.filter(item=>{
+        const text=('v'+item.version+' '+item.date+' '+item.text).toLocaleLowerCase();
+        return terms.every(term=>text.includes(term));
+      });
+      results.replaceChildren(...matches.map(item=>releaseCard(item,item.version===version)));
+      status.textContent=matches.length?'找到 '+matches.length+' 個版本':'找不到符合條件的更新紀錄。';
+    });
+  }
   function init(options) {
     callbacks=options;window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(page=>{if(['home','notes','favorites','search','rename','settings','productivity','planning','logs'].includes(page)){if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}window.favoritesUI.show(page);}});syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();
     let nativeValues={},availableTags=[];
@@ -82,7 +138,9 @@
     $('settings-rules-width').addEventListener('input',event=>{$('settings-rules-width-value').textContent=event.target.value+' px';});
     $('settings-tag-panel-width').addEventListener('input',event=>{$('settings-tag-width-value').textContent=event.target.value+' px';});
     $('btn-shortcuts-reset').addEventListener('click',()=>window.studioShortcuts.reset());
-    window.renameAPI.appInfo().then(info=>{$('info-version').textContent='v'+info.version;$('app-version').textContent='v'+info.version;const history=$('info-history');history.replaceChildren();for(const item of info.history||[]){const title=document.createElement('h3'),body=document.createElement('p');title.textContent=item.version+(item.date?' · '+item.date:'');body.textContent=item.text;history.append(title,body);}}).catch(()=>{});
+    window.renameAPI.appInfo().then(showReleaseHistory).catch(()=>{
+      $('info-history-count').textContent='無法讀取更新紀錄。';
+    });
     for(const [key,id] of Object.entries(controls))$(id).addEventListener('change',event=>{
       const el=event.target;update({[key]:typeof DEFAULTS[key]==='boolean'?el.checked:numericKeys.includes(key)?Number(el.value):el.value});
     });

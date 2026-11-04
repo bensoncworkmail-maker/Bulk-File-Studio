@@ -2,10 +2,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {documentFromHTML}=require('./helpers/dom'),Catalog=require('../src/settings-catalog'),Settings=require('../src/settings-model'),Desktop=require('../src/desktop-state');
 const html=fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'),flush=async()=>{for(let i=0;i<5;i++)await new Promise(setImmediate);},plain=value=>JSON.parse(JSON.stringify(value));
-function setup(prefs={},native={}){
+function setup(prefs={},native={},history=[]){
  const document=documentFromHTML(html),saved={},patches=[],changes=[],errors=[],opened=[],defaultNative=Desktop.normalize(native);let values=defaultNative,busy=false,rejectConfigure=false;
  const desktopAPI={get:async()=>plain(values),defaults:async()=>plain(Desktop.DEFAULTS),configure:async patch=>{if(rejectConfigure)throw new Error('Shortcut unavailable');patches.push(plain(patch));values=Desktop.normalize({...values,...patch});return {settings:plain(values)};},floatingTagOptions:async()=>[],onChanged(){},startup:async()=>({supported:false,enabled:false}),resetWindow:async()=>{},showFloating:async()=>{},compactFloatingSize:async()=>{},hideToTray:async()=>{}};
- const window={studioSettingsModel:Settings,studioSettingsCatalog:Catalog,studioInitialSettings:Settings.normalize(prefs),desktopAPI,studioShortcuts:{init(){},reset(){},getBindings:()=>({})},globalShortcutModel:require('../src/global-shortcuts'),favoritesAPI:{onChanged(){}},renameAPI:{dataLocation:async()=>'/local',appInfo:async()=>({version:'1.31.0',history:[]})},notesUI:{canLeave:()=>true,openCardSettings(){}},favoritesUI:{show:view=>{opened.push(view);return true;}}};
+ const window={studioSettingsModel:Settings,studioSettingsCatalog:Catalog,studioInitialSettings:Settings.normalize(prefs),desktopAPI,studioShortcuts:{init(){},reset(){},getBindings:()=>({})},globalShortcutModel:require('../src/global-shortcuts'),favoritesAPI:{onChanged(){}},renameAPI:{dataLocation:async()=>'/local',appInfo:async()=>({version:history[0]?.version||'1.31.0',history})},notesUI:{canLeave:()=>true,openCardSettings(){}},favoritesUI:{show:view=>{opened.push(view);return true;}}};
  const context=vm.createContext({window,document,localStorage:{setItem:(key,value)=>saved[key]=value,removeItem:key=>delete saved[key]},setTimeout:()=>0});for(const file of ['settings-workbench.js','settings.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+file),'utf8'),context,{filename:file});window.settingsUI.init({isBusy:()=>busy,onChange:(settings,keys)=>changes.push({settings:plain(settings),keys:plain(keys)}),showFailure:(title,error)=>errors.push(String(error.message||error)),getConfiguration:()=>({rules:{},presets:[]})});return {document,window,ui:window.settingsUI,patches,changes,errors,saved,opened,values:()=>values,setBusy:v=>busy=v,reject:v=>rejectConfigure=v,$:id=>document.getElementById(id)};
 }
 test('catalog bindings belong to their actual category and every native default is included in full reset',()=>{const d=documentFromHTML(html);for(const [key,id] of Object.entries({...Catalog.controls,...Catalog.nativeControls})){const el=d.getElementById(id);assert.ok(el,id);let panel=el;while(panel&&!panel.id.startsWith('settings-panel-'))panel=panel.parentElement;assert.equal(panel?.id,'settings-panel-'+Catalog.groupsByKey[key],key);}assert.deepEqual(Catalog.resetPatch('native','all',Desktop.DEFAULTS),plain(Desktop.DEFAULTS));const defaults=Catalog.resetPatch('renderer','notes',Settings.DEFAULTS);assert.ok(Object.hasOwn(defaults,'notesCardFields'));assert.equal(defaults.favoriteColumns,undefined);defaults.notesCardFields.x=[];assert.equal(Settings.DEFAULTS.notesCardFields.x,undefined);});
@@ -65,4 +65,30 @@ test('detail toolbar expansion is saved, exported and reset with workspace setti
 
 test('master/detail modes and toolbar expansion export and reset independently',async()=>{
  const h=setup({notesView:'cards'});await flush();assert.equal(h.ui.get().notesMasterView,'cards');assert.equal(h.ui.get().notesDetailView,'cards');h.$('settings-notes-master-view').value='list';await h.$('settings-notes-master-view').dispatch('change');h.$('settings-notes-detail-view').value='grid';await h.$('settings-notes-detail-view').dispatch('change');h.$('settings-notes-master-tools-expanded').checked=false;await h.$('settings-notes-master-tools-expanded').dispatch('change');assert.equal(h.ui.get().notesMasterView,'list');assert.equal(h.ui.get().notesDetailView,'grid');assert.equal(h.ui.get().notesView,'cards');const saved=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.57.0');assert.equal(saved.settings.notesMasterView,'list');assert.equal(saved.settings.notesDetailView,'grid');assert.equal(saved.settings.notesMasterToolsExpanded,false);h.ui.openCategory('notes');await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');assert.equal(h.ui.get().notesMasterView,'list');assert.equal(h.ui.get().notesDetailView,'list');assert.equal(h.ui.get().notesMasterToolsExpanded,true);assert.deepEqual(h.errors,[]);
+});
+
+test('the info page displays recent history and searches across earlier releases',async()=>{
+ const history=require('../src/release-history'),h=setup({}, {},history);
+ await flush();
+ const list=h.$('info-history'),search=h.$('info-history-search'),results=h.$('info-history-results');
+ assert.equal(h.$('info-version').textContent,'v'+history[0].version);
+ assert.equal(list.children.filter(node=>node.tagName==='ARTICLE').length,5);
+ const older=list.querySelector('details');
+ assert.equal(older.open,false);
+ assert.equal(older.querySelectorAll('article').length,history.length-5);
+ assert.equal(search.disabled,false);
+ search.value='V1.0.0 改名';
+ await search.dispatch('input');
+ assert.equal(list.hidden,true);
+ assert.equal(results.hidden,false);
+ assert.equal(results.querySelectorAll('article').length,1);
+ assert.match(results.textContent,/v1\.0\.0/);
+ search.value='<script>不存在</script>';
+ await search.dispatch('input');
+ assert.equal(results.children.length,0);
+ assert.match(h.$('info-history-count').textContent,/找不到/);
+ search.value='';
+ await search.dispatch('input');
+ assert.equal(list.hidden,false);
+ assert.equal(results.hidden,true);
 });

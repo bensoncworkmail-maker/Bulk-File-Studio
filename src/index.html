@@ -1351,7 +1351,13 @@
           </section>
           <section class="settings-card">
             <h2>更新紀錄</h2>
+            <label class="field info-history-search">
+              <span>搜尋更新紀錄</span>
+              <input id="info-history-search" type="search" maxlength="120" placeholder="例如 v1.71 或 浮動 日曆" disabled>
+            </label>
+            <p id="info-history-count" role="status">正在載入更新紀錄…</p>
             <div id="info-history"></div>
+            <div id="info-history-results" hidden></div>
           </section>
         </div>
       </section>
