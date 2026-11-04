@@ -42,16 +42,16 @@
   $('move-target').textContent=folder||'尚未選取';$('move-source-summary').textContent='正在核對來源…';$('move-source-list').textContent='';$('move-preview-list').textContent='';
   $('move-dialog').showModal();await refreshSources();
  }
- async function chooseSources(){
+ async function chooseSources(dropped){
   if(busy||previewing||callbacks.isBusy?.())return;
-  try{const selected=await window.renameAPI.chooseMoveSources();if(selected.length)await start(selected,{sourceLabel:'另外選取的完整資料夾',scope:'folders'});}
+  try{const selected=await window.renameAPI.chooseMoveSources(dropped);if(selected.length)await start(selected,{sourceLabel:'另外選取的完整資料夾',scope:'folders'});}
   catch(error){callbacks.showFailure('無法選取來源',error);}
  }
- async function choose(reuse=false){
+ async function choose(reuse=false,dropped){
   if(busy||previewing||!paths.length)return;
   previewing=true;plan=[];controls();
   try{
-   const selected=reuse?folder:await window.renameAPI.chooseMoveFolder();if(!selected)return;
+   const selected=reuse?folder:await window.renameAPI.chooseMoveFolder(dropped);if(!selected)return;
    folder=selected;$('move-target').textContent=folder;await preview();
   }catch(error){plan=[];$('move-preview-list').textContent=String(error.message||error);}
   finally{previewing=false;controls();}
@@ -66,7 +66,14 @@
   finally{plan=[];busy=false;controls();}
  }
  window.movingUI=Object.freeze({start,chooseSources,hasOpenDialog:()=>$('move-dialog').open,init:config=>{
-  callbacks=config;$('move-scope').addEventListener('change',refreshSources);
+  callbacks=config;
+  const drop=window.studioFileDrop;
+  drop?.bind('btn-move-folders',chooseSources,()=>!$('btn-move-folders').disabled);
+  drop?.bind('move-target-zone',paths=>choose(false,drop.single(paths)),()=>!$('btn-move-target').disabled);
+  drop?.bind('move-source-zone',async dropped=>{
+   original=dropped;sourceLabel='拖放來源';$('move-scope').value='selected';await refreshSources();
+  },()=>!busy&&!previewing);
+  $('move-scope').addEventListener('change',refreshSources);
   $('move-conflict').addEventListener('change',()=>{if(busy||previewing)return;plan=[];controls();if(folder)return choose(true);});
   $('btn-move-target').addEventListener('click',()=>choose());$('btn-move-cancel').addEventListener('click',()=>$('move-dialog').close());
   $('btn-move-confirm').addEventListener('click',execute);$('move-dialog').addEventListener('cancel',event=>{if(busy||previewing)event.preventDefault();});

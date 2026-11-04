@@ -280,13 +280,17 @@
     $('btn-fav-rename').addEventListener('click',importSelected);
     $('btn-favorite-selected').addEventListener('click',()=>addPaths(callbacks.getSelectedPaths()));
     $('btn-fav-edit-cancel').addEventListener('click',()=>$('favorite-edit-dialog').close());
-    $('btn-fav-relink').addEventListener('click',async()=>{
+    const selectReplacement=async dropped=>{
       if(editingIds.length!==1)return;
       const button=$('btn-fav-relink');button.disabled=true;
-      try {const filepath=await api.chooseLink(editingIds[0]);if(filepath){pendingLink=filepath;$('favorite-path').value=filepath;}}
+      try {const filepath=await api.chooseLink(editingIds[0],dropped);if(filepath){pendingLink=filepath;$('favorite-path').value=filepath;}}
       catch(e){callbacks.showFailure('無法選擇新位置',e);}
       finally{button.disabled=false;}
-    });
+    };
+    $('btn-fav-relink').addEventListener('click',()=>selectReplacement());
+    const drop=window.studioFileDrop;
+    for(const id of ['favorite-path','btn-fav-relink'])drop?.bind(id,paths=>selectReplacement(drop.single(paths)),()=>editingIds.length===1&&!$('btn-fav-relink').disabled);
+
     $('favorite-edit-form').addEventListener('submit',event=>{
       event.preventDefault();const ids=[...editingIds],changes={tags:$('favorite-edit-tags').value.split(/[,，\n]/)};
       if(ids.length===1){changes.label=$('favorite-label').value;if(pendingLink!==null)changes.path=pendingLink;}

@@ -132,7 +132,10 @@
     for(const id of ['notes-panel-width','notes-detail-width','notes-row-height'])$('settings-'+id).addEventListener('input',event=>{$('settings-'+id+'-value').textContent=event.target.value+' px';});
     $('settings-source-panel-width').addEventListener('input',event=>{$('settings-source-width-value').textContent=event.target.value+' px';});
     $('btn-window-reset').addEventListener('click',()=>window.desktopAPI.resetWindow().catch(e=>callbacks.showFailure('無法還原視窗',e)));
-    $('settings-notes-compat-check').addEventListener('click',async()=>{try{const value=await window.workspaceAPI.checkPackage();if(!value.canceled)$('settings-notes-compat-status').textContent='可讀取：資料包 '+value.packageVersion+'／資料格式 '+value.schemaVersion+'，'+value.sheets+' 張表、'+value.records+' 筆；未匯入或修改資料。';}catch(error){$('settings-notes-compat-status').textContent=String(error.message||error);}});
+    const checkPackage=async filepath=>{try{const value=await window.workspaceAPI.checkPackage(filepath);if(!value.canceled)$('settings-notes-compat-status').textContent='可讀取：資料包 '+value.packageVersion+'／資料格式 '+value.schemaVersion+'，'+value.sheets+' 張表、'+value.records+' 筆；未匯入或修改資料。';}catch(error){$('settings-notes-compat-status').textContent=String(error.message||error);}};
+    $('settings-notes-compat-check').addEventListener('click',()=>checkPackage());
+    const drop=window.studioFileDrop;
+    drop?.bind('settings-notes-compat-check',paths=>checkPackage(drop.single(paths)));
     $('settings-notes-share-manage').addEventListener('click',()=>{window.favoritesUI.show('notes');window.notesUI.openShare();});
     $('btn-settings-columns').addEventListener('click',()=>window.favoritesUI.openColumns());
     $('settings-rules-width').addEventListener('input',event=>{$('settings-rules-width-value').textContent=event.target.value+' px';});

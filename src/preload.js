@@ -27,8 +27,8 @@ contextBridge.exposeInMainWorld('operationAPI',Object.freeze({onChange:callback=
 contextBridge.exposeInMainWorld('renameAPI', Object.freeze({
   exportSettings:input=>invoke('export-settings',input),
   appInfo:()=>invoke('app-info'),
-  chooseMoveFolder:()=>invoke('choose-move-folder'),
-  chooseMoveSources:()=>invoke('choose-move-sources'),
+  chooseMoveFolder:filepath=>invoke('choose-move-folder',filepath),
+  chooseMoveSources:paths=>invoke('choose-move-sources',paths),
   movePreview:(paths,folder,options)=>invoke('move-preview',paths,folder,options),
   moveSources:(paths,scope)=>invoke('move-sources',paths,scope),
   moveFiles:(paths,folder,expected,options)=>invoke('move-files',paths,folder,expected,options),
@@ -66,7 +66,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
   open:id=>invoke('favorites-open',id),
   show:id=>invoke('favorites-show',id),
   copy:id=>invoke('favorites-copy',id),
-  chooseLink:id=>invoke('favorites-choose-link',id),
+  chooseLink:(id,filepath)=>invoke('favorites-choose-link',id,filepath),
   toRename:(ids,recursive)=>invoke('favorites-to-rename',ids,recursive),
   contextStatus:()=>invoke('context-menu-status'),
   setContext:enabled=>invoke('context-menu-set',enabled),
@@ -104,33 +104,33 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));
 
-contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>invoke('everything-status'),configure:(enabled,instance)=>invoke('everything-configure',enabled,instance),choose:()=>invoke('everything-choose'),search:input=>invoke('everything-search',input),cancel:()=>invoke('everything-cancel'),favorite:(token,indices,tags)=>invoke('everything-favorite',token,indices,tags),toRename:(token,indices)=>invoke('everything-to-rename',token,indices)}));
+contextBridge.exposeInMainWorld('everythingAPI',Object.freeze({status:()=>invoke('everything-status'),configure:(enabled,instance)=>invoke('everything-configure',enabled,instance),choose:filepath=>invoke('everything-choose',filepath),search:input=>invoke('everything-search',input),cancel:()=>invoke('everything-cancel'),favorite:(token,indices,tags)=>invoke('everything-favorite',token,indices,tags),toRename:(token,indices)=>invoke('everything-to-rename',token,indices)}));
 
 contextBridge.exposeInMainWorld('appSearchAPI',Object.freeze({search:(query,options,transient)=>invoke('studio-search',query,options,transient),copyPath:value=>invoke('studio-search-copy',value),onTarget:callback=>{const listener=(_,item)=>callback(item);ipcRenderer.on('studio-search-target',listener);return ()=>ipcRenderer.removeListener('studio-search-target',listener);}}));
 contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
- openDrafts:()=>invoke('draft-open'),checkPackage:()=>invoke('notes-check-package'),chooseTableFile:()=>invoke('notes-tabular-file'),exportTable:(sheetId,ids,revision)=>invoke('notes-tabular-export',sheetId,ids,revision),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
+ openDrafts:()=>invoke('draft-open'),checkPackage:filepath=>invoke('notes-check-package',filepath),chooseTableFile:filepath=>invoke('notes-tabular-file',filepath),exportTable:(sheetId,ids,revision)=>invoke('notes-tabular-export',sheetId,ids,revision),tablePreview:input=>invoke('notes-tabular-preview',input),tableCommit:token=>invoke('notes-tabular-commit',token),
  tools:()=>invoke('notes-tools-get'),saveView:(name,state)=>invoke('notes-view-save',name,state),removeTool:(kind,id)=>invoke('notes-tool-remove',kind,id),saveTemplate:(name,areaId)=>invoke('notes-template-save',name,areaId),applyTemplate:(id,revision)=>invoke('notes-template-apply',id,revision),pin:id=>invoke('notes-pin',id),batchSheets:(entries,revision)=>invoke('notes-batch-sheets',entries,revision),batchAreas:(ids,revision)=>invoke('notes-batch-areas',ids,revision),saveCells:(entries,revision)=>invoke('notes-grid-save',entries,revision),navigation:()=>invoke('notes-navigation'),onNavigate:callback=>ipcRenderer.on('notes-navigate',()=>callback()),onToolsChanged:callback=>ipcRenderer.on('notes-tools-changed',(_,value)=>callback(value)),
 
  onShareOpenRequest:callback=>ipcRenderer.on('notes-share-open-request',()=>callback()),cancelPreview:token=>invoke('notes-preview-cancel',token),importDetails:(token,key)=>invoke('notes-import-details',token,key),
  shareIgnore:name=>invoke('notes-share-ignore',name),replyShareIdle:(id,idle)=>ipcRenderer.invoke('notes-share-idle',id,idle),onShareIdleQuery:callback=>ipcRenderer.on('notes-share-idle-query',(_,id)=>callback(id)),
- shareInspect:name=>invoke('notes-share-inspect',name),shareStatus:()=>invoke('notes-share-status'),shareSelect:id=>invoke('notes-share-select',id),shareChoose:profileId=>invoke('notes-share-choose',profileId),shareConfigure:(patch,profileId)=>invoke('notes-share-configure',patch,profileId),shareCheck:profileId=>invoke('notes-share-check',profileId),sharePublish:profileId=>invoke('notes-share-publish',profileId),shareLoad:(name,profileId)=>invoke('notes-share-load',name,profileId),onShareChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('notes-share-changed',listener);return ()=>ipcRenderer.removeListener('notes-share-changed',listener);},
+ shareInspect:name=>invoke('notes-share-inspect',name),shareStatus:()=>invoke('notes-share-status'),shareSelect:id=>invoke('notes-share-select',id),shareChoose:(profileId,filepath)=>invoke('notes-share-choose',profileId,filepath),shareConfigure:(patch,profileId)=>invoke('notes-share-configure',patch,profileId),shareCheck:profileId=>invoke('notes-share-check',profileId),sharePublish:profileId=>invoke('notes-share-publish',profileId),shareLoad:(name,profileId)=>invoke('notes-share-load',name,profileId),onShareChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('notes-share-changed',listener);return ()=>ipcRenderer.removeListener('notes-share-changed',listener);},
  contextMenu:(kind,id)=>invoke('notes-context-menu',kind,id),addPaths:paths=>invoke('notes-add-paths',paths),choosePaths:kind=>invoke('notes-choose-paths',kind),onContextAction:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('notes-context-action',listener);return ()=>ipcRenderer.removeListener('notes-context-action',listener);},
- chooseBackup:()=>invoke('notes-backup-choose'),restoreBackup:token=>invoke('notes-backup-restore',token),
+ chooseBackup:filepath=>invoke('notes-backup-choose',filepath),restoreBackup:token=>invoke('notes-backup-restore',token),
  get:()=>invoke('notes-get'),template:kind=>invoke('notes-template',kind),saveArea:input=>invoke('notes-area-save',input),removeArea:(id,revision)=>invoke('notes-area-remove',id,revision),duplicateRecord:(id,version)=>invoke('notes-record-duplicate',id,version),copy:input=>invoke('notes-copy',input),saveSheet:input=>invoke('notes-sheet-save',input),saveRecord:input=>invoke('notes-record-save',input),completeClientDetails:(areaId,revision)=>invoke('notes-client-details',areaId,revision),batchTrash:(entries,includeDetails,revision)=>invoke('notes-batch-trash',entries,includeDetails,revision),trash:(kind,id,version,restore)=>invoke('notes-trash',kind,id,version,restore),
  history:id=>invoke('notes-history',id),restoreHistory:(id,historyId,version)=>invoke('notes-history-restore',id,historyId,version),favorites:()=>invoke('notes-favorites'),openLink:(id,index,action)=>invoke('notes-open-link',id,index,action),inspectLinks:paths=>invoke('notes-inspect-links',paths),
- exportPreview:options=>invoke('notes-export-preview',options),exportSave:token=>invoke('notes-export-save',token),chooseImport:()=>invoke('notes-import-choose'),importPreview:(mode,resolution)=>invoke('notes-import-preview',mode,resolution),importCommit:(token,options)=>invoke('notes-import-commit',token,options),
+ exportPreview:options=>invoke('notes-export-preview',options),exportSave:token=>invoke('notes-export-save',token),chooseImport:filepath=>invoke('notes-import-choose',filepath),importPreview:(mode,resolution)=>invoke('notes-import-preview',mode,resolution),importCommit:(token,options)=>invoke('notes-import-commit',token,options),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('notes-changed',listener);return ()=>ipcRenderer.removeListener('notes-changed',listener);}
 }));
 
 contextBridge.exposeInMainWorld('homeAPI',Object.freeze({snapshot:()=>invoke('studio-home')}));
 contextBridge.exposeInMainWorld('productivityAPI',Object.freeze({
- get:()=>invoke('productivity-get'),save:(kind,input)=>invoke('productivity-save',kind,input),remove:(kind,id)=>invoke('productivity-remove',kind,id),folder:()=>invoke('productivity-folder'),
+ get:()=>invoke('productivity-get'),save:(kind,input)=>invoke('productivity-save',kind,input),remove:(kind,id)=>invoke('productivity-remove',kind,id),folder:filepath=>invoke('productivity-folder',filepath),
  repairPreview:(from,to)=>invoke('productivity-repair-preview',from,to),repairApply:(token,keys,ui)=>invoke('productivity-repair-apply',token,keys,ui),
- backupCreate:ui=>invoke('productivity-backup-create',ui),backupExport:name=>invoke('productivity-backup-export',name),backupPreview:name=>invoke('productivity-backup-preview',name),backupRestore:(token,ui)=>invoke('productivity-backup-restore',token,ui),restoredUI:()=>invoke('productivity-restored-ui'),ackRestored:()=>invoke('productivity-restored-ack'),
+ backupCreate:ui=>invoke('productivity-backup-create',ui),backupExport:name=>invoke('productivity-backup-export',name),backupPreview:(name,filepath)=>invoke('productivity-backup-preview',name,filepath),backupRestore:(token,ui)=>invoke('productivity-backup-restore',token,ui),restoredUI:()=>invoke('productivity-restored-ui'),ackRestored:()=>invoke('productivity-restored-ack'),
  rulesChoose:()=>invoke('productivity-rules-choose'),rulesPreview:(id,paths)=>invoke('productivity-rules-preview',id,paths),rulesAction:(token,paths,action)=>invoke('productivity-rules-action',token,paths,action),
  viewData:(config,filters)=>invoke('tool-view-data',config,filters),openOverlay:config=>invoke('tool-view-open',config),onToolOpen:callback=>ipcRenderer.on('tool-view-open',(_,config)=>callback(config)),
  snippetList:()=>invoke('productivity-snippet-list'),snippetText:(id,customer)=>invoke('productivity-snippet-text',id,customer),
- snippetCopy:(id,customer)=>invoke('productivity-snippet-copy',id,customer),worksetOpen:id=>invoke('productivity-workset-open',id),previewChoose:()=>invoke('productivity-preview-choose'),previewLink:(recordId,index)=>invoke('productivity-preview-link',recordId,index),boardMove:(recordId,fieldId,value,revision)=>invoke('productivity-board-move',recordId,fieldId,value,revision)
+ snippetCopy:(id,customer)=>invoke('productivity-snippet-copy',id,customer),worksetOpen:id=>invoke('productivity-workset-open',id),previewChoose:filepath=>invoke('productivity-preview-choose',filepath),previewLink:(recordId,index)=>invoke('productivity-preview-link',recordId,index),boardMove:(recordId,fieldId,value,revision)=>invoke('productivity-board-move',recordId,fieldId,value,revision)
 }));
 
 contextBridge.exposeInMainWorld('diagnosticsAPI',Object.freeze({report:entry=>ipcRenderer.invoke('diagnostics-report',entry)}));

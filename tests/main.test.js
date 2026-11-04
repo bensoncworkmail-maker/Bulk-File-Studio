@@ -750,3 +750,15 @@ test('draft window opens from the global shortcut and creates a detail record wi
  assert.deepEqual(records[0].values[M.parentField(workspace.document,detail).id],[parent]);
  assert.deepEqual(records[0].fileLinks.map(item=>item.path),pictured.attachments.map(item=>item.path));
 });
+
+test('dropped paths use the same read and folder validation without opening native pickers',async t=>{
+ const h=harness(t),folder=path.join(h.dir,'target'),xlsx=path.join(h.dir,'input.xlsx');
+ fs.mkdirSync(folder);
+ fs.writeFileSync(xlsx,await require('../src/notes-xlsx').writeXlsx([['Title'],['Dropped']]));
+ h.dialog.showOpenDialog=async()=>{throw new Error('Unexpected native picker');};
+ const sheet=await h.handlers.get('notes-tabular-file')(null,xlsx);
+ assert.deepEqual(sheet.sheets[0].rows,[['Title'],['Dropped']]);
+ await assert.rejects(h.handlers.get('notes-tabular-file')(null,path.join(h.dir,'other.txt')),/xlsx/);
+ assert.equal(await h.handlers.get('choose-move-folder')(null,folder),folder);
+ await assert.rejects(h.handlers.get('choose-move-folder')(null,xlsx),/搬移目標須為資料夾/);
+});
