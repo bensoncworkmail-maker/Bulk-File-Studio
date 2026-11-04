@@ -666,7 +666,10 @@ test('filtered Excel export round trips through the native import dialog and cre
   sheetId:sheet.id,title,notes,tags:['a,b','工作'],values,favoriteIds:[],keepUnlinked:[]
  }).result.id;
  const master=save(root,'原主檔',{}),destination=save(root,'目標主檔',{});
- const contact=save(contacts,'=文字',{[relation.id]:[master],[phone.id]:'00123'},'首行\n次行');
+ const filepath=path.join(h.dir,'附件.txt'),folder=path.join(h.dir,'文件');
+ fs.writeFileSync(filepath,'test');fs.mkdirSync(folder);
+ const contact=h.handlers.get('notes-record-save')(null,{sheetId:contacts.id,title:'=文字',notes:'首行\n次行',tags:['a,b','工作'],
+  values:{[relation.id]:[master],[phone.id]:'00123'},favoriteIds:[],keepUnlinked:[],directPaths:[filepath,folder]}).result.id;
  save(contacts,'不在篩選結果',{[relation.id]:[master]});
  const before=h.handlers.get('notes-get')();
  const exportFile=h.handlers.get('notes-tabular-export'),file=path.join(h.dir,'contacts.xlsx');
@@ -686,6 +689,7 @@ test('filtered Excel export round trips through the native import dialog and cre
  const preview=h.handlers.get('notes-tabular-preview')(null,{sheetId:contacts.id,masterId:destination,
   revision:before.revision,rows,header:true,mapping:M.suggestMapping(contacts,rows,true)});
  assert.equal(preview.count,1);
+ assert.deepEqual(preview.records[0].paths,[filepath,folder]);
  assert.equal(h.handlers.get('notes-get')().revision,before.revision);
  const saved=h.handlers.get('notes-tabular-commit')(null,preview.token);
  const record=saved.document.records.find(item=>item.title==='=文字'&&item.id!==contact);
@@ -693,6 +697,7 @@ test('filtered Excel export round trips through the native import dialog and cre
  assert.deepEqual(record.values[relation.id],[destination]);
  assert.deepEqual(record.tags,['a,b','工作']);
  assert.equal(record.notes,'首行\n次行');
+ assert.deepEqual(record.fileLinks.map(({path,type})=>[path,type]),[[filepath,'file'],[folder,'folder']]);
 });
 
 test('draft window opens from the global shortcut and creates a detail record with saved text and attachments',async t=>{
@@ -716,6 +721,8 @@ test('draft window opens from the global shortcut and creates a detail record wi
  assert.deepEqual(linked.attachments.map(item=>item.type),['file','folder']);
  const pictured=draft('paste',linked.id,linked.version,png);
  assert.match(draft('image',pictured.id,2),/^data:image\/png;base64,/);
+ const geometry={x:150,y:80,width:710,height:650};
+ window.setBounds(geometry);
  h.windows[0].close();
  assert.equal(h.windows[0].isDestroyed(),false);
  draft('cancel-close');
@@ -726,6 +733,7 @@ test('draft window opens from the global shortcut and creates a detail record wi
  assert.equal(window.isDestroyed(),true);
  await h.registered.get('CommandOrControl+Alt+D')();
  const reopened=h.windows.at(-1);
+ assert.deepEqual({...reopened.getNormalBounds()},geometry);
  event.sender=reopened.webContents;event.senderFrame.url=reopened.url;
  assert.equal(draft('data').drafts.length,1);
  assert.equal(draft('read',pictured.id).body,saved.body);

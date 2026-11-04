@@ -129,3 +129,14 @@ test('floating month marker defaults to a dot and applies the count option live'
  h.set({floatingPanels:{planningDayMarker:'count'}});
  assert.equal(h.root.dataset.planningDayMarker,'count');
 });
+
+test('the dedicated draft shortcut is visible only when selected in collapsed mode',async()=>{
+ const h=harness(0,'auto',{floatingCollapsed:true,floatingCollapsedItems:['draft']});
+ await new Promise(setImmediate);
+ const button=h.els.get('mini-draft');
+ assert.equal(button.hidden,false);
+ await button.click();
+ assert.deepEqual(h.workspaceCalls,[['draft']]);
+ h.set({floatingCollapsedItems:['close']});assert.equal(button.hidden,true);
+ h.set({floatingCollapsed:false,floatingCollapsedItems:['draft']});assert.equal(button.hidden,true);
+});

@@ -2,7 +2,7 @@
 const {fitBounds,validBounds}=require('./desktop-state');
 const {randomUUID}=require('node:crypto');
 const DEFAULTS={width:320,height:400,minWidth:220,minHeight:120};
-function collapsedMinimumWidth(settings){const items=settings.floatingCollapsedItems||['pin','close'];return Math.max(92,8+27*(1+['pin','close','main','search'].filter(key=>items.includes(key)&&(key!=='search'||settings.floatingGlobalSearch!==false)).length)+(items.includes('caption')?30:0)+(items.includes('quick-actions')?50:0));}
+function collapsedMinimumWidth(settings){const items=settings.floatingCollapsedItems||['pin','close'];return Math.max(92,8+27*(1+['pin','close','main','search','draft'].filter(key=>items.includes(key)&&(key!=='search'||settings.floatingGlobalSearch!==false)).length)+(items.includes('caption')?30:0)+(items.includes('quick-actions')?50:0));}
 function windowDefaults(settings={}){return {...DEFAULTS,width:settings.floatingDefaultWidth||320,height:settings.floatingDefaultHeight||400,minWidth:settings.floatingMinWidth||220,minHeight:settings.floatingMinHeight||120};}
 class FloatingWindow {
  constructor(window,desktop,screen){

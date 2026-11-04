@@ -6,7 +6,6 @@ const {locationPath,inspectLinks}=require('./notes-location-links');
 const {withIntranetPaths}=require('./intranet-path');
 const {assertLocalPath}=require('./offline-policy');
 const {readStableBytes}=require('./bounded-file-read');
-const {fitBounds}=require('./desktop-state');
 const MAX_IMAGE=5*1024*1024,MAX_ATTACHMENTS=48,MAX_IMAGES=8;
 const fileKey=value=>process.platform==='win32'?value.toLowerCase():value;
 const html=path.join(__dirname,'draft-notes.html');
@@ -30,11 +29,13 @@ class DraftNotes{
  open(){
   if(this.active){this.window.show();this.window.focus();return {opened:true,popup:true};}
   this.ready=false;this.allowClose=false;this.quitAfterClose=false;
-  const bounds=fitBounds(null,this.screen.getAllDisplays(),{width:700,height:720,minWidth:460,minHeight:460});
-  const win=new this.BrowserWindow({...bounds,minWidth:460,minHeight:460,autoHideMenuBar:true,title:'草稿筆記 · Bulk File Studio',
+  const {draftWindowWidth:width,draftWindowHeight:height}=this.settings();
+  const bounds=this.desktop.bounds('draft',this.screen.getAllDisplays(),{width,height,minWidth:460,minHeight:460});
+  const win=new this.BrowserWindow({...bounds,autoHideMenuBar:true,title:'草稿筆記 · Bulk File Studio',
    webPreferences:{preload:path.join(__dirname,'draft-notes-preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:false}});
   this.window=win;
   this.secureWindow(win);
+  this.desktop.attach('draft',win,this.onError);
   win.on('close',event=>{if(this.ready&&!this.allowClose){event.preventDefault();this.requestClose();}});
   win.on('closed',()=>{if(this.window!==win)return;const quit=this.quitAfterClose;this.window=null;this.ready=false;this.quitAfterClose=false;if(quit)setImmediate(this.quit);});
   win.webContents.on('render-process-gone',()=>{this.ready=false;});

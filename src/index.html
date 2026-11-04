@@ -1290,6 +1290,13 @@
                   <p id="desktop-shell-status" role="status"></p>
                 </section>
                 <section class="settings-card">
+                  <h2>草稿筆記視窗</h2>
+                  <label class="check-row"><input id="settings-draft-remember-window" type="checkbox" checked><span>記住上次開啟位置、寬度與高度</span></label>
+                  <label class="field"><span>預設寬度（px）</span><input id="settings-draft-width" type="number" min="460" max="3000" step="1"></label>
+                  <label class="field"><span>預設高度（px）</span><input id="settings-draft-height" type="number" min="460" max="3000" step="1"></label>
+                  <p class="rule-hint">首次開啟或取消記憶時使用預設尺寸。若原螢幕已移除，視窗會移回可見範圍。</p>
+                </section>
+                <section class="settings-card">
                   <h2>Windows 右鍵收藏</h2>
                   <label class="check-row">
                     <input id="settings-explorer-tag" type="checkbox" checked>
@@ -2229,7 +2236,7 @@
         <button id="notes-table-close" type="button" class="btn btn-ghost" aria-label="關閉匯入">✕</button>
       </header>
       <div class="notes-table-import-body">
-        <p class="notes-hint">只新增紀錄，不覆蓋既有資料。每次最多 1000 筆、50,000 格。電話含前置 0 時請在 Excel 儲存成文字。關聯目前主檔會自動帶入。</p>
+        <p class="notes-hint">只新增紀錄，不覆蓋既有資料。每次最多 1000 筆、50,000 格。電話含前置 0 時請在 Excel 儲存成文字。關聯目前主檔會自動帶入。附件每行填一個本機檔案或資料夾完整路徑，預覽時驗證。</p>
         <div class="notes-tools">
           <button id="notes-table-file" class="btn btn-secondary">選擇 Excel .xlsx</button>
           <select id="notes-table-sheet" aria-label="Excel 工作表" hidden></select>
