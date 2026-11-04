@@ -4,7 +4,7 @@
  const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
  const button=(text,handler,kind='btn btn-ghost')=>{const node=el('button',text,kind);node.type='button';node.addEventListener('click',handler);return node;};
  let state={revision:0,document:{sheets:[],records:[]}},favorites=[],sheetId=null,recordId=null,page=0,trash=false,busy=false,loaded=false,callbacks;
- let sheetDraft,editingRecord,fieldGetters=[],selectedFavorites=new Set(),unlinkedPaths=[],directLinks=[],favoritePicker,confirmAction,transferKind,transferImportKind='general',transferToken=null,transferData=null,transferPage=0,importChosen=false;
+ let sheetDraft,editingRecord,fieldGetters=[],selectedFavorites=new Set(),unlinkedPaths=[],directLinks=[],favoritePicker,confirmAction,transferKind,transferImportKind='general',transferToken=null,transferData=null,transferPage=0,importChosen=false,transferRequest=0;
  let focusedRecordId=null,recordRows=new Map(),selectedFavoriteTags=new Set(),pendingFavoriteTags=[],favoriteTagPicker=null,linkMode='paths',refreshPromise=null,searchReturn=null,formTab='basic',saveAndNew=false,cardChecks=[];
  let shareState=null,previewTransfer,scopeDirty=false,scopeChecks={publish:[],receive:[]},inspectedShare=null;
  const shareView=window.shareViewModel;
@@ -304,12 +304,53 @@
  }
  const historyTime=value=>{const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleString():'時間未記錄';};
  async function showHistory(record){await run(async()=>{const history=await api.history(record.id),parent=$('notes-history-list');parent.replaceChildren();if(!history.length)parent.append(el('p','尚無修改歷史；每次修改前會保留版本。'));for(const item of history){const entry=el('section',undefined,'notes-history-entry'),details=el('details'),summary=el('summary','v'+item.versionFrom+' → '+(item.versionTo?'v'+item.versionTo:'未記錄')+' · '+item.record.title+' · '+(item.changes?.length||0)+' 項差異');entry.append(el('strong',item.operation||'操作未記錄'),el('p','保存時間：'+historyTime(item.savedAt)+' · 本機工作區修訂：'+(item.workspaceRevision??'舊版未記錄'),'notes-audit-meta'),el('p','來源：'+(item.source||'未記錄')+(item.sourceRevision!==null&&item.sourceRevision!==undefined?' · 來源修訂 r'+item.sourceRevision:'')+(item.sourceVersion?' · 發布版本 #'+item.sourceVersion:''),'notes-audit-meta'));if(item.packageName)entry.append(el('p','資料包：'+item.packageName,'notes-audit-meta'));if(item.legacy)entry.append(el('p','舊版未保存完整稽核資訊；差異由保留的相鄰快照重建。','notes-hint'));details.append(summary);renderAudit(item.changes,details);entry.append(details,button('還原至 v'+item.versionFrom,()=>{confirm('還原至 v'+item.versionFrom+'？','將還原此紀錄的欄位、筆記與連結，目前版本會留在修改歷史。',()=>run(async()=>{const result=await api.restoreHistory(record.id,item.id,record.version);$('notes-history-dialog').close();return result;},'已還原紀錄版本'));}));parent.append(entry);}$('notes-history-dialog').showModal();});}
- function openTransfer(kind,scope='all',importMode=null,importKind='general',supportsMerge=false){if(busy)return;transferKind=kind;transferImportKind=importKind;sharedMergeAvailable=supportsMerge;transferData=null;transferToken=null;transferPage=0;importChosen=false;$('notes-transfer-title').textContent=kind==='export'?'匯出 Studio 資料包':kind==='restore'?'還原工作區備份':'匯入 Studio 資料包';$('notes-export-options').hidden=kind!=='export';$('notes-import-options').hidden=kind!=='import';$('notes-export-scope').value=scope;$('notes-export-related').checked=false;$('notes-import-mode').value=importMode||prefs().notesImportMode;$('notes-transfer-filter').value=kind==='import'&&prefs().notesImportChangesOnly?'changes':'all';$('notes-transfer-metadata').open=false;renderImportHelp();$('notes-import-mode-help').hidden=kind!=='import';$('notes-import-audit-hint').hidden=kind!=='import';$('notes-import-name').textContent='';$('notes-transfer-summary').textContent=kind==='restore'?'選取備份並檢查；確認後會完整取代工作區，包含回收筒狀態。還原前亦會另存備份。':'先預覽，再確認執行。';$('notes-transfer-preview').textContent=kind==='restore'?'選取備份並預覽':'預覽內容';$('notes-transfer-search').value='';$('notes-transfer-apply').disabled=true;$('notes-transfer-apply').textContent=kind==='export'?'確認匯出':kind==='restore'?'確認完整還原':'確認匯入並備份';renderTransfer();$('notes-transfer-dialog').showModal();}
- function invalidateTransfer(){const previous=transferToken;transferToken=null;if(previous)api.cancelPreview?.(previous).catch(()=>{});transferData=null;$('notes-transfer-apply').disabled=true;$('notes-transfer-summary').textContent='選項已變更，請重新預覽。';renderTransfer();}
+ function openTransfer(kind,scope='all',importMode=null,importKind='general',supportsMerge=false){if(busy)return;transferKind=kind;transferImportKind=importKind;sharedMergeAvailable=supportsMerge;transferData=null;transferToken=null;transferPage=0;importChosen=false;$('notes-transfer-title').textContent=kind==='export'?'匯出 Studio 資料包':kind==='restore'?'還原工作區備份':'匯入 Studio 資料包';$('notes-export-options').hidden=kind!=='export';$('notes-import-options').hidden=kind!=='import';$('notes-export-scope').value=scope;$('notes-export-related').checked=false;$('notes-import-mode').value=importMode||prefs().notesImportMode;$('notes-transfer-filter').value=kind==='import'&&prefs().notesImportChangesOnly?'changes':'all';$('notes-transfer-metadata').open=false;renderImportHelp();$('notes-import-mode-help').hidden=kind!=='import';$('notes-import-audit-hint').hidden=kind!=='import';$('notes-import-name').textContent='';$('notes-transfer-summary').textContent=kind==='restore'?'選取備份並檢查；確認後會完整取代工作區，包含回收筒狀態。還原前亦會另存備份。':'先預覽，再確認執行。';$('notes-transfer-preview').textContent=kind==='restore'?'選取備份並預覽':'預覽內容';$('notes-transfer-search').value='';$('notes-transfer-apply').disabled=true;$('notes-transfer-apply').textContent=kind==='export'?'確認匯出':kind==='restore'?'確認完整還原':'確認匯入並備份';renderTransfer();renderSharedConflicts();$('notes-transfer-dialog').showModal();}
+ function invalidateTransfer(){transferRequest++;const previous=transferToken;transferToken=null;if(previous)api.cancelPreview?.(previous).catch(()=>{});transferData=null;$('notes-transfer-apply').disabled=true;$('notes-transfer-summary').textContent='選項已變更，請重新預覽。';renderTransfer();renderSharedConflicts();}
  let sharedMergeAvailable=false;
  const importLabels={merge:'共享差異合併',copy:'另存副本',update:'合併並更新相同識別碼',skip:'合併並略過重複紀錄',clone:'複製來源到本機'};
  const importDefaultKey=()=>transferImportKind==='shared'?'notesSharedImportMode':'notesImportMode';
- function renderImportHelp(){const merge=$('notes-import-merge-option');merge.hidden=merge.disabled=transferImportKind!=='shared'||!sharedMergeAvailable;if(merge.disabled&&$('notes-import-mode').value==='merge')$('notes-import-mode').value=transferImportKind==='shared'?'update':prefs().notesImportMode;const mode=$('notes-import-mode').value,defaultMode=prefs()[importDefaultKey()];$('notes-import-default-hint').textContent=(transferImportKind==='shared'?'共享資料包':'一般資料包')+' · 設定預設：'+importLabels[defaultMode]+(mode!==defaultMode?' · 本次使用：'+importLabels[mode]:'');$('notes-import-save-default').disabled=mode===defaultMode||busy;$('notes-import-mode-help').textContent=mode==='merge'?'比較上次接收、目前本機與新發布版本。只套用來源的新增與欄位變更，保留本機獨立修改。衝突時停止寫入；來源未包含的紀錄會保留。':mode==='clone'?'複製這份來源資料包到本機，保留表格、紀錄及關聯 ID；在本次匯入範圍內，不在來源包內的資料會移除。會先備份，並再次確認。原始檔案、收藏與設定不受影響。':mode==='copy'?'另存副本會建立新 ID，適合獨立參考；重複匯入會再新增一組。這不是備份，匯入前仍會另存本機資料庫備份。':mode==='skip'?'保留本機同 ID 的紀錄，只加入新紀錄；預覽可查看被略過的來源差異。':'更新本機相同 ID 的欄位、筆記及連結，適合持續接收同一來源；不依名稱配對，確認前請查看差異。匯入前會建立本機備份。';if(transferData?.scope?.mode==='masters')$('notes-import-mode-help').textContent+=' 本次僅影響指定 '+transferData.scope.masterIds.length+' 張主表及其明細，其他主表保留。';}
+ function renderImportHelp(){const merge=$('notes-import-merge-option');merge.hidden=merge.disabled=transferImportKind!=='shared'||!sharedMergeAvailable;if(merge.disabled&&$('notes-import-mode').value==='merge')$('notes-import-mode').value=transferImportKind==='shared'?'update':prefs().notesImportMode;const mode=$('notes-import-mode').value,defaultMode=prefs()[importDefaultKey()];$('notes-import-default-hint').textContent=(transferImportKind==='shared'?'共享資料包':'一般資料包')+' · 設定預設：'+importLabels[defaultMode]+(mode!==defaultMode?' · 本次使用：'+importLabels[mode]:'');$('notes-import-save-default').disabled=mode===defaultMode||busy;$('notes-import-mode-help').textContent=mode==='merge'?'比較上次接收、目前本機與新發布版本。只套用來源的新增與欄位變更，保留本機獨立修改。欄位衝突可逐項處理，確認前不寫入。來源未包含的紀錄會保留。':mode==='clone'?'複製這份來源資料包到本機，保留表格、紀錄及關聯 ID；在本次匯入範圍內，不在來源包內的資料會移除。會先備份，並再次確認。原始檔案、收藏與設定不受影響。':mode==='copy'?'另存副本會建立新 ID，適合獨立參考；重複匯入會再新增一組。這不是備份，匯入前仍會另存本機資料庫備份。':mode==='skip'?'保留本機同 ID 的紀錄，只加入新紀錄；預覽可查看被略過的來源差異。':'更新本機相同 ID 的欄位、筆記及連結，適合持續接收同一來源；不依名稱配對，確認前請查看差異。匯入前會建立本機備份。';if(transferData?.scope?.mode==='masters')$('notes-import-mode-help').textContent+=' 本次僅影響指定 '+transferData.scope.masterIds.length+' 張主表及其明細，其他主表保留。';}
+ function renderSharedConflicts(){
+  const conflicts=transferData?.conflicts||[];
+  const list=$('notes-transfer-conflict-list'),resolve=$('notes-transfer-resolve');
+  $('notes-transfer-conflicts').hidden=!conflicts.length;
+  $('notes-transfer-results').hidden=Boolean(conflicts.length);
+  list.replaceChildren();
+  resolve.disabled=true;
+  resolve.onclick=null;
+  if(!conflicts.length)return;
+
+  const controls=conflicts.map(({id,sheet,title,name,base,local,source,editable,maxLength})=>{
+   const card=el('fieldset',undefined,'notes-merge-conflict');
+   card.append(el('legend',[sheet,title,name].filter(Boolean).join(' ／ ')));
+   const values=el('dl',undefined,'notes-merge-values');
+   for(const [label,value] of [['上次接收的值',base],['本機目前的值',local],['新發布的值',source]]){
+    const column=el('div');
+    column.append(el('dt',label),el('dd',value));
+    values.append(column);
+   }
+   const choices=[['','請選擇'],['local','保留本機'],['source','採用來源']];
+   if(editable)choices.push(['custom','自行輸入']);
+   const select=el('select');
+   for(const [value,label] of choices){const option=el('option',label);option.value=value;select.append(option);}
+   const choiceField=el('label',undefined,'field');
+   choiceField.append(el('span','合併方式'),select);
+   const customField=el('label',undefined,'field'),custom=el('textarea');
+   customField.hidden=true;
+   custom.maxLength=maxLength;
+   custom.rows=3;
+   customField.append(el('span','合併後的文字'),custom);
+   select.addEventListener('change',()=>{
+    customField.hidden=select.value!=='custom';
+    resolve.disabled=controls.some(control=>!control.select.value);
+   });
+   card.append(values,choiceField,customField);
+   list.append(card);
+   return {id,select,custom};
+  });
+  resolve.onclick=()=>previewTransfer({token:transferToken,choices:controls.map(({id,select,custom})=>
+   select.value==='custom'?{id,choice:select.value,value:custom.value}:{id,choice:select.value})});
+ }
  function renderTransfer(){
   const parent=$('notes-transfer-preview-list');parent.replaceChildren();const query=$('notes-transfer-search').value.trim().toLocaleLowerCase(),filter=$('notes-transfer-filter').value||'all',labels=shareView.labels,records=shareView.filterRecords(transferData?.records||[],filter,query),pages=Math.max(1,Math.ceil(records.length/100));transferPage=Math.max(0,Math.min(transferPage,pages-1));
   const filterField=$('notes-transfer-filter').closest?.('label');if(filterField)filterField.hidden=transferKind!=='import';
@@ -412,11 +453,58 @@ $('tab-notes').addEventListener('click',()=>window.favoritesUI.show('notes'));$(
   $('notes-record-form').addEventListener('submit',event=>{event.preventDefault();if(busy)return;setFormTab('basic');if(typeof $('notes-record-form').reportValidity==='function'&&!$('notes-record-form').reportValidity()){saveAndNew=false;return;}const again=saveAndNew,target=editingRecord.sheetId;saveAndNew=false;const input={id:editingRecord.id,sheetId:editingRecord.sheetId,expectedVersion:editingRecord.version,title:$('notes-record-title').value,notes:$('notes-record-body').value,tags:$('notes-record-tags').value.split(/[,，]/).map(value=>value.trim()).filter(Boolean),values:Object.fromEntries(fieldGetters.map(field=>[field.id,field.get()])),favoriteIds:[...selectedFavorites],keepUnlinked:[...unlinkedPaths],directPaths:[...new Set([...directLinks.map(link=>link.path),...$('notes-direct-paths').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)])],favoriteTags:[...selectedFavoriteTags],keepPendingTags:pendingFavoriteTags};run(async()=>{const result=await api.saveRecord(input);finishRecord(result,prefs().notesOpenAfterSave||Boolean(editingRecord.id&&recordId===editingRecord.id));$('notes-record-dialog').close();return result;},'已儲存紀錄').then(result=>{if(result&&again)editRecord(null,target);});});
   $('notes-direct-add').addEventListener('click',()=>run(async()=>{const paths=$('notes-direct-paths').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean),links=await api.inspectLinks(paths),all=[...new Map([...directLinks,...links].map(link=>[link.path,link])).values()];if(all.length+unlinkedPaths.length+selectedFavorites.size>100)throw new Error('每筆最多 100 個位置');directLinks=all;$('notes-direct-paths').value='';renderRecordFiles();},'已加入位置，儲存紀錄後生效。'));
   $('notes-pick-favorites').addEventListener('click',()=>openLinkPicker());$('notes-favorites-apply').addEventListener('click',()=>{const paths=favoritePicker.value(),tags=favoriteTagPicker.value();if(paths.length>100||tags.length>20){callbacks.showFailure('連結數量過多','最多 100 個位置及 20 個收藏標籤');return;}const pending=pendingFavoriteTags.filter(tag=>!tags.some(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase()));if(tags.length+pending.length>20){callbacks.showFailure('連結數量過多','最多 20 個收藏標籤，請移除部分分享標籤');return;}selectedFavorites=new Set(paths);selectedFavoriteTags=new Set(tags);pendingFavoriteTags=pending;renderRecordFiles();$('notes-favorites-dialog').close();});
-  $('notes-restore-backup').addEventListener('click',()=>openTransfer('restore'));$('notes-export').addEventListener('click',()=>openTransfer('export'));$('notes-import').addEventListener('click',()=>openTransfer('import'));$('notes-transfer-cancel').addEventListener('click',()=>$('notes-transfer-dialog').close());$('notes-transfer-dialog').addEventListener('close',()=>{const token=transferToken;transferToken=null;if(token)api.cancelPreview?.(token).catch(()=>{});});for(const id of ['notes-export-scope','notes-export-related','notes-import-mode'])$(id).addEventListener('change',()=>{renderImportHelp();invalidateTransfer();});$('notes-transfer-filter').addEventListener('change',()=>{transferPage=0;renderTransfer();});
+  $('notes-restore-backup').addEventListener('click',()=>openTransfer('restore'));$('notes-export').addEventListener('click',()=>openTransfer('export'));$('notes-import').addEventListener('click',()=>openTransfer('import'));$('notes-transfer-cancel').addEventListener('click',()=>$('notes-transfer-dialog').close());$('notes-transfer-dialog').addEventListener('close',()=>{transferRequest++;const token=transferToken;transferToken=null;if(token)api.cancelPreview?.(token).catch(()=>{});});for(const id of ['notes-export-scope','notes-export-related','notes-import-mode'])$(id).addEventListener('change',()=>{renderImportHelp();invalidateTransfer();});$('notes-transfer-filter').addEventListener('change',()=>{transferPage=0;renderTransfer();});
   $('notes-import-save-default').addEventListener('click',()=>{if(busy)return;window.settingsUI.update({[importDefaultKey()]:$('notes-import-mode').value});renderImportHelp();});
   $('notes-import-choose').addEventListener('click',async()=>{const result=await run(async()=>{invalidateTransfer();importChosen=false;$('notes-import-name').textContent='';const result=await api.chooseImport();if(!result.canceled){transferImportKind='general';importChosen=true;$('notes-import-name').textContent=shareView.packageInfo({name:result.name}).title;$('notes-import-name').title=result.name;renderImportHelp();}return result;},'已選取資料包，請預覽內容。');if(result&&!result.canceled)return previewTransfer();});
-  previewTransfer=()=>run(async()=>{transferToken=null;transferData=null;$('notes-transfer-apply').disabled=true;if(transferKind==='import'&&!importChosen)throw new Error('請先選取資料包');const scope=$('notes-export-scope').value;transferData=transferKind==='restore'?await api.chooseBackup():transferKind==='export'?await api.exportPreview({scope,id:scope==='area'?areaId:scope==='sheet'?sheetId:scope==='record'?recordId:undefined,related:$('notes-export-related').checked}):await api.importPreview($('notes-import-mode').value);if(transferData.canceled)return;transferToken=transferData.token;transferPage=0;renderImportHelp();renderTransfer();$('notes-transfer-summary').textContent=transferKind==='import'&&transferData.counts?`將新增 ${transferData.counts.added} 筆、更新內容 ${transferData.counts.updated} 筆、內容相同 ${transferData.counts.unchanged} 筆、略過 ${transferData.counts.skipped} 筆；將移除 ${transferData.counts.removed||0} 筆；另有 ${transferData.structure?.length||0} 項主表／表格結構變更。展開查看差異；確認前不寫入，匯入前自動備份。`:transferKind==='restore'?`將完整還原「${transferData.name}」的 ${transferData.records.length} 筆紀錄；目前資料會先另存備份。`:transferKind==='export'?`將匯出 ${transferData.records.length} 筆紀錄、${transferData.links} 個檔案位置、${transferData.tagLinks||0} 個收藏標籤連結；${transferData.omittedRelations} 個未包含的關聯已省略。`:`新增 ${transferData.added} 筆、更新 ${transferData.updated} 筆、略過 ${transferData.skipped} 筆；更新會覆蓋同識別碼的筆記、欄位及連結。檔案位置需在本機重新連結；${transferData.tagLinks||0} 個收藏標籤連結也須重新確認。`;$('notes-transfer-apply').disabled=false;$('notes-transfer-apply').textContent=transferData.mode==='clone'?'以來源取代本機並備份':transferKind==='export'?'確認匯出':'確認匯入並備份';},'資料包預覽完成。');$('notes-transfer-preview').addEventListener('click',previewTransfer);
-  const applyTransfer=(confirmClone=false)=>run(async()=>{if(!transferToken)throw new Error('請先預覽');if(transferKind==='export'){const result=await api.exportSave(transferToken);if(!result.canceled){$('notes-transfer-dialog').close();callbacks.showToast('已匯出：'+result.path);}return;}const result=await (transferKind==='restore'?api.restoreBackup(transferToken):api.importCommit(transferToken,{confirmClone}));$('notes-transfer-dialog').close();sheetId=null;recordId=null;callbacks.showToast((transferKind==='restore'?'還原完成，操作前備份：':'匯入完成，備份：')+result.result.backup);if(result.result.shareNotice)callbacks.showToast(result.result.shareNotice);if(result.result.shareWarning)callbacks.showFailure('接收基準尚未保存',result.result.shareWarning);return result;},'資料包操作完成。');$('notes-transfer-apply').addEventListener('click',()=>{if(transferKind==='import'&&transferData?.mode==='clone'){confirm('以來源資料包取代本機工作區？','依預覽範圍保留來源識別碼，移除該範圍內來源包未包含的表格及紀錄；包含該範圍回收筒資料。指定範圍外的資料會保留。操作前會建立本機備份，原始檔案不會刪除。請確認已核對預覽的移除項目。',()=>applyTransfer(true));}else applyTransfer(false);});
+  previewTransfer=resolution=>run(async()=>{
+   const request=++transferRequest,summary=$('notes-transfer-summary');
+   if(!resolution){
+    transferToken=null;
+    transferData=null;
+    renderTransfer();
+    renderSharedConflicts();
+    summary.textContent='正在預覽…';
+   }
+   $('notes-transfer-apply').disabled=true;
+   let result;
+   try{
+    if(transferKind==='import'&&!importChosen)throw new Error('請先選取資料包');
+    const scope=$('notes-export-scope').value;
+    result=transferKind==='restore'?await api.chooseBackup():
+     transferKind==='export'?await api.exportPreview({scope,id:scope==='area'?areaId:scope==='sheet'?sheetId:scope==='record'?recordId:undefined,related:$('notes-export-related').checked}):
+     await api.importPreview($('notes-import-mode').value,resolution);
+   }catch(error){
+    if(request===transferRequest&&!resolution)summary.textContent='無法預覽，請核對資料包與匯入方式。';
+    throw error;
+   }
+   if(request!==transferRequest||!$('notes-transfer-dialog').open){
+    if(result.token)api.cancelPreview?.(result.token).catch(()=>{});
+    return;
+   }
+   if(result.canceled){summary.textContent='先預覽，再確認執行。';return;}
+   transferData=result;
+   transferToken=result.token;
+   transferPage=0;
+   renderImportHelp();
+   renderTransfer();
+   renderSharedConflicts();
+   if(result.conflicts?.length){
+    summary.textContent=`有 ${result.conflicts.length} 個欄位需決定合併方式。目前尚未寫入資料。`;
+    $('notes-transfer-conflicts-title').focus();
+    return result;
+   }
+   summary.textContent=transferKind==='import'&&result.counts?
+    `將新增 ${result.counts.added} 筆、更新內容 ${result.counts.updated} 筆、內容相同 ${result.counts.unchanged} 筆、略過 ${result.counts.skipped} 筆；將移除 ${result.counts.removed||0} 筆；另有 ${result.structure?.length||0} 項主表／表格結構變更。展開查看差異；確認前不寫入，匯入前自動備份。`:
+    transferKind==='restore'?`將完整還原「${result.name}」的 ${result.records.length} 筆紀錄；目前資料會先另存備份。`:
+    `將匯出 ${result.records.length} 筆紀錄、${result.links} 個檔案位置、${result.tagLinks||0} 個收藏標籤連結；${result.omittedRelations} 個未包含的關聯已省略。`;
+   $('notes-transfer-apply').disabled=false;
+   $('notes-transfer-apply').textContent=result.mode==='clone'?'以來源取代本機並備份':
+    transferKind==='export'?'確認匯出':transferKind==='restore'?'確認完整還原':'確認匯入並備份';
+   if(resolution)summary.focus();
+   return result;
+  },result=>result?.conflicts?.length?'請處理共享欄位衝突。':result?'資料包預覽完成。':'已取消預覽。');
+  $('notes-transfer-preview').addEventListener('click',()=>previewTransfer());
+  const applyTransfer=(confirmClone=false)=>run(async()=>{if(!transferToken)throw new Error('請先預覽');if(transferData?.conflicts?.length)throw new Error('請先預覽合併結果');if(transferKind==='export'){const result=await api.exportSave(transferToken);if(!result.canceled){$('notes-transfer-dialog').close();callbacks.showToast('已匯出：'+result.path);}return;}const result=await (transferKind==='restore'?api.restoreBackup(transferToken):api.importCommit(transferToken,{confirmClone}));$('notes-transfer-dialog').close();sheetId=null;recordId=null;callbacks.showToast((transferKind==='restore'?'還原完成，操作前備份：':'匯入完成，備份：')+result.result.backup);if(result.result.shareNotice)callbacks.showToast(result.result.shareNotice);if(result.result.shareWarning)callbacks.showFailure('接收基準尚未保存',result.result.shareWarning);return result;},'資料包操作完成。');$('notes-transfer-apply').addEventListener('click',()=>{if(transferKind==='import'&&transferData?.mode==='clone'){confirm('以來源資料包取代本機工作區？','依預覽範圍保留來源識別碼，移除該範圍內來源包未包含的表格及紀錄；包含該範圍回收筒資料。指定範圍外的資料會保留。操作前會建立本機備份，原始檔案不會刪除。請確認已核對預覽的移除項目。',()=>applyTransfer(true));}else applyTransfer(false);});
   $('notes-transfer-search').addEventListener('input',()=>{transferPage=0;renderTransfer();});$('notes-transfer-prev').addEventListener('click',()=>{transferPage--;renderTransfer();});$('notes-transfer-next').addEventListener('click',()=>{transferPage++;renderTransfer();});
   api.onChanged(()=>{if(!busy&&!gridEditing)refresh();});window.favoritesAPI.onChanged(()=>{if(!busy&&!gridEditing&&!$('notes-page').classList.contains('hidden'))refresh();});
   for(const id of ['notes-table-dialog','notes-sheet-dialog','notes-record-dialog','notes-transfer-dialog','notes-area-dialog','notes-template-dialog','notes-share-dialog'])$(id).addEventListener('cancel',event=>{if(busy)event.preventDefault();});

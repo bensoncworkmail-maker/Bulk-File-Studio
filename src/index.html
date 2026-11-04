@@ -2461,17 +2461,26 @@
       <p id="notes-import-mode-help" class="notes-hint"></p>
       <p class="notes-hint">資料包包含欄位、紀錄、筆記及關聯；檔案只包含位置，沒有原始檔案副本。匯入前會建立 SQLite 備份；不會執行包內文字或開啟檔案。不是即時多人同步。</p>
       <button id="notes-transfer-preview" class="btn btn-secondary">預覽內容</button>
-      <p id="notes-transfer-summary" role="status"></p>
-      <div id="notes-transfer-counts" class="notes-transfer-counts" role="group" aria-label="預覽數量與篩選"></div>
-      <div class="notes-transfer-controls"><input id="notes-transfer-search" type="search" placeholder="搜尋預覽中的紀錄…" aria-label="搜尋分享預覽">
-      <details id="notes-transfer-metadata" class="notes-disclosure"><summary>來源與本機版本</summary><p id="notes-transfer-context" class="notes-hint"></p></details><label class="field"><span>預覽變更篩選</span><select id="notes-transfer-filter"><option value="changes">只看有差異</option><option value="all">全部紀錄</option><option value="added">新增</option><option value="updated">更新內容</option><option value="unchanged">內容相同</option><option value="skipped">略過</option><option value="removed">將移除（來源複製）</option></select></label>
-      </div>
-      <p id="notes-import-audit-hint" class="notes-hint">匯入預覽顯示「本機目前值 → 匯入後的值」。本機紀錄版本不等於來源發布修訂；資料相同仍可查看全部。這是兩份快照的差異，不是發布者操作歷史。</p>
-      <div id="notes-transfer-preview-list" class="notes-preview-list"></div>
-      <div class="notes-pagination">
-        <button id="notes-transfer-prev" class="btn btn-ghost">‹</button>
-        <span id="notes-transfer-page"></span>
-        <button id="notes-transfer-next" class="btn btn-ghost">›</button>
+      <p id="notes-transfer-summary" role="status" tabindex="-1"></p>
+      <section id="notes-transfer-conflicts" aria-labelledby="notes-transfer-conflicts-title" hidden>
+        <h3 id="notes-transfer-conflicts-title" tabindex="-1">處理共享欄位衝突</h3>
+        <p class="notes-hint">選擇各欄位要保留的內容，再預覽合併結果。可自動合併的其他變更也會一併列出。</p>
+        <div id="notes-transfer-conflict-list"></div>
+        <button id="notes-transfer-resolve" type="button" class="btn btn-secondary" disabled>預覽合併結果</button>
+      </section>
+      <details id="notes-transfer-metadata" class="notes-disclosure"><summary>來源與本機版本</summary><p id="notes-transfer-context" class="notes-hint"></p></details>
+      <div id="notes-transfer-results">
+        <div id="notes-transfer-counts" class="notes-transfer-counts" role="group" aria-label="預覽數量與篩選"></div>
+        <div class="notes-transfer-controls"><input id="notes-transfer-search" type="search" placeholder="搜尋預覽中的紀錄…" aria-label="搜尋分享預覽">
+        <label class="field"><span>預覽變更篩選</span><select id="notes-transfer-filter"><option value="changes">只看有差異</option><option value="all">全部紀錄</option><option value="added">新增</option><option value="updated">更新內容</option><option value="unchanged">內容相同</option><option value="skipped">略過</option><option value="removed">將移除（來源複製）</option></select></label>
+        </div>
+        <p id="notes-import-audit-hint" class="notes-hint">匯入預覽顯示「本機目前值 → 匯入後的值」。本機紀錄版本不等於來源發布修訂；資料相同仍可查看全部。這是兩份快照的差異，不是發布者操作歷史。</p>
+        <div id="notes-transfer-preview-list" class="notes-preview-list"></div>
+        <div class="notes-pagination">
+          <button id="notes-transfer-prev" class="btn btn-ghost">‹</button>
+          <span id="notes-transfer-page"></span>
+          <button id="notes-transfer-next" class="btn btn-ghost">›</button>
+        </div>
       </div>
       </div>
       <div class="modal-buttons notes-dialog-footer">
