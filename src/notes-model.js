@@ -195,6 +195,7 @@
     }else if(['name','title','姓名','名稱','標題','標題名稱','客戶名稱','客户名称'].includes(label))target='title';
     else if(['note','notes','筆記','備註','备注'].includes(label))target='notes';
     else if(['tag','tags','標籤','标签'].includes(label))target='tags';
+    else if(heading==='檔案／資料夾路徑')target='';
     else{
      const field=scalar.find(field=>tabularHeading(field.label)===label)||
       scalar.find(field=>field.type==='phone'&&['phone','tel','telephone','電話','电话'].includes(label)||
@@ -226,7 +227,7 @@
   }
   const byId=new Map(doc.records.filter(record=>record.sheetId===sheetId&&!record.deletedAt).map(record=>[record.id,record]));
   const fields=sheet.fields.filter(field=>field.type!=='relation');
-  const header=['標題',...fields.map(field=>field.label),'筆記','標籤'];
+  const header=['標題',...fields.map(field=>field.label),'筆記','標籤','檔案／資料夾路徑'];
   const suggested=suggestMapping(sheet,[header],true);
   for(const [index,field] of fields.entries()){
    if(suggested[index+1]!==field.id)header[index+1]=field.label+' [BFS:'+field.id+']';
@@ -237,7 +238,7 @@
    return [record.title,...fields.map(field=>{
     const value=record.values[field.id];
     return Array.isArray(value)?writeTabularList(value):String(value??'');
-   }),record.notes,writeTabularList(record.tags)];
+   }),record.notes,writeTabularList(record.tags),record.fileLinks.map(link=>link.path).join('\n')];
   });
   return tabularRows([header,...rows]);
  }

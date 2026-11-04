@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+ <title>草稿筆記 · Bulk File Studio</title>
+ <link rel="stylesheet" href="draft-notes.css">
+ <script defer src="draft-notes-ui.js"></script>
+</head>
+<body>
+ <header class="toolbar">
+  <h1>草稿筆記</h1>
+  <button id="new-draft" type="button" disabled>＋ 新草稿</button>
+ </header>
+ <main>
+  <nav id="drafts" aria-label="本機草稿"></nav>
+  <section id="panel" aria-label="草稿編輯區">
+   <p id="empty" hidden>選擇草稿，或按「新草稿」開始記錄。</p>
+   <fieldset id="editor" disabled>
+    <div class="title-row">
+     <input id="title" maxlength="200" placeholder="標題（選填）" aria-label="草稿標題">
+     <button id="delete" type="button">刪除草稿</button>
+    </div>
+    <textarea id="body" maxlength="100000" placeholder="輸入筆記，或直接貼上圖片" aria-label="草稿內容"></textarea>
+    <section id="drop-zone" aria-label="草稿附件">
+     <p>拖放檔案或資料夾到此視窗，也可貼上 PNG 圖片。</p>
+     <ul id="attachments" aria-label="附件清單"></ul>
+    </section>
+    <div class="destination">
+     <label>送往工作區<select id="sheet"></select></label>
+     <label id="master-field" hidden>主紀錄<select id="master"></select></label>
+     <div class="destination-actions">
+      <button id="refresh" type="button" title="重新讀取工作區表格及主紀錄">更新表格</button>
+      <button id="send" type="button" class="primary" disabled>建立紀錄</button>
+     </div>
+    </div>
+   </fieldset>
+  </section>
+ </main>
+ <footer>
+  <span id="status" role="status" aria-live="polite">正在讀取草稿…</span>
+  <span class="shortcut">Ctrl+S 立即儲存</span>
+ </footer>
+</body>
+</html>

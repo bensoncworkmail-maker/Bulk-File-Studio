@@ -14,7 +14,8 @@
   const key=/^Key[A-Z]$/.test(e.code||'')?e.code.slice(3):/^Digit[0-9]$/.test(e.code||'')?e.code.slice(5):e.key===' '?'Space':e.key?.replace(/^Arrow/,'');
   return normalize([e.ctrlKey||e.metaKey?'CommandOrControl':'',e.altKey?'Alt':'',e.shiftKey?'Shift':'',key?.length===1?key.toUpperCase():key].filter(Boolean).join('+'));
  }
- function validatePair(settings){const used=new Set();for(const key of ['mainShortcut','floatingShortcut','collapseShortcut','searchShortcut']){const value=settings[key];if(value&&used.has(value))throw new Error('主視窗、浮動工具、收合／展開及搜尋不能使用相同的全域快捷鍵');if(value)used.add(value);}}
- const api={normalize,fromEvent,validatePair,display:value=>value?value.replace('CommandOrControl','Ctrl'):'未設定'};
+ const KEYS=Object.freeze(['mainShortcut','floatingShortcut','collapseShortcut','searchShortcut','draftShortcut']);
+ function validatePair(settings){const used=new Set();for(const key of KEYS){const value=settings[key];if(value&&used.has(value))throw new Error('各項功能不能使用相同的全域快捷鍵');if(value)used.add(value);}}
+ const api={KEYS,normalize,fromEvent,validatePair,display:value=>value?value.replace('CommandOrControl','Ctrl'):'未設定'};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else globalThis.globalShortcutModel=Object.freeze(api);
 })();

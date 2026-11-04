@@ -15,6 +15,7 @@ class NotesStore {
    this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;');
    this.db.exec('CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, document TEXT NOT NULL); CREATE TABLE IF NOT EXISTS record_history (id TEXT PRIMARY KEY, record_id TEXT NOT NULL, saved_at TEXT NOT NULL, document TEXT NOT NULL); CREATE INDEX IF NOT EXISTS history_by_record ON record_history(record_id,saved_at);');
    this.db.exec('CREATE TABLE IF NOT EXISTS record_history_details (history_id TEXT PRIMARY KEY, metadata TEXT NOT NULL); CREATE TABLE IF NOT EXISTS share_merge_base (profile_id TEXT PRIMARY KEY, data TEXT NOT NULL);');
+   this.db.exec('CREATE TABLE IF NOT EXISTS note_drafts (id TEXT PRIMARY KEY, version INTEGER NOT NULL, updated_at TEXT NOT NULL, data TEXT NOT NULL)');
    if(!this.db.prepare('SELECT id FROM workspace WHERE id=1').get()){if(version>=1)throw new Error('工作區主資料遺失，已停止寫入；請保留檔案並使用備份還原');const document={schemaVersion:3,id:crypto.randomUUID(),name:'我的資料工作區',sheets:[],records:[]};this.db.prepare('INSERT INTO workspace VALUES (1,0,?)').run(JSON.stringify(document));}
    this.get();if(version===1||version===2)this.backup('before-upgrade');this.db.exec('PRAGMA user_version=3;');
   }catch(error){this.db.close();throw error;}
@@ -60,14 +61,48 @@ class NotesStore {
    return {id:sheet.id};
   },input.baseRevision);
  }
- saveRecord(input,context={operation:'編輯紀錄'}){
+ draftList(){
+  return this.db.prepare("SELECT id, updated_at AS updatedAt, json_extract(data,'$.title') AS title, substr(json_extract(data,'$.body'),1,80) AS summary FROM note_drafts ORDER BY updated_at DESC, rowid DESC").all();
+ }
+ draft(id){
+  model.id(id);
+  const row=this.db.prepare('SELECT version, updated_at AS updatedAt, data FROM note_drafts WHERE id=?').get(id);
+  if(!row)throw new Error('草稿已移除，請重新開啟');
+  return {id,version:row.version,updatedAt:row.updatedAt,...JSON.parse(row.data)};
+ }
+ createDraft(){
+  const id=crypto.randomUUID(),now=new Date().toISOString(),data={title:'',body:'',attachments:[]};
+  const insert=this.db.prepare('INSERT INTO note_drafts SELECT ?,1,?,? WHERE (SELECT count(*) FROM note_drafts)<50');
+  if(!insert.run(id,now,JSON.stringify(data)).changes)throw new Error('最多保留 50 份草稿，請先送出或刪除一份');
+  return this.draft(id);
+ }
+ saveDraft(id,version,patch){
+  const old=this.draft(id);
+  const {title,body,attachments}={...old,...patch};
+  model.text(title,200,'草稿標題');model.text(body,100000,'草稿內容');
+  if(old.version!==version)throw new Error('草稿已變更，請重新開啟');
+  if(title===old.title&&body===old.body&&attachments===old.attachments)return old;
+  const now=new Date().toISOString();
+  const update=this.db.prepare('UPDATE note_drafts SET version=version+1,updated_at=?,data=? WHERE id=? AND version=?');
+  if(!update.run(now,JSON.stringify({title,body,attachments}),id,version).changes)throw new Error('草稿已變更，請重新開啟');
+  return this.draft(id);
+ }
+ deleteDraft(id,version){
+  model.id(id);
+  if(!Number.isSafeInteger(version)||!this.db.prepare('DELETE FROM note_drafts WHERE id=? AND version=?').run(id,version).changes){
+   throw new Error('草稿已變更或已送出，請重新開啟');
+  }
+ }
+ saveRecord(input,context={operation:'編輯紀錄'},draft){
   if(!input||typeof input!=='object')throw new Error('紀錄資料無效');
   return this.change(doc=>{
    const old=input.id?doc.records.find(record=>record.id===input.id):null;if(input.id&&(!old||old.deletedAt||old.version!==input.expectedVersion))throw new Error('紀錄已變更或刪除，請重新開啟');
    const sheet=doc.sheets.find(sheet=>sheet.id===(old?.sheetId||input.sheetId)&&!sheet.deletedAt);if(!sheet)throw new Error('表格已刪除');
    const parent=model.parentField(doc,sheet),parents=parent?input.values?.[parent.id]:null;if(parent&&(!Array.isArray(parents)||parents.length!==1||!doc.records.some(record=>record.id===parents[0]&&record.sheetId===parent.targetSheetId&&model.live(doc,record)))&&(!old||JSON.stringify(parents)!==JSON.stringify(old.values[parent.id])))throw new Error('明細必須關聯一筆可用的主紀錄；請先選擇客戶或其他主紀錄');
    const now=new Date().toISOString(),record={id:old?.id||crypto.randomUUID(),sheetId:sheet.id,title:input.title,notes:input.notes,tags:input.tags,values:input.values,fileLinks:input.fileLinks,favoriteTagLinks:input.favoriteTagLinks??old?.favoriteTagLinks??[],createdAt:old?.createdAt||now,updatedAt:now,deletedAt:null,version:(old?.version||0)+1};
-   if(old)doc.records[doc.records.indexOf(old)]=record;else doc.records.push(record);return {id:record.id};
+   if(old)doc.records[doc.records.indexOf(old)]=record;else doc.records.push(record);
+   if(draft)this.deleteDraft(draft.id,draft.version);
+   return {id:record.id};
   },undefined,context);
  }
  batchSheets(entries,revision){if(!Number.isSafeInteger(revision))throw new Error('請重新整理表格選取');return this.change(doc=>{const plan=model.sheetDeletionPlan(doc,entries),now=new Date().toISOString();for(const entry of plan.sheets){const sheet=doc.sheets.find(sheet=>sheet.id===entry.id);sheet.deletedAt=now;sheet.updatedAt=now;sheet.version++;}return {count:plan.sheets.length,records:plan.records};},revision,{operation:'批次回收主表／明細表'});}

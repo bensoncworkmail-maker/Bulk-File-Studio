@@ -22,6 +22,7 @@ function harness(t, overrides = {}) {
     loadFile(filepath) {this.url=require('node:url').pathToFileURL(filepath).href;}
     on(name,callback){const callbacks=this.events.get(name)||[];callbacks.push(callback);this.events.set(name,callbacks);return this;}
     emit(name,...args){for(const callback of this.events.get(name)||[])callback(...args);}
+    close(){let canceled=false;this.emit('close',{preventDefault(){canceled=true;}});if(!canceled)this.destroy();}
     isDestroyed(){return this.destroyed;}isVisible(){return this.visible;}hide(){this.visible=false;}destroy(){this.destroyed=true;this.emit('closed');}
     setMinimumSize(width,height){this.minimum=[width,height];}setResizable(value){this.resizable=value;}setOpacity(value){this.opacity=value;}isFocused(){return false;}
     getNormalBounds(){return this.bounds;}isMaximized(){return Boolean(this.maximized);}maximize(){this.maximized=true;}unmaximize(){this.maximized=false;}setBounds(bounds){this.bounds=bounds;}setAlwaysOnTop(flag){this.onTop=flag;}
@@ -31,12 +32,12 @@ function harness(t, overrides = {}) {
   }
   const electron = {
     app: {commandLine:{appendSwitch(){}},getVersion:()=>require('../package.json').version, getPath:()=>dir, requestSingleInstanceLock:()=>true, whenReady:()=>({ then:callback=>callback() }), on:(name,callback)=>events.set(name,callback), isPackaged:false },
-    Notification:overrides.Notification,utilityProcess:overrides.utilityProcess,Menu:{buildFromTemplate:template=>({popup:options=>{popup={template,options};},closePopup:()=>popupClosed++})},BrowserWindow:Window, nativeTheme,screen:{getAllDisplays:()=>[{workArea:{x:0,y:0,width:1920,height:1080}}]},globalShortcut:{unregisterAll:()=>registered.clear(),register:(key,callback)=>{registered.set(key,callback);return true;}},
+    nativeImage:overrides.nativeImage,Notification:overrides.Notification,utilityProcess:overrides.utilityProcess,Menu:{buildFromTemplate:template=>({popup:options=>{popup={template,options};},closePopup:()=>popupClosed++})},BrowserWindow:Window, nativeTheme,screen:{getAllDisplays:()=>[{workArea:{x:0,y:0,width:1920,height:1080}}]},globalShortcut:{unregisterAll:()=>registered.clear(),register:(key,callback)=>{registered.set(key,callback);return true;}},
     ipcMain:{ handle:(name,handler)=>{rawHandlers.set(name,handler);handlers.set(name,(_, ...args)=>handler({sender:windows[0].webContents,senderFrame:{url:require('node:url').pathToFileURL(path.join(path.dirname(main),'index.html')).href}},...args));} }, dialog:{}, clipboard:{writeText:text=>{copied=text;}},shell:{openPath:async filepath=>{opened.push(filepath);return '';},showItemInFolder:filepath=>shown.push(filepath)}
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
-    __dirname:path.dirname(main), process, setTimeout, clearTimeout
+    __dirname:path.dirname(main), process, setTimeout, clearTimeout, setImmediate
   }, { filename:main });
   return {clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
@@ -196,7 +197,7 @@ test('floating window has offline policy, limited IPC and can focus a tag in the
  assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
  rawHandlers.get('floating-main')(event,'work');assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
  registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,false);registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,true);
- handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.equal(registered.size,1);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
+ handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.deepEqual([...registered.keys()],['CommandOrControl+Alt+S','CommandOrControl+Alt+D']);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
 });
 test('Explorer quick-tag requests survive reads by the floating tool and acknowledge only handled IDs',t=>{
  const {dir,events,handlers,rawHandlers,windows}=harness(t);const paths=['a.txt','b.txt'].map(name=>path.join(dir,name));paths.forEach(p=>fs.writeFileSync(p,'A'));events.get('second-instance')(null,['Studio.exe','--favorite','--',paths[0]]);events.get('second-instance')(null,['Studio.exe','--favorite','--',paths[1]]);
@@ -692,4 +693,52 @@ test('filtered Excel export round trips through the native import dialog and cre
  assert.deepEqual(record.values[relation.id],[destination]);
  assert.deepEqual(record.tags,['a,b','工作']);
  assert.equal(record.notes,'首行\n次行');
+});
+
+test('draft window opens from the global shortcut and creates a detail record with saved text and attachments',async t=>{
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aSOkAAAAASUVORK5CYII=','base64');
+ const h=harness(t,{nativeImage:{createFromBuffer:()=>({isEmpty:()=>false,toPNG:()=>png})}});
+ const workspace=h.handlers.get('notes-template')(),M=require('../src/notes-model');
+ const root=workspace.document.sheets[0],detail=workspace.document.sheets.find(item=>M.parentField(workspace.document,item));
+ const parent=h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'客戶 A',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id;
+ await h.registered.get('CommandOrControl+Alt+D')();
+ const window=h.windows.at(-1),event={sender:window.webContents,senderFrame:{url:window.url}};
+ const draft=(name,...args)=>h.rawHandlers.get('draft-'+name)(event,...args);
+ assert.match(window.url,/draft-notes.html$/);
+ assert.throws(()=>h.handlers.get('draft-data')(),/不受信任/);
+ assert.equal(draft('data').sheets.find(item=>item.id===detail.id).parentSheetId,root.id);
+ assert.deepEqual(draft('masters',detail.id),[{id:parent,title:'客戶 A'}]);
+ const initial=draft('new'),saved=draft('save',initial.id,initial.version,{title:'',body:'第一行\n第二行'});
+ assert.throws(()=>draft('save',initial.id,initial.version,{title:'',body:'過期'}),/草稿已變更/);
+ const file=path.join(h.dir,'note.txt'),folder=path.join(h.dir,'附件');
+ fs.writeFileSync(file,'file');fs.mkdirSync(folder);
+ const linked=await draft('attach',saved.id,saved.version,[file,folder,file]);
+ assert.deepEqual(linked.attachments.map(item=>item.type),['file','folder']);
+ const pictured=draft('paste',linked.id,linked.version,png);
+ assert.match(draft('image',pictured.id,2),/^data:image\/png;base64,/);
+ h.windows[0].close();
+ assert.equal(h.windows[0].isDestroyed(),false);
+ draft('cancel-close');
+ window.close();
+ assert.equal(window.isDestroyed(),false);
+ assert.ok(h.messages.some(([name])=>name==='draft-close-request'));
+ draft('close');await new Promise(setImmediate);
+ assert.equal(window.isDestroyed(),true);
+ await h.registered.get('CommandOrControl+Alt+D')();
+ const reopened=h.windows.at(-1);
+ event.sender=reopened.webContents;event.senderFrame.url=reopened.url;
+ assert.equal(draft('data').drafts.length,1);
+ assert.equal(draft('read',pictured.id).body,saved.body);
+ await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,''),/主紀錄/);
+ assert.equal(draft('read',pictured.id).version,pictured.version);
+ const sent=await draft('send',pictured.id,pictured.version,detail.id,parent);
+ assert.throws(()=>draft('read',pictured.id),/草稿已移除/);
+ await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,parent),/草稿已移除/);
+ const records=h.handlers.get('notes-get')().document.records.filter(item=>item.sheetId===detail.id);
+ assert.equal(records.length,1);
+ assert.equal(records[0].id,sent.id);
+ assert.equal(records[0].title,'第一行');
+ assert.equal(records[0].notes,'第一行\n第二行');
+ assert.deepEqual(records[0].values[M.parentField(workspace.document,detail).id],[parent]);
+ assert.deepEqual(records[0].fileLinks.map(item=>item.path),pictured.attachments.map(item=>item.path));
 });
