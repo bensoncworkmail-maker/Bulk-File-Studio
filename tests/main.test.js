@@ -545,21 +545,44 @@ test('closing or quitting during an in-flight OS recycle operation is deferred u
  assert.equal(h.handlers.get('favorites-list')().items.length,0);
 });
 
-test('floating snippets use a restricted IPC surface and remember each resized window',async t=>{
+test('floating calendar and snippets share one window and its size with restricted IPC',async t=>{
  const h=harness(t);
  h.handlers.get('productivity-save')(null,'snippets',{name:'回覆',body:'您好 {{customer}}',category:'工作'});
  const id=h.handlers.get('productivity-snippet-list')()[0].id;
  h.handlers.get('tool-view-open')(null,{kind:'snippets'});
  const overlay=h.windows.at(-1);
  const event={sender:overlay.webContents,senderFrame:{url:overlay.url}};
- assert.equal(h.rawHandlers.get('tool-overlay-data')(event,{}).rows[0].title,'回覆');
- assert.throws(()=>h.rawHandlers.get('tool-overlay-data')({...event,sender:h.windows[0].webContents},{}),/不受信任/);
- assert.throws(()=>h.rawHandlers.get('tool-overlay-action')(event,'visit',id),/只可複製/);
- h.rawHandlers.get('tool-overlay-action')(event,'copy',id,'陳先生');
+ assert.equal(h.rawHandlers.get('tool-overlay-data')(event,'snippets',{}).rows[0].title,'回覆');
+ assert.throws(()=>h.rawHandlers.get('tool-overlay-data')({...event,sender:h.windows[0].webContents},'snippets',{}),/不受信任/);
+ assert.throws(()=>h.rawHandlers.get('tool-overlay-action')(event,'snippets','visit',id),/只可複製/);
+ h.rawHandlers.get('tool-overlay-action')(event,'snippets','copy',id,'陳先生');
  assert.equal(h.getCopied(),'您好 陳先生');
+ h.rawHandlers.get('tool-overlay-switch')(event,'planning');
+ assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,'planning');
+ assert.throws(()=>h.rawHandlers.get('tool-overlay-action')(event,'snippets','copy',id),/已切換/);
+ assert.throws(()=>h.rawHandlers.get('tool-overlay-switch')(event,'logs'),/沒有該分頁/);
+ h.handlers.get('tool-view-open')(null,{kind:'snippets'});
+ assert.equal(h.windows.at(-1),overlay);
+ h.handlers.get('tool-view-open')(null,{kind:'logs'});
+ const logs=h.windows.at(-1);
+ assert.notEqual(logs,overlay);
+ assert.notEqual(logs.options.x,overlay.options.x);
  overlay.setBounds({...overlay.getNormalBounds(),width:675,height:590});overlay.emit('resized');
- assert.deepEqual(h.handlers.get('desktop-settings-get')().toolWindowSizes.snippets,{width:675,height:590});
+ assert.deepEqual(h.handlers.get('desktop-settings-get')().toolWindowSizes.planning,{width:675,height:590});
  overlay.destroy();
  h.handlers.get('tool-view-open')(null,{kind:'snippets'});
  assert.equal(h.windows.at(-1).options.width,675);
+});
+
+test('log preferences persist, validate and belong to the workspace settings reset',t=>{
+ const h=harness(t),sheetId=h.handlers.get('notes-template')().document.sheets[0].id;
+ const logView={scope:'selected',sheetIds:[sheetId],layout:'cards',sort:'oldest'};
+ const save=h.handlers.get('desktop-settings-set');
+ save(null,{logView});
+ assert.deepEqual(JSON.parse(fs.readFileSync(path.join(h.dir,'desktop-state.json'),'utf8')).settings.logView,logView);
+ assert.throws(()=>save(null,{logView:{...logView,sheetIds:['wrong']}}),/設定無效/);
+ assert.deepEqual(h.handlers.get('desktop-settings-get')().logView,logView);
+ const {resetPatch}=require('../src/settings-catalog');
+ const {DEFAULTS}=require('../src/desktop-state');
+ assert.deepEqual(resetPatch('native','notes',DEFAULTS).logView,DEFAULTS.logView);
 });

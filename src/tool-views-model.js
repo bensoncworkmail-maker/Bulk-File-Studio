@@ -2,6 +2,7 @@
 
 const M=require('./notes-model');
 const P=require('./productivity-model');
+const {normalize:normalizeLogs,allowedSheet}=require('./log-view-settings-model');
 const PAGE_SIZE=30;
 
 function configuration(input={}){
@@ -12,7 +13,7 @@ function configuration(input={}){
  return {kind,sheetId,scope:input.scope==='master'?'master':'all',query:P.text(input.query||'',256,'搜尋')};
 }
 
-function viewData(doc,reminders,snippets,config,filters={}){
+function viewData(doc,reminders,snippets,config,filters={},logView){
  const query=P.text(filters.query??config.query,256,'搜尋').toLocaleLowerCase();
  const page=Number.isSafeInteger(filters.page)?Math.max(0,filters.page):0;
  const paginate=rows=>{
@@ -34,18 +35,21 @@ function viewData(doc,reminders,snippets,config,filters={}){
    const columns=state?P.board(doc,table.id,state.id):[];
    const rows=columns.filter(column=>!filters.value||column.value===filters.value).flatMap(column=>
     column.records.filter(record=>(record.title+' '+record.notes).toLocaleLowerCase().includes(query))
-     .map(record=>({id:record.id,title:record.title,detail:column.label+' · '+table.name,summary:record.notes.slice(0,180)})));
+     .map(record=>({id:record.id,title:record.title,group:column.label,detail:table.name,summary:record.notes.slice(0,180)})));
    return {...paginate(rows),tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
     stateFields:stateFields.map(({id,label})=>({id,label})),stateField:state?.id,states:state?.options||[]};
   }
   const month=filters.month||new Date().toLocaleDateString('sv-SE').slice(0,7);
   const rows=P.agenda(doc,reminders,month)
    .filter(event=>[event.title,event.sheet,event.label].some(value=>value.toLocaleLowerCase().includes(query)))
-   .map(event=>({id:event.recordId,title:event.title,detail:event.date+' · '+event.sheet+' · '+event.label}));
+   .map(event=>({id:event.recordId,title:event.title,group:event.date,detail:event.sheet+' · '+event.label,eventKind:event.kind}));
   return paginate(rows);
  }
- const tables=config.sheetId?sheets.filter(sheet=>sheet.id===config.sheetId):sheets;
+ const settings=normalizeLogs(logView);
+ const tables=sheets.filter(sheet=>allowedSheet(config,settings,sheet.id));
  if(config.sheetId&&!tables.length)throw new Error('紀錄表格已移除，請更新快捷設定');
+ const sort=['recent','oldest','title'].includes(filters.sort)?filters.sort:settings.sort;
+ const layout=['list','cards'].includes(filters.layout)?filters.layout:settings.layout;
  const table=tables.find(sheet=>sheet.id===filters.sheetId)||tables.find(sheet=>/^(紀錄|日誌|log|logs)$/i.test(sheet.name))||tables[0];
  const parent=table&&M.parentField(doc,table);
  const masters=parent?records.filter(record=>record.sheetId===parent.targetSheetId):[];
@@ -64,7 +68,7 @@ function viewData(doc,reminders,snippets,config,filters={}){
   if(record.sheetId!==table?.id)continue;
   if(parent&&(master||config.scope==='master')&&(!master||!record.values[parent.id]?.includes(master.id)))continue;
   const day=dateField?(record.values[dateField.id]||''):new Date(record.updatedAt).toLocaleDateString('sv-SE');
-  if((from&&day<from)||(to&&(!day||day>to)))continue;
+  if((from&&(!day||day<from))||(to&&(!day||day>to)))continue;
   if(stateField&&states.includes(filters.value)&&String(record.values[stateField.id])!==filters.value)continue;
   const fields=table.fields.filter(field=>field.type!=='relation').map(field=>M.cell(doc,field,record.values[field.id]));
   const linked=parent?(record.values[parent.id]||[]).map(id=>masterById.get(id)?.title||'').join('、'):'';
@@ -72,11 +76,12 @@ function viewData(doc,reminders,snippets,config,filters={}){
   rows.push({id:record.id,title:record.title,date:day,detail:[day,linked].filter(Boolean).join(' · '),summary:record.notes.slice(0,240),updatedAt:record.updatedAt});
  }
  rows.sort((a,b)=>{
-  if(filters.sort==='title')return a.title.localeCompare(b.title,'zh-Hant')||b.date.localeCompare(a.date);
+  if(sort==='title')return a.title.localeCompare(b.title,'zh-Hant')||b.date.localeCompare(a.date);
   const dateOrder=a.date.localeCompare(b.date)||a.updatedAt.localeCompare(b.updatedAt);
-  return (filters.sort==='oldest'?dateOrder:-dateOrder)||a.title.localeCompare(b.title,'zh-Hant');
+  return (sort==='oldest'?dateOrder:-dateOrder)||a.title.localeCompare(b.title,'zh-Hant');
  });
- return {...paginate(rows),tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
+ return {...paginate(rows),sort,layout,restricted:!config.sheetId&&settings.scope==='selected',
+  tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
   masters:masters.map(({id,title})=>({id,title})),masterRequired:Boolean(parent&&config.scope==='master'),
   dateFields:dateFields.map(({id,label})=>({id,label})),
   stateFields:stateFields.map(({id,label})=>({id,label})),states,checkbox:stateField?.type==='checkbox'};

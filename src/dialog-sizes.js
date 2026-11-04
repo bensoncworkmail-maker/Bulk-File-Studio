@@ -2,7 +2,7 @@
 (() => {
  const $=id=>document.getElementById(id);
  const auxiliary={
-  logs:'浮動紀錄',planning:'日曆速覽',snippets:'浮動文字片段',
+  logs:'浮動紀錄',planning:'浮動日曆／看板與文字片段',
   capture:'浮動新增表單',reminder:'到期強提醒',pdf:'PDF 預覽'
  };
  function init(){
@@ -15,7 +15,7 @@
   const labelOf=dialog=>$(dialog.getAttribute('aria-labelledby'))?.textContent||
    dialog.querySelector('h2,h3')?.textContent||dialog.id;
   function read(){
-   return Object.hasOwn(auxiliary,kind.value)?native[kind.value]:window.settingsUI.get().dialogSizes[kind.value];
+   return Object.hasOwn(auxiliary,kind.value)?(native[kind.value]||(kind.value==='planning'?native.snippets:undefined)):window.settingsUI.get().dialogSizes[kind.value];
   }
   function refresh(){
    const size=read();width.value=size?.width||'';height.value=size?.height||'';
@@ -24,6 +24,7 @@
   async function save(key,size){
    if(Object.hasOwn(auxiliary,key)){
     const values={...native};
+    if(key==='planning')delete values.snippets;
     if(size)values[key]=size;else delete values[key];
     native=(await window.desktopAPI.configure({toolWindowSizes:values})).settings.toolWindowSizes;
    }else{
@@ -63,7 +64,10 @@
    grip.type='button';grip.className='dialog-size-grip';grip.textContent='↘';
    grip.title='拖曳調整視窗大小，也可使用方向鍵';
    grip.setAttribute('aria-label','調整'+labelOf(dialog)+'尺寸');
-   dialog.append(grip);
+   const row=document.createElement('div');
+   row.className='dialog-size-row';
+   row.append(grip);
+   (dialog.querySelector('.notes-form-footer')||dialog).append(row);
    new MutationObserver(()=>{
     if(dialog.open)apply(dialog,window.settingsUI.get().dialogSizes[dialog.id]);
    }).observe(dialog,{attributes:true,attributeFilter:['open']});

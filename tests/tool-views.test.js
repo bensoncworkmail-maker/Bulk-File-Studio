@@ -55,3 +55,41 @@ test('quick widgets persist only their validated display mode and log scope',()=
  assert.throws(()=>quick.normalize([{...action,display:'browser'}],true),/浮動/);
  assert.throws(()=>quick.normalize([{...action,sheetId:''}],true),/表格/);
 });
+
+test('saved log table scope and display defaults apply without expanding a missing selection',()=>{
+ const now='2026-11-04T01:00:00.000Z',doc=notes.template(randomUUID,now,'clients');
+ const logs=doc.sheets.find(sheet=>sheet.name==='紀錄');
+ const other=doc.sheets.find(sheet=>sheet.id!==logs.id);
+ const config=configuration({kind:'logs'});
+ const settings={scope:'selected',sheetIds:[logs.id],layout:'cards',sort:'oldest'};
+ const result=viewData(doc,[],[],config,{sheetId:other.id},settings);
+ assert.deepEqual(result.tables.map(sheet=>sheet.id),[logs.id]);
+ assert.equal(result.sheetId,logs.id);
+ assert.equal(result.layout,'cards');
+ assert.equal(result.sort,'oldest');
+ assert.equal(viewData(doc,[],[],config,{layout:'list'},settings).layout,'list');
+ const shortcut=viewData(doc,[],[],configuration({kind:'logs',sheetId:other.id}),{},settings);
+ assert.equal(shortcut.sheetId,other.id);
+ logs.deletedAt=now;
+ assert.deepEqual(viewData(doc,[],[],config,{},settings).tables,[]);
+});
+
+test('dialog resizing has its own row inside the record footer',()=>{
+ const fs=require('node:fs'),vm=require('node:vm');
+ const {documentFromHTML}=require('./helpers/dom');
+ const document=documentFromHTML(fs.readFileSync(require.resolve('../src/index.html'),'utf8'));
+ const window={
+  desktopAPI:{get:async()=>({}),onChanged(){}},
+  settingsUI:{get:()=>({dialogSizes:{}})}
+ };
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/dialog-sizes.js'),'utf8'),{
+  window,document,MutationObserver:class {observe(){}}
+ });
+ window.dialogSizesUI.init();
+ const save=document.getElementById('notes-record-save');
+ const footer=save.parentElement,grip=footer.querySelector('.dialog-size-grip');
+ assert.equal(grip.type,'button');
+ assert.equal(grip.parentElement.className,'dialog-size-row');
+ assert.equal(grip.parentElement.parentElement,footer);
+ assert.equal(save.type,'submit');
+});
