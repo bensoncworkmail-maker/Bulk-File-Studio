@@ -184,6 +184,13 @@ function rememberAuxSize(key,window){
 function focusMain(){
   if(!win||win.isDestroyed())createWindow();if(win.isMinimized())win.restore();win.show();if(pendingMaximize){pendingMaximize=false;win.maximize();}win.focus();
 }
+function applyMainBounds(requested){
+  const bounds=require('./desktop-state').fitBounds(requested,screen.getAllDisplays(),mainDefaults);
+  if(win.isMaximized())win.unmaximize();
+  win.setMinimumSize(bounds.minWidth,bounds.minHeight);
+  win.setBounds(bounds);
+  return win.getBounds?.()||bounds;
+}
 function createWindow(hidden=false) {
   win = new BrowserWindow({
     ...desktop.bounds('main',screen.getAllDisplays(),mainDefaults),
@@ -312,7 +319,7 @@ app.whenReady().then(() => {
     writeWorkspaceFile(filename,buffer);
     return {canceled:false,count:rows.length-1};
   });
-  handle('notes-tabular-preview',(_,input)=>notesStore().tabularPreview(input));
+  handle('notes-tabular-preview',(_,input)=>input?.allowIntranet===true?notesStore().tabularPreviewIntranet(input):notesStore().tabularPreview(input));
   handle('notes-tabular-commit',(_,token)=>notesChanged(notesStore().tabularCommit(token)));
   handle('notes-grid-save',(_,entries,revision)=>notesChanged(notesStore().updateCells(entries,revision)));
   handle('notes-navigation',()=>{const next=pendingNotesNavigation;pendingNotesNavigation=null;return next;});
@@ -480,7 +487,7 @@ app.whenReady().then(() => {
     const result=await dialog.showMessageBox(win,{type:'warning',title:'清除錯誤紀錄',message:'清除所有本機錯誤紀錄？',detail:'不會影響工作區、收藏或復原紀錄。已匯出的副本需另行刪除。',buttons:['清除紀錄','取消'],defaultId:1,cancelId:1,noLink:true});
     return result.response===0?{canceled:false,...diagnostics.clear()}:{canceled:true};
   });
-  handle('desktop-main-size',(_,width,height)=>{if(!Number.isFinite(width)||!Number.isFinite(height)||width<800||width>8000||height<500||height>8000)throw new Error('視窗尺寸無效');if(win.isMaximized())win.unmaximize();const bounds=require('./desktop-state').fitBounds({...win.getNormalBounds(),width,height},screen.getAllDisplays(),{width:1400,height:900,minWidth:win.getMinimumSize?.()[0]||800,minHeight:win.getMinimumSize?.()[1]||500});win.setBounds(bounds);return win.getBounds?.()||bounds;});
+  handle('desktop-main-size',(_,width,height)=>{if(!Number.isFinite(width)||!Number.isFinite(height)||width<800||width>8000||height<500||height>8000)throw new Error('視窗尺寸無效');return applyMainBounds({...win.getNormalBounds(),width,height});});
   handle('notes-check-package',async(_,dropped)=>{const filepath=await openFileInput(dialog,win,{title:'只檢查資料包相容性，不匯入',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const input=await readImportPackageFile(filepath),projection=require('./notes-sharing-model').project(input),doc=require('./notes-model').readPackage(projection.data);return {packageVersion:input.packageVersion,schemaVersion:input.document.schemaVersion,sheets:doc.sheets.length,records:doc.records.length};});
   recordReminders=new(require('./record-reminders').RecordReminders)(path.join(app.getPath('userData'),'record-reminders.json'),{document:()=>notesStore().get().document,settings:()=>desktop.settings,onError:error=>diagnostics.record('main','record-reminders',error),onDue:value=>{const due=value.items.filter(item=>item.status==='fired'&&item.available),prefs=desktop.settings;const notices=due.filter(item=>['notification','both'].includes(item.delivery==='default'?prefs.reminderDelivery:item.delivery));if(notices.length&&Notification?.isSupported?.()){try{recordNotification?.close?.();const notice=new Notification({title:'紀錄提醒',body:('有 '+notices.length+' 筆紀錄到期，點擊查看。'+notices.filter(item=>item.messageContent).map(item=>'\n'+item.sheet+' ／ '+item.title+'\n'+item.messageContent).join('\n')).slice(0,1200),silent:false});notice.on('click',()=>{focusMain();send(win,'record-reminders-open',{});});notice.on('failed',(_,error)=>diagnostics.record('main','record-reminder-notification',String(error)));recordNotification=notice;notice.show();}catch(error){diagnostics.record('main','record-reminder-notification',error);}}if(prefs.reminderBringToFront&&!capture?.window&&!fileOperationBusy&&due.some(item=>(item.delivery==='default'?prefs.reminderDelivery:item.delivery)!=='attention'))focusMain();recordAttention?.sync();send(win,'record-reminders-changed',{...value,popup:due.some(item=>['overlay','both'].includes(item.delivery==='default'?prefs.reminderDelivery:item.delivery))});}});
   recordAttention=new(require('./reminder-attention').ReminderAttention)({BrowserWindow,screen,secureWindow,size:()=>desktop.settings.toolWindowSizes.reminder,remember:window=>rememberAuxSize('reminder',window),settings:()=>desktop.settings,list:()=>recordReminders.list(),blocked:()=>Boolean(capture?.window&&!capture.window.isDestroyed()||fileOperationBusy),beep:()=>shell.beep(),onError:error=>diagnostics.record('main','reminder-attention',error),act:(kind,id)=>{const value=kind==='ack'?recordReminders.ack(id):recordReminders.snooze(id,desktop.settings.reminderSnoozeMinutes);send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');}});
@@ -518,7 +525,7 @@ app.whenReady().then(() => {
     if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
     floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
-  handle('desktop-reset-window',()=>{win.unmaximize();win.setBounds(desktop.bounds('reset',screen.getAllDisplays(),mainDefaults));});
+  handle('desktop-reset-window',()=>applyMainBounds(null));
   handle('floating-show',()=>showFloating());
   handle('floating-hide',()=>{floatingSearch?.destroy();floating?.hide();});
   handle('floating-compact-size',()=>{showFloating();floatingWindow.compactSize();});

@@ -13,3 +13,23 @@ test('source publication version is preserved in record history with the scoped 
 test('scoped clone removes recycled children within its selected family and retains other recycled tables',t=>{const h=setup(t),child=M.masterTableTree(h.doc)[0].children[0],parent=h.doc.records[0];const record=h.store.saveRecord({sheetId:child.id,title:'Old detail',values:{[M.parentField(h.doc,child).id]:[parent.id]},notes:'',tags:[],fileLinks:[]}).document.records.at(-1);h.store.trash('sheet',child.id,child.version);const state=h.store.get(),input=M.exportPackage(state.document,{scope:'all'}),preview=h.store.importPreview(input,'clone',{scope:h.selection});assert.equal(preview.removed,1);assert.equal(preview.records.find(row=>row.key===record.id).status,'removed');const result=h.store.importCommit(preview.token,{confirmClone:true});assert.ok(!result.document.sheets.some(sheet=>sheet.id===child.id));assert.ok(!result.document.records.some(row=>row.id===record.id));assert.ok(result.document.sheets.some(sheet=>sheet.id===h.roots[1].id));});
 
 test('new scoped envelope retains its scope even when imported as a local file without a shared-session context',t=>{const h=setup(t),input=M.exportPackage(h.doc,{scope:'all'});input.packageVersion=4;input.sharing={scope:h.selection};input.document.records[0].title='Selected source';input.document.records[1].title='Outside source';const previous=h.store.get().document.records[1],preview=h.store.importPreview(input,'clone');assert.equal(preview.scope.mode,'masters');h.store.importCommit(preview.token,{confirmClone:true});assert.deepEqual(h.store.get().document.records.find(record=>record.id===previous.id),previous);assert.throws(()=>M.readPackage({...input,sharing:undefined}),/範圍資訊/);});
+
+test('scoped updates leave an existing external dependency schema alone before checking conflicts',t=>{
+ const h=setup(t),[selected,outside]=h.roots;
+ const related={id:crypto.randomUUID(),label:'External',type:'relation',targetSheetId:outside.id,options:[]};
+ const external=h.doc.records.find(record=>record.sheetId===outside.id);
+ h.store.change(doc=>{
+  doc.sheets.find(sheet=>sheet.id===selected.id).fields.push(related);
+  doc.records.find(record=>record.sheetId===selected.id).values[related.id]=[external.id];
+ });
+ const before=h.store.get(),input=M.exportPackage(before.document,{scope:'all'});
+ const remoteOutside=input.document.sheets.find(sheet=>sheet.id===outside.id);
+ remoteOutside.fields[0].type='longtext';
+ input.document.records.find(record=>record.sheetId===selected.id).title='Scoped edit';
+ const preview=h.store.importPreview(input,'update',{scope:h.selection});
+ const result=h.store.importCommit(preview.token);
+ const updated=result.document.records.find(record=>record.sheetId===selected.id);
+ assert.equal(updated.title,'Scoped edit');
+ assert.deepEqual(updated.values[related.id],[external.id]);
+ assert.deepEqual(result.document.sheets.find(sheet=>sheet.id===outside.id),outside);
+});

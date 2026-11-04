@@ -17,15 +17,41 @@ function locationPath(value){
  }else if(!p.isAbsolute(value))throw new Error('請使用完整路徑');
  return windows?p.normalize(value):path.normalize(value);
 }
+function locationError(error,filepath){
+ if(['ENOENT','ENOTDIR','EACCES','EPERM','ENETUNREACH','EHOSTUNREACH'].includes(error.code)){
+  return new Error('位置不存在或沒有存取權；請確認共享資料夾已連線、磁碟代號及權限：'+filepath);
+ }
+ return error;
+}
+function locationType(stat){
+ if(stat.isSymbolicLink()||!stat.isFile()&&!stat.isDirectory())throw new Error('只支援一般檔案或資料夾');
+ return stat.isDirectory()?'folder':'file';
+}
+async function inspectIntranetLocation(filepath){
+ // The caller has already checked the UNC host with withIntranetPaths.
+ try{
+  const ancestors=[];
+  for(let current=filepath;;){
+   const parent=path.win32.dirname(current);
+   if(parent===current)break;
+   ancestors.push(parent);current=parent;
+  }
+  for(const directory of ancestors.reverse()){
+   const stat=await fs.promises.lstat(directory);
+   if(stat.isSymbolicLink()||!stat.isDirectory())throw new Error('共享路徑不接受符號連結或無效的上層資料夾');
+  }
+  return {path:filepath,type:locationType(await fs.promises.lstat(filepath))};
+ }catch(error){throw locationError(error,filepath);}
+}
 function inspectLocation(value){
  const filepath=locationPath(value),unc=/^\\\\/.test(filepath),p=unc?path.win32:path;
  try{
   if(!unc)assertLocalPath(filepath);
   // Do not traverse symbolic links/reparse links on a share either.
   let current=filepath;while(unc){if(fs.lstatSync(current).isSymbolicLink())throw new Error('位置不支援符號連結');const parent=p.dirname(current);if(parent===current)break;current=parent;}
-  const stat=fs.lstatSync(filepath,{bigint:true});if(stat.isSymbolicLink()||!stat.isFile()&&!stat.isDirectory())throw new Error('只支援一般檔案或資料夾');
-  return {path:filepath,type:stat.isDirectory()?'folder':'file',identity:Object.fromEntries(['dev','ino','birthtimeNs'].map(key=>[key,String(stat[key])]))};
- }catch(error){if(['ENOENT','ENOTDIR','EACCES','EPERM','ENETUNREACH','EHOSTUNREACH'].includes(error.code))throw new Error('位置不存在或沒有存取權；請確認共享資料夾已連線、磁碟代號及權限：'+filepath);throw error;}
+  const stat=fs.lstatSync(filepath,{bigint:true});
+  return {path:filepath,type:locationType(stat),identity:Object.fromEntries(['dev','ino','birthtimeNs'].map(key=>[key,String(stat[key])]))};
+ }catch(error){throw locationError(error,filepath);}
 }
 function inspectLinks(paths){
  if(!Array.isArray(paths)||!paths.length||paths.length>100)throw new Error('每次請加入 1–100 個完整位置');
@@ -43,4 +69,4 @@ async function openRecordLink({document,favorites,recordId,index,action,shell,cl
  if(actual.type==='file'&&BLOCKED.test(actual.path))throw new Error('此類程式或捷徑請使用「定位」後自行開啟');
  const error=await shell.openPath(actual.path);if(error)throw new Error(error);
 }
-module.exports={locationPath,inspectLocation,inspectLinks,openRecordLink};
+module.exports={locationPath,inspectLocation,inspectIntranetLocation,inspectLinks,openRecordLink};

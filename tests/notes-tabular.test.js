@@ -21,3 +21,37 @@ test('attachment cells validate before commit and report invalid paths on their 
  assert.deepEqual(preview.records[0].paths,[file,dir]);
  assert.deepEqual(store.tabularCommit(preview.token).document.records[0].fileLinks.map(link=>link.type),['file','folder']);
 });
+
+test('UNC attachments require explicit authorization and a newer preview invalidates an in-flight check',async t=>{
+ const {store,state}=setup(t),sheet=state.document.sheets[0];
+ const filepath=String.raw`\\server\share\report.pdf`;
+ const input={sheetId:sheet.id,revision:state.revision,header:true,mapping:['title','fileLinks'],
+  rows:[['標題','檔案／資料夾路徑'],['UNC record',filepath]]};
+ const local=store.tabularPreview(input);
+ assert.equal(local.token,null);
+ assert.match(local.errors[0].message,/允許內網附件/);
+ let finish;
+ const pending=store.tabularPreviewIntranet(input,paths=>{
+  assert.deepEqual(paths,[filepath]);
+  return new Promise(resolve=>{finish=resolve;});
+ });
+ const newer=store.tabularPreview({...input,rows:[input.rows[0],['Local record','']]});
+ finish();
+ await assert.rejects(pending,/預覽已變更/);
+ assert.ok(newer.token);
+ assert.equal(store.tabularCommit(newer.token).document.records[0].title,'Local record');
+});
+
+test('approved UNC links are validated and committed without rewriting the network path',async t=>{
+ const {store,state}=setup(t),sheet=state.document.sheets[0];
+ const file=String.raw`\\host\share\file.pdf`,folder=String.raw`\\host\share\folder`;
+ const input={sheetId:sheet.id,revision:state.revision,header:true,mapping:['title','fileLinks'],
+  rows:[['標題','檔案／資料夾路徑'],['Network',file+'\n'+folder]]};
+ const verify=async paths=>assert.deepEqual(paths,[file,folder]);
+ const denied=await store.tabularPreviewIntranet(input,verify,async()=>{throw new Error('讀取失敗');});
+ assert.equal(denied.token,null);
+ assert.equal(denied.errors[0].row,2);
+ const preview=await store.tabularPreviewIntranet(input,verify,async path=>({path,type:path===file?'file':'folder'}));
+ assert.deepEqual(preview.records[0].paths,[file,folder]);
+ assert.deepEqual(store.tabularCommit(preview.token).document.records[0].fileLinks.map(link=>link.type),['file','folder']);
+});

@@ -161,3 +161,19 @@ test('checkbox-to-select migration maps both stored values, keeps blanks and upd
  assert.equal(store.history(done)[0].record.values[checkbox.id],true);
  assert.throws(()=>store.saveSheet(input),/已變更/);
 });
+
+test('recycled parents remain restorable but do not match searches or retain a shared child during cascade',t=>{
+ const {store}=setup(t),[root,detail]=store.addTemplate().document.sheets;
+ const a=record(store,root,'Active parent').result.id,b=record(store,root,'Recycled identity').result.id;
+ const child=record(store,detail,'Shared child',{[detail.fields[0].id]:[a]}).result.id;
+ // Historical workspaces can contain a detail with multiple parent links.
+ store.change(doc=>{doc.records.find(item=>item.id===child).values[detail.fields[0].id]=[a,b];});
+ store.trash('record',b,1);
+ const before=store.get();
+ assert.equal(M.searchRecords(before.document,{query:'Recycled identity',scope:'all'}).length,0);
+ assert.match(M.cell(before.document,detail.fields[0],[b]),/已刪除/);
+ const result=store.batchTrash([{id:a,version:1}],true,before.revision);
+ assert.equal(result.result.sharedRetained,0);
+ assert.equal(result.result.details,1);
+ assert.ok(result.document.records.find(item=>item.id===child).deletedAt);
+});

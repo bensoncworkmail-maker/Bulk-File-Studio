@@ -32,7 +32,7 @@ function harness(t, overrides = {}) {
   }
   const electron = {
     app: {commandLine:{appendSwitch(){}},getVersion:()=>require('../package.json').version, getPath:()=>dir, requestSingleInstanceLock:()=>true, whenReady:()=>({ then:callback=>callback() }), on:(name,callback)=>events.set(name,callback), isPackaged:false },
-    nativeImage:overrides.nativeImage,Notification:overrides.Notification,utilityProcess:overrides.utilityProcess,Menu:{buildFromTemplate:template=>({popup:options=>{popup={template,options};},closePopup:()=>popupClosed++})},BrowserWindow:Window, nativeTheme,screen:{getAllDisplays:()=>[{workArea:{x:0,y:0,width:1920,height:1080}}]},globalShortcut:{unregisterAll:()=>registered.clear(),register:(key,callback)=>{registered.set(key,callback);return true;}},
+    nativeImage:overrides.nativeImage,Notification:overrides.Notification,utilityProcess:overrides.utilityProcess,Menu:{buildFromTemplate:template=>({popup:options=>{popup={template,options};},closePopup:()=>popupClosed++})},BrowserWindow:Window, nativeTheme,screen:overrides.screen||{getAllDisplays:()=>[{workArea:{x:0,y:0,width:1920,height:1080}}]},globalShortcut:{unregisterAll:()=>registered.clear(),register:(key,callback)=>{registered.set(key,callback);return true;}},
     ipcMain:{ handle:(name,handler)=>{rawHandlers.set(name,handler);handlers.set(name,(_, ...args)=>handler({sender:windows[0].webContents,senderFrame:{url:require('node:url').pathToFileURL(path.join(path.dirname(main),'index.html')).href}},...args));} }, dialog:{}, clipboard:{writeText:text=>{copied=text;}},shell:{openPath:async filepath=>{opened.push(filepath);return '';},showItemInFolder:filepath=>shown.push(filepath)}
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
@@ -761,4 +761,19 @@ test('dropped paths use the same read and folder validation without opening nati
  await assert.rejects(h.handlers.get('notes-tabular-file')(null,path.join(h.dir,'other.txt')),/xlsx/);
  assert.equal(await h.handlers.get('choose-move-folder')(null,folder),folder);
  await assert.rejects(h.handlers.get('choose-move-folder')(null,xlsx),/搬移目標須為資料夾/);
+});
+
+test('main window resize and reset lower the native minimum on a smaller display',t=>{
+ let workArea={x:0,y:0,width:1920,height:1080};
+ const h=harness(t,{screen:{getAllDisplays:()=>[{workArea}]}});
+ workArea={x:-780,y:0,width:780,height:480};
+ const resized=h.handlers.get('desktop-main-size')(null,1200,800);
+ assert.deepEqual(h.windows[0].minimum,[780,480]);
+ assert.equal(resized.x,-780);
+ assert.equal(resized.width,780);
+ assert.equal(resized.height,480);
+ workArea={x:0,y:0,width:1920,height:1080};
+ h.handlers.get('desktop-reset-window')();
+ assert.deepEqual(h.windows[0].minimum,[920,650]);
+ assert.equal(h.windows[0].bounds.width,1520);
 });
