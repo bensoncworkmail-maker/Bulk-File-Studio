@@ -15,11 +15,11 @@ function setup(t,{favoriteItems=[],settings={}}={}){
  const docEvents={},testDocument={getElementById:id=>els.get(id),createElement:tag=>new El(tag),addEventListener:(key,fn)=>docEvents[key]=fn},els=new Map(),html=fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8');for(const match of html.matchAll(/<([\w-]+)[^>]*\bid="([^"]+)"[^>]*>/g)){const node=new El(match[1]);if(match[0].includes(' hidden'))node.hidden=true;els.set(match[2],node);}
  for(const [id,value] of [['notes-sort','updated'],['notes-export-scope','all'],['notes-import-mode','copy']])els.get(id).value=value;
  const toolStore=new NotesToolsStore(path.join(dir,'workspace-tools.json'));
- const errors=[],toasts=[],preferences=require('../src/settings-model').normalize(settings);let changed,contextAction;
+ const errors=[],toasts=[],drops=new Map(),preferences=require('../src/settings-model').normalize(settings);let changed,contextAction;
  const share={enabled:false,folder:null,autoPublish:false,intervalMinutes:5,files:[],total:0,busy:false};const api={chooseTableFile:async()=>({canceled:true}),tablePreview:async input=>store.tabularPreview(input),tableCommit:async token=>store.tabularCommit(token),tools:async()=>toolStore.get(),saveView:async(name,state)=>toolStore.saveView(name,state),removeTool:async(kind,id)=>toolStore.remove(kind,id),saveTemplate:async(name,areaId)=>toolStore.saveTemplate(name,store.get().document,areaId),applyTemplate:async(id,revision)=>store.applyCustomTemplate(toolStore.get().templates.find(item=>item.id===id).document,revision),pin:async id=>toolStore.pin(store.get().document,id),saveCells:async(entries,revision)=>store.updateCells(entries,revision),batchSheets:async(entries,revision)=>store.batchSheets(entries,revision),batchAreas:async(ids,revision)=>store.batchAreas(ids,revision),navigation:async()=>null,shareStatus:async()=>share,onShareChanged(){},contextMenu:async(kind,id)=>toasts.push('menu:'+kind+':'+id),onContextAction:callback=>contextAction=callback,get:async()=>store.get(),favorites:async()=>({items:favoriteItems}),template:async kind=>store.addTemplate(kind),saveArea:async input=>store.saveArea(input),removeArea:async(...args)=>store.removeArea(...args),duplicateRecord:async(...args)=>store.duplicateRecord(...args),copy:async input=>toasts.push(M.clipboardText(store.get().document,input)),saveSheet:async input=>store.saveSheet(input),saveRecord:async input=>store.saveRecord({...input,fileLinks:[...(input.favoriteIds||[]).map(id=>{const item=favoriteItems.find(item=>item.id===id);return {favoriteId:id,path:item.path,label:item.label||'',type:item.type};}),...(input.directPaths||[]).map(path=>({favoriteId:null,path,label:'',type:'folder'})),...(store.get().document.records.find(record=>record.id===input.id)?.fileLinks||[]).filter(link=>input.keepUnlinked?.includes(link.path))],favoriteTagLinks:[...(input.favoriteTags||[]).map(tag=>({tag,authorized:true})),...(input.keepPendingTags||[]).map(tag=>({tag,authorized:false}))]}),completeClientDetails:async(...args)=>store.completeClientDetails(...args),batchTrash:async(...args)=>store.batchTrash(...args),trash:async(...args)=>store.trash(...args),history:async id=>store.history(id),restoreHistory:async(...args)=>store.restoreHistory(...args),exportPreview:async options=>store.exportPreview(options),exportSave:async()=>({canceled:false,path:'share.json'}),onChanged:callback=>changed=callback};
- const window={notesTableState:require('../src/notes-table-state'),shareViewModel:require('../src/share-view-model'),studioSettingsModel:require('../src/settings-model'),settingsUI:{get:()=>preferences,update:patch=>{Object.assign(preferences,patch);window.notesUI.settingsChanged(Object.keys(patch));}},notesModel:M,workspaceAPI:api,favoritesAPI:{onChanged(){}},favoritesModel:require('../src/favorites-model'),favoritesUI:{show(){},showTag:tag=>toasts.push('tag:'+tag)}};
+ const window={studioFileDrop:{bind:(id,apply)=>drops.set(id,apply),append:(input,paths)=>{input.value=[...new Set([...input.value.split('\n').filter(Boolean),...paths])].join('\n');}},notesTableState:require('../src/notes-table-state'),shareViewModel:require('../src/share-view-model'),studioSettingsModel:require('../src/settings-model'),settingsUI:{get:()=>preferences,update:patch=>{Object.assign(preferences,patch);window.notesUI.settingsChanged(Object.keys(patch));}},notesModel:M,workspaceAPI:api,favoritesAPI:{onChanged(){}},favoritesModel:require('../src/favorites-model'),favoritesUI:{show(){},showTag:tag=>toasts.push('tag:'+tag)}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/notes.js'),'utf8'),{window,document:testDocument,crypto},{filename:'notes.js'});
- window.notesUI.init({showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(String(error.message||error))});return {document:testDocument,docEvents,api,preferences,contextAction:value=>contextAction(value),store,els,ui:window.notesUI,errors,toasts,changed:()=>changed({})};
+ window.notesUI.init({showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(String(error.message||error))});return {document:testDocument,docEvents,drops,api,preferences,contextAction:value=>contextAction(value),store,els,ui:window.notesUI,errors,toasts,changed:()=>changed({})};
 }
 for(const [id,key,value] of [['notes-share-enabled','checked',true],['notes-share-interval','value','15']])test('rejected '+id+' changes restore the persisted shared state',async t=>{
  const h=setup(t);h.store.addTemplate();h.ui.activate();await flush();
@@ -408,4 +408,22 @@ test('Excel toolbar export sends the current table and only matching record IDs'
  h.els.get('notes-search-scope').value='all';
  h.els.get('notes-search-scope').events.change();
  assert.equal(control.disabled,true);
+});
+
+test('workspace and record drops stage paths in the link tab without writing until save',async t=>{
+ const h=setup(t);h.store.addTemplate();h.ui.activate();await flush();
+ const before=h.store.get(),dialog=h.els.get('notes-record-dialog'),input=h.els.get('notes-direct-paths');
+ h.ui.dropRecord(['C:\\工作\\文件.pdf','C:\\工作\\資料夾']);
+ assert.equal(dialog.open,true);
+ assert.equal(h.els.get('notes-form-links').hidden,false);
+ assert.equal(input.value,'C:\\工作\\文件.pdf\nC:\\工作\\資料夾');
+ assert.equal(h.store.get().revision,before.revision);
+ assert.throws(()=>h.ui.dropRecord(['C:\\不應覆寫']),/目前編輯/);
+ h.drops.get('notes-record-dialog')(['C:\\工作\\文件.pdf','C:\\另一份']);
+ assert.equal(input.value,'C:\\工作\\文件.pdf\nC:\\工作\\資料夾\nC:\\另一份');
+ h.els.get('notes-record-title').value='拖放紀錄';
+ h.els.get('notes-record-form').requestSubmit();await flush();
+ const saved=h.store.get().document.records[0];
+ assert.equal(saved.title,'拖放紀錄');
+ assert.deepEqual(saved.fileLinks.map(link=>link.path),input.value.split('\n'));
 });

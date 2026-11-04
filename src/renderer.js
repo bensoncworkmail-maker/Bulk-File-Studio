@@ -2,6 +2,18 @@
 
 const api = window.renameAPI;
 const $ = (id) => document.getElementById(id);
+const fileDropTargets=new Map();
+window.studioFileDrop=Object.freeze({
+  bind(id,apply,available=()=>true){fileDropTargets.set($(id),{apply,available});},
+  single(paths){if(paths.length!==1)throw new Error('請一次拖放一個檔案或資料夾');return paths[0];},
+  append(input,paths){
+    if(paths.some(path=>/[\r\n]/.test(path)))throw new Error('拖放路徑不可包含換行');
+    const combined=[...new Set([...input.value.split(/\r?\n/).filter(line=>line.trim()),...paths])].join('\n');
+    if(input.maxLength>=0&&combined.length>input.maxLength)throw new Error('路徑清單超過欄位長度上限');
+    input.value=combined;
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+});
 const collator = new Intl.Collator('zh-Hant', { numeric: true, sensitivity: 'base' });
 const { DEFAULT_RULES, BUILTIN_PRESETS, todayISO, presetRules, sanitizeSavedPresets } = window.renamePresets;
 const { paginate } = window.studioPagination;
@@ -569,23 +581,49 @@ function wireEvents() {
     if((e.ctrlKey||e.metaKey) && e.key==='Enter') {e.preventDefault();confirmRename();}
     if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z' && document.activeElement?.tagName!=='INPUT') {e.preventDefault();undo();}
   });
-  let dragDepth=0;
-  document.addEventListener('dragenter',e=>{
-    if(window.favoritesUI.isSettings())return;
-    if(!e.dataTransfer?.types.includes('Files'))return;
-    e.preventDefault();dragDepth++;$('drop-overlay').classList.remove('hidden');
-  });
-  document.addEventListener('dragover',e=>{if(Array.from(e.dataTransfer?.types||[]).includes('application/x-bfs-layout'))return;e.preventDefault();});
-  document.addEventListener('dragleave',e=>{e.preventDefault();dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$('drop-overlay').classList.add('hidden');});
-  document.addEventListener('drop',async e=>{
-    if(Array.from(e.dataTransfer?.types||[]).includes('application/x-bfs-layout'))return;
-    e.preventDefault();dragDepth=0;$('drop-overlay').classList.add('hidden');
-    if(busy||window.favoritesUI.isSettings())return;
-    try {
-      const paths=Array.from(e.dataTransfer.files).map(f=>api.pathForFile(f)).filter(Boolean);
-      if(paths.length){if(window.favoritesUI.isActive())await window.favoritesUI.addPaths(paths);else addFromResult(await api.addPaths(paths,$('recursive').checked));}
-      else showToast('無法讀取拖放路徑，請使用「加入檔案」按鈕','error');
-    } catch(error) {showToast(withoutPrefix(error),'error');}
+  let highlighted=null;
+  const overlay=$('drop-overlay');
+  const showDrop=(target=null,hint='')=>{
+    if(highlighted!==target){highlighted?.classList.remove('file-drop-active');target?.classList.add('file-drop-active');highlighted=target;}
+    overlay.classList.toggle('hidden',!hint);
+    if(hint)$('drop-overlay-title').textContent=hint;
+  };
+  const isFileDrag=event=>Array.from(event.dataTransfer?.types||[]).includes('Files');
+  function dropTarget(node){
+    for(let current=node;current;current=current.parentElement){
+      const route=fileDropTargets.get(current);
+      if(route&&route.available())return {element:current,apply:route.apply};
+      if(current.tagName==='DIALOG')return null;
+    }
+    if(document.querySelector('dialog[open]'))return null;
+    if(!$('notes-page').classList.contains('hidden'))return {hint:'放開以新增含路徑的紀錄',apply:window.notesUI.dropRecord};
+    if(window.favoritesUI.isActive())return {hint:'放開以加入收藏',apply:window.favoritesUI.addPaths};
+    if(!$('rename-workspace').classList.contains('hidden'))return {
+      hint:'放開以加入檔案',apply:async paths=>addFromResult(await api.addPaths(paths,$('recursive').checked))
+    };
+    return null;
+  }
+  function dragOver(event){
+    if(!isFileDrag(event))return;
+    event.preventDefault();
+    const target=busy?null:dropTarget(event.target);
+    event.dataTransfer.dropEffect=target?'copy':'none';
+    showDrop(target?.element,target?.hint);
+  }
+  document.addEventListener('dragenter',dragOver);
+  document.addEventListener('dragover',dragOver);
+  document.addEventListener('dragleave',event=>{if(isFileDrag(event)&&!event.relatedTarget)showDrop();});
+  document.addEventListener('drop',async event=>{
+    if(!isFileDrag(event))return;
+    event.preventDefault();showDrop();
+    if(busy)return;
+    const target=dropTarget(event.target);
+    if(!target)return;
+    try{
+      const paths=Array.from(event.dataTransfer.files, file=>api.pathForFile(file));
+      if(!paths.length||paths.some(path=>!path))throw new Error('無法讀取拖放位置，請從檔案總管拖放或使用選取位置');
+      await target.apply([...new Set(paths)]);
+    }catch(error){showToast(withoutPrefix(error),'error');}
   });
 }
 async function init() {

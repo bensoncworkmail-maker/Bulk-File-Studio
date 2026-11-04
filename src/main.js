@@ -12,6 +12,7 @@ const {NotesStore}=require('./notes-store');
 const {NotesToolsStore}=require('./notes-tools-store');
 const {NotesShareProfiles}=require('./notes-share-profiles');
 const {writePackageFile,writeWorkspaceFile}=require('./notes-files');
+const {openFileInput}=require('./open-file-input');
 const {readImportPackageFile,packageImportName}=require('./notes-import-files');
 const {DesktopShell}=require('./desktop-shell');
 const {FloatingWindow,windowDefaults}=require('./floating-window');
@@ -279,7 +280,7 @@ app.whenReady().then(() => {
   handle('notes-share-ignore',(_,name)=>notesShare.ignore(name));
   handle('notes-share-status',()=>notesShare.status());
   handle('notes-share-select',(_,id)=>{const value=notesShare.select(id);invalidateNotesImport();return value;});
-  handle('notes-share-choose',async(_,profileId=notesShare.selected)=>{notesShare.channel(profileId);const result=await dialog.showOpenDialog(win,{title:'選取共享資料包資料夾（啟用後可能透過區域網路存取）',properties:['openDirectory']});if(result.canceled)return {canceled:true};const folder=require('./notes-share-worker').validateFolder(result.filePaths[0]);await require('./intranet-path').withIntranetPaths([folder],()=>{});const value=notesShare.choose(folder,profileId);invalidateSharedImport(profileId);return value;});
+  handle('notes-share-choose',async(_,profileId=notesShare.selected,dropped)=>{notesShare.channel(profileId);const filepath=await openFileInput(dialog,win,{title:'選取共享資料包資料夾（啟用後可能透過區域網路存取）',properties:['openDirectory']},dropped);if(!filepath)return {canceled:true};const folder=require('./notes-share-worker').validateFolder(filepath);await require('./intranet-path').withIntranetPaths([folder],()=>{if(dropped!==undefined&&require('./notes-location-links').inspectLinks([folder])[0].type!=='folder')throw new Error('請拖放一個共享資料夾');});const value=notesShare.choose(folder,profileId);invalidateSharedImport(profileId);return value;});
   handle('notes-share-configure',(_,patch,profileId=notesShare.selected)=>{for(const key of ['publishScope','receiveScope'])if(patch?.[key]?.mode==='masters'){const roots=new Set(require('./notes-model').masterTableTree(notesStore().get().document).map(branch=>branch.master.id));if(require('./notes-sharing-model').scope(patch[key]).masterIds.some(id=>!roots.has(id)))throw new Error('所選主表已變更，請重新整理');}const value=notesShare.configure(patch,profileId);if(patch.publishScope||patch.receiveScope||patch.followSource!==undefined||patch.enabled!==undefined||patch.receiveMode!==undefined)invalidateSharedImport(profileId);return value;});
   handle('notes-share-check',(_,profileId)=>notesShare.check(profileId));
   handle('notes-share-publish',(_,profileId)=>notesShare.publish(profileId));
@@ -296,7 +297,7 @@ app.whenReady().then(() => {
   handle('notes-pin',(_,id)=>{toolsStore().pin(notesStore().get().document,id);return toolsChanged();});
   handle('notes-batch-sheets',(_,entries,revision)=>notesChanged(notesStore().batchSheets(entries,revision)));
   handle('notes-batch-areas',(_,ids,revision)=>notesChanged(notesStore().batchAreas(ids,revision)));
-  handle('notes-tabular-file',async()=>{const result=await dialog.showOpenDialog(win,{title:'選取 Excel 活頁簿（只讀取儲存值）',filters:[{name:'Excel',extensions:['xlsx']}],properties:['openFile']});if(result.canceled)return {canceled:true};const resultData=await require('./notes-xlsx').readSpreadsheetFile(result.filePaths[0]);return {...resultData,name:path.basename(result.filePaths[0]),canceled:false};});
+  handle('notes-tabular-file',async(_,dropped)=>{const filepath=await openFileInput(dialog,win,{title:'選取 Excel 活頁簿（只讀取儲存值）',filters:[{name:'Excel',extensions:['xlsx']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const resultData=await require('./notes-xlsx').readSpreadsheetFile(filepath);return {...resultData,name:path.basename(filepath),canceled:false};});
   handle('notes-tabular-export',async(_,sheetId,ids,revision)=>{
     const state=notesStore().get();
     if(state.revision!==revision)throw new Error('資料工作區已變更，請重新整理後再匯出');
@@ -420,16 +421,16 @@ app.whenReady().then(() => {
     notesStore().takePreview(token,'export');const result=await dialog.showSaveDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});
     if(result.canceled||!result.filePath)return {canceled:true};const pending=notesStore().takePreview(token,'export');writePackageFile(result.filePath,pending.data);return {canceled:false,path:result.filePath};
   });
-  handle('notes-import-choose',async()=>{sharedImport=null;sharedImportToken=null;notesImportReadVersion++;notesImportDocument=null;const readVersion=notesImportReadVersion;if(notes)notes.pending=null;const result=await dialog.showOpenDialog(win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};const input=await readImportPackageFile(result.filePaths[0]);if(readVersion!==notesImportReadVersion)throw new Error('已選取另一份資料包，請使用最新選擇');notesImportDocument=input;notesImportName=packageImportName(result.filePaths[0]);return {canceled:false,name:notesImportName};});
+  handle('notes-import-choose',async(_,dropped)=>{sharedImport=null;sharedImportToken=null;notesImportReadVersion++;notesImportDocument=null;const readVersion=notesImportReadVersion;if(notes)notes.pending=null;const filepath=await openFileInput(dialog,win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const input=await readImportPackageFile(filepath);if(readVersion!==notesImportReadVersion)throw new Error('已選取另一份資料包，請使用最新選擇');notesImportDocument=input;notesImportName=packageImportName(filepath);return {canceled:false,name:notesImportName};});
   handle('notes-preview-cancel',(_,token)=>notesStore().cancelPreview(token));
   handle('notes-import-details',(_,token,key)=>notesStore().importDetails(token,key));
   handle('notes-import-preview',(_,mode,resolution)=>{if(!notesImportDocument)throw new Error('請先選取資料包');const context=sharedImport?{source:sharedImport.sharing?.source||'未提供來源',sourceRevision:sharedImport.sharing?.revision??null,sourceVersion:sharedImport.sharing?.version??null,scope:sharedImport.scope,profileId:sharedImport.profileId,packageName:sharedImport.name}:{source:'手動選取資料包',packageName:notesImportName};const result=notesStore().importPreview(notesImportDocument,mode,context,{reviewConflicts:Boolean(sharedImport),resolution});sharedImportToken=sharedImport?{token:result.token,mode}:null;return result;});
-  handle('notes-backup-choose',async()=>{invalidateNotesImport();const readVersion=notesImportReadVersion;const result=await dialog.showOpenDialog(win,{title:'選取本程式的匯入前／還原前／升級前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']});if(readVersion!==notesImportReadVersion)throw new Error('匯入或還原來源已變更，請使用最新選擇');if(result.canceled)return {canceled:true};return notesStore().restorePreview(result.filePaths[0]);});
+  handle('notes-backup-choose',async(_,dropped)=>{invalidateNotesImport();const readVersion=notesImportReadVersion;const filepath=await openFileInput(dialog,win,{title:'選取本程式的匯入前／還原前／升級前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']},dropped);if(readVersion!==notesImportReadVersion)throw new Error('匯入或還原來源已變更，請使用最新選擇');if(!filepath)return {canceled:true};return notesStore().restorePreview(filepath);});
   handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
   handle('notes-import-commit',(_,token,options)=>{const result=notesChanged(notesStore().importCommit(token,options));if(sharedImportToken?.token===token&&sharedImport){try{notesShare.completeImport(sharedImport,result.revision,sharedImportToken.mode);if(notesShare.rollbackNotice)result.result.shareNotice=notesShare.rollbackNotice;}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
-  handle('everything-choose',async()=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const result=await dialog.showOpenDialog(win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']});return result.canceled?{canceled:true}:everything.choose(result.filePaths[0]);});
+  handle('everything-choose',async(_,dropped)=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const filepath=await openFileInput(dialog,win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']},dropped);return !filepath?{canceled:true}:everything.choose(filepath);});
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());
   handle('everything-favorite',(_,token,indices,tags)=>{const paths=everything.selection(token,indices);const result=favorites.addPaths(paths,tags);notifyFavorites();return result;});
@@ -480,7 +481,7 @@ app.whenReady().then(() => {
     return result.response===0?{canceled:false,...diagnostics.clear()}:{canceled:true};
   });
   handle('desktop-main-size',(_,width,height)=>{if(!Number.isFinite(width)||!Number.isFinite(height)||width<800||width>8000||height<500||height>8000)throw new Error('視窗尺寸無效');if(win.isMaximized())win.unmaximize();const bounds=require('./desktop-state').fitBounds({...win.getNormalBounds(),width,height},screen.getAllDisplays(),{width:1400,height:900,minWidth:win.getMinimumSize?.()[0]||800,minHeight:win.getMinimumSize?.()[1]||500});win.setBounds(bounds);return win.getBounds?.()||bounds;});
-  handle('notes-check-package',async()=>{const result=await dialog.showOpenDialog(win,{title:'只檢查資料包相容性，不匯入',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']});if(result.canceled)return {canceled:true};const input=await readImportPackageFile(result.filePaths[0]),projection=require('./notes-sharing-model').project(input),doc=require('./notes-model').readPackage(projection.data);return {packageVersion:input.packageVersion,schemaVersion:input.document.schemaVersion,sheets:doc.sheets.length,records:doc.records.length};});
+  handle('notes-check-package',async(_,dropped)=>{const filepath=await openFileInput(dialog,win,{title:'只檢查資料包相容性，不匯入',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const input=await readImportPackageFile(filepath),projection=require('./notes-sharing-model').project(input),doc=require('./notes-model').readPackage(projection.data);return {packageVersion:input.packageVersion,schemaVersion:input.document.schemaVersion,sheets:doc.sheets.length,records:doc.records.length};});
   recordReminders=new(require('./record-reminders').RecordReminders)(path.join(app.getPath('userData'),'record-reminders.json'),{document:()=>notesStore().get().document,settings:()=>desktop.settings,onError:error=>diagnostics.record('main','record-reminders',error),onDue:value=>{const due=value.items.filter(item=>item.status==='fired'&&item.available),prefs=desktop.settings;const notices=due.filter(item=>['notification','both'].includes(item.delivery==='default'?prefs.reminderDelivery:item.delivery));if(notices.length&&Notification?.isSupported?.()){try{recordNotification?.close?.();const notice=new Notification({title:'紀錄提醒',body:('有 '+notices.length+' 筆紀錄到期，點擊查看。'+notices.filter(item=>item.messageContent).map(item=>'\n'+item.sheet+' ／ '+item.title+'\n'+item.messageContent).join('\n')).slice(0,1200),silent:false});notice.on('click',()=>{focusMain();send(win,'record-reminders-open',{});});notice.on('failed',(_,error)=>diagnostics.record('main','record-reminder-notification',String(error)));recordNotification=notice;notice.show();}catch(error){diagnostics.record('main','record-reminder-notification',error);}}if(prefs.reminderBringToFront&&!capture?.window&&!fileOperationBusy&&due.some(item=>(item.delivery==='default'?prefs.reminderDelivery:item.delivery)!=='attention'))focusMain();recordAttention?.sync();send(win,'record-reminders-changed',{...value,popup:due.some(item=>['overlay','both'].includes(item.delivery==='default'?prefs.reminderDelivery:item.delivery))});}});
   recordAttention=new(require('./reminder-attention').ReminderAttention)({BrowserWindow,screen,secureWindow,size:()=>desktop.settings.toolWindowSizes.reminder,remember:window=>rememberAuxSize('reminder',window),settings:()=>desktop.settings,list:()=>recordReminders.list(),blocked:()=>Boolean(capture?.window&&!capture.window.isDestroyed()||fileOperationBusy),beep:()=>shell.beep(),onError:error=>diagnostics.record('main','reminder-attention',error),act:(kind,id)=>{const value=kind==='ack'?recordReminders.ack(id):recordReminders.snooze(id,desktop.settings.reminderSnoozeMinutes);send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');}});
   for(const [channel,method] of [['reminder-attention-get','get'],['reminder-attention-ack','ack'],['reminder-attention-snooze','snooze'],['reminder-attention-dismiss','dismiss']])ipcMain.handle(channel,(event,id)=>loggedInvocation('reminder-attention',channel,()=>{if(!recordAttention.owns(event))throw new Error('不受信任的提醒視窗來源');if(method==='get')return recordAttention.data();if(method==='dismiss'){recordAttention.dismiss();return {closed:true};}return recordAttention.action(method,id);}));
@@ -636,10 +637,11 @@ app.whenReady().then(() => {
   });
   handle('favorites-show', (_, id) => shell.showItemInFolder(assertLocalPath(favorites.get(id,true).path)));
   handle('favorites-copy', (_, id) => clipboard.writeText(favorites.get(id).path));
-  handle('favorites-choose-link', async (_, id) => {
+  handle('favorites-choose-link', async (_,id,dropped) => {
     const item=favorites.get(id);let defaultPath;try{defaultPath=assertLocalPath(item.path);}catch{/* Select a local replacement without probing an old network path. */}
-    const result=await dialog.showOpenDialog(win,{title:'重新連結收藏（儲存後生效）',defaultPath,properties:[item.type==='folder'?'openDirectory':'openFile']});
-    return result.canceled ? null : result.filePaths[0];
+    const filepath=await openFileInput(dialog,win,{title:'重新連結收藏（儲存後生效）',defaultPath,properties:[item.type==='folder'?'openDirectory':'openFile']},dropped);
+    if(dropped!==undefined&&inspectPath(filepath).type!==item.type)throw new Error('新位置必須與原收藏的檔案／資料夾類型相同');
+    return filepath;
   });
   handle('favorites-to-rename', (_, ids, recursive) => listPaths(favorites.readyPaths(ids),Boolean(recursive)));
   handle('favorites-open-locations',(_,ids)=>confirmBatch(ids,'locations',win));
@@ -652,8 +654,19 @@ app.whenReady().then(() => {
   });
   handle('favorites-copy-many',(_,ids)=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')));
   handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),history:require('./release-history'),offline:!notesShare?.status().anyEnabled}));
-  handle('choose-move-folder',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇搬移目標（可選另一個本機磁碟）',properties:['openDirectory']});return result.canceled?null:assertLocalPath(result.filePaths[0]);});
-  handle('choose-move-sources',async()=>{const result=await dialog.showOpenDialog(win,{title:'選擇要搬移的完整資料夾（包含所有子檔案）',properties:['openDirectory','multiSelections']});return result.canceled?[]:result.filePaths.map(assertLocalPath);});
+  handle('choose-move-folder',async(_,dropped)=>{
+    const filepath=await openFileInput(dialog,win,{title:'選擇搬移目標（可選另一個本機磁碟）',properties:['openDirectory']},dropped);
+    if(filepath&&dropped!==undefined&&inspectPath(filepath).type!=='folder')throw new Error('搬移目標須為資料夾');
+    return filepath?assertLocalPath(filepath):null;
+  });
+  handle('choose-move-sources',async(_,dropped)=>{
+    if(dropped!==undefined){
+      if(!Array.isArray(dropped)||!dropped.length||dropped.length>5000||dropped.some(filepath=>inspectPath(filepath).type!=='folder'))throw new Error('完整來源僅接受資料夾');
+      return dropped;
+    }
+    const result=await dialog.showOpenDialog(win,{title:'選擇要搬移的完整資料夾（包含所有子檔案）',properties:['openDirectory','multiSelections']});
+    return result.canceled?[]:result.filePaths.map(assertLocalPath);
+  });
   handle('move-sources',(_,paths,scope)=>resolveMoveSources(paths,scope));
   handle('move-preview',(_,paths,folder,options)=>planMove(paths,folder,options));
   handle('move-files',(_,paths,folder,expected,options)=>fileOperation(()=>{
