@@ -1,4 +1,26 @@
-# UI、設定與資料整理（v1.60.0）
+# UI、設定與資料整理
+
+## v1.67.0 程式結構與本次整理
+
+| 分類 | 程式位置 | 職責 |
+| --- | --- | --- |
+| 主視窗與共用介面 | `index.html`、`app-navigation.js`、`renderer.js`、`app-layout.css`、`themes.css` | 頁面切換、離開編輯前的檢查、啟動各功能、版面與主題。首頁、收藏、工作區、搜尋與檔案工具各自維護畫面。 |
+| 檔案、收藏與索引 | `rename-core.js`、`rename-job*.js`、`move-core.js`、`favorites-store.js`、`app-search-model.js`、`everything-bridge.js` | 產生預覽、執行或復原改名／搬移、管理收藏與標籤、搜尋本機資料。 |
+| 資料工作區 | `notes.js`、`notes-model.js`、`notes-store.js`、`notes-share*.js`、`notes-xlsx.js` | 編輯表格與紀錄、欄位和關聯驗證、SQLite 與版本核對、Excel 匯入、共享發布／接收。 |
+| 提醒、日曆與看板 | `record-reminders.js`、`productivity-model.js`、`planning-view.js`、`planning-view.css` | 提醒排程、月曆與狀態分組規則、完整月曆／看板的畫面和互動。改狀態仍由既有版本檢查流程寫入。 |
+| 查看紀錄與速覽 | `tool-views-model.js`、`tool-views-ui.js`、`tool-views.css` | 主視窗紀錄與浮動工具共用篩選、分頁、卡片／清單，以及按日期或狀態分組的速覽。 |
+| 生活／工作工具 | `productivity.js`、`productivity-ipc.js`、`productivity-store.js`、`profile-service.js`、`document-preview.js` | 文字片段、工作集、路徑修復、整理規則、備份與預覽。主畫面透過 IPC 讀寫，原生文件預覽有獨立限制。 |
+| 設定與尺寸 | `settings-catalog.js`、`settings-model.js`、`desktop-state.js`、`log-view-settings*.js`、`dialog-sizes.js` | 設定分類／搜尋／還原、介面偏好、跨視窗偏好、紀錄範圍驗證、視窗與對話框尺寸。 |
+| Electron 視窗與權限 | `main.js`、各視窗的 `*-preload.js`、`floating-window.js`、`tool-overlay.js`、`offline-policy.js` | 管理原生視窗與 IPC 發送者、快捷鍵、托盤與離線請求。全域搜尋、快捷輸入、到期提醒各有自己的視窗及操作範圍。 |
+
+### 設定與視窗行為
+
+- 「查看紀錄」偏好儲存在本機桌面設定，包含允許的表格 ID、預設版面和排序，並納入設定匯出與「資料工作區」分類還原。主視窗與浮動紀錄共用預設，每次可在指定範圍內切換一張表。具名浮動快捷仍開啟其指定表格。指定範圍的表格全部回收或移除時，畫面顯示空清單與設定提示。
+- 「日程／片段」使用一個浮動面板，兩個分頁各自保留本次輸入。開同類快捷會重用既有視窗。「查看紀錄」可用另一個浮窗，開啟時會依目前視窗及可用螢幕範圍定位。從浮動工具開啟的子面板會隨父視窗隱藏而關閉。
+- 共用浮動面板沿用原本日曆速覽尺寸。只有舊片段尺寸時會沿用該尺寸。「設定 → 外觀與版面 → 對話框與浮動視窗尺寸」可編輯這個共用尺寸。紀錄表單的調整尺寸按鈕有專用位置，可用滑鼠拖曳或鍵盤方向鍵。
+- 應用程式層、個人偏好與 SQLite 工作區資料分開。本次新增的桌面偏好沒有工作區資料格式變更，日曆、看板及紀錄使用本機資料。
+
+## v1.60.0 與較早版本整理
 
 檢查日期：2026-11-03。保留資料庫格式 3，不因程式版號增加而重新建表或搬走資料。以下說明已實作的界線與限制；Windows 原生視窗、通知、UNC 路徑及安裝包仍需實機驗證。
 

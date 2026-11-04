@@ -34,10 +34,10 @@
   $('mini-collapse').textContent=settings.floatingCollapsed?'▾':'▴';$('mini-collapse').setAttribute('aria-expanded',String(!settings.floatingCollapsed));$('mini-collapse').setAttribute('aria-label',settings.floatingCollapsed?'展開浮動工具':'收合浮動工具');
   document.documentElement.dataset.showStatus=String(settings.floatingShowStatus===true&&!settings.floatingCompact);
   document.documentElement.dataset.iconSize=settings.floatingIconSize||'small';
-  const hiddenButtons=settings.floatingHiddenButtons||[];for(const key of ['collapse','close','tools-toggle','pin','main','refresh','view-list','view-icons','view-tags','view-workspace','view-mixed','import','copy-paths','drop-hint'])$('mini-'+key).hidden=hiddenButtons.includes(key);
+  const hiddenButtons=settings.floatingHiddenButtons||[];for(const key of ['collapse','close','tools-toggle','pin','main','refresh','view-list','view-icons','view-tags','view-workspace','view-mixed','planning','import','copy-paths','drop-hint'])$('mini-'+key).hidden=hiddenButtons.includes(key);
   const compact=settings.floatingCompact;for(const [id,key] of [['mini-search-bar','floatingShowSearch'],['mini-tools-bar','floatingShowTools'],['mini-tags','floatingShowTags']])$(id).hidden=id==='mini-search-bar'&&temporarySearch?false:compact||settings[key]===false;
   if(buttonSearch())$('mini-search-bar').hidden=true;
-  if(['view-list','view-icons','view-tags','view-workspace','view-mixed','import','copy-paths','drop-hint'].every(key=>hiddenButtons.includes(key)))$('mini-tools-bar').hidden=true;
+  if(['view-list','view-icons','view-tags','view-workspace','view-mixed','planning','import','copy-paths','drop-hint'].every(key=>hiddenButtons.includes(key)))$('mini-tools-bar').hidden=true;
   $('mini-tools-toggle').setAttribute('aria-pressed',String(Boolean(compact)));
   $('mini-list').dataset.view=settings.floatingView||'list';
   $('mini-view-list').setAttribute('aria-pressed',String(!settings.floatingView||settings.floatingView==='list'));$('mini-view-icons').setAttribute('aria-pressed',String(settings.floatingView==='icons'));$('mini-view-tags').setAttribute('aria-pressed',String(settings.floatingView==='tags'));if(settings.floatingView==='tags')$('mini-tags').hidden=true;
@@ -91,6 +91,7 @@
  async function refresh(){const request=++revision;try{const [result,prefs]=await Promise.all([settings.floatingView==='workspace'?Promise.resolve({items}):window.favoritesAPI.list(),window.desktopAPI.get()]);if(request!==revision)return;const changed=!painted||JSON.stringify([items,settings])!==JSON.stringify([result.items,prefs]);items=result.items;settings=prefs;if(changed)render();if(['workspace','mixed'].includes(settings.floatingView))await refreshWorkspace();}catch(e){window.studioDiagnostics?.report('floating-action',e);$('mini-status').textContent=String(e.message||e);$('mini-status').className='error';}}
  for(const mode of ['list','icons','tags','workspace','mixed'])$('mini-view-'+mode).addEventListener('click',()=>action(()=>window.desktopAPI.setFloatingView(mode),mode==='mixed'?'已切換混合工作台':mode==='workspace'?'已切換工作區主檔':mode==='tags'?'已切換標籤選單':mode==='icons'?'已切換圖示檢視':'已切換清單檢視'));
  $('mini-collapse').addEventListener('click',()=>action(()=>window.desktopAPI.setFloatingCollapsed(!settings.floatingCollapsed),'已切換收合狀態'));$('mini-copy-paths').addEventListener('click',copyPaths);
+ $('mini-planning').addEventListener('click',()=>action(()=>window.desktopAPI.openFloatingPlanning(),'已開啟日程／片段'));
  $('mini-tools-toggle').addEventListener('click',()=>action(()=>window.desktopAPI.setFloatingCompact(!settings.floatingCompact),'已切換工具列顯示'));
  $('mini-pin').addEventListener('click',()=>action(()=>window.desktopAPI.togglePin(),result=>result.settings.floatingOnTop?'已設為置頂':'已取消置頂'));$('mini-import').addEventListener('click',()=>action(()=>window.desktopAPI.importPaths(settings.floatingView==='mixed'?null:tag),result=>result.popup?'請在彈出表單檢查並匯入路徑':'請在主視窗檢查並匯入路徑'));
  let dragDepth=0;const hideDrop=()=>{dragDepth=0;$('mini-drop').hidden=true;};

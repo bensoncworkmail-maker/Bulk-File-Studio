@@ -34,7 +34,7 @@ function registerProductivity(options){
  function viewData(config,filters){
   const doc=config.kind==='snippets'?null:notes().get().document;
   const dates=config.kind==='planning'?reminders().list().items:[];
-  return require('./tool-views-model').viewData(doc,dates,config.kind==='snippets'?store.get().snippets:[],config,filters);
+  return require('./tool-views-model').viewData(doc,dates,config.kind==='snippets'?store.get().snippets:[],config,filters,desktop().settings.logView);
  }
  handle('productivity-snippet-copy',(_,id,customer)=>copySnippet(id,customer));
  handle('productivity-snippet-list',()=>store.get().snippets.map(({id,name,category})=>({id,name,category})));

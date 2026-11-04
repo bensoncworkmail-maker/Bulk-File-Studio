@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="notes-sharing.css">
     <link rel="stylesheet" href="home.css">
     <link rel="stylesheet" href="productivity.css">
+    <link rel="stylesheet" href="planning-view.css">
     <link rel="stylesheet" href="tool-views.css">
     <link rel="stylesheet" href="operation-ui.css">
     <script src="operation-ui.js" defer></script>
@@ -101,7 +102,35 @@
 
         </div></div>
       </section>
-      <section id="planning-page" class="productivity-page hidden"><section id="productivity-calendar" class="productivity-panel"><div class="tool-view-heading"><h1>日曆／看板</h1><button id="planning-overlay" class="btn btn-secondary">開啟浮動速覽</button></div><p>日曆顯示現有日期欄位及提醒。看板使用表格的單選欄位，可拖動卡片或用選單改變狀態。</p><div class="productivity-actions"><label>檢視 <select id="planning-mode"><option value="calendar">月曆</option><option value="board">狀態看板</option></select></label><label id="planning-month-wrap">月份 <input id="planning-month" type="month"></label><label id="planning-sheet-wrap">表格 <select id="planning-sheet"></select></label><label id="planning-field-wrap" hidden>狀態欄位 <select id="planning-field"></select></label><label>篩選 <input id="planning-query" type="search" maxlength="200" placeholder="搜尋標題或表格"></label></div><p id="planning-status" role="status"></p><div id="planning-content"></div></section></section>
+      <section id="planning-page" class="productivity-page hidden">
+        <section id="productivity-calendar" class="productivity-panel">
+          <header class="tool-view-heading">
+            <div><h1>日曆／看板</h1><p>查看日期與提醒，或用看板整理紀錄狀態。</p></div>
+            <button id="planning-overlay" type="button" class="btn btn-secondary">開啟浮動速覽</button>
+          </header>
+          <div class="planning-controls">
+            <div class="planning-modes" role="group" aria-label="日曆與看板檢視">
+              <button id="planning-calendar-mode" type="button" class="btn btn-secondary" aria-pressed="true">月曆</button>
+              <button id="planning-board-mode" type="button" class="btn btn-secondary" aria-pressed="false">狀態看板</button>
+            </div>
+            <div class="tool-view-filters">
+              <div id="planning-month-wrap">
+                <label>月份 <input id="planning-month" type="month"></label>
+                <div class="planning-month-actions" role="group" aria-label="切換月份">
+                  <button id="planning-month-prev" type="button" class="btn btn-ghost" aria-label="上個月">‹</button>
+                  <button id="planning-month-today" type="button" class="btn btn-ghost">本月</button>
+                  <button id="planning-month-next" type="button" class="btn btn-ghost" aria-label="下個月">›</button>
+                </div>
+              </div>
+              <label id="planning-sheet-wrap">表格 <select id="planning-sheet"></select></label>
+              <label id="planning-field-wrap" hidden>狀態欄位 <select id="planning-field"></select></label>
+              <label>搜尋 <input id="planning-query" type="search" maxlength="200" placeholder="搜尋標題或內容"></label>
+            </div>
+          </div>
+          <p id="planning-status" role="status"></p>
+          <div id="planning-content"></div>
+        </section>
+      </section>
       <section id="logs-page" class="productivity-page tool-view hidden"></section>
       <section id="search-page" class="settings-page app-search-page hidden" aria-labelledby="app-search-title">
         <div class="settings-heading">
@@ -597,7 +626,23 @@
                   <button id="btn-shortcuts-reset" class="btn btn-secondary">還原預設快捷鍵</button>
                 </section>
               </div>
-              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden><section class="settings-card"><h2>儲存格與鍵盤操作</h2><label class="field"><span>編輯中按 Enter 後</span><select id="settings-notes-grid-enter"><option value="next">儲存並移到右格（列尾移下一列）</option><option value="down">儲存並移到下方同欄</option><option value="stay">儲存並留在原格</option></select></label><label class="check-row"><input id="settings-notes-grid-tab" type="checkbox"><span>Tab 儲存並移到下一格，Shift+Tab 反向</span></label><label class="check-row"><input id="settings-notes-grid-edit-next" type="checkbox"><span>移動後直接編輯下一格</span></label><label class="check-row"><input id="settings-notes-delete-key" type="checkbox"><span>選取工作區紀錄後按 Delete 開啟刪除確認</span></label><p class="rule-hint">沒有修改的儲存格只移動，不重複儲存。驗證失敗保留輸入；最後一筆不會自動建立新列。輸入框與儲存格編輯中的 Delete 仍是刪除文字／清空格，不刪除紀錄。</p></section>
+              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
+                <section class="settings-card">
+                  <h2>查看紀錄</h2>
+                  <p class="rule-hint">設定主視窗與浮動紀錄的預設表格、顯示方式及排序。指定單一表格的浮動快捷仍直接開啟該表格。</p>
+                  <form id="log-settings-form">
+                    <fieldset>
+                      <legend class="sr-only">查看紀錄預設</legend>
+                      <label class="field"><span>查看紀錄表格範圍</span><select id="log-settings-scope"><option value="all">所有表格</option><option value="selected">只顯示勾選的表格</option></select></label>
+                      <div id="log-settings-tables" class="notes-choice-list" hidden></div>
+                      <label class="field"><span>查看紀錄預設版面</span><select id="log-settings-layout"><option value="list">精簡清單</option><option value="cards">卡片</option></select></label>
+                      <label class="field"><span>查看紀錄預設排序</span><select id="log-settings-sort"><option value="recent">日期：新到舊</option><option value="oldest">日期：舊到新</option><option value="title">標題</option></select></label>
+                      <button id="log-settings-save" class="btn btn-secondary" type="submit" disabled>套用查看紀錄設定</button>
+                    </fieldset>
+                    <p id="log-settings-status" class="notes-hint" role="status"></p>
+                  </form>
+                </section>
+                <section class="settings-card"><h2>儲存格與鍵盤操作</h2><label class="field"><span>編輯中按 Enter 後</span><select id="settings-notes-grid-enter"><option value="next">儲存並移到右格（列尾移下一列）</option><option value="down">儲存並移到下方同欄</option><option value="stay">儲存並留在原格</option></select></label><label class="check-row"><input id="settings-notes-grid-tab" type="checkbox"><span>Tab 儲存並移到下一格，Shift+Tab 反向</span></label><label class="check-row"><input id="settings-notes-grid-edit-next" type="checkbox"><span>移動後直接編輯下一格</span></label><label class="check-row"><input id="settings-notes-delete-key" type="checkbox"><span>選取工作區紀錄後按 Delete 開啟刪除確認</span></label><p class="rule-hint">沒有修改的儲存格只移動，不重複儲存。驗證失敗保留輸入；最後一筆不會自動建立新列。輸入框與儲存格編輯中的 Delete 仍是刪除文字／清空格，不刪除紀錄。</p></section>
                 <section class="settings-card">
                   <h2>資料工作區版面</h2>
                   <label hidden class="field"><span>側欄導覽方式</span><select id="settings-notes-sidebar-mode"><option value="flat">平列全部主檔（最精簡）</option><option value="masters">按主檔分類</option><option value="groups">完整群組與表格</option></select></label>
@@ -2455,7 +2500,7 @@
     <script src="share-receive-ui.js" defer></script>
     <script src="menu-dismiss.js" defer></script><script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
-    <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="dialog-sizes.js" defer></script><script src="productivity.js" defer></script>
+    <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
     <script src="layout-editor.js" defer></script><script src="home.js" defer></script>
     <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>

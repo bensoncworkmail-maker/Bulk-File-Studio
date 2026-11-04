@@ -203,6 +203,7 @@ function showFloating(toggle=false){
   }
   floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · '+(desktop.settings.floatingTitle||'浮動工具'),autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
   secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen);
+  floating.on('hide',()=>toolOverlay?.closeForParent(floating));
   floating.on('hide',closeFloatingMenu);floating.on('close',closeFloatingMenu);
   floating.on('hide',()=>floatingSearch?.destroy());floating.on('closed',()=>{floatingSearch?.destroy();capture?.destroy();floatingMenu=null;floating=null;floatingWindow=null;});floating.loadFile(path.join(__dirname,'floating.html'));
 }
@@ -218,7 +219,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
+    const floatingAllowed=['floating-planning-open','floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu'];
     return loggedInvocation(main?'main-renderer':mini?'floating':'untrusted',channel,()=>{
       if(!main&&!(mini&&floatingAllowed.includes(channel))&&!(channel==='diagnostics-report'&&(capture?.owns(event)||recordAttention?.owns(event)||floatingSearch?.owns(event))))throw new Error('不受信任的操作來源');
       if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json'))&&!['diagnostics-report','diagnostics-status','app-info'].includes(channel))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
@@ -437,6 +438,7 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingSearchLastState'))require('./floating-search-state').normalize(patch.floatingSearchLastState,true);
     if(Object.hasOwn(patch,'floatingSearchTablePresets'))require('./floating-search-state').tablePresets(patch.floatingSearchTablePresets,true);
     if(Object.hasOwn(patch,'floatingSearchDatePresets'))require('./search-date-presets').normalize(patch.floatingSearchDatePresets,true);
+    if(Object.hasOwn(patch,'logView'))require('./log-view-settings-model').normalize(patch.logView,true);
     if(Object.hasOwn(patch,'globalSearchCriteria'))require('./search-criteria').normalize(patch.globalSearchCriteria,true);
     if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');
     if(Object.hasOwn(patch,'floatingTitle')&&require('./desktop-state').normalizeFloatingTitle(patch.floatingTitle)===null)throw new Error('浮動工具標題最多 40 字元，且不可包含控制字元');
@@ -452,7 +454,7 @@ app.whenReady().then(() => {
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
     if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
-    floatingSearch?.updateSettings();recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+    floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('desktop-reset-window',()=>{win.unmaximize();win.setBounds(desktop.bounds('reset',screen.getAllDisplays(),mainDefaults));});
   handle('floating-show',()=>showFloating());
@@ -468,7 +470,7 @@ app.whenReady().then(() => {
     const command=task=>floatingAction(async()=>{await task();publish();});
     popupFloatingMenu([
       {label:settings.floatingCollapsed?'展開浮動工具':'收合浮動工具',click:command(()=>setFloatingCollapsed(!desktop.settings.floatingCollapsed))},
-      {label:'保持置頂',type:'checkbox',checked:settings.floatingOnTop,click:command(()=>{const next=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});floating.setAlwaysOnTop(next.floatingOnTop);})},
+      {label:'保持置頂',type:'checkbox',checked:settings.floatingOnTop,click:command(()=>{const next=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});floating.setAlwaysOnTop(next.floatingOnTop);toolOverlay?.updateSettings();})},
       {label:'精簡工具列',type:'checkbox',checked:settings.floatingCompact,click:command(()=>desktop.update({floatingCompact:!desktop.settings.floatingCompact}))},
       {label:'編輯控制列版面',type:'checkbox',checked:settings.floatingLayoutEditing,click:command(()=>{const enabled=!desktop.settings.floatingLayoutEditing;if(enabled&&desktop.settings.floatingCollapsed)setFloatingCollapsed(false);desktop.update({floatingLayoutEditing:enabled});})},
       {label:'快速尺寸（設為預設並展開）',submenu:[[260,320,'精簡'],[420,520,'標準'],[600,700,'寬大']].map(([width,height,label])=>({label:label+' '+width+' × '+height,click:command(()=>{desktop.update({floatingDefaultWidth:width,floatingDefaultHeight:height});floatingWindow.restoreDefaultSize();})}))},
@@ -480,6 +482,8 @@ app.whenReady().then(() => {
       {label:'重設預設大小為 320 × 400 並展開',click:command(()=>{desktop.update({floatingDefaultWidth:320,floatingDefaultHeight:400});floatingWindow.restoreDefaultSize();})},
       {type:'separator'},
       {label:'全域搜尋…',enabled:settings.floatingGlobalSearch,click:floatingAction(()=>floatingSearchController().open())},
+      {label:'查看紀錄…',click:floatingAction(()=>openToolOverlay('logs'))},
+      {label:'日曆／看板與文字片段…',click:floatingAction(()=>openToolOverlay('planning'))},
       {label:'顯示主視窗',click:floatingAction(()=>focusMain())},
       {label:'關閉浮動工具（隱藏）',click:floatingAction(()=>{floatingSearch?.destroy();floating.hide();})}
     ],{allowCollapsed:true});
@@ -491,7 +495,7 @@ app.whenReady().then(() => {
     if(action==='collapse')return setFloatingCollapsed(!desktop.settings.floatingCollapsed);
     if(action==='main'){focusMain();return {};}
     const settings=desktop.update(action==='pin'?{floatingOnTop:!desktop.settings.floatingOnTop}:{floatingCompact:!desktop.settings.floatingCompact});
-    floating.setAlwaysOnTop(settings.floatingOnTop);const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+    floating.setAlwaysOnTop(settings.floatingOnTop);toolOverlay?.updateSettings();const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-collapse',(_,collapsed)=>{if(typeof collapsed!=='boolean')throw new Error('收合設定無效');return setFloatingCollapsed(collapsed);});
   handle('floating-copy-paths',(_,ids)=>{const paths=favorites.recordedPaths(ids);clipboard.writeText(paths.join('\r\n'));return {count:paths.length};});
@@ -525,7 +529,7 @@ app.whenReady().then(() => {
     const settings=desktop.update({floatingCompact:compact}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-pin',()=>{
-    const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);floatingSearch?.updateSettings();
+    const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);toolOverlay?.updateSettings();floatingSearch?.updateSettings();
     const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-collect',(_,paths,tag)=>{const result=favorites.addPaths(paths,floatingTags(tag));notifyFavorites();return result;});
@@ -685,25 +689,34 @@ app.whenReady().then(() => {
   toolOverlay=new(require('./tool-overlay').ToolOverlay)({
     BrowserWindow,screen,secureWindow,settings:()=>desktop.settings,
     parent:()=>floating&&!floating.isDestroyed()&&floating.isVisible()?floating:undefined,
-    size:kind=>desktop.settings.toolWindowSizes[kind],
+    size:kind=>desktop.settings.toolWindowSizes[kind]||(kind==='planning'?desktop.settings.toolWindowSizes.snippets:undefined),
     remember:rememberAuxSize,
     error:error=>diagnostics.record('main','tool-overlay',error)
   });
+  const openToolOverlay=kind=>toolOverlay.open(require('./tool-views-model').configuration({kind}));
+  handle('floating-planning-open',()=>openToolOverlay('planning'));
   const overlayAction=(event,task)=>{
     const entry=toolOverlay.owner(event);
     if(!entry)throw new Error('不受信任的浮動工具來源');
     if(require('node:fs').existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('請先完成資料復原');
     return task(entry);
   };
-  ipcMain.handle('tool-overlay-get',event=>overlayAction(event,({config})=>({config,theme:desktop.settings.theme})));
-  ipcMain.handle('tool-overlay-data',(event,filters)=>overlayAction(event,({config})=>productivity.viewData(config,filters)));
-  ipcMain.handle('tool-overlay-action',(event,action,value,customer)=>overlayAction(event,({config})=>{
+  ipcMain.handle('tool-overlay-get',event=>overlayAction(event,entry=>toolOverlay.payload(entry)));
+  ipcMain.handle('tool-overlay-switch',(event,kind)=>overlayAction(event,entry=>toolOverlay.switchTab(entry,kind)));
+  ipcMain.handle('tool-overlay-data',(event,kind,filters)=>overlayAction(event,({config})=>{
+    if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
+    return productivity.viewData(config,filters);
+  }));
+  ipcMain.handle('tool-overlay-action',(event,kind,action,value,customer)=>overlayAction(event,({config})=>{
+    if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
     if(config.kind==='snippets'&&action==='copy')return productivity.copySnippet(value,customer);
     if(config.kind==='snippets')throw new Error('此工具只可複製文字片段');
     if(action==='main'&&config.kind==='planning'){focusMain();send(win,'open-app-page','planning');return;}
     if(action!=='visit')throw new Error('操作無效');
     const M=require('./notes-model'),doc=notesStore().get().document;
-    if(!doc.records.some(record=>record.id===value&&M.live(doc,record)&&(!config.sheetId||record.sheetId===config.sheetId))){
+    const {allowedSheet}=require('./log-view-settings-model');
+    if(!doc.records.some(record=>record.id===value&&M.live(doc,record)&&
+     (kind!=='logs'||allowedSheet(config,desktop.settings.logView,record.sheetId)))){
       throw new Error('紀錄已移除或不在選定表格');
     }
     focusMain();send(win,'studio-search-target',{kind:'record',id:value});
