@@ -56,10 +56,14 @@ function updateSharedNotification(value){
 }
 function closeFloatingMenu(){if(floatingMenu){floatingMenu.closePopup(floating);floatingMenu=null;}}
 function floatingAction(task){return async()=>{try{await task();}catch(error){diagnostics.record('floating','native-menu',error);send(floating,'desktop-settings-changed',{error:String(error.message||error)});}};}
-function popupFloatingMenu(template,{allowCollapsed=false}={}){
+function popupFloatingMenu(template,{allowCollapsed=false,anchor}={}){
  if(!floating||floating.isDestroyed()||!floating.isVisible()||!allowCollapsed&&desktop.settings.floatingCollapsed)throw new Error('請先展開浮動工具');
  closeFloatingMenu();const menu=Menu.buildFromTemplate(template);floatingMenu=menu;
- menu.popup({window:floating,callback:()=>{if(floatingMenu===menu)floatingMenu=null;}});
+ const bounds=anchor&&(floating.getContentBounds?.()||floating.getNormalBounds());
+ const point=bounds&&Number.isFinite(anchor.x)&&Number.isFinite(anchor.y)?
+  {x:bounds.x+Math.round(Math.min(bounds.width,Math.max(0,anchor.x))),
+   y:bounds.y+Math.round(Math.min(bounds.height,Math.max(0,anchor.y)))}:{};
+ menu.popup({window:floating,...point,callback:()=>{if(floatingMenu===menu)floatingMenu=null;}});
 }
 const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
@@ -298,6 +302,10 @@ app.whenReady().then(() => {
     if(['view-logs','open-planning','open-snippets'].includes(action.type)){
       const kind={'view-logs':'logs','open-planning':'planning','open-snippets':'snippets'}[action.type];
       const config=require('./tool-views-model').configuration({...action,kind});
+      if(action.display==='menu'){
+        if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();
+        return openQuickToolMenu(config);
+      }
       if(action.display==='overlay')return kind==='logs'?toolOverlay.open(config):openInlinePanel(kind);
       focusMain();
       const target=win;
@@ -724,7 +732,17 @@ app.whenReady().then(() => {
   }
   handle('floating-panel-open',(_,kind)=>openInlinePanel(kind));
   handle('floating-panel-data',(_,kind,filters)=>productivity.viewData(inlinePanelConfig(kind),filters));
-  handle('floating-panel-action',(_,kind,action,value,customer)=>actOnTool(inlinePanelConfig(kind),action,value,customer));
+  handle('floating-panel-action',(_,kind,action,value,customer)=>{
+    const config=inlinePanelConfig(kind);
+    if(kind==='planning'&&action==='day-menu'){
+      const day=value?.day;
+      if(typeof day!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(day))throw new Error('日期無效');
+      const date=new Date(day+'T12:00:00Z');
+      if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==day)throw new Error('日期無效');
+      return showToolRows(config,{mode:'calendar',month:day.slice(0,7),day,query:value.query},{anchor:value.anchor});
+    }
+    return actOnTool(config,action,value,customer);
+  });
   const overlayAction=(event,task)=>{
     const entry=toolOverlay.owner(event);
     if(!entry)throw new Error('不受信任的浮動工具來源');
@@ -737,6 +755,51 @@ app.whenReady().then(() => {
     if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
     return productivity.viewData(config,filters);
   }));
+  const menuLabel=text=>text.replace(/[\x00-\x1f\x7f]+/g,' ').slice(0,100).replace(/&/g,'&&');
+  function showToolRows(config,filters,{allowCollapsed=false,anchor,back}={}){
+    const data=productivity.viewData(config,filters),snippets=config.kind==='snippets';
+    const template=[{label:snippets?'常用文字片段 · 點選複製':data.day+' · '+data.total+' 項行程',enabled:false}];
+    for(const row of data.rows){
+      const label=menuLabel([row.title,row.detail].filter(Boolean).join(' · '));
+      template.push({label,toolTip:snippets?row.summary:row.detail,
+        click:floatingAction(()=>actOnTool(config,snippets?'copy':'visit',row.id,''))});
+    }
+    if(!data.rows.length)template.push({label:snippets?'沒有符合條件的片段':'當天沒有符合條件的行程',enabled:false});
+    const go=page=>floatingAction(()=>showToolRows(config,{...filters,page},{allowCollapsed,anchor,back}));
+    if(data.last){
+      template.push({type:'separator'},{label:'第 '+(data.page+1)+' / '+(data.last+1)+' 頁',enabled:false},
+        {label:'上一頁',enabled:data.page>0,click:go(data.page-1)},
+        {label:'下一頁',enabled:data.page<data.last,click:go(data.page+1)});
+    }
+    if(back)template.push({type:'separator'},{label:'返回月份',click:back});
+    popupFloatingMenu(template,{allowCollapsed,anchor});
+    return {opened:true,menu:true};
+  }
+  function openQuickToolMenu(config){
+    if(config.kind==='snippets'){
+      return showToolRows(config,{query:desktop.settings.floatingPanels.snippetQuery},{allowCollapsed:true});
+    }
+    function showMonth(month){
+      const data=productivity.viewData(config,{mode:'calendar',month});
+      const template=[{label:data.month+' · 選擇行程日期',enabled:false}];
+      for(const [day,count] of Object.entries(data.counts)){
+        template.push({label:day+' · '+count+' 項',click:floatingAction(()=>showToolRows(
+          config,{mode:'calendar',month:data.month,day},
+          {allowCollapsed:true,back:floatingAction(()=>showMonth(data.month))}))});
+      }
+      if(!Object.keys(data.counts).length)template.push({label:'本月沒有行程',enabled:false});
+      const move=delta=>floatingAction(()=>{
+        const next=new Date(data.month+'-15T12:00:00Z');
+        next.setUTCMonth(next.getUTCMonth()+delta);
+        if(next.getUTCFullYear()<1||next.getUTCFullYear()>9999)return;
+        showMonth(next.toISOString().slice(0,7));
+      });
+      template.push({type:'separator'},{label:'上個月',click:move(-1)},{label:'下個月',click:move(1)});
+      popupFloatingMenu(template,{allowCollapsed:true});
+      return {opened:true,menu:true};
+    }
+    return showMonth();
+  }
   function actOnTool(config,action,value,customer){
     const {kind}=config;
     if(config.kind==='snippets'&&action==='copy')return productivity.copySnippet(value,customer);

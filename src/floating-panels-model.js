@@ -1,6 +1,7 @@
 'use strict';
 (() => {
  const PANELS=Object.freeze({planning:'日曆／看板',snippets:'常用文字片段'});
+ const FILES_LABEL='收藏／工作區';
  const keys=Object.keys(PANELS);
  const known=id=>typeof id==='string'&&Object.hasOwn(PANELS,id);
  const ids=value=>Array.isArray(value)?[...new Set(value.filter(known))]:[];
@@ -28,7 +29,7 @@
  function enabledPanels(settings){
   return settings.order.filter(id=>settings.enabled.includes(id));
  }
- const model={PANELS,normalize,enabledPanels};
+ const model={PANELS,FILES_LABEL,normalize,enabledPanels};
  if(typeof module!=='undefined'&&module.exports)module.exports=model;
  else window.floatingPanelsModel=model;
 })();

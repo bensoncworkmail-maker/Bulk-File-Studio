@@ -47,3 +47,25 @@ test('multiple tag shortcut checkboxes roundtrip and reject an empty explicit se
  h.$('quick-action-tag-checks').querySelector('input').checked=true;await h.$('quick-action-save').dispatch('click');assert.deepEqual(h.settings().floatingQuickActions[0].tagKeys,['']);await h.$('quick-action-list').children[0].children[2].dispatch('click');assert.equal(h.$('quick-action-tag').value,'selected');assert.equal(h.$('quick-action-tag-checks').querySelector('input').checked,true);
  const action={id:id(),label:'Files',type:'open-tag-menu',tagKeys:['Work','work','Legal']};assert.deepEqual(M.normalize([action],true)[0].tagKeys,['work','legal']);assert.throws(()=>M.normalize([{...action,tagKeys:[]}],true),/勾選/);
 });
+
+test('calendar and snippet shortcuts persist the external menu while log shortcuts retain their window choices',async()=>{
+ const h=await settingsHarness();
+ for(const type of ['open-planning','open-snippets']){
+  await h.$('quick-action-add').dispatch('click');
+  h.$('quick-action-label').value=type;
+  h.$('quick-action-type').value=type;
+  await h.$('quick-action-type').dispatch('change');
+  const display=h.$('quick-action-display');
+  assert.ok(display.children.some(option=>option.value==='menu'&&option.textContent==='外部選單'));
+  display.value='menu';
+  await h.$('quick-action-save').dispatch('click');
+  assert.equal(h.settings().floatingQuickActions.at(-1).display,'menu');
+ }
+ await h.$('quick-action-list').children[0].children[2].dispatch('click');
+ assert.equal(h.$('quick-action-display').value,'menu');
+ h.$('quick-action-type').value='view-logs';
+ await h.$('quick-action-type').dispatch('change');
+ assert.equal(h.$('quick-action-display').value,'overlay');
+ assert.ok(h.$('quick-action-display').children.every(option=>option.value!=='menu'));
+ assert.deepEqual(h.failures,[]);
+});
