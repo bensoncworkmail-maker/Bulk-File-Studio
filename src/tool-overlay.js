@@ -5,6 +5,7 @@ const {pathToFileURL}=require('node:url');
 const {fitBounds}=require('./desktop-state');
 const {captureBounds}=require('./floating-capture');
 const {configuration}=require('./tool-views-model');
+const {logFilterKey}=require('./log-view-settings-model');
 
 const windowKey=kind=>kind==='snippets'?'planning':kind;
 
@@ -20,7 +21,7 @@ class ToolOverlay{
    return {opened:true,popup:true};
   }
   const parent=this.parent(),displays=this.screen.getAllDisplays();
-  const size=this.size(key)||{width:540,height:620};
+  const size=this.size(key)||(key==='logs'?{width:430,height:580}:{width:540,height:620});
   const sibling=[...this.windows.values()].find(entry=>!entry.window.isDestroyed())?.window;
   const anchor=sibling||parent;
   const bounds=anchor?captureBounds(anchor.getNormalBounds(),displays,size):
@@ -62,7 +63,7 @@ class ToolOverlay{
  }
  payload({config}){
   const {theme,fontSize}=this.settings();
-  return {config,theme,fontSize};
+  return {config,theme,fontSize,...(config.kind==='logs'?{logFilters:this.logFilters(config),logContext:logFilterKey(config)}:{})};
  }
  refresh(entry){
   if(!entry.window.isDestroyed())entry.window.webContents.send('tool-overlay-refresh',this.payload(entry));

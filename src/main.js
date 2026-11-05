@@ -157,7 +157,12 @@ function openDrafts(){
  if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
  drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,secureWindow,desktop,store:notesStore,settings:()=>desktop.settings,
   imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
-  onSent:notesChanged,quit:()=>app.quit()});
+  onSent:notesChanged,onRemind:recordId=>{
+   focusMain();
+   const target=win,show=()=>send(target,'record-reminders-open',{recordId});
+   if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',show);
+   else show();
+  },quit:()=>app.quit()});
  closeFloatingMenu();
  return drafts.open();
 }
@@ -782,7 +787,7 @@ app.whenReady().then(() => {
     BrowserWindow,screen,secureWindow,settings:()=>desktop.settings,
     parent:()=>floating&&!floating.isDestroyed()&&floating.isVisible()?floating:undefined,
     size:kind=>desktop.settings.toolWindowSizes[kind]||(kind==='planning'?desktop.settings.toolWindowSizes.snippets:undefined),
-    remember:rememberAuxSize,
+    remember:rememberAuxSize,logFilters:config=>desktop.logFilters(config),
     error:error=>diagnostics.record('main','tool-overlay',error)
   });
   const openToolOverlay=kind=>toolOverlay.open(require('./tool-views-model').configuration({kind}));
@@ -823,6 +828,11 @@ app.whenReady().then(() => {
   };
   ipcMain.handle('tool-overlay-get',event=>overlayAction(event,entry=>toolOverlay.payload(entry)));
   ipcMain.handle('tool-overlay-switch',(event,kind)=>overlayAction(event,entry=>toolOverlay.switchTab(entry,kind)));
+  ipcMain.handle('tool-overlay-log-filters',(event,context,filters)=>overlayAction(event,({config})=>{
+    if(config.kind!=='logs')throw new Error('只可儲存查看紀錄的篩選');
+    if(context!==require('./log-view-settings-model').logFilterKey(config))throw new Error('查看紀錄已切換，請重新選擇');
+    desktop.saveLogFilters(config,filters);
+  }));
   ipcMain.handle('tool-overlay-data',(event,kind,filters)=>overlayAction(event,({config})=>{
     if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
     return productivity.viewData(config,filters);

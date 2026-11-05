@@ -38,11 +38,21 @@ function fitBounds(saved,displays,defaults){
  const width=Math.round(Math.min(area.width,Math.max(defaults.minWidth,requested?.width||defaults.width))),height=Math.round(Math.min(area.height,Math.max(defaults.minHeight,requested?.height||defaults.height)));
  return {width,height,minWidth:Math.min(defaults.minWidth,area.width),minHeight:Math.min(defaults.minHeight,area.height),x:Math.round(visible?Math.max(area.x,Math.min(requested.x,area.x+area.width-width)):area.x+(area.width-width)/2),y:Math.round(visible?Math.max(area.y,Math.min(requested.y,area.y+area.height-height)):area.y+(area.height-height)/2)};
 }
+const logMemory=require('./log-view-settings-model');
 class DesktopState {
- constructor(filename){this.filename=filename;this.data={version:1,settings:normalize(),windows:{}};try{const data=JSON.parse(fs.readFileSync(filename,'utf8'));if(data.version===1){this.data.settings=normalize(data.settings);for(const key of ['main','floating','draft'])if(validBounds(data.windows?.[key]?.bounds))this.data.windows[key]={bounds:data.windows[key].bounds,maximized:data.windows[key].maximized===true};}}catch(e){if(e.code!=='ENOENT')this.readError=e;}}
+ constructor(filename){this.filename=filename;this.data={version:1,settings:normalize(),windows:{},logFilters:{}};try{const data=JSON.parse(fs.readFileSync(filename,'utf8'));if(data.version===1){this.data.settings=normalize(data.settings);this.data.logFilters=logMemory.normalizeHistory(data.logFilters);for(const key of ['main','floating','draft'])if(validBounds(data.windows?.[key]?.bounds))this.data.windows[key]={bounds:data.windows[key].bounds,maximized:data.windows[key].maximized===true};}}catch(e){if(e.code!=='ENOENT')this.readError=e;}}
  get settings(){return {...this.data.settings};}
  write(){fs.mkdirSync(path.dirname(this.filename),{recursive:true});if(this.readError&&fs.existsSync(this.filename)){fs.copyFileSync(this.filename,this.filename+'.invalid-backup');this.readError=null;}const temp=this.filename+'.new';fs.writeFileSync(temp,JSON.stringify(this.data,null,2),{mode:0o600});fs.renameSync(temp,this.filename);}
  update(patch){const next=normalize({...this.data.settings,...patch});if(JSON.stringify(next)!==JSON.stringify(this.data.settings)){const previous=this.data.settings;this.data.settings=next;try{this.write();}catch(e){this.data.settings=previous;throw e;}}return this.settings;}
+ logFilters(config){return this.data.logFilters[logMemory.logFilterKey(config)]||null;}
+ saveLogFilters(config,filters){
+  const key=logMemory.logFilterKey(config),previous=this.data.logFilters,next=logMemory.normalizeFilters(filters);
+  if(JSON.stringify(previous[key])===JSON.stringify(next))return;
+  const history={...previous};
+  delete history[key];
+  this.data.logFilters=logMemory.normalizeHistory({...history,[key]:next});
+  try{this.write();}catch(error){this.data.logFilters=previous;throw error;}
+ }
  remembers(key){return key==='draft'?this.settings.draftRememberWindow:this.settings.rememberWindow;}
  record(key,window){if(!this.remembers(key)||window.isDestroyed()||window.isMinimized())return;const bounds=window.getNormalBounds();if(validBounds(bounds)){this.data.windows[key]={bounds,maximized:window.isMaximized()};this.write();}}
  bounds(key,displays,defaults){return fitBounds(this.remembers(key)?this.data.windows[key]?.bounds:null,displays,defaults);}

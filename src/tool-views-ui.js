@@ -19,16 +19,22 @@
   el.addEventListener('click',task);return el;
  };
  function mount(root,api,config,filters={query:config.query||'',page:0}){
-  let request=0,timer,disposed=false;
+  let request=0,timer,disposed=false,advanced,filterSummary;
+  const compactLogs=config.kind==='logs'&&Boolean(api.close);
   const embeddedPlanning=config.embedded&&config.kind==='planning';
   const controls=node('div',undefined,'tool-view-filters');
   const results=node('div',undefined,'tool-view-results');
   const status=node('p',undefined,'tool-view-status');status.setAttribute('role','status');
   const toolbar=node('header',undefined,'tool-view-heading');
   const title=node('div');
-  title.append(node('h1',titles[config.kind]),node('p',descriptions[config.kind]));
+  title.append(node('h1',titles[config.kind]));
+  if(!compactLogs)title.append(node('p',descriptions[config.kind]));
   toolbar.append(title);
   const actions=node('div',undefined,'tool-view-actions');
+  if(compactLogs){
+   root.dataset.compactLogs='true';
+   const close=button('關閉',api.close);close.title='關閉（Esc）';actions.append(close);
+  }
   if(api.clearScope)actions.append(button('返回預設表格',api.clearScope));
   if(config.kind==='planning'&&!embeddedPlanning)actions.append(button('開啟完整日曆／看板',()=>act('main')));
   if(actions.children.length)toolbar.append(actions);
@@ -44,7 +50,7 @@
    if(type!=='select')input.type=type;
    input.setAttribute('aria-label',label);inputs[key]=input;
    input.value=filters[key]||'';
-   if(config.embedded&&(type==='search'||type==='text'))input.placeholder=label;
+   if((config.embedded||compactLogs)&&(type==='search'||type==='text'))input.placeholder=label;
    const typing=type==='text'||type==='search';
    input.addEventListener(typing?'input':'change',()=>{
     filters[key]=input.value;
@@ -53,6 +59,17 @@
    if(!compactMonth)wrap.append(node('span',label));
    wrap.append(input);parent.append(wrap);return input;
   }
+  const filterKeys=['masterId','dateField','from','to','stateField','value'];
+  function updateFilterSummary(){
+   const count=filterKeys.filter(key=>filters[key]).length;
+   filterSummary.textContent='篩選與顯示'+(count?' · '+count+' 項':'');
+  }
+  function saveLogFilters(){
+   if(!compactLogs)return;
+   updateFilterSummary();
+   const {page,...memory}=filters;
+   api.saveFilters(memory).catch(error=>{if(!disposed)status.textContent='無法記住篩選。'+error.message;});
+  }
   function reloadField(key,typing=false){
    filters.page=0;
    if(key==='sheetId'){
@@ -60,23 +77,39 @@
    }
    if(key==='stateField'||key==='mode')delete filters.value;
    if(key==='month')delete filters.day;
+   saveLogFilters();
    request++;
    clearTimeout(timer);timer=setTimeout(load,typing?140:0);
   }
   field('query','搜尋標題或內容','search').maxLength=256;
   if(config.kind==='logs'){
    field('sheetId','紀錄表格','select');
-   field('layout','顯示方式','select');
-   field('sort','排序','select');
-   const advanced=node('details',undefined,'tool-view-advanced');
+   advanced=node('details',undefined,'tool-view-advanced');
    const advancedFields=node('div',undefined,'tool-view-filters');
-   advanced.open=config.scope==='master';
-   advanced.append(node('summary','主紀錄、日期與欄位篩選'),advancedFields);
+   advanced.open=filters.advanced??config.scope==='master';
+   filterSummary=node('summary',compactLogs?'篩選與顯示':'主紀錄、日期與欄位篩選');
+   advanced.append(filterSummary,advancedFields);
    filterPanel.append(advanced);
+   const displayFields=compactLogs?advancedFields:controls;
+   field('layout','顯示方式','select',displayFields);
+   field('sort','排序','select',displayFields);
    for(const [key,label,type] of [
     ['masterId','所屬主紀錄','select'],['dateField','日期欄位','select'],
     ['from','日期由','date'],['to','日期至','date'],['stateField','欄位','select'],['value','欄位值','select']
    ])field(key,label,type,advancedFields);
+   if(compactLogs){
+    const clear=button('清除篩選',()=>{
+     for(const key of ['query',...filterKeys]){delete filters[key];inputs[key].value='';}
+     reloadField('query');
+    });
+    const tools=node('div',undefined,'tool-view-log-status');
+    tools.append(status,clear);filterPanel.after(tools);
+    updateFilterSummary();
+    advanced.addEventListener('toggle',()=>{
+     if(disposed||filters.advanced===advanced.open)return;
+     filters.advanced=advanced.open;saveLogFilters();
+    });
+   }
   }else if(config.kind==='planning'){
    field('mode','檢視','select');
    const month=field('month','月份','month');
@@ -166,7 +199,10 @@
   function card(row){
    const item=node('article',undefined,'tool-view-result');
    const snippets=config.kind==='snippets',body=node(snippets?'span':'div',undefined,'tool-view-result-body');
-   body.append(node(snippets?'strong':'h3',row.title));
+   if(compactLogs){
+    const heading=node('h3'),visit=button(row.title,()=>act('visit',row.id));
+    visit.title=row.title;visit.className='tool-view-log-link';heading.append(visit);body.append(heading);
+   }else body.append(node(snippets?'strong':'h3',row.title));
    if(row.detail)body.append(node('small',row.detail));
    if(row.summary&&(!snippets||filters.layout==='preview')){
     body.append(node(snippets?'span':'p',row.summary,snippets?'tool-view-snippet-preview':undefined));
@@ -180,7 +216,8 @@
     const mark=node('span','⧉','tool-view-copy-mark');
     mark.setAttribute('aria-hidden','true');
     copy.append(mark,body);item.append(copy);
-   }else item.append(body,button('開啟紀錄',()=>act('visit',row.id)));
+   }else if(compactLogs)item.append(body);
+   else item.append(body,button('開啟紀錄',()=>act('visit',row.id)));
    if(row.eventKind)item.dataset.eventKind=row.eventKind;
    return item;
   }
@@ -203,7 +240,7 @@
    }
    results.replaceChildren(list);
    if(!data.rows.length){
-    const hint=data.restricted&&!data.tables.length?'目前沒有可用的指定表格。請到「設定 → 資料工作區 → 查看紀錄」更新選擇。':
+    const hint=data.restricted&&!data.tables.length?'目前沒有可用的指定表格。請到「設定 → 日曆與紀錄 → 查看紀錄」更新選擇。':
      data.masterRequired&&!inputs.masterId.value?'先選擇主紀錄，即可查看相關明細。':'沒有符合條件的項目。';
     results.append(node('p',hint,'tool-view-empty'));
    }
@@ -234,6 +271,10 @@
      choices('stateField',[['','不限欄位'],...data.stateFields.map(item=>[item.id,item.label])]);
      choices('value',[['','全部值'],...data.states.map(value=>[value,data.checkbox?(value==='true'?'已勾選':'未勾選'):value])]);
      inputs.value.parentElement.hidden=!data.states.length;
+     if(compactLogs){
+      for(const key of ['sheetId','layout','sort','masterId','dateField','stateField','value'])filters[key]=inputs[key].value;
+      updateFilterSummary();
+     }
     }
     if(config.kind==='planning'){
      const board=filters.mode==='board';
@@ -288,21 +329,22 @@
   overlay.append(header,viewRoot);
   let view,last;
   const states=new Map();
-  const render=({config,theme,fontSize})=>{
+  const render=({config,theme,fontSize,logFilters,logContext})=>{
    document.documentElement.dataset.theme=theme;
    document.documentElement.dataset.fontSize=fontSize;
    const signature=JSON.stringify(config);
    if(signature===last){view?.refresh();return;}
    view?.dispose();last=signature;
-   tabs.hidden=config.kind==='logs';
+   header.hidden=config.kind==='logs';
    for(const [kind,tab] of Object.entries(tabButtons))tab.setAttribute('aria-pressed',String(config.kind===kind));
    const prior=states.get(config.kind);
-   const filters=prior?.signature===signature?prior.filters:{query:config.query||'',page:0};
+   const filters=prior?.signature===signature?prior.filters:{query:config.query||'',...logFilters,page:0};
    states.set(config.kind,{signature,filters});
    notice.textContent='';
    view=mount(viewRoot,{
     data:filters=>api.data(config.kind,filters),
-    action:(action,value,customer)=>api.action(config.kind,action,value,customer)
+    action:(action,value,customer)=>api.action(config.kind,action,value,customer),
+    ...(config.kind==='logs'?{close:api.close,saveFilters:filters=>api.saveLogFilters(logContext,filters)}:{})
    },config,filters);
    document.title=config.kind==='logs'?titles.logs:'日曆／看板與文字片段';
   };

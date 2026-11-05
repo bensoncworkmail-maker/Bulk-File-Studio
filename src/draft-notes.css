@@ -40,3 +40,6 @@ footer{border-top:1px solid var(--border);color:var(--muted);padding-block:5px}
 #status{overflow-wrap:anywhere}
 #status[data-error="true"]{color:var(--error)}
 .shortcut{white-space:nowrap}
+
+.destination .reminder-choice{display:inline-flex;flex:0 0 auto;align-items:center;gap:4px;cursor:pointer}
+.destination .reminder-choice input{margin:0;accent-color:var(--accent)}

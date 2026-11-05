@@ -84,3 +84,33 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 
 .tool-view-snippet-copy small{display:block}
 .tool-view-snippet-preview{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3px}
+
+.tool-overlay-bar[hidden]{display:none}
+.tool-view:has([data-compact-logs=true]){padding:8px 10px}
+[data-compact-logs=true] .tool-view-heading{margin:0 0 6px;gap:6px}
+[data-compact-logs=true] .tool-view-heading h1{font-size:1.18em}
+[data-compact-logs=true] .btn{height:auto;min-height:26px;padding:3px 7px}
+[data-compact-logs=true] .tool-view-filter-panel{padding:6px;border-radius:8px}
+[data-compact-logs=true] .tool-view-filters{gap:5px}
+[data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+[data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters label>span{
+ position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap
+}
+[data-compact-logs=true] .tool-view-filters :is(input,select){height:30px;min-height:30px;padding:3px 6px}
+[data-compact-logs=true] .tool-view-advanced{margin-top:4px;padding-top:3px}
+[data-compact-logs=true] .tool-view-advanced summary{padding:3px 2px}
+.tool-view-log-status{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:3px 0}
+.tool-view-log-status .tool-view-status{margin:0}
+[data-compact-logs=true] .tool-view-list{gap:4px}
+[data-compact-logs=true] .tool-view-result{padding:5px 7px;border-radius:6px}
+[data-compact-logs=true] .tool-view-list[data-layout=cards]{grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr))}
+.tool-view-log-link{
+ display:block;width:100%;text-align:start;font:inherit;color:var(--text);background:none;
+ border:0;border-radius:3px;padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.tool-view-log-link:hover{text-decoration:underline;color:var(--accent)}
+[data-compact-logs=true] .tool-view-result p{margin:2px 0 0}
+[data-compact-logs=true] .tool-view-list[data-layout=list] .tool-view-result :is(small,p){
+ display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+[data-compact-logs=true] .tool-view-pager{margin-top:6px}

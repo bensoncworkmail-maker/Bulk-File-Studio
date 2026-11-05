@@ -739,7 +739,11 @@ test('draft window opens from the global shortcut and creates a detail record wi
  assert.equal(draft('read',pictured.id).body,saved.body);
  await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,''),/主紀錄/);
  assert.equal(draft('read',pictured.id).version,pictured.version);
- const sent=await draft('send',pictured.id,pictured.version,detail.id,parent);
+ await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,parent,'invalid'),/提醒選項/);
+ const sent=await draft('send',pictured.id,pictured.version,detail.id,parent,true);
+ assert.equal(sent.reminderRequested,true);
+ assert.ok(h.messages.some(([name,payload])=>name==='record-reminders-open'&&payload?.recordId===sent.id));
+ assert.deepEqual(h.handlers.get('reminders-list')().items,[]);
  assert.throws(()=>draft('read',pictured.id),/草稿已移除/);
  await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,parent),/草稿已移除/);
  const records=h.handlers.get('notes-get')().document.records.filter(item=>item.sheetId===detail.id);
@@ -791,4 +795,31 @@ test('floating toolbox and sharing shortcuts open the configured destination wit
  assert.equal(run(event,sharing.id).opened,true);
  assert.ok(h.messages.some(([channel])=>channel==='notes-share-open-request'));
  assert.equal(h.handlers.get('notes-get')().revision,before);
+});
+
+test('floating logs keep all search filters on disk and isolate shortcut contexts',t=>{
+ const h=harness(t);
+ const doc=h.handlers.get('notes-template')().document;
+ const table=doc.sheets.find(sheet=>sheet.name==='紀錄');
+ const config={kind:'logs',sheetId:table.id,scope:'master',query:'預設關鍵字'};
+ const open=()=>h.handlers.get('tool-view-open')(null,config);
+ open();
+ const first=h.windows.at(-1),event={sender:first.webContents,senderFrame:{url:first.url}};
+ const get=h.rawHandlers.get('tool-overlay-get'),save=h.rawHandlers.get('tool-overlay-log-filters');
+ const {logContext}=get(event);
+ const filters={query:'實際搜尋',sheetId:table.id,masterId:require('node:crypto').randomUUID(),
+  dateField:table.fields.find(field=>field.type==='date').id,stateField:table.fields.find(field=>field.type==='checkbox').id,
+  from:'2026-10-01',to:'2026-11-30',value:'true',sort:'oldest',layout:'cards',advanced:true};
+ save(event,logContext,{...filters,page:4,extra:'ignore'});
+ const {DesktopState}=require('../src/desktop-state');
+ assert.deepEqual(new DesktopState(path.join(h.dir,'desktop-state.json')).logFilters(config),filters);
+ h.handlers.get('tool-view-open')(null,{kind:'logs'});
+ assert.equal(get(event).logFilters,null);
+ assert.throws(()=>save(event,logContext,{}),/已切換/);
+ assert.throws(()=>save({...event,sender:h.windows[0].webContents},logContext,{}),/不受信任/);
+ h.rawHandlers.get('tool-overlay-close')(event);
+ open();
+ const reopened=h.windows.at(-1);
+ assert.notEqual(reopened,first);
+ assert.deepEqual(get({sender:reopened.webContents,senderFrame:{url:reopened.url}}).logFilters,filters);
 });
