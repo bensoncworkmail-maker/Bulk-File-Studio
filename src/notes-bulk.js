@@ -27,9 +27,18 @@ function copies(document,input,count,uuid,now=new Date().toISOString()){
  if(input.id||!Number.isSafeInteger(count)||count<1||count>500)throw new Error('新增份數請填 1–500，編輯現有紀錄時不可重複建立');
  const sheet=document.sheets.find(sheet=>sheet.id===input.sheetId&&!sheet.deletedAt);if(!sheet)throw new Error('表格已移除');
  const parent=M.parentField(document,sheet),parents=input.values?.[parent?.id];
- if(parent&&(!Array.isArray(parents)||parents.length!==1||!document.records.some(record=>record.id===parents[0]&&record.sheetId===parent.targetSheetId&&M.live(document,record))))throw new Error('明細必須關聯一筆可用主紀錄');
+ let targets=parent?parents:[null];
+ if(input.masterIds!==undefined){
+  if(!parent||!Array.isArray(input.masterIds)||!input.masterIds.length||input.masterIds.length>500||new Set(input.masterIds).size!==input.masterIds.length)throw new Error('請選擇不同的有效主紀錄');
+  targets=input.masterIds;
+ }
+ if(parent&&(!Array.isArray(targets)||!targets.length||input.masterIds===undefined&&targets.length!==1||targets.some(id=>!document.records.some(record=>record.id===id&&record.sheetId===parent.targetSheetId&&M.live(document,record)))))throw new Error('明細必須關聯可用的主紀錄');
+ if(count*targets.length>500)throw new Error('份數乘上主紀錄數量，一次合計最多 500 筆');
  const doc=structuredClone(document),records=[];
- for(let index=0;index<count;index++)records.push({id:uuid(),sheetId:sheet.id,title:input.title,notes:input.notes||'',tags:input.tags||[],values:structuredClone(input.values||{}),fileLinks:structuredClone(input.fileLinks||[]),favoriteTagLinks:structuredClone(input.favoriteTagLinks||[]),version:1,createdAt:now,updatedAt:now,deletedAt:null});
- doc.records.push(...records);M.normalizeDocument(doc);return {document:doc,records};
+ for(const masterId of targets)for(let index=0;index<count;index++){
+  const values=structuredClone(input.values||{});if(parent)values[parent.id]=[masterId];
+  records.push({id:uuid(),sheetId:sheet.id,title:input.title,notes:input.notes||'',tags:input.tags||[],values,fileLinks:structuredClone(input.fileLinks||[]),favoriteTagLinks:structuredClone(input.favoriteTagLinks||[]),version:1,createdAt:now,updatedAt:now,deletedAt:null});
+ }
+ doc.records.push(...records);M.normalizeDocument(doc);return {document:doc,records,masterCount:parent?targets.length:0};
 }
 module.exports={edit,copies};

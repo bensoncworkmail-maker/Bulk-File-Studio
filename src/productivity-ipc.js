@@ -45,8 +45,9 @@ function registerProductivity(options){
   const dates=config.kind==='planning'?reminders().list().items:[];
   return require('./tool-views-model').viewData(doc,dates,config.kind==='snippets'?store.get().snippets:[],config,filters,desktop().settings.logView);
  }
+ handle('productivity-snippet-shortcut',(_,id,shortcut)=>{ensure();const before=store.get(),item=before.snippets.find(item=>item.id===id);if(!item)throw new Error('文字片段已移除');const candidate=require('./productivity-model').entry('snippets',{...item,shortcut});options.validateShortcuts?.(before.snippets.map(item=>item.id===id?candidate:item));store.save('snippets',candidate);try{options.shortcutsChanged?.();options.overlayChanged?.();}catch(error){store.replace(before);options.shortcutsChanged?.();throw error;}return {id,shortcut:candidate.shortcut||''};});
  handle('productivity-snippet-copy',(_,id,customer)=>copySnippet(id,customer));
- handle('productivity-snippet-list',()=>store.get().snippets.map(({id,name,category})=>({id,name,category})));
+ handle('productivity-snippet-list',()=>store.get().snippets.map(({id,name,category,shortcut})=>({id,name,category,shortcut:shortcut||''})));
  handle('productivity-snippet-text',(_,id,customer)=>snippetText(id,customer));
  handle('tool-view-data',(_,input,filters)=>viewData(require('./tool-views-model').configuration(input),filters));
 

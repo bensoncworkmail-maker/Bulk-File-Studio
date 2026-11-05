@@ -48,6 +48,7 @@ const config={
       "description": "視窗、模式、尺寸與快速入口",
       "keywords": "floating mini window"
     },
+    {"id":"shortcuts","label":"快捷鍵","description":"全部快捷鍵、使用情境與重複檢查","keywords":"shortcut hotkey keyboard 全域 收藏 草稿 快捷鍵 重複"},
     {"id":"draft","label":"草稿筆記","description":"自動儲存、編輯尺寸、獨立提醒與附件預覽","keywords":"draft notes 草稿 筆記 字數 提醒 預覽"},
     {
       "id": "system",
@@ -222,7 +223,7 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"snippetsShortcut":"floating","calendarShortcut":"floating","draftReminders":"draft","draftLocalShortcuts":"draft","draftBodyLimit":"draft","draftPreviewMode":"draft","draftListWidth":"draft","draftBodyHeight":"draft","workspacePreviewMode":"notes","toolSplitWidths":"appearance","calendarShowCount":"planning","calendarWeekStart":"planning","calendarDayHeight":"planning","calendarEventLimit":"planning","calendarFontSize":"planning","calendarShowAgenda":"planning","backupIntervalHours":"data","draftRememberWindow":"draft","draftWindowWidth":"draft","draftWindowHeight":"draft","draftShortcut":"draft","planningDayShowMaster":"planning","floatingPanels":"floating","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"favoriteShortcuts":"shortcuts","snippetsShortcut":"shortcuts","calendarShortcut":"shortcuts","draftReminders":"draft","draftLocalShortcuts":"draft","draftBodyLimit":"draft","draftPreviewMode":"draft","draftListWidth":"draft","draftBodyHeight":"draft","workspacePreviewMode":"notes","toolSplitWidths":"appearance","calendarShowCount":"planning","calendarWeekStart":"planning","calendarDayHeight":"planning","calendarEventLimit":"planning","calendarFontSize":"planning","calendarShowAgenda":"planning","backupIntervalHours":"data","draftRememberWindow":"draft","draftWindowWidth":"draft","draftWindowHeight":"draft","draftShortcut":"shortcuts","planningDayShowMaster":"planning","floatingPanels":"floating","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"shortcuts","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"search","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
@@ -335,7 +336,7 @@ const config={
     "floatingTagScope": "floating",
     "floatingShowAllTag": "floating",
     "floatingShowUntagged": "floating",
-    "collapseShortcut": "floating",
+    "collapseShortcut": "shortcuts",
     "floatingKeepPinnedOnTray": "floating",
     "floatingOpacity": "floating",
     "floatingOpaqueOnFocus": "floating",
@@ -345,7 +346,7 @@ const config={
     "floatingPager": "floating",
     "closeToTray": "system",
     "startHidden": "system",
-    "mainShortcut": "system",
+    "mainShortcut": "shortcuts",
     "floatingIconSize": "floating",
     "floatingCompact": "floating",
     "floatingShowSearch": "floating",
@@ -357,7 +358,7 @@ const config={
     "floatingView": "floating",
     "floatingOnTop": "floating",
     "floatingStartup": "floating",
-    "floatingShortcut": "floating",
+    "floatingShortcut": "shortcuts",
     "notesCardFields": "notes",
     "favoriteColumns": "favorites",
     "tagSort": "favorites",

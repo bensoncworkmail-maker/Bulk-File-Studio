@@ -6,7 +6,7 @@
  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
  <title>草稿筆記 · Bulk File Studio</title>
  <link rel="stylesheet" href="draft-notes.css">
- <script defer src="resizable-split.js"></script><script defer src="draft-notes-ui.js"></script>
+ <script defer src="resizable-split.js"></script><script defer src="draft-export-types.js"></script><script defer src="draft-notes-ui.js"></script>
 </head>
 <body>
  <header class="toolbar">
@@ -40,7 +40,7 @@
    </fieldset>
   </section>
  </main>
- <dialog id="export-dialog"><form method="dialog"><h2>另存草稿</h2><p>以 UTF-8 純文字儲存；自訂副檔名不會轉成 Word／PDF 格式。</p><label>副檔名<input id="export-extension" value="txt" maxlength="12" list="export-extensions"></label><datalist id="export-extensions"><option value="txt"><option value="md"><option value="log"><option value="csv"><option value="json"><option value="html"></datalist><div class="dialog-actions"><button value="cancel">取消</button><button id="export-confirm" type="button" class="primary">選擇位置並儲存</button></div></form></dialog>
+ <dialog id="export-dialog"><form method="dialog"><h2>另存草稿</h2><p>以 UTF-8 純文字儲存；自訂副檔名不會轉成 Word／PDF 格式。</p><label>儲存類型<select id="export-type"></select></label><label id="export-custom" hidden>自訂副檔名<input id="export-extension" value="txt" maxlength="12" placeholder="例如：ini、yaml、sql"></label><div class="dialog-actions"><button value="cancel">取消</button><button id="export-confirm" type="button" class="primary">選擇位置並儲存</button></div></form></dialog>
  <dialog id="attachment-preview"><header><strong id="attachment-preview-title"></strong><button id="preview-close" type="button">關閉預覽</button></header><div id="attachment-preview-content"></div></dialog>
  <footer>
   <span id="status" role="status" aria-live="polite">正在讀取草稿…</span>

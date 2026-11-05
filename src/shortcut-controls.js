@@ -1,6 +1,10 @@
 'use strict';
 (() => {
- function bind(input){
+ let active=null;
+ function capture(input){if(!window.desktopAPI?.captureShortcuts)return;input.dataset.shortcutRecorder='true';input.addEventListener('focus',()=>{active=input;void window.desktopAPI.captureShortcuts(true).catch(error=>input.title=String(error.message||error));});input.addEventListener('blur',()=>{if(active!==input)return;active=null;void window.desktopAPI.captureShortcuts(false).catch(()=>{});});}
+ document.addEventListener?.('focusin',event=>{if(active&&event.target!==active&&event.target.dataset?.shortcutRecorder!=='true'){active=null;void window.desktopAPI.captureShortcuts(false).catch(()=>{});}});
+ window.addEventListener?.('focus',()=>{if(document.activeElement?.dataset?.shortcutRecorder==='true'){active=document.activeElement;void window.desktopAPI.captureShortcuts(true).catch(()=>{});}});
+ function bind(input){capture(input);
   input.readOnly=true;
   input.dataset.accelerator='';
   input.placeholder='未設定；點選後按組合鍵';
@@ -14,5 +18,5 @@
   });
  }
  function set(input,value){input.dataset.accelerator=value||'';input.value=window.globalShortcutModel.display(value);}
- window.shortcutControls=Object.freeze({bind,set,get:input=>input.dataset.accelerator||''});
+ window.shortcutControls=Object.freeze({bind,capture,set,get:input=>input.dataset.accelerator||''});
 })();

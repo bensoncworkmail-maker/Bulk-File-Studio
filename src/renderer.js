@@ -574,6 +574,7 @@ function wireEvents() {
     el.addEventListener(el.type === 'checkbox' || el.tagName==='SELECT' ? 'change':'input',enqueuePreview);
   }
   document.addEventListener('keydown',e=>{
+    if(e.defaultPrevented||e.isComposing||$('rename-workspace').classList.contains('hidden'))return;
     if ($('confirm-modal').open || $('error-dialog').open || $('preset-dialog').open || window.favoritesUI.hasOpenDialog() || window.settingsUI.hasOpenDialog()) return;
     if(window.favoritesUI.isSettings())return;
     if(window.favoritesUI.isActive())return;
