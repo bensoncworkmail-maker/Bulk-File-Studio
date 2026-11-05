@@ -45,7 +45,7 @@
           <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
           <button id="tab-planning" class="studio-tab" aria-pressed="false">日曆／看板</button>
           <button id="tab-logs" class="studio-tab" aria-pressed="false">查看紀錄</button>
-          <button id="tab-productivity" class="studio-tab" aria-pressed="false">▧ 生活／工作工具</button>
+          <button id="tab-productivity" class="studio-tab" aria-pressed="false">▧ 工具箱</button>
           <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
           <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
         </nav>
@@ -78,7 +78,7 @@
         <div id="home-widgets" class="home-widgets"></div>
       </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
-        <div class="productivity-heading"><div><h1 id="productivity-title">生活／工作工具</h1><p>整理文件、保存重要資料，將每天要用的內容放在一起。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
+        <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>文件預覽、整理規則、常用文字、工作集與資料維護。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
         <p id="productivity-status" class="productivity-status" role="status" aria-live="polite"></p>
         <div class="productivity-layout">
           <nav id="productivity-nav" class="productivity-nav" aria-label="工具分類">
@@ -318,8 +318,9 @@
             <p id="desktop-settings-status" role="status"></p>
           </div>
         </div>
-        <div class="settings-findbar">
-          <input id="settings-query" type="search" maxlength="120" placeholder="搜尋設定：卡片高度、浮動工具、快捷鍵…" aria-label="搜尋設定">
+        <div class="settings-findbar" role="search" aria-label="設定搜尋">
+          <select id="settings-query-scope" aria-label="設定搜尋範圍"><option value="all">全部設定</option><option value="current">目前分類</option></select>
+          <input id="settings-query" type="search" maxlength="120" placeholder="搜尋設定，例如卡片高度或快捷鍵" aria-label="搜尋設定">
           <button id="settings-query-clear" class="btn btn-ghost">清除</button>
         </div>
         <div class="settings-layout">
@@ -360,6 +361,10 @@
                   <small>主檔、明細與卡片</small>
                 </span>
               </button>
+              <button id="settings-tab-planning" class="btn btn-ghost" role="tab" aria-controls="settings-panel-planning" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">▦</span>
+                <span class="settings-category-copy"><strong>日曆與紀錄</strong><small>月曆與查看紀錄預設</small></span>
+              </button>
               <button id="settings-tab-sharing" class="btn btn-ghost" role="tab" aria-controls="settings-panel-sharing" aria-selected="false" tabindex="-1">
                 <span class="settings-category-icon" aria-hidden="true">⇄</span>
                 <span class="settings-category-copy">
@@ -377,8 +382,8 @@
               <button id="settings-tab-search" class="btn btn-ghost" role="tab" aria-controls="settings-panel-search" aria-selected="false" tabindex="-1">
                 <span class="settings-category-icon" aria-hidden="true">⌕</span>
                 <span class="settings-category-copy">
-                  <strong>全域搜尋</strong>
-                  <small>來源與關聯比對</small>
+                  <strong>搜尋</strong>
+                  <small>全域、浮動與搜尋預設</small>
                 </span>
               </button>
               <button id="settings-tab-floating" class="btn btn-ghost" role="tab" aria-controls="settings-panel-floating" aria-selected="false" tabindex="-1">
@@ -409,7 +414,7 @@
             <div class="settings-section-head">
               <div>
                 <h2 id="settings-group-title">顯示與閱讀</h2>
-                <p id="settings-group-description" class="notes-hint"></p>
+                <p id="settings-group-description" class="notes-hint" aria-live="polite"></p>
               </div>
               <button id="settings-reset-category" class="btn btn-ghost">還原此分類</button>
             </div>
@@ -623,26 +628,6 @@
                 </section>
               </div>
               <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
-                <section class="settings-card">
-                  <h2>日曆／看板</h2>
-                  <label class="check-row"><input id="settings-planning-day-show-master" type="checkbox"><span>在月曆日期格顯示主紀錄名稱</span></label>
-                  <p class="rule-hint">日期格先顯示行程的紀錄名稱。開啟後，所屬主紀錄會另列在下方。點選日期可查看完整行程。</p>
-                </section>
-                <section class="settings-card">
-                  <h2>查看紀錄</h2>
-                  <p class="rule-hint">設定主視窗與浮動紀錄的預設表格、顯示方式及排序。指定單一表格的浮動快捷仍直接開啟該表格。</p>
-                  <form id="log-settings-form">
-                    <fieldset>
-                      <legend class="sr-only">查看紀錄預設</legend>
-                      <label class="field"><span>查看紀錄表格範圍</span><select id="log-settings-scope"><option value="all">所有表格</option><option value="selected">只顯示勾選的表格</option></select></label>
-                      <div id="log-settings-tables" class="notes-choice-list" hidden></div>
-                      <label class="field"><span>查看紀錄預設版面</span><select id="log-settings-layout"><option value="list">精簡清單</option><option value="cards">卡片</option></select></label>
-                      <label class="field"><span>查看紀錄預設排序</span><select id="log-settings-sort"><option value="recent">日期：新到舊</option><option value="oldest">日期：舊到新</option><option value="title">標題</option></select></label>
-                      <button id="log-settings-save" class="btn btn-secondary" type="submit" disabled>套用查看紀錄設定</button>
-                    </fieldset>
-                    <p id="log-settings-status" class="notes-hint" role="status"></p>
-                  </form>
-                </section>
                 <section class="settings-card"><h2>儲存格與鍵盤操作</h2><label class="field"><span>編輯中按 Enter 後</span><select id="settings-notes-grid-enter"><option value="next">儲存並移到右格（列尾移下一列）</option><option value="down">儲存並移到下方同欄</option><option value="stay">儲存並留在原格</option></select></label><label class="check-row"><input id="settings-notes-grid-tab" type="checkbox"><span>Tab 儲存並移到下一格，Shift+Tab 反向</span></label><label class="check-row"><input id="settings-notes-grid-edit-next" type="checkbox"><span>移動後直接編輯下一格</span></label><label class="check-row"><input id="settings-notes-delete-key" type="checkbox"><span>選取工作區紀錄後按 Delete 開啟刪除確認</span></label><p class="rule-hint">沒有修改的儲存格只移動，不重複儲存。驗證失敗保留輸入；最後一筆不會自動建立新列。輸入框與儲存格編輯中的 Delete 仍是刪除文字／清空格，不刪除紀錄。</p></section>
                 <section class="settings-card">
                   <h2>資料工作區版面</h2>
@@ -849,8 +834,30 @@
 
 
               </div>
+              <div id="settings-panel-planning" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-planning" hidden>
+                <section class="settings-card">
+                  <h2>日曆／看板</h2>
+                  <label class="check-row"><input id="settings-planning-day-show-master" type="checkbox"><span>在月曆日期格顯示主紀錄名稱</span></label>
+                  <p class="rule-hint">日期格先顯示行程的紀錄名稱。開啟後，所屬主紀錄會另列在下方。點選日期可查看完整行程。</p>
+                </section>
+                <section class="settings-card">
+                  <h2>查看紀錄</h2>
+                  <p class="rule-hint">設定主視窗與浮動紀錄的預設表格、顯示方式及排序。指定單一表格的浮動快捷仍直接開啟該表格。</p>
+                  <form id="log-settings-form">
+                    <fieldset>
+                      <legend class="sr-only">查看紀錄預設</legend>
+                      <label class="field"><span>查看紀錄表格範圍</span><select id="log-settings-scope"><option value="all">所有表格</option><option value="selected">只顯示勾選的表格</option></select></label>
+                      <div id="log-settings-tables" class="notes-choice-list" hidden></div>
+                      <label class="field"><span>查看紀錄預設版面</span><select id="log-settings-layout"><option value="list">精簡清單</option><option value="cards">卡片</option></select></label>
+                      <label class="field"><span>查看紀錄預設排序</span><select id="log-settings-sort"><option value="recent">日期：新到舊</option><option value="oldest">日期：舊到新</option><option value="title">標題</option></select></label>
+                      <button id="log-settings-save" class="btn btn-secondary" type="submit" disabled>套用查看紀錄設定</button>
+                    </fieldset>
+                    <p id="log-settings-status" class="notes-hint" role="status"></p>
+                  </form>
+                </section>
+              </div>
               <div id="settings-panel-sharing" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-sharing" hidden><section class="settings-card">
-                  <h2>匯入預設與備份</h2><p class="rule-hint">程式版本與資料格式獨立；目前資料格式 3，可讀取舊資料包 1／2／3；指定主表共享採封裝 4，避免舊接收端誤套用全部。只傳送資料與連結，不含實體檔案。</p><button id="settings-notes-compat-check" class="btn btn-secondary">檢查舊資料包相容性（不匯入）</button><p id="settings-notes-compat-status" class="rule-hint"></p><label class="check-row"><input id="settings-notes-import-changes-only" type="checkbox"><span>匯入預覽預設只看有差異的紀錄</span></label>
+                  <h2>匯入預設與備份</h2><p class="rule-hint">程式版本與資料格式獨立；一般匯出採資料包格式 3；共享發布採格式 5，保留範圍、發布版本及回收標記。可讀取舊版資料包。只傳送資料與連結，不含實體檔案。</p><button id="settings-notes-compat-check" class="btn btn-secondary">檢查舊資料包相容性（不匯入）</button><p id="settings-notes-compat-status" class="rule-hint"></p><label class="check-row"><input id="settings-notes-import-changes-only" type="checkbox"><span>匯入預覽預設只看有差異的紀錄</span></label>
                   <label class="field"><span>一般資料包預設匯入方式</span><select id="settings-notes-import-mode"><option value="copy">另存副本（獨立資料，重新建立 ID）</option><option value="update">合併，更新相同識別碼</option><option value="skip">合併，略過重複紀錄</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select></label>
                   <label class="field"><span>共享資料包預設匯入方式</span><select id="settings-notes-shared-import-mode"><option value="merge">差異合併（保留本機獨立修改）</option><option value="update">更新相同識別碼（以預覽的來源內容為準）</option><option value="skip">合併，略過重複紀錄</option><option value="copy">另存副本（獨立參考）</option><option value="clone">複製來源到本機（保留 ID，取代工作區，先備份）</option></select></label>
                   <p class="rule-hint">建議：一般獨立參考用「另存副本」，持續接收同一來源用「更新」，首次完整接收可手動選「複製來源到本機」。只決定每次開啟預覽時的初始選項，仍可逐次修改並確認。來源複製會取代資料包未包含的本機表格與紀錄，須再次確認；保留 ID，不建立重複副本。另存副本會建立新 ID，重複匯入可新增多組；持續接收同一來源通常選更新。所有匯入皆先備份本機資料庫，與另存副本不同；不提供關閉備份的選項。自動接收仍固定採更新模式及既有保護條件。</p>
@@ -865,6 +872,9 @@
 <p id="settings-share-incoming" class="notes-hint" role="status">沒有待處理的更新。</p><div class="notes-tools"><button id="settings-share-preview-new" class="btn btn-secondary" hidden>預覽最新更新</button><button id="settings-share-ignore-new" class="btn btn-ghost" hidden>忽略這一份</button></div>
                 </section></div><div id="settings-panel-reminders" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-reminders" hidden><section class="settings-card"><h2>紀錄提醒</h2><label class="check-row"><input id="settings-reminders-enabled" type="checkbox"><span>啟用本機紀錄提醒（只在程式執行時）</span></label><label class="field"><span>預設提醒方式</span><select id="settings-reminder-delivery"><option value="notification">Windows 系統通知</option><option value="overlay">程式內彈窗</option><option value="both">通知與彈窗</option><option value="attention">強提醒（獨立置頂視窗＋提示音）</option></select></label><label class="check-row"><input id="settings-reminder-focus" type="checkbox"><span>到期時顯示並聚焦主視窗（不關閉未儲存表單）</span></label><label class="field"><span>預設延後</span><select id="settings-reminder-snooze"><option value="5">5 分鐘</option><option value="10">10 分鐘</option><option value="15">15 分鐘</option><option value="30">30 分鐘</option><option value="60">60 分鐘</option></select></label><label class="check-row"><input id="settings-reminder-attention-sound" type="checkbox"><span>強提醒播放系統提示音</span></label><label class="field"><span>強提醒提示音重播間隔</span><select id="settings-reminder-attention-repeat"><option value="0">只播放一次</option><option value="1">每 1 分鐘</option><option value="5">每 5 分鐘</option><option value="10">每 10 分鐘</option><option value="15">每 15 分鐘</option></select></label><p class="rule-hint">強提醒另開置頂視窗並閃爍工作列，可直接完成／延後；關閉會停止本次重播，待處理提醒仍保留。聲音受系統音量影響。是否切換輸入焦點沿用上方設定。</p><button id="settings-reminders-open" class="btn btn-secondary">管理提醒排程</button><p class="rule-hint">程式完全結束時不提醒；下次執行補列逾期提醒。Windows 通知可能被系統限制，程式內待辦提示仍保留。排程保存在本機，不隨資料包共享。</p></section></div>
               <div id="settings-panel-search" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-search" hidden>
+                <section class="settings-card">
+                  <h2>浮動搜尋顯示與即時比對</h2><label class="field"><span>搜尋列顯示方式</span><select id="settings-floating-search-presentation"><option value="field">工具內顯示輸入框（預設）</option><option value="button">只顯示搜尋按鈕，點擊後在按鈕下方開啟</option></select></label><p class="rule-hint">按鈕模式節省一列高度，文字在外部面板輸入；即時搜尋模式適用工具內輸入框。</p><label class="check-row"><input id="settings-floating-global-search" type="checkbox"><span>啟用浮動全域搜尋（結果顯示在外部面板）</span></label><label class="field"><span>浮動搜尋欄的搜尋模式</span><select id="settings-floating-search-mode"><option value="local">工具內篩選（預設）</option><option value="live">外部即時全域搜尋</option></select></label><label class="field"><span>即時搜尋延遲</span><select id="settings-floating-search-delay"><option value="150">150 毫秒</option><option value="300">300 毫秒（預設）</option><option value="500">500 毫秒</option><option value="800">800 毫秒</option></select></label><label class="field"><span>即時搜尋最少字數</span><select id="settings-floating-search-min"><option value="1">1 字（預設，適合中文）</option><option value="2">2 字</option><option value="3">3 字</option></select></label><p class="rule-hint">即時模式會在停止輸入後顯示外部結果，焦點保留在原搜尋欄；中文選字完成後才搜尋。Enter／向下鍵移入結果，Esc 先收起結果並保留浮動工具。清空或不足字數時收起即時面板；「全域」按鈕仍可手動搜尋。停用上方全域搜尋時，搜尋欄會使用工具內篩選。</p><label class="field"><span>全域搜尋面板寬度</span><input id="settings-floating-search-width" type="number" min="360" max="1200"></label><label class="field"><span>全域搜尋面板高度</span><input id="settings-floating-search-height" type="number" min="320" max="1200"></label><p class="rule-hint">浮動工具搜尋列按「全域」，或在浮動工具按 Ctrl+Shift+F。可搜尋已登記紀錄、收藏、標籤及位置，結果每類 25 項；不掃描磁碟。面板內可切類型、翻頁與選擇包含主從關聯；預設尺寸在下次開啟面板時套用。</p>
+                  </section>
                 <section class="settings-card"><h2>浮動搜尋：條件記憶、收合與日期快捷</h2><label class="check-row"><input id="settings-floating-search-remember" type="checkbox"><span>記住上次的浮動搜尋條件（不儲存搜尋文字）</span></label><button id="settings-floating-search-forget" type="button" class="btn btn-ghost">清除已記住的條件</button><p>面板勾選及日期會自動記住；「恢復搜尋預設」回到下方設定的預設條件。日期快捷採相對日期時，下次開啟按當天重新計算。</p><label class="field"><span>開啟浮動搜尋面板的全域快捷鍵（預設停用）</span><input id="settings-search-shortcut" type="text" readonly placeholder="點此後按快捷鍵，例如 Ctrl+Alt+F"><span class="shortcut-buttons"><button id="btn-search-shortcut-clear" type="button" class="btn btn-ghost">停用</button><button id="btn-search-shortcut-default" type="button" class="btn btn-ghost">還原預設（停用）</button></span><small>程式執行期間，在其他應用程式也可使用；不必先展開浮動工具。</small></label><label class="check-row"><input id="settings-floating-search-filters-expanded" type="checkbox"><span>新開啟的浮動搜尋面板預設展開進階條件（預設收合）</span></label><p>收合仍會顯示目前條件摘要，已選範圍繼續生效。表格勾選與日期快捷列留在外面；日期按鈕按一下即更新修改日期並搜尋；不會更改表格或其他條件。</p><div id="floating-date-list" class="date-preset-list"></div><div class="notes-tools"><button id="floating-date-add" type="button" class="btn btn-secondary">＋ 日期快捷按鈕</button><button id="floating-date-save" type="button" class="btn btn-primary">儲存日期快捷按鈕</button><button id="floating-date-reset" type="button" class="btn btn-ghost">還原預設草稿</button><button id="floating-date-reload" type="button" class="btn btn-ghost">重新讀取</button></div><p>可自訂名稱、範圍、顯示與順序，最多 12 個；不顯示任何按鈕可全部取消勾選或移除後儲存。最近 N 天包含今天；本週／上週採週一至週日，本月／上月採完整月份，迄日包含當天。所有相對範圍按點擊當日的本機日期計算。</p><p id="floating-date-status" role="status"></p></section><section class="settings-card"><h2>浮動搜尋：表格勾選快捷</h2><p>可建立多組勾選，例如「客戶＋聯絡人」或「文件＋合約」。點面板內快捷只改表格勾選，不改日期。指定表格而未勾選代表零張表格，不會改成全部。</p><div id="table-preset-list"></div><button id="table-preset-add" type="button" class="btn btn-secondary">＋ 表格快捷</button><button id="table-preset-save" type="button" class="btn btn-primary">儲存表格快捷</button><button id="table-preset-refresh" type="button" class="btn btn-ghost">更新表格清單</button><p id="table-preset-status" role="status"></p></section><section class="settings-card"><h2>全域／浮動搜尋面板預設</h2><p>主視窗與浮動全域搜尋共用；編輯後按套用。下方原有搜尋來源仍可限制主視窗結果，兩者採交集。</p><label class="field"><span>工作區表格範圍</span><select id="criteria-table-mode"><option value="all">全部表格</option><option value="selected">只搜尋勾選的主表／明細表</option></select></label><div id="criteria-tables" class="criteria-choices" hidden></div><label class="field"><span>修改日期：由（本機日期）</span><input id="criteria-modifiedFrom" type="date"></label><label class="field"><span>修改日期：至（包含當天）</span><input id="criteria-modifiedTo" type="date"></label><p>日期適用紀錄與收藏；表格範圍適用工作區紀錄及表格。其他來源可在下方排除。指定表格但未勾選任何表格，會顯示零筆工作區紀錄。</p><label class="check-row"><input id="criteria-includeNotes" type="checkbox"><span>比對紀錄筆記</span></label><label class="check-row"><input id="criteria-includeTags" type="checkbox"><span>比對標籤</span></label><label class="check-row"><input id="criteria-includePaths" type="checkbox"><span>比對已登記檔案／資料夾路徑</span></label><details><summary>共用搜尋來源（浮動面板提供其中五種）</summary><div id="criteria-sources" class="criteria-choices"></div></details><p id="criteria-summary"></p><button id="criteria-apply" type="button" class="btn btn-primary">套用搜尋預設</button><button id="criteria-refresh" type="button" class="btn btn-ghost">重新讀取表格與已儲存條件</button><p id="criteria-status" role="status"></p></section>
                 <section class="settings-card">
                   <h2>搜尋來源</h2>
@@ -961,9 +971,7 @@
                     <p id="floating-panel-settings-status" role="status"></p>
                   </form>
                 </section>
-                <section class="settings-card">
-                  <h2>浮動搜尋</h2><label class="field"><span>搜尋列顯示方式</span><select id="settings-floating-search-presentation"><option value="field">工具內顯示輸入框（預設）</option><option value="button">只顯示搜尋按鈕，點擊後在按鈕下方開啟</option></select></label><p class="rule-hint">按鈕模式節省一列高度，文字在外部面板輸入；即時搜尋模式適用工具內輸入框。</p><label class="check-row"><input id="settings-floating-global-search" type="checkbox"><span>啟用浮動全域搜尋（結果顯示在外部面板）</span></label><label class="field"><span>浮動搜尋欄的搜尋模式</span><select id="settings-floating-search-mode"><option value="local">工具內篩選（預設）</option><option value="live">外部即時全域搜尋</option></select></label><label class="field"><span>即時搜尋延遲</span><select id="settings-floating-search-delay"><option value="150">150 毫秒</option><option value="300">300 毫秒（預設）</option><option value="500">500 毫秒</option><option value="800">800 毫秒</option></select></label><label class="field"><span>即時搜尋最少字數</span><select id="settings-floating-search-min"><option value="1">1 字（預設，適合中文）</option><option value="2">2 字</option><option value="3">3 字</option></select></label><p class="rule-hint">即時模式會在停止輸入後顯示外部結果，焦點保留在原搜尋欄；中文選字完成後才搜尋。Enter／向下鍵移入結果，Esc 先收起結果並保留浮動工具。清空或不足字數時收起即時面板；「全域」按鈕仍可手動搜尋。停用上方全域搜尋時，搜尋欄會使用工具內篩選。</p><label class="field"><span>全域搜尋面板寬度</span><input id="settings-floating-search-width" type="number" min="360" max="1200"></label><label class="field"><span>全域搜尋面板高度</span><input id="settings-floating-search-height" type="number" min="320" max="1200"></label><p class="rule-hint">浮動工具搜尋列按「全域」，或在浮動工具按 Ctrl+Shift+F。可搜尋已登記紀錄、收藏、標籤及位置，結果每類 25 項；不掃描磁碟。面板內可切類型、翻頁與選擇包含主從關聯；預設尺寸在下次開啟面板時套用。</p>
-                  </section><section class="settings-card"><h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
+                <section class="settings-card"><h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
                   <label class="check-row"><input id="settings-floating-show-new-master" type="checkbox"><span>顯示「＋新增主檔」按鈕（工作區／混合檢視）</span></label>
                   <p class="rule-hint">內建新增主檔與自訂快捷按鈕顯示在同一列；關閉快捷動作列會一起隱藏。</p>
                   <p class="rule-hint">自訂快捷按鈕單擊執行，最多 12 項。可在浮動工具旁填寫及預覽，確認後才儲存。</p>
@@ -974,7 +982,7 @@
                   <div class="notes-tools"><button id="quick-action-add" type="button" class="btn btn-secondary">＋ 新增快捷動作</button><button id="quick-action-refresh" type="button" class="btn btn-ghost">重新讀取表格</button></div>
                   <details id="quick-action-editor"><summary>編輯快捷動作</summary>
                     <label class="field"><span>按鈕名稱</span><input id="quick-action-label" type="text" maxlength="30" placeholder="例如：新增聯絡人、匯入合約位置"></label>
-                    <label class="field"><span>操作類型</span><select id="quick-action-type"><option value="new-record">新增指定表格紀錄</option><option value="import-paths">匯入路徑並套用標籤</option><option value="open-sheet">開啟指定表格</option><option value="open-page">開啟指定頁面</option><option value="share-check">檢查共享更新</option><option value="share-publish">發佈共享快照（仍須確認）</option><option value="open-tag-menu">開啟標籤收藏清單（外部選單）</option><option value="copy-tag-paths">複製標籤收藏路徑</option><option value="open-search">開啟浮動全域搜尋</option><option value="open-reminders">管理提醒排程</option><option value="view-logs">查看紀錄（View Logs）</option><option value="open-planning">日曆／看板</option><option value="open-snippets">常用文字片段</option><option value="open-drafts">開啟草稿筆記</option></select></label><label id="quick-action-display-field" class="field" hidden><span>開啟方式</span><select id="quick-action-display"></select></label><label id="quick-action-scope-field" class="field" hidden><span>紀錄範圍</span><select id="quick-action-scope"><option value="all">選定表格的全部紀錄</option><option value="master">先選主紀錄，再顯示其明細</option></select></label><label id="quick-action-tag-field" class="field" hidden><span>收藏標籤</span><select id="quick-action-tag"></select></label><fieldset id="quick-action-tag-choices" class="notes-scope-choices" hidden><legend>勾選要顯示的標籤</legend><div id="quick-action-tag-checks"></div><p class="rule-hint">可選多個標籤；開啟時按標籤分組。複製路徑會自動去除重複項目。</p></fieldset><label id="quick-action-query-field" class="field" hidden><span>預填搜尋文字（選填）</span><input id="quick-action-query" maxlength="256" placeholder="留空顯示完整清單／空白搜尋"></label><label id="quick-action-page-field" class="field" hidden><span>目標頁面</span><select id="quick-action-page"><option value="home">首頁</option><option value="notes">資料工作區</option><option value="favorites">我的收藏</option><option value="search">全域搜尋</option><option value="rename">檔案工具</option><option value="settings">設定</option><option value="productivity">生活／工作工具</option><option value="planning">日曆／看板</option><option value="logs">查看紀錄</option></select></label>
+                    <label class="field"><span>操作類型</span><select id="quick-action-type"></select></label><label id="quick-action-display-field" class="field" hidden><span>開啟方式</span><select id="quick-action-display"></select></label><label id="quick-action-scope-field" class="field" hidden><span>紀錄範圍</span><select id="quick-action-scope"><option value="all">選定表格的全部紀錄</option><option value="master">先選主紀錄，再顯示其明細</option></select></label><label id="quick-action-tag-field" class="field" hidden><span>收藏標籤</span><select id="quick-action-tag"></select></label><fieldset id="quick-action-tag-choices" class="notes-scope-choices" hidden><legend>勾選要顯示的標籤</legend><div id="quick-action-tag-checks"></div><p class="rule-hint">可選多個標籤；開啟時按標籤分組。複製路徑會自動去除重複項目。</p></fieldset><label id="quick-action-query-field" class="field" hidden><span>預填搜尋文字（選填）</span><input id="quick-action-query" maxlength="256" placeholder="留空顯示完整清單／空白搜尋"></label><label id="quick-action-page-field" class="field" hidden><span>目標頁面</span><select id="quick-action-page"></select></label><label id="quick-action-tool-field" class="field" hidden><span>工具箱功能</span><select id="quick-action-tool"></select></label>
 
                     <div id="quick-action-table-fields"><label class="field"><span>目標表格</span><select id="quick-action-sheet"></select></label><label id="quick-action-master-field" class="field" hidden><span>預設所屬主紀錄（選填）</span><select id="quick-action-master"></select></label></div>
                     <div id="quick-action-import-fields" hidden><label class="field"><span>預設標籤，以逗號分隔</span><input id="quick-action-tags" type="text" placeholder="工作、合約"></label><label class="check-row"><input id="quick-action-clipboard" type="checkbox"><span>按下按鈕時帶入剪貼簿文字，先預覽再匯入</span></label></div>
@@ -1252,7 +1260,7 @@
                       <option value="favorites">我的收藏</option>
                       <option value="notes">資料工作區</option>
                       <option value="search">全域搜尋</option>
-                      <option value="productivity">生活／工作工具</option><option value="planning">日曆／看板</option><option value="logs">查看紀錄</option>
+                      <option value="productivity">工具箱</option><option value="planning">日曆／看板</option><option value="logs">查看紀錄</option>
                     </select>
                   </label>
                   <label class="check-row">

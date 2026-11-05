@@ -9,7 +9,7 @@
 | 資料工作區 | `notes.js`、`notes-model.js`、`notes-store.js`、`notes-share*.js`、`notes-xlsx.js` | 編輯表格與紀錄、欄位和關聯驗證、SQLite 與版本核對、Excel 匯入、共享發布／接收。 |
 | 提醒、日曆與看板 | `record-reminders.js`、`productivity-model.js`、`planning-view.js`、`planning-view.css` | 提醒排程、月曆與狀態分組規則、完整月曆／看板的畫面和互動。改狀態仍由既有版本檢查流程寫入。 |
 | 查看紀錄與速覽 | `tool-views-model.js`、`tool-views-ui.js`、`tool-views.css` | 主視窗紀錄與浮動工具共用篩選、分頁、卡片／清單，以及按日期或狀態分組的速覽。 |
-| 生活／工作工具 | `productivity.js`、`productivity-ipc.js`、`productivity-store.js`、`profile-service.js`、`document-preview.js` | 文字片段、工作集、路徑修復、整理規則、備份與預覽。主畫面透過 IPC 讀寫，原生文件預覽有獨立限制。 |
+| 工具箱 | `productivity.js`、`productivity-ipc.js`、`productivity-store.js`、`profile-service.js`、`document-preview.js` | 文字片段、工作集、路徑修復、整理規則、備份與預覽。主畫面透過 IPC 讀寫，原生文件預覽有獨立限制。 |
 | 設定與尺寸 | `settings-catalog.js`、`settings-model.js`、`desktop-state.js`、`log-view-settings*.js`、`dialog-sizes.js` | 設定分類／搜尋／還原、介面偏好、跨視窗偏好、紀錄範圍驗證、視窗與對話框尺寸。 |
 | Electron 視窗與權限 | `main.js`、各視窗的 `*-preload.js`、`floating-window.js`、`tool-overlay.js`、`offline-policy.js` | 管理原生視窗與 IPC 發送者、快捷鍵、托盤與離線請求。全域搜尋、快捷輸入、到期提醒各有自己的視窗及操作範圍。 |
 

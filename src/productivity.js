@@ -158,5 +158,5 @@ $('tab-productivity').addEventListener('click',()=>window.favoritesUI.show('prod
    if(!busy&&$('planning-page')&&!$('planning-page').classList.contains('hidden'))run(load);
   };window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
  }
- window.productivityUI=Object.freeze({init,openLogs,snippetPicker,canLeave:()=>!busy,activate:()=>{if(!loaded||dirty)return run(load);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
+ window.productivityUI=Object.freeze({init,openLogs,snippetPicker,openSection:tool=>{if(Object.hasOwn(window.quickActionsModel.TOOLS,tool)&&window.favoritesUI.show('productivity'))show(tool);},canLeave:()=>!busy,activate:()=>{if(!loaded||dirty)return run(load);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();
