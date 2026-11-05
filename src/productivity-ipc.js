@@ -51,7 +51,7 @@ function registerProductivity(options){
  handle('productivity-snippet-text',(_,id,customer)=>snippetText(id,customer));
  handle('tool-view-data',(_,input,filters)=>viewData(require('./tool-views-model').configuration(input),filters));
 
- handle('productivity-workset-open',(_,id)=>{ensure();const value=store.get().worksets.find(value=>value.id===id);if(!value)throw new Error('工作集已移除');return fileOperation(async()=>{
+ async function openWorkset(id){ensure();const value=store.get().worksets.find(value=>value.id===id);if(!value)throw new Error('工作集已移除');return fileOperation(async()=>{
   const doc=notes().get().document,records=value.recordIds.filter(id=>doc.records.some(record=>record.id===id&&M.live(doc,record))),available=value.favoriteIds.filter(id=>{try{return favorites.get(id,true).status==='ready';}catch{return false;}});
   const direct=[],failures=value.favoriteIds.filter(id=>!available.includes(id)).map(id=>'收藏位置暫時無法使用：'+(favorites.list().find(item=>item.id===id)?.path||id)),seen=new Set(available.map(id=>process.platform==='win32'?favorites.get(id).path.toLowerCase():favorites.get(id).path));
   for(const raw of value.paths||[])try{const filepath=require('./notes-location-links').locationPath(raw),key=process.platform==='win32'?filepath.toLowerCase():filepath;if(seen.has(key))continue;await require('./notes-location-links').safeLocationOpen(filepath);const stat=await fs.promises.lstat(filepath);if(stat.isSymbolicLink()||!stat.isFile()&&!stat.isDirectory())throw new Error('不是一般檔案或資料夾');seen.add(key);direct.push(filepath);}catch(error){failures.push(raw+'：'+error.message);}
@@ -62,11 +62,12 @@ function registerProductivity(options){
   const result=available.length?await require('./favorites-batch').executeBatch(favorites,batch,openPath):{opened:0,failures:[]};result.failures.push(...failures);
   for(const filepath of direct)try{await require('./notes-location-links').safeLocationOpen(filepath);const error=await openPath(filepath);if(error)throw new Error(error);result.opened++;}catch(error){result.failures.push(filepath+'：'+error.message);}
   return {...result,records:records.length,recordId:records[0]||null};
- });});
+ });}
+ handle('productivity-workset-open',(_,id)=>openWorkset(id));
  async function previewFile(filepath,mode=desktop().settings.workspacePreviewMode||'inline',owner=parent()){if(!['inline','window','system'].includes(mode))throw new Error('預覽方式無效');if(mode==='system'){const target=require('./notes-location-links').locationPath(filepath);await require('./notes-location-links').safeLocationOpen(target);const error=await openPath(target);if(error)throw new Error(error);return {type:'system',name:path.basename(target),path:target,opened:true};}return preview.show(filepath,mode,owner);}
  handle('productivity-preview-choose',async(_,dropped)=>{const filepath=await openFileInput(dialog,parent(),{title:'選取文件預覽',filters:[{name:'可預覽文件',extensions:['pdf','png','jpg','jpeg','gif','webp','bmp','txt','html','htm','md','csv','log','json','xml','yaml','yml','ini']}],properties:['openFile']},dropped);return !filepath?{canceled:true}:previewFile(filepath);});
  handle('productivity-preview-link',(_,recordId,index)=>{const doc=notes().get().document,record=doc.records.find(value=>value.id===recordId&&M.live(doc,value));if(!record||!Number.isSafeInteger(index)||index<0||!record.fileLinks[index])throw new Error('文件連結已移除');const link=record.fileLinks[index],favorite=link.favoriteId?favorites.read().items.find(value=>value.id===link.favoriteId):null;return previewFile(favorite?favorites.get(favorite.id,true).path:link.path);});
  handle('productivity-board-move',(_,recordId,fieldId,value,revision)=>{ensure();const state=notes().get(),record=state.document.records.find(record=>record.id===recordId&&M.live(state.document,record)),field=state.document.sheets.find(sheet=>sheet.id===record?.sheetId)?.fields.find(field=>field.id===fieldId&&field.type==='select');if(!field||value!==''&&!field.options.includes(value)||state.revision!==revision)throw new Error('看板資料已變更，請重新整理');return changed(notes().updateCells([{recordId,fieldId,value}],revision));});
- return {close:()=>preview.close(),store,profile,repair,rules,viewData,copySnippet,previewFile};
+ return {close:()=>preview.close(),store,profile,repair,rules,viewData,copySnippet,previewFile,openWorkset};
 }
 module.exports={registerProductivity};

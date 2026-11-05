@@ -24,6 +24,7 @@
   const embeddedPlanning=config.embedded&&config.kind==='planning';
   const smallPlanning=config.smallCalendar&&config.kind==='planning',calendarPlanning=embeddedPlanning||smallPlanning;
   root.dataset.smallCalendar=String(Boolean(smallPlanning));
+  root.dataset.compactSnippets=String(config.kind==='snippets'&&Boolean(api.close));
   if(smallPlanning&&!filters.mode)filters.mode='calendar';
   const controls=node('div',undefined,'tool-view-filters');
   const results=node('div',undefined,'tool-view-results');
@@ -31,7 +32,7 @@
   const toolbar=node('header',undefined,'tool-view-heading');
   const title=node('div');
   title.append(node('h1',titles[config.kind]));
-  if(!compactLogs&&!smallPlanning)title.append(node('p',descriptions[config.kind]));
+  if(!compactLogs&&!smallPlanning&&!(config.kind==='snippets'&&api.close))title.append(node('p',descriptions[config.kind]));
   toolbar.append(title);
   const actions=node('div',undefined,'tool-view-actions');
   if(compactLogs){
@@ -53,7 +54,7 @@
    if(type!=='select')input.type=type;
    input.setAttribute('aria-label',label);inputs[key]=input;
    input.value=filters[key]||'';
-   if((config.embedded||compactLogs||smallPlanning)&&(type==='search'||type==='text'))input.placeholder=label;
+   if((config.embedded||compactLogs||smallPlanning||config.kind==='snippets'&&api.close)&&(type==='search'||type==='text'))input.placeholder=label;
    const typing=type==='text'||type==='search';
    input.addEventListener(typing?'input':'change',()=>{
     filters[key]=input.value;
