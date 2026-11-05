@@ -93,3 +93,5 @@
  .planning-day-preview{padding-inline:2px}
  .planning-day-more{display:none}
 }
+
+.productivity-month .productivity-day{min-height:var(--calendar-day-height,88px);font-size:inherit}.planning-calendar-layout.planning-agenda-hidden{grid-template-columns:minmax(0,1fr)}#planning-day-dialog{width:min(480px,90vw)}

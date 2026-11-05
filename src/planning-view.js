@@ -53,9 +53,10 @@
     root.append(node('p','請選擇月份。','tool-view-empty'));
     return;
    }
+   const prefs=state.preferences||{},weekStart=prefs.calendarWeekStart===1?1:0,eventLimit=prefs.calendarEventLimit??2;
    const monthStart=new Date(month.value+'-01T12:00:00');
    const nextMonth=new Date(monthStart);nextMonth.setMonth(nextMonth.getMonth()+1);nextMonth.setDate(0);
-   const calendar=node('div',undefined,'productivity-month');
+   const calendar=node('div',undefined,'productivity-month');calendar.style.setProperty('--calendar-day-height',(prefs.calendarDayHeight||88)+'px');calendar.style.fontSize=(prefs.calendarFontSize||13)+'px';
    const records=new Map(doc.records.map(record=>[record.id,record]));
    const events=model.agenda(doc,state.reminders.items,month.value).filter(event=>
     (!sheet.value||records.get(event.recordId)?.sheetId===sheet.value)&&
@@ -66,6 +67,7 @@
     byDate.get(event.date).push(event);
    }
 
+   const openEvent=event=>event.standalone?window.recordRemindersUI?.open():openRecord(event.recordId);
    const currentDate=today();
    if(!selectedDate.startsWith(month.value+'-')){
     selectedDate=currentDate.startsWith(month.value+'-')?currentDate:month.value+'-01';
@@ -91,20 +93,20 @@
     agenda.replaceChildren(heading);
     if(!rows.length)agenda.append(node('p','這一天沒有符合條件的行程。可選擇其他日期。','planning-column-empty'));
     for(const event of rows){
-     const open=button(event.title,()=>openRecord(event.recordId),'btn btn-ghost productivity-event');
+     const open=button(event.title,()=>openEvent(event),'btn btn-ghost productivity-event');
      const time=event.at?new Date(event.at).toLocaleTimeString('zh-Hant',{hour:'2-digit',minute:'2-digit'})+' · ':'';
      open.append(node('small',[time+event.sheet,event.master,event.label].filter(Boolean).join(' ／ ')));
      open.dataset.eventKind=event.kind;
      agenda.append(open);
     }
    }
-   for(const day of weekdays)calendar.append(node('strong','週'+day,'planning-weekday'));
-   for(let index=0;index<monthStart.getDay();index++){
+   for(const day of [...weekdays.slice(weekStart),...weekdays.slice(0,weekStart)])calendar.append(node('strong','週'+day,'planning-weekday'));
+   for(let index=0;index<(monthStart.getDay()-weekStart+7)%7;index++){
     const gap=node('div');gap.className='planning-gap';gap.setAttribute('aria-hidden','true');calendar.append(gap);
    }
    for(let day=1;day<=nextMonth.getDate();day++){
     const date=month.value+'-'+String(day).padStart(2,'0'),rows=byDate.get(date)||[];
-    const cell=button('',()=>select(date),'productivity-day');
+    const cell=button('',()=>{select(date);if(prefs.calendarShowAgenda===false){let dialog=$('planning-day-dialog');if(!dialog){dialog=node('dialog');dialog.id='planning-day-dialog';const close=button('關閉',()=>dialog.close());dialog.append(close);document.body.append(dialog);}const content=agenda.cloneNode(true);content.hidden=false;content.classList.add('planning-day-popup');dialog.replaceChildren(button('關閉',()=>dialog.close()),content);for(const [index,control] of [...content.querySelectorAll('.productivity-event')].entries())control.addEventListener('click',()=>{dialog.close();openEvent(rows[index]);});dialog.showModal();}},'productivity-day');
     cell.dataset.today=String(currentDate===date);
     cell.dataset.date=date;
     cell.setAttribute('aria-label',dateLabel.format(new Date(date+'T12:00:00'))+'，'+rows.length+' 項行程');
@@ -112,9 +114,9 @@
     if(currentDate===date)cell.setAttribute('aria-current','date');
     const dayHeading=node('span',undefined,'planning-day-heading');
     dayHeading.append(node('strong',String(day),'planning-day-number'));
-    if(rows.length)dayHeading.append(node('span',String(rows.length),'planning-count'));
+    if(rows.length&&prefs.calendarShowCount!==false)dayHeading.append(node('span',String(rows.length),'planning-count'));
     cell.append(dayHeading);
-    for(const event of rows.slice(0,2)){
+    for(const event of rows.slice(0,eventLimit)){
      const preview=node('span',undefined,'planning-day-preview');
      preview.dataset.eventKind=event.kind;
      const title=node('span',event.title,'planning-day-title');
@@ -127,12 +129,12 @@
      }
      cell.append(preview);
     }
-    if(rows.length>2)cell.append(node('span','另有 '+(rows.length-2)+' 項','planning-day-more'));
+    if(eventLimit>0&&rows.length>eventLimit)cell.append(node('span','另有 '+(rows.length-eventLimit)+' 項','planning-day-more'));
     days.set(date,cell);
     calendar.append(cell);
    }
    select(selectedDate);
-   region.append(calendar,agenda);
+   if(prefs.calendarShowAgenda===false){region.classList.add('planning-agenda-hidden');agenda.hidden=true;}region.append(calendar,agenda);
    root.append(summary,region);
   }
 

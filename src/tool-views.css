@@ -114,3 +114,27 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
 }
 [data-compact-logs=true] .tool-view-pager{margin-top:6px}
+
+/* The independent calendar uses the same seven-day geometry as the floating panel. */
+[data-small-calendar=true] .tool-view-heading{margin-bottom:7px}
+[data-small-calendar=true] .tool-view-heading h1{font-size:1.1em}
+[data-small-calendar=true] .tool-view-filter-panel{padding:7px;border-radius:8px}
+[data-small-calendar=true] .tool-view-filters{grid-template-columns:minmax(80px,1fr) minmax(0,1.6fr) 32px;gap:5px;align-items:center}
+[data-small-calendar=true] .tool-view-query{grid-column:1/-1}
+[data-small-calendar=true] .tool-view-filters>label>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+[data-small-calendar=true] .tool-view-filters :is(input,select){height:30px;min-height:30px;padding:3px 5px;font:inherit}
+[data-small-calendar=true] .tool-view-month-controls{display:flex;align-items:center;gap:2px;min-width:0}
+[data-small-calendar=true] .tool-view-month-controls .btn{flex:0 0 24px;padding:2px;height:30px;min-width:0}
+[data-small-calendar=true] .tool-view-month-controls input{flex:1;min-width:0}
+[data-small-calendar=true] .tool-view-filters>.btn{padding:3px;min-width:0;height:30px}
+[data-small-calendar=true] .tool-view-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:8px;text-align:center}
+[data-small-calendar=true] .tool-view-month-grid>small{color:var(--muted);padding:3px}
+[data-small-calendar=true] .tool-view-month-grid button{position:relative;height:29px;min-width:0;padding:3px 8px;border:1px solid transparent;border-radius:5px;background:var(--surface);color:var(--text);font:inherit}
+[data-small-calendar=true] .tool-view-month-grid button[data-has-events=true]{background:color-mix(in srgb,var(--accent) 12%,var(--surface));font-weight:650}
+[data-small-calendar=true] .tool-view-month-grid button[aria-current=date]{color:var(--accent);box-shadow:inset 0 0 0 1px var(--line)}
+[data-small-calendar=true] .tool-view-month-grid button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--surface))}
+[data-small-calendar=true] .tool-view-day-count{position:absolute;right:2px;top:0;font-size:9px;line-height:1.2;color:var(--accent)}
+[data-small-calendar=true] .tool-view-status{margin:6px 0}
+[data-small-calendar=true] .tool-view-list,[data-small-calendar=true] .tool-view-group{gap:5px}
+[data-small-calendar=true] .tool-view-group{padding:6px}
+[data-small-calendar=true] .tool-view-result{padding:5px 7px}

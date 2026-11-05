@@ -3,7 +3,8 @@
  const api=window.draftAPI,$=id=>document.getElementById(id);
  const title=$('title'),body=$('body'),sheet=$('sheet'),master=$('master'),status=$('status');
  let current=null,summaries=[],sheets=[],timer,writing,busy=false,closeRequested=false,closing=false;
- let mastersRequest=0,attachmentsRequest=0;
+ let listFocusRequested=false,draftSplit;
+ let mastersRequest=0,attachmentsRequest=0,preferences={draftLocalShortcuts:true,draftReminders:true,draftBodyLimit:100000},bodyResizeTimer;
  const message=error=>String(error.message||error).replace(/^Error invoking remote method '[^']+': (?:Error: )?/i,'');
  function report(text,error=false){status.textContent=text;status.dataset.error=String(error);}
  function el(tag,text){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;}
@@ -12,9 +13,9 @@
  function renderList(){
   const buttons=summaries.map(draft=>{
    const button=el('button',caption(draft));
-   button.type='button';button.title=button.textContent;button.disabled=busy;
+   button.type='button';button.dataset.draftId=draft.id;button.title=button.textContent;button.disabled=busy;
    if(draft.id===current?.id)button.setAttribute('aria-current','true');
-   button.addEventListener('click',()=>run(async()=>showDraft(await api.read(draft.id))));
+   button.addEventListener('click',()=>{listFocusRequested=true;return run(async()=>showDraft(await api.read(draft.id)));});
    return button;
   });
   $('drafts').replaceChildren(...buttons);
@@ -39,15 +40,16 @@
     api.image(current.id,index).then(source=>{if(request===attachmentsRequest){preview.src=source;row.prepend(preview);}})
      .catch(()=>{if(request===attachmentsRequest)label.textContent+='（無法預覽）';});
    }
+   const previewButton=el('button','預覽');previewButton.type='button';previewButton.title='預覽 '+item.path;previewButton.addEventListener('click',()=>run(async()=>showPreview(await api.preview(current.id,index))));
    const remove=el('button','移除');remove.type='button';remove.setAttribute('aria-label','移除 '+label.textContent);
    remove.addEventListener('click',()=>changeAttachments(()=>api.remove(current.id,current.version,index)));
-   row.append(label,remove);target.append(row);
+   row.append(label,previewButton,remove);target.append(row);
   }
  }
  function showDraft(draft){
   current=draft;
   $('send-reminder').checked=false;
-  title.value=draft?.title||'';body.value=draft?.body||'';
+  title.value=draft?.title||'';body.value=draft?.body||'';if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);updateCount();
   $('empty').hidden=Boolean(draft);$('editor').hidden=!draft;
   renderList();renderAttachments();updateSend();
  }
@@ -79,6 +81,7 @@
   catch(error){report(message(error),true);}
   finally{
    setBusy(false);updateSend();
+   if(listFocusRequested){listFocusRequested=false;[...$('drafts').querySelectorAll('button')].find(button=>button.dataset.draftId===current?.id)?.focus();}
    if(closeRequested)void closeEditor();
   }
  }
@@ -132,12 +135,19 @@
   });
  }
  for(const input of [title,body])input.addEventListener('input',()=>{
-  clearTimeout(timer);report('等候自動儲存…');updateSend();
+  clearTimeout(timer);updateCount();report('等候自動儲存…');updateSend();
   timer=setTimeout(()=>flush().catch(error=>report('無法儲存。'+message(error),true)),350);
  });
  document.addEventListener('keydown',event=>{
   if(event.defaultPrevented||event.isComposing||event.keyCode===229)return;
-  if(event.key==='Escape'){event.preventDefault();void closeEditor();return;}
+  if(event.key==='Escape'){if(document.querySelector('dialog[open]'))return;event.preventDefault();void closeEditor();return;}
+  if(preferences.draftLocalShortcuts!==false&&!document.querySelector('dialog[open]')){
+   const command=(event.ctrlKey||event.metaKey)&&!event.altKey;
+   if(command&&event.key.toLowerCase()==='n'&&!event.shiftKey){event.preventDefault();$('new-draft').click();return;}
+   if(command&&event.shiftKey&&event.key.toLowerCase()==='s'){event.preventDefault();if(current)$('save-as').click();return;}
+   if(event.altKey&&!event.ctrlKey&&!event.metaKey&&event.key.toLowerCase()==='r'){event.preventDefault();if(preferences.draftReminders&&current){$('draft-reminder').open=true;$('reminder-at').focus();}return;}
+   if(event.key==='Delete'&&!event.ctrlKey&&!event.altKey&&!event.metaKey&&event.target.closest?.('#drafts')&&event.target.dataset.draftId===current?.id){event.preventDefault();$('delete').click();return;}
+  }
   if((event.ctrlKey||event.metaKey)&&!event.shiftKey&&!event.altKey&&event.key.toLowerCase()==='s'){
    event.preventDefault();void flush().catch(error=>report('無法儲存。'+message(error),true));
   }
@@ -188,10 +198,41 @@
   await nextDraft(id);
   report('已在「'+result.sheet+'」建立紀錄'+(result.reminderRequested?'，請在主視窗設定提醒。':''));
  }));
+ function applyPreferences(settings){
+  const previous=preferences;preferences={...preferences,...settings};
+  if(settings.theme)document.documentElement.dataset.theme=settings.theme;
+  if(settings.fontSize)document.documentElement.style.fontSize=settings.fontSize+'px';
+  if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);else body.removeAttribute('maxlength');
+  if(previous.draftBodyHeight!==preferences.draftBodyHeight)body.style.height=(preferences.draftBodyHeight||280)+'px';
+  if(previous.draftListWidth!==preferences.draftListWidth)draftSplit?.set(preferences.draftListWidth||170);
+  $('draft-reminder').hidden=preferences.draftReminders===false;updateCount();
+ }
+ api.onSettings?.(applyPreferences);
+ function updateCount(){const limit=preferences.draftBodyLimit||0;$('char-count').textContent=body.value.length.toLocaleString()+(limit?' / '+limit.toLocaleString()+' 字':' 字 · 不設字數上限');}
+ async function showPreview(value){
+  if(!value||value.canceled)return;
+  if(value.opened){report('已開啟預覽：'+value.name);return;}
+  const root=$('attachment-preview-content');root.replaceChildren();$('attachment-preview-title').textContent=value.name;
+  if(value.type==='image'){const img=el('img');img.alt=value.name;img.src=value.data;root.append(img);}
+  else root.append(el('pre',value.text));
+  $('attachment-preview').showModal();
+ }
+ $('preview-close').addEventListener('click',()=>$('attachment-preview').close());
+ $('attachment-preview').addEventListener('close',()=>$('attachment-preview-content').replaceChildren());
+ $('save-as').addEventListener('click',()=>{if(current&&!busy)$('export-dialog').showModal();});
+ $('export-confirm').addEventListener('click',()=>{const extension=$('export-extension').value;void run(async()=>{const result=await api.export(current.id,current.version,extension);if(!result.canceled){$('export-dialog').close();report('已另存：'+result.path);}});});
+ $('reminder-save').addEventListener('click',()=>run(async()=>{const at=new Date($('reminder-at').value);if(!Number.isFinite(at.getTime()))throw new Error('請選擇提醒時間');await api.remind(current.id,current.version,{at:at.toISOString(),repeat:$('reminder-repeat').value});report('草稿提醒已建立；可在提醒排程中管理，送出或刪除草稿後仍會保留。');}));
+ const bodyObserver=new ResizeObserver(()=>{clearTimeout(bodyResizeTimer);if(!current)return;bodyResizeTimer=setTimeout(()=>{const height=Math.round(body.getBoundingClientRect().height);if(height>=140&&height<=2000)api.configure({draftBodyHeight:height}).catch(error=>report('編輯高度未能儲存：'+message(error),true));},350);});bodyObserver.observe(body);
  void run(async()=>{
   const data=await api.data();
   document.documentElement.dataset.theme=data.theme;
   document.documentElement.dataset.font=data.fontSize;
+  applyPreferences(data.preferences||{});
+  document.documentElement.style.fontSize=data.fontSize+'px';
+  body.style.height=(preferences.draftBodyHeight||280)+'px';
+  $('draft-reminder').hidden=preferences.draftReminders===false;
+  draftSplit=window.resizableSplit.attach($('draft-layout'),{width:preferences.draftListWidth||170,min:110,max:600,label:'調整草稿清單寬度',save:width=>api.configure({draftListWidth:width})});
+  const localDate=new Date(Date.now()+3600000);$('reminder-at').value=new Date(localDate.getTime()-localDate.getTimezoneOffset()*60000).toISOString().slice(0,16);
   summaries=data.drafts;
   const draft=summaries.length?await api.read(summaries[0].id):await api.newDraft();
   showDraft(draft);remember(draft);

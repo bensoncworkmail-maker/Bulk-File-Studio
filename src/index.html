@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; media-src 'none'; worker-src 'none'">
     <script src="diagnostics-runtime.js"></script><title>Bulk File Studio</title>
-    <script src="global-shortcuts.js"></script>
+    <script src="global-shortcuts.js"></script><script src="shortcut-controls.js"></script><script src="resizable-split.js"></script>
     <script src="favorites-model.js"></script>
     <script src="search-criteria.js"></script><script src="search-date-presets.js"></script><script src="floating-search-state.js"></script><script src="settings-catalog.js"></script>
     <script src="notes-table-state.js"></script>
@@ -61,8 +61,8 @@
       <section id="home-page" class="home-page hidden" aria-labelledby="home-title">
         <div class="home-heading">
           <div>
-            <h1 id="home-title">首頁</h1>
-            <p>快速存取收藏、主檔與最近資料。</p>
+            <h1 id="home-title">工作首頁</h1>
+            <p>接續最近工作，集中查看常用資料與工具。</p>
           </div>
           <div class="home-heading-actions">
             <button id="home-layout-edit" class="btn btn-secondary" aria-pressed="false">編輯版面</button><button id="home-customize" class="btn btn-secondary">自訂首頁</button>
@@ -74,7 +74,7 @@
           <input id="home-search-query" type="search" maxlength="256" placeholder="搜尋客戶、聯絡人、文件或收藏位置…" aria-label="從首頁全域搜尋">
           <button class="btn btn-primary" type="submit">全域搜尋</button>
         </form>
-        <p id="home-status" class="notes-hint" role="status"></p>
+        <div class="home-focus-bar"><div><strong id="home-today">今日工作</strong><span>隨手記下內容，再整理到工作區</span></div><div class="home-focus-actions"><button id="home-new-draft" class="btn btn-primary">✎ 新草稿</button><button id="home-calendar" class="btn btn-secondary">▦ 日曆</button><button id="home-reminders" class="btn btn-ghost">提醒排程</button><button id="home-snippets" class="btn btn-ghost">常用文字</button></div></div><p id="home-status" class="notes-hint" role="status"></p>
         <div id="home-widgets" class="home-widgets"></div>
       </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
@@ -94,11 +94,11 @@
             <button class="btn btn-secondary" data-productivity="logs" aria-pressed="false">查看紀錄 ↗</button>
           </nav><div class="productivity-content">
           <section id="productivity-repair" class="productivity-panel"><h2>批次修復路徑</h2><p>舊磁碟或資料夾搬家後，更新收藏、紀錄文件連結及獨立路徑文字欄位。只修復連結；不搬移原始檔案。網絡磁碟請先對應磁碟代號。</p><form id="repair-form"><label class="field"><span>舊根路徑</span><input id="repair-from" required maxlength="4096" placeholder="例如 D:\舊資料"></label><label class="field"><span>新根路徑</span><input id="repair-to" required maxlength="4096" placeholder="例如 E:\資料"></label><div class="productivity-actions"><button id="repair-folder" class="btn btn-secondary" type="button">選擇新位置</button><button class="btn btn-primary" type="submit">預覽修復</button></div></form><div class="productivity-actions"><button id="repair-select" class="btn btn-ghost" disabled>全選可修復項目</button><button id="repair-apply" class="btn btn-primary" disabled>確認修復所選連結</button></div><div id="repair-list" class="productivity-list"></div></section>
-          <section id="productivity-backup" class="productivity-panel" hidden><h2>完整備份／還原中心</h2><p>保存工作區、收藏、提醒、檢視、範本、設定與本頁工具；保留每次備份的歷史版本。原始文件、共享授權與系統登記另行管理。</p><div class="productivity-actions"><button id="backup-create" class="btn btn-primary">建立完整備份</button><button id="backup-import" class="btn btn-secondary">選取備份並預覽還原</button></div><div id="backup-list" class="productivity-list"></div><div id="backup-preview" class="productivity-card" hidden><h3>還原預覽</h3><p id="backup-summary"></p><div id="backup-counts"></div><button id="backup-restore" class="btn btn-primary">確認還原</button><button id="backup-cancel" class="btn btn-ghost">取消預覽</button></div></section>
-          <section id="productivity-rules" class="productivity-panel" hidden><h2>檔案整理規則</h2><p>依副檔名、名稱及修改日期提出整理建議。預覽後可加入標籤，或交給檔案工具檢查改名／搬移。</p><form id="rule-form"><input id="rule-id" type="hidden"><label class="field"><span>規則名稱</span><input id="rule-name" required maxlength="100" placeholder="例如 每月收據"></label><div class="productivity-fields"><label class="field"><span>副檔名（逗號分隔；留空為全部）</span><input id="rule-extensions" maxlength="200" placeholder="pdf,jpg,png"></label><label class="field"><span>名稱包含</span><input id="rule-contains" maxlength="100" placeholder="例如 收據"></label><label class="field"><span>修改日期由（選填）</span><input id="rule-after" type="date"></label><label class="field"><span>修改日期至（選填）</span><input id="rule-before" type="date"></label><label class="field"><span>建議加上檔名前綴</span><input id="organize-prefix" maxlength="100" placeholder="例如 收據_"></label><label class="field"><span>建議標籤（逗號分隔）</span><input id="rule-tags" maxlength="650" placeholder="家庭,收據"></label></div><label class="field"><span>建議搬移至（選填）</span><input id="rule-folder" maxlength="4096"></label><div class="productivity-actions"><button id="rule-pick-folder" type="button" class="btn btn-ghost" title="亦可拖放目標資料夾">選擇目標資料夾</button><button type="submit" class="btn btn-primary">儲存規則</button><button id="rule-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="rule-list"></div><div class="productivity-actions"><label>套用規則 <select id="rule-select"></select></label><button id="rule-preview" class="btn btn-secondary">選擇檔案並產生建議</button></div><div id="rule-results" class="productivity-list"></div><div class="productivity-actions"><button id="rule-tag" class="btn btn-secondary" disabled>收藏並套用標籤</button><button id="rule-rename" class="btn btn-secondary" disabled>交給改名工具</button><button id="rule-move" class="btn btn-secondary" disabled>交給搬移工具</button></div></section>
+          <section id="productivity-backup" class="productivity-panel" hidden><h2>完整備份／還原中心</h2><p>保存工作區、收藏、提醒、檢視、範本、設定與本頁工具；保留每次備份的歷史版本。原始文件、共享授權與系統登記另行管理。</p><div class="productivity-actions"><button id="backup-create" class="btn btn-primary">建立完整備份</button><button id="backup-import" class="btn btn-secondary">選取備份並預覽還原</button></div><button id="backup-open-folder" class="btn btn-ghost">開啟備份資料夾</button><p id="backup-location" class="notes-hint"></p><div class="productivity-actions"><label><input id="backup-select-all" type="checkbox"> 選取全部</label><button id="backup-export-selected" class="btn btn-secondary">匯出所選</button><button id="backup-delete-selected" class="btn btn-ghost">刪除所選</button><span id="backup-selection-count" role="status"></span></div><div id="backup-list" class="productivity-list"></div><div id="backup-preview" class="productivity-card" hidden><h3>還原預覽</h3><p id="backup-summary"></p><div id="backup-counts"></div><button id="backup-restore" class="btn btn-primary">確認還原</button><button id="backup-cancel" class="btn btn-ghost">取消預覽</button></div></section>
+          <section id="productivity-rules" class="productivity-panel" hidden><h2>檔案整理規則</h2><p>依副檔名、名稱及日期提出建議。可拖放檔案／資料夾到「產生建議」按鈕；資料夾只檢查第一層，確認後才執行。</p><form id="rule-form"><input id="rule-id" type="hidden"><label class="field"><span>規則名稱</span><input id="rule-name" required maxlength="100" placeholder="例如 每月收據"></label><div class="productivity-fields"><label class="field"><span>副檔名（逗號分隔；留空為全部）</span><input id="rule-extensions" maxlength="200" placeholder="pdf,jpg,png"></label><label class="field"><span>名稱包含</span><input id="rule-contains" maxlength="100" placeholder="例如 收據"></label><label class="field"><span>修改日期由（選填）</span><input id="rule-after" type="date"></label><label class="field"><span>修改日期至（選填）</span><input id="rule-before" type="date"></label><label class="field"><span>建議加上檔名前綴</span><input id="organize-prefix" maxlength="100" placeholder="例如 收據_"></label><label class="field"><span>建議標籤（逗號分隔）</span><input id="rule-tags" maxlength="650" placeholder="家庭,收據"></label></div><label class="field"><span>建議搬移至（選填）</span><input id="rule-folder" maxlength="4096"></label><div class="productivity-actions"><button id="rule-pick-folder" type="button" class="btn btn-ghost" title="亦可拖放目標資料夾">選擇目標資料夾</button><button type="submit" class="btn btn-primary">儲存規則</button><button id="rule-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="rule-list"></div><div class="productivity-actions"><label>套用規則 <select id="rule-select"></select></label><button id="rule-preview" class="btn btn-secondary">選擇檔案並產生建議</button></div><div id="rule-results" class="productivity-list"></div><div class="productivity-actions"><button id="rule-tag" class="btn btn-secondary" disabled>收藏並套用標籤</button><button id="rule-rename" class="btn btn-secondary" disabled>交給改名工具</button><button id="rule-move" class="btn btn-secondary" disabled>交給搬移工具</button></div></section>
           <section id="productivity-preview" class="productivity-panel" hidden><h2>文件內建預覽</h2><p>本機及內網文件均可預覽。支援圖片、PDF、純文字及 HTML 原始碼。也可以從工作區紀錄的「相關檔案」按「預覽」。文字上限 2 MB，圖片／PDF 上限 25 MB。</p><button id="document-choose" class="btn btn-primary">選擇文件預覽</button></section>
-          <section id="productivity-worksets" class="productivity-panel" hidden><h2>情境工作集</h2><p>組合客戶、帳單或旅行相關的收藏與紀錄。最多組合 20 個收藏位置與 100 筆紀錄；開啟前會核對位置，並顯示確認。</p><form id="workset-form"><input id="workset-id" type="hidden"><label class="field"><span>工作集名稱</span><input id="workset-name" required maxlength="100"></label><label class="field"><span>篩選收藏與紀錄</span><input id="workset-query" type="search" maxlength="200" placeholder="搜尋名稱、路徑或表格"></label><h3>收藏位置</h3><div id="workset-favorites" class="productivity-choice-list"></div><h3>工作區紀錄</h3><div id="workset-records" class="productivity-choice-list"></div><p id="workset-count" class="notes-hint"></p><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存工作集</button><button id="workset-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="workset-list"></div></section>
-          <section id="productivity-snippets" class="productivity-panel" hidden><div class="tool-view-heading"><h2>常用文字片段</h2><button id="snippets-overlay" class="btn btn-secondary">開啟浮動片段</button></div><p>手動保存常用內容，一鍵複製。可使用 {{today}}（今天）及 {{customer}}（客戶／稱呼）。</p><form id="snippet-form"><input id="snippet-id" type="hidden"><div class="productivity-fields"><label class="field"><span>名稱</span><input id="snippet-name" required maxlength="100"></label><label class="field"><span>分類</span><input id="snippet-category" maxlength="60"></label></div><label class="field"><span>文字內容</span><textarea id="snippet-body" required maxlength="20000" rows="5"></textarea></label><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存片段</button><button id="snippet-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div class="productivity-fields"><label class="field"><span>搜尋名稱、分類或內容</span><input id="snippet-query" type="search" maxlength="200"></label><label class="field"><span>客戶／稱呼變數</span><input id="snippet-customer" maxlength="200"></label></div><div id="snippet-list"></div></section>
+          <section id="productivity-worksets" class="productivity-panel" hidden><h2>情境工作集</h2><p>將同一工作的檔案、資料夾與紀錄集中管理。支援直接位置與內網共享，每組最多 20 個位置、100 筆紀錄；開啟前核對並確認。</p><form id="workset-form"><input id="workset-id" type="hidden"><label class="field"><span>工作集名稱</span><input id="workset-name" required maxlength="100"></label><label class="field"><span>篩選收藏與紀錄</span><input id="workset-query" type="search" maxlength="200" placeholder="搜尋名稱、路徑或表格"></label><label class="field"><span>直接檔案／資料夾位置（每行一個，可拖放）</span><textarea id="workset-paths" rows="3" placeholder="例如：\\FileServer\Share\Project"></textarea></label><h3>收藏位置</h3><div id="workset-favorites" class="productivity-choice-list"></div><h3>工作區紀錄</h3><div id="workset-records" class="productivity-choice-list"></div><p id="workset-count" class="notes-hint"></p><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存工作集</button><button id="workset-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="workset-list"></div></section>
+          <section id="productivity-snippets" class="productivity-panel" hidden><div class="tool-view-heading"><h2>常用文字片段</h2><button id="snippets-overlay" class="btn btn-secondary">開啟浮動片段</button></div><p>手動保存常用內容，一鍵複製。可使用 {{today}}（今天）及 {{customer}}（客戶／稱呼）。</p><form id="snippet-form"><input id="snippet-id" type="hidden"><div class="productivity-fields"><label class="field"><span>名稱</span><input id="snippet-name" required maxlength="100"></label><label class="field"><span>分類</span><input id="snippet-category" maxlength="60"></label></div><label class="field"><span>複製全域快捷鍵（預設未設定；Backspace 清除；稱呼變數為空白）</span><input id="snippet-shortcut" type="text" readonly></label><label class="field"><span>文字內容</span><textarea id="snippet-body" required maxlength="20000" rows="5"></textarea></label><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存片段</button><button id="snippet-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div class="productivity-fields"><label class="field"><span>搜尋名稱、分類或內容</span><input id="snippet-query" type="search" maxlength="200"></label><label class="field"><span>客戶／稱呼變數</span><input id="snippet-customer" maxlength="200"></label></div><div id="snippet-list"></div></section>
 
         </div></div>
       </section>
@@ -286,7 +286,7 @@
                 <span id="notes-selected-count">已選 0 筆</span>
                 <button id="notes-select-filtered" class="btn btn-ghost">選取全部篩選結果</button>
                 <button id="notes-unselect" class="btn btn-ghost" disabled>取消選取</button>
-                <button id="notes-batch-delete" class="btn btn-ghost" disabled>批次移至回收筒</button>
+                <button id="notes-bulk-edit" class="btn btn-ghost" disabled>批次編輯欄位</button><button id="notes-batch-delete" class="btn btn-ghost" disabled>批次移至回收筒</button>
               </div>
             </div>
             </div>
@@ -393,7 +393,7 @@
                   <small>視窗、尺寸與工具</small>
                 </span>
               </button>
-              <button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">
+              <button id="settings-tab-draft" class="btn btn-ghost" type="button" role="tab" aria-controls="settings-panel-draft" aria-selected="false" tabindex="-1"><span class="settings-category-icon" aria-hidden="true">✎</span><span class="settings-category-copy"><strong>草稿筆記</strong><small>編輯、提醒與附件</small></span></button><button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">
                 <span class="settings-category-icon" aria-hidden="true">⚙</span>
                 <span class="settings-category-copy">
                   <strong>啟動與系統</strong>
@@ -627,7 +627,7 @@
                   <button id="btn-shortcuts-reset" class="btn btn-secondary">還原預設快捷鍵</button>
                 </section>
               </div>
-              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden>
+              <div id="settings-panel-notes" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-notes" hidden><section class="settings-card"><h2>文件預覽</h2><label class="field"><span>工作區文件開啟方式</span><select id="settings-workspacePreviewMode"><option value="inline">視窗內預覽（PDF 另開視窗）</option><option value="window">獨立預覽視窗</option><option value="system">使用系統預設程式開啟</option></select></label></section>
                 <section class="settings-card"><h2>儲存格與鍵盤操作</h2><label class="field"><span>編輯中按 Enter 後</span><select id="settings-notes-grid-enter"><option value="next">儲存並移到右格（列尾移下一列）</option><option value="down">儲存並移到下方同欄</option><option value="stay">儲存並留在原格</option></select></label><label class="check-row"><input id="settings-notes-grid-tab" type="checkbox"><span>Tab 儲存並移到下一格，Shift+Tab 反向</span></label><label class="check-row"><input id="settings-notes-grid-edit-next" type="checkbox"><span>移動後直接編輯下一格</span></label><label class="check-row"><input id="settings-notes-delete-key" type="checkbox"><span>選取工作區紀錄後按 Delete 開啟刪除確認</span></label><p class="rule-hint">沒有修改的儲存格只移動，不重複儲存。驗證失敗保留輸入；最後一筆不會自動建立新列。輸入框與儲存格編輯中的 Delete 仍是刪除文字／清空格，不刪除紀錄。</p></section>
                 <section class="settings-card">
                   <h2>資料工作區版面</h2>
@@ -837,7 +837,7 @@
               <div id="settings-panel-planning" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-planning" hidden>
                 <section class="settings-card">
                   <h2>日曆／看板</h2>
-                  <label class="check-row"><input id="settings-planning-day-show-master" type="checkbox"><span>在月曆日期格顯示主紀錄名稱</span></label>
+                  <label class="check-row"><input id="settings-planning-day-show-master" type="checkbox"><span>在月曆日期格顯示主紀錄名稱</span></label><label class="check-row"><input id="settings-calendarShowCount" type="checkbox" ><span>顯示日期格行程數量</span></label><label class="field"><span>每週起始日</span><select id="settings-calendarWeekStart"><option value="0">星期日</option><option value="1">星期一</option></select></label><label class="field"><span>日期格最小高度（px）</span><input id="settings-calendarDayHeight" type="number" min="56" max="240"></label><label class="field"><span>每格預覽行程數（0 僅顯示日期及數量）</span><input id="settings-calendarEventLimit" type="number" min="0" max="10"></label><label class="field"><span>日期格字級（px）</span><input id="settings-calendarFontSize" type="number" min="11" max="22"></label><label class="check-row"><input id="settings-calendarShowAgenda" type="checkbox" ><span>顯示所選日期明細面板</span></label>
                   <p class="rule-hint">日期格先顯示行程的紀錄名稱。開啟後，所屬主紀錄會另列在下方。點選日期可查看完整行程。</p>
                 </section>
                 <section class="settings-card">
@@ -952,7 +952,7 @@
                   <p class="notes-hint">位置引用以完整路徑去重，主檔數也去重。文字路徑、分享待確認連結仍可列出關係，但搜尋不會自動開啟或授權它們。搜尋文字不寫入持久紀錄。</p>
                 </section>
               </div>
-              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden><section class="settings-card"><h2>浮動工具版面預設</h2><label class="check-row"><input id="settings-floating-layout-editing" type="checkbox"><span>拖曳調整搜尋／工具／標籤控制列順序</span></label><button id="settings-floating-layout-reset" class="btn btn-ghost">還原浮動控制列順序</button><button id="layout-floating-minimal" class="btn btn-secondary">精簡小窗</button><button id="layout-floating-balanced" class="btn btn-secondary">平衡雙欄</button><p class="rule-hint">可繼續自訂寬高、透明度、列高、快捷列位置與欄數、顯示按鈕；各快捷表單可另設尺寸與欄位。</p></section>
+              <div id="settings-panel-floating" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-floating" hidden><section class="settings-card"><h2>面板快捷鍵</h2><p>預設未設定；點欄位按組合鍵，Backspace 清除。</p><label class="field"><span>開啟常用文字分類面板（全域快捷鍵）</span><input id="settings-snippets-shortcut" type="text" readonly><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-snippets-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-snippets-shortcut-default">還原預設</button></span></label><label class="field"><span>開啟小月曆（全域快捷鍵）</span><input id="settings-calendar-shortcut" type="text" readonly><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-calendar-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-calendar-shortcut-default">還原預設</button></span></label></section><section class="settings-card"><h2>浮動工具版面預設</h2><label class="check-row"><input id="settings-floating-layout-editing" type="checkbox"><span>拖曳調整搜尋／工具／標籤控制列順序</span></label><button id="settings-floating-layout-reset" class="btn btn-ghost">還原浮動控制列順序</button><button id="layout-floating-minimal" class="btn btn-secondary">精簡小窗</button><button id="layout-floating-balanced" class="btn btn-secondary">平衡雙欄</button><p class="rule-hint">可繼續自訂寬高、透明度、列高、快捷列位置與欄數、顯示按鈕；各快捷表單可另設尺寸與欄位。</p></section>
                 <section class="settings-card">
                   <h2>浮動內容分頁</h2>
                   <p class="rule-hint">收藏／工作區、日曆與文字片段和快捷動作共用工具列。收合時可從標題列的右鍵選單展開指定分頁。</p>
@@ -976,12 +976,12 @@
                   <p class="rule-hint">內建新增主檔與自訂快捷按鈕顯示在同一列；關閉快捷動作列會一起隱藏。</p>
                   <p class="rule-hint">自訂快捷按鈕單擊執行，最多 12 項。可在浮動工具旁填寫及預覽，確認後才儲存。</p>
                   <label class="field"><span>新增與匯入快捷動作的開啟位置</span><select id="settings-floating-quick-mode"><option value="popup">浮動工具旁的獨立彈出表單</option><option value="main">主視窗</option></select></label><label class="check-row"><input id="settings-capture-keep-values" type="checkbox"><span>快捷表單連續新增時，預設保留欄位與標籤（名稱與筆記清空）</span></label>
-                  <label class="check-row"><input id="settings-floating-keep-quick" type="checkbox"><span>快捷動作轉到主視窗後，保留浮動工具</span></label>
+                  <label class="check-row"><input id="settings-floating-keep-quick" type="checkbox"><span>快捷動作轉到主視窗後，保留浮動工具（已置頂時一律保留）</span></label>
                   <p class="rule-hint">「開啟指定表格」仍使用主視窗；獨立表單不會叫出主視窗，離開焦點也保留未完成輸入。</p>
                   <div id="quick-action-list"></div>
                   <div class="notes-tools"><button id="quick-action-add" type="button" class="btn btn-secondary">＋ 新增快捷動作</button><button id="quick-action-refresh" type="button" class="btn btn-ghost">重新讀取表格</button></div>
                   <details id="quick-action-editor"><summary>編輯快捷動作</summary>
-                    <label class="field"><span>按鈕名稱</span><input id="quick-action-label" type="text" maxlength="30" placeholder="例如：新增聯絡人、匯入合約位置"></label>
+                    <label class="field"><span>按鈕名稱</span><input id="quick-action-label" type="text" maxlength="30" placeholder="例如：新增聯絡人、匯入合約位置"></label><label class="field"><span>全域快捷鍵（預設未設定；Backspace 清除）</span><input id="quick-action-shortcut" type="text" readonly></label><label class="field"><span>按鈕顯示</span><select id="quick-action-button-display"><option value="both">圖示與文字</option><option value="text">文字</option><option value="icon">僅圖示</option></select></label><label class="field"><span>圖示</span><select id="quick-action-icon"><option>＋</option><option>↥</option><option>▤</option><option>▦</option><option>⌕</option><option>▣</option><option>☷</option><option>✎</option><option>⌚</option><option>★</option><option>⚙</option><option>↗</option><option>⧉</option><option>☰</option></select></label>
                     <label class="field"><span>操作類型</span><select id="quick-action-type"></select></label><label id="quick-action-display-field" class="field" hidden><span>開啟方式</span><select id="quick-action-display"></select></label><label id="quick-action-scope-field" class="field" hidden><span>紀錄範圍</span><select id="quick-action-scope"><option value="all">選定表格的全部紀錄</option><option value="master">先選主紀錄，再顯示其明細</option></select></label><label id="quick-action-tag-field" class="field" hidden><span>收藏標籤</span><select id="quick-action-tag"></select></label><fieldset id="quick-action-tag-choices" class="notes-scope-choices" hidden><legend>勾選要顯示的標籤</legend><div id="quick-action-tag-checks"></div><p class="rule-hint">可選多個標籤；開啟時按標籤分組。複製路徑會自動去除重複項目。</p></fieldset><label id="quick-action-query-field" class="field" hidden><span>預填搜尋文字（選填）</span><input id="quick-action-query" maxlength="256" placeholder="留空顯示完整清單／空白搜尋"></label><label id="quick-action-page-field" class="field" hidden><span>目標頁面</span><select id="quick-action-page"></select></label><label id="quick-action-tool-field" class="field" hidden><span>工具箱功能</span><select id="quick-action-tool"></select></label>
 
                     <div id="quick-action-table-fields"><label class="field"><span>目標表格</span><select id="quick-action-sheet"></select></label><label id="quick-action-master-field" class="field" hidden><span>預設所屬主紀錄（選填）</span><select id="quick-action-master"></select></label></div>
@@ -1245,7 +1245,22 @@
                   <p>在小視窗切換標籤、搜尋、開啟、複製路徑及拖放收藏；標題列可切換置頂。主程式執行期間可使用全域快捷鍵顯示／隱藏；系統匣及退出行為可於「啟動」設定。</p>
                 </section>
               </div>
-              <div id="settings-panel-system" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-system" hidden>
+              <div id="settings-panel-draft" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-draft" hidden>                <section class="settings-card">
+                  <h2>草稿筆記視窗</h2>
+                  <label class="check-row"><input id="settings-draft-remember-window" type="checkbox" checked><span>記住上次開啟位置、寬度與高度</span></label>
+                  <label class="field"><span>預設寬度（px）</span><input id="settings-draft-width" type="number" min="460" max="3000" step="1"></label>
+                  <label class="field"><span>預設高度（px）</span><input id="settings-draft-height" type="number" min="460" max="3000" step="1"></label>
+                  <p class="rule-hint">首次開啟或取消記憶時使用預設尺寸。若原螢幕已移除，視窗會移回可見範圍。</p>
+                </section>
+<section class="settings-card"><h2>草稿編輯與附件</h2>                  <label class="field">
+                    <span>開啟草稿筆記（程式執行期間）</span>
+                    <input id="settings-draft-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵">
+                    <span class="shortcut-buttons">
+                      <button type="button" id="btn-draft-shortcut-clear" class="btn btn-ghost">停用</button>
+                      <button type="button" id="btn-draft-shortcut-default" class="btn btn-ghost">還原預設</button>
+                    </span>
+                  </label>
+<label class="check-row"><input id="settings-draftReminders" type="checkbox" ><span>允許草稿直接建立提醒</span></label><label class="check-row"><input id="settings-draftLocalShortcuts" type="checkbox" ><span>啟用面板快捷鍵（Ctrl+N 新增、Ctrl+Shift+S 另存、Alt+R 提醒、Delete 刪除）</span></label><label class="field"><span>草稿字數上限（0 為不設字數上限）</span><input id="settings-draftBodyLimit" type="number" min="0" max="10000000" step="1"></label><label class="field"><span>附件開啟方式</span><select id="settings-draftPreviewMode"><option value="inline">視窗內預覽（PDF 另開視窗）</option><option value="window">獨立預覽視窗</option><option value="system">使用系統預設程式開啟</option></select></label><p class="rule-hint">不設字數上限仍受裝置記憶體與 SQLite 單欄位限制；工作區筆記上限為 100,000 字，較長草稿請另存檔案。Delete 僅在草稿清單取得焦點時刪除。</p></section></div><div id="settings-panel-system" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-system" hidden>
                 <section class="settings-card">
                   <h2>啟動與系統匣</h2>
                   <label class="check-row">
@@ -1286,24 +1301,9 @@
                     </span>
                     <small>點選後直接按組合鍵；Tab 離開、Esc 取消、Backspace 清除。支援 Ctrl／Alt 組合或 F1–F24。</small>
                   </label>
-                  <label class="field">
-                    <span>開啟草稿筆記（程式執行期間）</span>
-                    <input id="settings-draft-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵">
-                    <span class="shortcut-buttons">
-                      <button type="button" id="btn-draft-shortcut-clear" class="btn btn-ghost">停用</button>
-                      <button type="button" id="btn-draft-shortcut-default" class="btn btn-ghost">還原預設</button>
-                    </span>
-                  </label>
                   <button id="btn-settings-hide" class="btn btn-secondary">現在隱藏至系統匣</button>
                   <p class="rule-hint">以上選項預設關閉，只有快捷鍵預設啟用。點系統匣圖示或快捷鍵可叫回主視窗，右鍵選單可結束程式。完整結束後快捷鍵不會啟動程式。開機啟動只提供 Windows 安裝版；Windows 系統也可停用它。右鍵收藏會直接顯示主視窗。</p>
                   <p id="desktop-shell-status" role="status"></p>
-                </section>
-                <section class="settings-card">
-                  <h2>草稿筆記視窗</h2>
-                  <label class="check-row"><input id="settings-draft-remember-window" type="checkbox" checked><span>記住上次開啟位置、寬度與高度</span></label>
-                  <label class="field"><span>預設寬度（px）</span><input id="settings-draft-width" type="number" min="460" max="3000" step="1"></label>
-                  <label class="field"><span>預設高度（px）</span><input id="settings-draft-height" type="number" min="460" max="3000" step="1"></label>
-                  <p class="rule-hint">首次開啟或取消記憶時使用預設尺寸。若原螢幕已移除，視窗會移回可見範圍。</p>
                 </section>
                 <section class="settings-card">
                   <h2>Windows 右鍵收藏</h2>
@@ -1337,7 +1337,7 @@
                   <p class="rule-hint">僅 Windows。使用 ES 的本機 IPC，不使用 HTTP／ETP；停用會取消查詢並清除結果，不影響原有收藏與檔案。Everything 自己的更新檢查、網路索引與伺服器需另外關閉；其連線不受 Studio 控制。只接受本機磁碟結果；映射磁碟仍請自行確認為本機。</p>
                 </section>
               </div>
-              <div id="settings-panel-data" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-data" hidden>
+              <div id="settings-panel-data" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-data" hidden><section class="settings-card"><h2>定時完整備份</h2><label class="field"><span>程式執行時定時建立備份</span><select id="settings-backupIntervalHours"><option value="0">停用</option><option value="1">每小時</option><option value="6">每 6 小時</option><option value="12">每 12 小時</option><option value="24">每日</option><option value="168">每週</option></select></label><p class="rule-hint">程式執行時檢查排程；錯過時會在下次執行補做一次。位置可在「完整備份／還原中心」查看。備份只保存已送入工作區的筆記；尚未送出的草稿與原始文件請另外另存。</p></section>
                 <section class="settings-card">
                   <h2>錯誤紀錄與診斷</h2>
                   <label class="check-row"><input id="settings-diagnostics-enabled" type="checkbox"><span>保留本機錯誤紀錄</span></label>
@@ -2373,7 +2373,7 @@
       </div>
       <p id="notes-card-status" role="status" class="notes-hint"></p>
     </dialog>
-    <dialog id="notes-record-dialog" class="modal notes-modal notes-record-dialog" aria-labelledby="notes-record-dialog-title">
+    <dialog id="notes-bulk-dialog" class="modal notes-modal notes-bulk-dialog" aria-labelledby="notes-bulk-title"><h2 id="notes-bulk-title">批次編輯紀錄</h2><p id="notes-bulk-summary"></p><label class="field"><span>要統一變更的欄位</span><select id="notes-bulk-field"></select></label><div id="notes-bulk-value" class="field"></div><p class="notes-hint">只變更所選欄位；留空會清除該欄位。先預覽，確認後一次寫入並備份。</p><div id="notes-bulk-preview"></div><p id="notes-bulk-status" role="status"></p><div class="notes-dialog-actions"><button id="notes-bulk-cancel" class="btn btn-ghost">取消</button><button id="notes-bulk-prepare" class="btn btn-secondary">預覽變更</button><button id="notes-bulk-apply" class="btn btn-primary" disabled>確認批次更新</button></div></dialog><dialog id="notes-record-dialog" class="modal notes-modal notes-record-dialog" aria-labelledby="notes-record-dialog-title">
       <form id="notes-record-form" novalidate>
         <header class="notes-form-header">
           <div>
@@ -2393,7 +2393,7 @@
               <span id="notes-record-title-label">標題／名稱（必填）</span>
               <input id="notes-record-title" type="text" required maxlength="200" autocomplete="off">
             </label>
-            <p id="notes-record-hint" class="notes-hint"></p>
+            <label id="notes-copy-count-field" class="field"><span>建立份數（相同值，各有獨立 ID；最多 500）</span><input id="notes-copy-count" type="number" min="1" max="500" step="1" value="1"></label><p id="notes-record-hint" class="notes-hint"></p>
             <div id="notes-record-fields" class="notes-record-fields"></div>
             <label class="field">
               <span>分類標籤（逗號分隔）</span>

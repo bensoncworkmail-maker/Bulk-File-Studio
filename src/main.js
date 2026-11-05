@@ -40,7 +40,7 @@ const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('.
 if(app.isPackaged){const profile=path.join(app.getPath('appData'),'Bulk Rename Studio');fs.mkdirSync(profile,{recursive:true});app.setPath('userData',profile);}
 for(const flag of ['disable-background-networking','disable-component-update','disable-domain-reliability','dns-prefetch-disable'])app.commandLine.appendSwitch(flag);
 
-let capture,drafts;
+let capture,drafts,runQuickAction;
 let win, floating, floatingWindow, floatingMenu, desktop, desktopShell, pendingMaximize=false, shortcutWarning='',shellWarning='';
 const diagnostics=new DiagnosticLog(path.join(app.getPath('userData'),'logs'),{getSettings:()=>desktop?.settings,appRoot:__dirname,environment:{version:app.getVersion(),platform:process.platform,arch:process.arch,electron:process.versions.electron||'',node:process.versions.node}});
 const monitorException=error=>diagnostics.record('main','uncaughtException',error);
@@ -155,9 +155,9 @@ function captureController(){
 }
 function openDrafts(){
  if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
- drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,secureWindow,desktop,store:notesStore,settings:()=>desktop.settings,
+ drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,dialog,secureWindow,desktop,store:notesStore,settings:()=>desktop.settings,
   imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
-  onSent:notesChanged,onRemind:recordId=>{
+  onPreview:(filepath,mode,parent)=>productivity.previewFile(filepath,mode,parent),onStandaloneReminder:input=>{const value=recordReminders.save(input);send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');return value;},onSent:notesChanged,onRemind:recordId=>{
    focusMain();
    const target=win,show=()=>send(target,'record-reminders-open',{recordId});
    if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',show);
@@ -171,7 +171,7 @@ function validatedLinkPaths(paths=[]){
  return paths.map(require('./notes-location-links').locationPath);
 }
 function configuredQuick(id){const action=desktop.settings.floatingQuickActions.find(item=>item.id===id&&item.enabled);if(!action)throw new Error('快捷動作已移除或停用');return action;}
-function keepFloatingAfterQuick(){if(!desktop.settings.floatingKeepAfterQuick&&floating&&!floating.isDestroyed())floating.hide();}
+function keepFloatingAfterQuick(){if(!floating||floating.isDestroyed())return;if(desktop.settings.floatingOnTop){floating.pinController?.sync();return;}if(!desktop.settings.floatingKeepAfterQuick)floating.hide();}
 function rememberAuxSize(key,window){
  window.on('resized',()=>{
   try{
@@ -231,7 +231,7 @@ function showFloating(toggle=false){
     floating.show();floating.focus();return;
   }
   floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · '+(desktop.settings.floatingTitle||'浮動工具'),autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
-  secureWindow(floating);floatingWindow=new FloatingWindow(floating,desktop,screen);
+  secureWindow(floating);floating.pinController=new(require('./floating-pin').FloatingPin)(floating,()=>desktop.settings,{onError:error=>diagnostics.record('floating','pin-state',error)});floatingWindow=new FloatingWindow(floating,desktop,screen);
   floating.on('hide',()=>toolOverlay?.closeForParent(floating));
   floating.on('hide',closeFloatingMenu);floating.on('close',closeFloatingMenu);
   floating.on('hide',()=>floatingSearch?.destroy());floating.on('closed',()=>{floatingSearch?.destroy();capture?.destroy();floatingMenu=null;floating=null;floatingWindow=null;});floating.loadFile(path.join(__dirname,'floating.html'));
@@ -257,11 +257,11 @@ app.whenReady().then(() => {
   });
   if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))require('./profile-service').recoverProfile(app.getPath('userData'),notesStore());
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
-  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
+  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),showCalendar:floatingAction(()=>openToolOverlay('planning')),extraShortcuts:settings=>[...(settings.floatingQuickActions||[]).filter(item=>item.enabled&&item.shortcut).map(item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runQuickAction?.(null,item.id))]),...(productivity?.store.get().snippets||[]).filter(item=>item.shortcut).map(item=>['accelerator:'+item.shortcut,'複製 '+item.name,floatingAction(()=>productivity.copySnippet(item.id,''))])],showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   handle('draft-open',openDrafts);
   const draftHandlers={
    data:()=>drafts.data(),read:id=>notesStore().draft(id),new:()=>notesStore().createDraft(),
-   save:(id,version,input)=>notesStore().saveDraft(id,version,{title:input?.title,body:input?.body}),
+   save:(...args)=>drafts.save(...args),configure:patch=>drafts.configure(patch),export:(...args)=>drafts.export(...args),preview:(...args)=>drafts.preview(...args),remind:(...args)=>drafts.remind(...args),
    attach:(...args)=>drafts.attach(...args),paste:(...args)=>drafts.paste(...args),image:(...args)=>drafts.image(...args),
    remove:(...args)=>drafts.removeAttachment(...args),delete:(...args)=>notesStore().deleteDraft(...args),
    masters:id=>drafts.masters(id),send:(...args)=>drafts.send(...args),
@@ -350,7 +350,7 @@ app.whenReady().then(() => {
     });
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
-  handle('floating-quick-action',(event,id,anchor)=>{
+  runQuickAction=(event,id,anchor)=>{
     const action=configuredQuick(id);
     if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
@@ -361,7 +361,7 @@ app.whenReady().then(() => {
       const config=require('./tool-views-model').configuration({...action,kind});
       if(action.display==='menu'){
         if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();
-        return openQuickToolMenu(config,event.sender===floating.webContents?anchor:undefined);
+        return openQuickToolMenu(config,event?.sender===floating.webContents?anchor:undefined);
       }
       if(action.display==='overlay')return kind==='logs'?toolOverlay.open(config):openInlinePanel(kind);
       focusMain();
@@ -398,7 +398,8 @@ app.whenReady().then(() => {
       pendingNotesNavigation={newRecordSheetId:sheet.id,masterId:action.masterId||null};
     }else pendingNotesNavigation={openSheetId:sheet.id};
     focusMain();keepFloatingAfterQuick();send(win,'notes-navigate',{});return {opened:true};
-  });
+  };
+  handle('floating-quick-action',runQuickAction);
   handle('floating-workspace-new',()=>{const doc=notesStore().get().document,groups=doc.areas.filter(area=>doc.sheets.some(sheet=>sheet.id===area.masterSheetId&&!sheet.deletedAt));popupFloatingMenu(groups.length?groups.map(area=>({label:'＋ '+area.name,click:()=>{pendingNotesNavigation={newMasterSheetId:area.masterSheetId};focusMain();send(win,'notes-navigate',{});}})):[{label:'請先在主視窗建立群組主表',enabled:false}]);});
   handle('floating-workspace-list',(_,query='')=>require('./notes-tools-store').workspaceItems(notesStore().get().document,toolsStore().get().pins,query));
   handle('floating-workspace-open',(_,id,action='open')=>{if(action==='home'&&id===null){pendingNotesNavigation={home:true};focusMain();send(win,'notes-navigate',{});return;}const M=require('./notes-model'),doc=notesStore().get().document,record=doc.records.find(record=>record.id===id&&M.live(doc,record)&&doc.areas.some(area=>area.masterSheetId===record.sheetId));if(!record)throw new Error('主紀錄已移除');if(action==='copy'){clipboard.writeText(require('./notes-tools-store').contactText(doc,id));return;}if(action==='open'){navigateWorkspace(id);return;}if(action!=='menu')throw new Error('操作無效');const area=doc.areas.find(area=>area.masterSheetId===record.sheetId);popupFloatingMenu([{label:record.title,enabled:false},{label:'在工作區開啟',click:()=>navigateWorkspace(id)},{label:'複製聯絡資訊',click:floatingAction(()=>clipboard.writeText(require('./notes-tools-store').contactText(notesStore().get().document,id)))},{label:toolsStore().get().pins.includes(id)?'取消釘選':'釘選到浮動工具',click:floatingAction(()=>{toolsStore().pin(notesStore().get().document,id);toolsChanged();})},...M.detailSheets(doc,area.id).map(sheet=>({label:'＋ 新增'+sheet.name,click:()=>navigateWorkspace(id,sheet.id)}))]);});
@@ -418,7 +419,7 @@ app.whenReady().then(() => {
     const seenPaths=new Set(),fileLinks=[...(input.favoriteIds.length?favorites.selection(catalog,input.favoriteIds).map(item=>({favoriteId:item.id,path:item.path,label:item.label,type:item.type})):[]),...unlinked.filter(link=>input.keepUnlinked.includes(link.path)),...direct].filter(link=>{const key=process.platform==='win32'?link.path.toLowerCase():link.path;if(seenPaths.has(key))return false;seenPaths.add(key);return true;});
     let favoriteTagLinks=old?.favoriteTagLinks||[];
     if(input.favoriteTags!==undefined||input.keepPendingTags!==undefined){const selected=input.favoriteTags||[],pending=input.keepPendingTags||[];if(!Array.isArray(selected)||!Array.isArray(pending)||selected.length+pending.length>20||[...selected,...pending].some(tag=>typeof tag!=='string'||!tag.trim()||tag.length>32))throw new Error('收藏標籤連結無效');const knownTags=new Set(catalog.items.flatMap(item=>item.tags).map(tag=>tag.toLocaleLowerCase())),oldTags=old?.favoriteTagLinks||[];if(selected.some(tag=>!knownTags.has(tag.toLocaleLowerCase())&&!oldTags.some(link=>link.authorized&&link.tag.toLocaleLowerCase()===tag.toLocaleLowerCase())))throw new Error('收藏標籤已變更，請重新選取');if(pending.some(tag=>!oldTags.some(link=>!link.authorized&&link.tag===tag)))throw new Error('分享標籤連結已變更');favoriteTagLinks=[...selected.map(tag=>({tag:tag.trim(),authorized:true})),...pending.map(tag=>({tag,authorized:false}))];}
-    return notesChanged(notesStore().saveRecord({...input,fileLinks,favoriteTagLinks}));
+    if(input.copies!==undefined&&(!Number.isSafeInteger(input.copies)||input.copies<1||input.copies>500||input.id&&input.copies!==1))throw new Error('新增份數請填 1–500');return notesChanged(!input.id&&input.copies>1?notesStore().saveCopies({...input,fileLinks,favoriteTagLinks},input.copies):notesStore().saveRecord({...input,fileLinks,favoriteTagLinks}));
   }));
   handle('notes-add-paths',(_,paths)=>{if(!Array.isArray(paths)||!paths.length||paths.length>100)throw new Error('每次最多連結 100 個位置');const result=favorites.addPaths(paths,[]);notifyFavorites();return result;});
   handle('notes-choose-paths',async(_,kind)=>{if(!['file','folder'].includes(kind))throw new Error('位置類型無效');const result=await dialog.showOpenDialog(win,{title:'選取位置：加入收藏並連結',properties:[kind==='folder'?'openDirectory':'openFile','multiSelections']});if(result.canceled)return {canceled:true,ids:[]};if(result.filePaths.length>100)throw new Error('每次最多連結 100 個位置');const saved=favorites.addPaths(result.filePaths,[]);notifyFavorites();return saved;});
@@ -429,6 +430,8 @@ app.whenReady().then(() => {
     Menu.buildFromTemplate(entries).popup({window:win});return true;
   });
   handle('notes-client-details',(_,areaId,revision)=>notesChanged(notesStore().completeClientDetails(areaId,revision)));
+  handle('notes-bulk-preview',(_,input,revision)=>notesStore().bulkPreview(input,revision));
+  handle('notes-bulk-commit',(_,token)=>notesChanged(notesStore().bulkCommit(token)));
   handle('notes-batch-trash',(_,entries,includeDetails,revision)=>notesChanged(notesStore().batchTrash(entries,includeDetails,revision)));
   handle('notes-trash',(_,kind,id,version,restore)=>{if(typeof restore!=='boolean')throw new Error('回收筒操作無效');return notesChanged(notesStore().trash(kind,id,version,restore));});
   handle('notes-history',(_,id)=>notesStore().history(id));
@@ -527,8 +530,8 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingQuickActions'))quickActions.normalize(patch.floatingQuickActions,true);
     if(Object.hasOwn(patch,'floatingDropActionId')&&patch.floatingDropActionId!==''&&!quickActions.ID.test(patch.floatingDropActionId))throw new Error('拖放目標無效');
     if(Object.hasOwn(patch,'globalSearchCriteria'))floatingSearch?.invalidate();
-    const candidate=normalizeDesktop({...previous,...patch});globalShortcuts.validatePair(candidate);closeFloatingMenu();
-    const changed=globalShortcuts.KEYS.some(key=>previous[key]!==candidate[key]);
+    const candidate=normalizeDesktop({...previous,...patch});globalShortcuts.validatePair(candidate,productivity?.store.get().snippets||[]);closeFloatingMenu();
+    const changed=globalShortcuts.KEYS.some(key=>previous[key]!==candidate[key])||JSON.stringify(previous.floatingQuickActions)!==JSON.stringify(candidate.floatingQuickActions);
     if(changed){const warning=desktopShell.registerShortcuts(candidate);if(warning){shortcutWarning=desktopShell.registerShortcuts(previous);throw new Error(warning+' 已保留原設定。'+shortcutWarning);}}
     let settings;try{settings=desktop.update(patch);}catch(e){if(changed)shortcutWarning=desktopShell.registerShortcuts(previous);throw e;}
     if(changed)shortcutWarning='';
@@ -536,7 +539,7 @@ app.whenReady().then(() => {
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
     if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
-    floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
+    drafts?.updateSettings();floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('desktop-reset-window',()=>applyMainBounds(null));
   handle('floating-show',()=>showFloating());
@@ -917,6 +920,7 @@ app.whenReady().then(() => {
     if(config.kind==='snippets')throw new Error('此工具只可複製文字片段');
     if(action==='main'&&config.kind==='planning'){focusMain();send(win,'open-app-page','planning');return;}
     if(action!=='visit')throw new Error('操作無效');
+    if(kind==='planning'&&recordReminders.list().items.some(item=>item.id===value&&item.standalone&&item.available)){focusMain();send(win,'record-reminders-open',{});return;}
     const M=require('./notes-model'),doc=notesStore().get().document;
     const {allowedSheet}=require('./log-view-settings-model');
     if(!doc.records.some(record=>record.id===value&&M.live(doc,record)&&
@@ -931,7 +935,7 @@ app.whenReady().then(() => {
   }));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
-  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,overlayChanged:()=>{toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();send(win,'record-reminders-changed',recordReminders.list());}});
+  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();send(win,'record-reminders-changed',recordReminders.list());}});
   const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
   if(desktop.settings.closeToTray)desktopShell.ensureTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));
