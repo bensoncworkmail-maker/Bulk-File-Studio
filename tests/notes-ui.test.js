@@ -86,7 +86,7 @@ test('global search ignores the active client filter and can return from a match
  const h=setup(t),state=h.store.addTemplate(),[root,contacts]=state.document.sheets;const add=(sheet,title,values={})=>h.store.saveRecord({sheetId:sheet.id,title,notes:'',tags:[],values,fileLinks:[]}).result.id,a=add(root,'Acme'),b=add(root,'Beta');add(contacts,'Alice',{[contacts.fields[0].id]:[a]});add(contacts,'Bob',{[contacts.fields[0].id]:[b]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Acme').events.click();h.els.get('notes-search-scope').value='all';h.els.get('notes-search-scope').events.change();h.els.get('notes-search').value='Beta';h.els.get('notes-search').events.input();assert.match(h.els.get('notes-table').textContent,/Bob/);assert.match(h.els.get('notes-table').textContent,/客戶管理/);findButton(h.els.get('notes-table'),'Beta').events.click();assert.match(h.els.get('notes-master-heading').textContent,/Beta/);h.els.get('notes-back-search').events.click();assert.equal(h.els.get('notes-search').value,'Beta');assert.match(h.els.get('notes-table').textContent,/Bob/);assert.deepEqual(h.errors,[]);
 });
 test('card view supports record context, selection and persisted view switching',async t=>{
- const h=setup(t),state=h.store.addTemplate(),root=state.document.sheets[0];h.store.saveRecord({sheetId:root.id,title:'Card Client',notes:'Summary',tags:['VIP'],values:{},fileLinks:[]});h.ui.activate();await flush();h.els.get('notes-view-cards').events.click();assert.equal(h.preferences.notesMasterView,'cards');assert.equal(h.els.get('notes-table').dataset.view,'cards');assert.match(h.els.get('notes-table').textContent,/Summary/);const card=descendants(h.els.get('notes-table')).find(node=>node.tagName==='ARTICLE');assert.ok(card);const check=descendants(card).find(node=>node.tagName==='INPUT');check.checked=true;check.events.change();assert.match(h.els.get('notes-selected-count').textContent,/1 筆/);h.els.get('notes-view-list').events.click();assert.equal(h.preferences.notesMasterView,'list');assert.match(h.els.get('notes-selected-count').textContent,/1 筆/);assert.deepEqual(h.errors,[]);
+ const h=setup(t),state=h.store.addTemplate(),root=state.document.sheets[0];h.store.saveRecord({sheetId:root.id,title:'Card Client',notes:'Summary',tags:['VIP'],values:{},fileLinks:[]});h.ui.activate();await flush();h.els.get('notes-view-cards').events.click();assert.equal(h.preferences.notesTableViews[root.id],'cards');assert.equal(h.els.get('notes-table').dataset.view,'cards');assert.match(h.els.get('notes-table').textContent,/Summary/);const card=descendants(h.els.get('notes-table')).find(node=>node.tagName==='ARTICLE');assert.ok(card);const check=descendants(card).find(node=>node.tagName==='INPUT');check.checked=true;check.events.change();assert.match(h.els.get('notes-selected-count').textContent,/1 筆/);h.els.get('notes-view-list').events.click();assert.equal(h.preferences.notesTableViews[root.id],'list');assert.match(h.els.get('notes-selected-count').textContent,/1 筆/);assert.deepEqual(h.errors,[]);
 });
 test('record form tabs preserve values and save-and-add continues within the same master',async t=>{
  const h=setup(t),state=h.store.addTemplate(),root=state.document.sheets[0];h.store.saveRecord({sheetId:root.id,title:'Client',notes:'',tags:[],values:{},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Client').events.click();h.els.get('notes-new-record').events.click();h.els.get('notes-record-title').value='Person';h.els.get('notes-form-tab-notes').events.click();assert.equal(h.els.get('notes-form-basic').hidden,true);h.els.get('notes-record-body').value='Kept note';h.els.get('notes-form-tab-basic').events.click();assert.equal(h.els.get('notes-record-title').value,'Person');h.els.get('notes-save-add').events.click();await flush();assert.equal(h.store.get().document.records.find(record=>record.title==='Person').notes,'Kept note');assert.equal(h.els.get('notes-record-dialog').open,true);assert.equal(h.els.get('notes-record-title').value,'');assert.deepEqual(h.errors,[]);
@@ -286,9 +286,47 @@ test('direct shared locations stay editable and offer open/show without a favori
 });
 
 test('master and detail toolbars collapse independently and view modes do not overwrite another group',async t=>{
- const h=setup(t),state=h.store.addTemplate(),[root,detail]=state.document.sheets,master=h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{},fileLinks:[]}).result.id;h.store.saveRecord({sheetId:detail.id,title:'Contact',notes:'',tags:[],values:{[detail.fields[0].id]:[master]},fileLinks:[]});h.ui.activate();await flush();const panel=h.els.get('notes-panel-tools');assert.equal(panel.hidden,false);setToolbarOpen(h,false);assert.equal(h.preferences.notesMasterToolsExpanded,false);h.els.get('notes-view-cards').events.click();assert.equal(h.preferences.notesMasterView,'cards');assert.equal(h.preferences.notesDetailView,'list');assert.equal(h.els.get('notes-table').dataset.view,'cards');
- findButton(h.els.get('notes-table'),'Acme').events.click();assert.equal(panel.hidden,true);assert.equal(h.els.get('notes-table').dataset.view,'list');setToolbarOpen(h,true);h.els.get('notes-view-grid').events.click();assert.equal(h.preferences.notesDetailView,'grid');assert.equal(h.preferences.notesMasterView,'cards');assert.equal(h.els.get('notes-table').dataset.view,'grid');h.els.get('notes-master-back').events.click();assert.equal(panel.hidden,true);assert.equal(h.els.get('notes-table').dataset.view,'cards');assert.equal(h.preferences.notesDetailToolsExpanded,true);assert.deepEqual(h.errors,[]);
+ const h=setup(t),state=h.store.addTemplate(),[root,detail]=state.document.sheets,master=h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{},fileLinks:[]}).result.id;h.store.saveRecord({sheetId:detail.id,title:'Contact',notes:'',tags:[],values:{[detail.fields[0].id]:[master]},fileLinks:[]});h.ui.activate();await flush();const panel=h.els.get('notes-panel-tools');assert.equal(panel.hidden,false);setToolbarOpen(h,false);assert.equal(h.preferences.notesMasterToolsExpanded,false);h.els.get('notes-view-cards').events.click();assert.equal(h.preferences.notesTableViews[root.id],'cards');assert.equal(h.preferences.notesDetailView,'list');assert.equal(h.els.get('notes-table').dataset.view,'cards');
+ findButton(h.els.get('notes-table'),'Acme').events.click();assert.equal(panel.hidden,true);assert.equal(h.els.get('notes-table').dataset.view,'list');setToolbarOpen(h,true);h.els.get('notes-view-grid').events.click();assert.equal(h.preferences.notesTableViews[detail.id],'grid');assert.equal(h.preferences.notesTableViews[root.id],'cards');assert.equal(h.els.get('notes-table').dataset.view,'grid');h.els.get('notes-master-back').events.click();assert.equal(panel.hidden,true);assert.equal(h.els.get('notes-table').dataset.view,'cards');assert.equal(h.preferences.notesDetailToolsExpanded,true);assert.deepEqual(h.errors,[]);
 });
+test('each master and detail table keeps its own view mode across navigation',async t=>{
+ const h=setup(t,{settings:{notesMasterView:'list',notesDetailView:'list'}});
+ const {document}=h.store.addTemplate(),[clients,contacts,files]=document.sheets;
+ const {document:withProjects}=h.store.addTemplate('projects');
+ const projects=M.masterTableTree(withProjects).find(branch=>branch.master.id!==clients.id).master;
+ h.store.saveRecord({sheetId:clients.id,title:'Acme',notes:'',tags:[],values:{},fileLinks:[]});
+ h.ui.activate();await flush();
+ const mode=()=>h.els.get('notes-table').dataset.view;
+ await h.ui.openSearchTarget('sheet',clients.id);
+ h.els.get('notes-view-cards').events.click();
+ findButton(h.els.get('notes-table'),'Acme').events.click();
+ assert.equal(mode(),'list');
+ h.els.get('notes-view-grid').events.click();
+ const selectDetail=name=>h.els.get('notes-detail-tabs').children.find(tab=>tab.textContent.startsWith(name)).events.click();
+ selectDetail(files.name);
+ assert.equal(mode(),'list');
+ h.els.get('notes-view-cards').events.click();
+ selectDetail(contacts.name);
+ assert.equal(mode(),'grid');
+ h.els.get('notes-master-back').events.click();
+ assert.equal(mode(),'cards');
+ await h.ui.openSearchTarget('sheet',projects.id);
+ assert.equal(mode(),'list');
+ h.els.get('notes-view-grid').events.click();
+ h.els.get('notes-search-scope').value='all';
+ h.els.get('notes-search-scope').events.change();
+ h.els.get('notes-view-list').events.click();
+ await h.ui.openSearchTarget('sheet',clients.id);
+ assert.equal(mode(),'cards');
+ await h.ui.openSearchTarget('sheet',projects.id);
+ assert.equal(mode(),'grid');
+ assert.equal(h.preferences.notesTableViews[contacts.id],'grid');
+ assert.equal(h.preferences.notesTableViews[files.id],'cards');
+ assert.equal(h.preferences.notesMasterView,'list');
+ assert.equal(h.preferences.notesDetailView,'list');
+ assert.deepEqual(h.errors,[]);
+});
+
 test('table status remains available when controls collapse, remembers each table, and handles select and checkbox fields independently',async t=>{
  const h=setup(t),state=h.store.addTemplate(),root=state.document.sheets[0],detail=state.document.sheets.find(sheet=>sheet.name==='紀錄'),status=root.fields.find(field=>field.label==='狀態'),done=detail.fields.find(field=>field.type==='checkbox'),add=(sheet,title,values)=>h.store.saveRecord({sheetId:sheet.id,title,notes:'',tags:[],values,fileLinks:[]}).result.id,a=add(root,'Active',{[status.id]:status.options[0]}),b=add(root,'Pending',{[status.id]:status.options[1]});add(detail,'Done',{[detail.fields[0].id]:[a],[done.id]:true});add(detail,'Todo',{[detail.fields[0].id]:[a],[done.id]:false});
  h.ui.activate();await flush();assert.equal(h.els.get('notes-status-filter-wrap').hidden,false);h.els.get('notes-status-filter').value='v:'+status.options[0];h.els.get('notes-status-filter').events.change();assert.match(h.els.get('notes-table').textContent,/Active/);assert.doesNotMatch(h.els.get('notes-table').textContent,/Pending/);setToolbarOpen(h,false);assert.equal(h.els.get('notes-status-filter-wrap').hidden,false);

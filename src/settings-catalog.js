@@ -277,7 +277,7 @@ const config={
     "notesSearchPaths": "notes",
     "notesSearchParent": "notes",
     "notesView": "notes",
-    "notesMasterView":"notes","notesDetailView":"notes","notesMasterToolsExpanded":"notes","notesStatusFilters":"notes",
+    "notesMasterView":"notes","notesDetailView":"notes","notesMasterToolsExpanded":"notes","notesStatusFilters":"notes","notesTableViews":"notes",
     "notesCompact": "notes",
     "notesCardSize": "notes",
     "notesPanelWidth": "notes",

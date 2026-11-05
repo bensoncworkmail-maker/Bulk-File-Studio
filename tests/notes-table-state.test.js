@@ -14,3 +14,12 @@ test('single/multiple selection and checkbox status filters use typed values, tr
 test('per-table filter settings round-trip with field identity and bound invalid maps',()=>{
  const {sheet,status}=sample(),other=id(),settings=Settings.normalize({notesStatusFilters:{[sheet.id]:{fieldId:status.id,forField:status.id,value:'v:合作中'},[other]:{fieldId:'none'},bad:{fieldId:'auto'}}});assert.equal(settings.notesStatusFilters[sheet.id].value,'v:合作中');assert.equal(settings.notesStatusFilters[other].fieldId,'none');assert.equal(settings.notesStatusFilters.bad,undefined);assert.deepEqual(Settings.normalize(JSON.parse(JSON.stringify(settings))).notesStatusFilters,settings.notesStatusFilters);assert.equal(Object.keys(T.normalizeFilters(Object.fromEntries(Array.from({length:120},()=>[id(),{}])))).length,100);
 });
+
+test('table view choices persist by UUID and reject malformed settings',()=>{
+ const master=id(),detail=id(),other=id();
+ const settings=Settings.normalize({notesView:'cards',notesTableViews:{[master]:'grid',[detail]:'list',[other]:'invalid',bad:'cards'}});
+ const stored=JSON.stringify(settings);
+ assert.deepEqual(Settings.load({getItem:key=>key===Settings.KEY?stored:null}).notesTableViews,{[master]:'grid',[detail]:'list'});
+ assert.equal(settings.notesMasterView,'cards');
+ assert.equal(settings.notesDetailView,'cards');
+});
