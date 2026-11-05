@@ -2,7 +2,7 @@
 const model=require('./favorites-model');
 const {locationCount,LIMIT}=require('./favorites-batch');
 // Build menus from catalog records only. Revalidate the record at activation time.
-function tagMenu(items,tag,query,actions){
+function tagMenu(items,tag,query,actions,menuItems={}){
  if(tag!==null&&(typeof tag!=='string'||tag.length>64))throw new Error('標籤無效');
  if(typeof query!=='string'||query.length>256)throw new Error('搜尋文字過長');
  const key=tag===null?null:tag.toLocaleLowerCase(),q=query.trim().toLocaleLowerCase();
@@ -11,20 +11,21 @@ function tagMenu(items,tag,query,actions){
  const escape=value=>value.replaceAll('&','&&').replace(/[\x00-\x1f\x7f]/g,' ').slice(0,180);
  const title=key===null?'全部收藏':key===''?'未分類':items.flatMap(item=>item.tags).find(value=>value.toLocaleLowerCase()===key);
  const entry=item=>({label:(item.type==='folder'?'📁 ':'📄 ')+escape(item.label||model.basename(item.path))+(item.status==='ready'?'':'（無法使用）'),enabled:item.status==='ready',toolTip:item.path,click:()=>actions.open(item.id)});
- const template=[{label:escape(title)+' · '+found.length+' 項',enabled:false},{label:'在主視窗顯示此分類',click:()=>actions.main(tag)},{label:'複製此篩選結果全部路徑',enabled:found.length>0,click:()=>actions.copy(found.map(item=>item.id))},{type:'separator'}];
+ const template=[{label:escape(title)+' · '+found.length+' 項',enabled:false}];
  const ready=found.filter(item=>item.status==='ready'),ids=ready.map(item=>item.id),locations=locationCount(ready);
- template.splice(3,0,
-  {label:`批次開啟檔案／資料夾（${ready.length} 項${ready.length>LIMIT?'；最多 20 項':''}）`,enabled:ready.length>0&&ready.length<=LIMIT,click:()=>actions.batchOpen(ids)},
-  {label:`批次開啟所在資料夾（${locations} 個，已去重${locations>LIMIT?'；最多 20 個':''}）`,enabled:locations>0&&locations<=LIMIT,click:()=>actions.batchLocations(ids)}
- );
+ if(menuItems.main!==false)template.push({label:'在主視窗顯示此分類',click:()=>actions.main(tag)});
+ if(menuItems.copy!==false)template.push({label:'複製此篩選結果全部路徑',enabled:found.length>0,click:()=>actions.copy(found.map(item=>item.id))});
+ if(menuItems.batchOpen!==false)template.push({label:`批次開啟檔案／資料夾（${ready.length} 項${ready.length>LIMIT?'；最多 20 項':''}）`,enabled:ready.length>0&&ready.length<=LIMIT,click:()=>actions.batchOpen(ids)});
+ if(menuItems.batchLocations!==false)template.push({label:`批次開啟所在資料夾（${locations} 個，已去重${locations>LIMIT?'；最多 20 個':''}）`,enabled:locations>0&&locations<=LIMIT,click:()=>actions.batchLocations(ids)});
+ if(template.length>1)template.push({type:'separator'});
  if(!found.length)template.push({label:'沒有符合條件的收藏',enabled:false});
  else if(found.length<=40)template.push(...found.map(entry));
  else for(let index=0;index<found.length;index+=40)template.push({label:`第 ${index+1}–${Math.min(index+40,found.length)} 項`,submenu:found.slice(index,index+40).map(entry)});
  return {template,count:found.length,ids:found.map(item=>item.id)};
 }
-function tagListMenu(items,keys,query,actions){
+function tagListMenu(items,keys,query,actions,menuItems={}){
  if(!Array.isArray(keys)||!keys.length||keys.length>100||keys.some(key=>typeof key!=='string'||key.length>64))throw new Error('請勾選有效標籤');
- const template=[],ids=new Set();for(const key of [...new Set(keys)]){const exists=key===''||items.some(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===key.toLocaleLowerCase()));if(!exists){template.push({label:key.replaceAll('&','&&')+'（目前不存在）',enabled:false});continue;}const menu=tagMenu(items,key,query,actions);menu.ids.forEach(id=>ids.add(id));template.push({label:menu.template[0].label,submenu:menu.template.slice(1)});}
+ const template=[],ids=new Set();for(const key of [...new Set(keys)]){const exists=key===''||items.some(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===key.toLocaleLowerCase()));if(!exists){template.push({label:key.replaceAll('&','&&')+'（目前不存在）',enabled:false});continue;}const menu=tagMenu(items,key,query,actions,menuItems);menu.ids.forEach(id=>ids.add(id));template.push({label:menu.template[0].label,submenu:menu.template.slice(1)});}
  return {template,count:ids.size,ids:[...ids]};
 }
 module.exports={tagMenu,tagListMenu};

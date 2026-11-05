@@ -89,3 +89,9 @@ test('grouped quick actions list every supported type and persist toolbox target
  assert.throws(()=>M.normalize([{...action,tool:'https://example.com'}],true),/工具箱功能/);
  assert.deepEqual(h.failures,[]);
 });
+test('per-button menu items survive normalization and export and reject invalid values',()=>{
+ const action={id:id(),type:'open-tag-menu',label:'Custom menu',tag:null,menuItems:{main:false,copy:false}},clean=M.normalize([action],true)[0];assert.deepEqual(clean.menuItems,{main:false,copy:false,batchOpen:true,batchLocations:true});assert.deepEqual(desktop.normalize({floatingQuickActions:[clean]}).floatingQuickActions[0].menuItems,clean.menuItems);assert.equal(M.normalize([{...action,menuItems:undefined}],true)[0].menuItems,undefined);for(const menuItems of [null,[],{copy:'false'},{unknown:false}])assert.throws(()=>M.normalize([{...action,menuItems}],true),/選單/);
+});
+test('settings edit menu operation switches independently for each quick button',async()=>{
+ const h=await settingsHarness();await h.$('quick-action-add').dispatch('click');h.$('quick-action-type').value='open-tag-menu';await h.$('quick-action-type').dispatch('change');assert.equal(h.$('quick-action-menu-items').hidden,false);h.$('quick-action-label').value='Only files';for(const key of Object.keys(M.MENU_ITEMS))h.$('quick-menu-'+key).checked=false;await h.$('quick-action-save').dispatch('click');assert.ok(Object.values(h.settings().floatingQuickActions[0].menuItems).every(value=>value===false));await h.$('quick-action-list').children[0].children[2].dispatch('click');assert.equal(h.$('quick-menu-copy').checked,false);await h.$('quick-action-add').dispatch('click');for(const key of Object.keys(M.MENU_ITEMS))assert.equal(h.$('quick-menu-'+key).checked,true);h.$('quick-action-type').value='open-search';await h.$('quick-action-type').dispatch('change');assert.equal(h.$('quick-action-menu-items').hidden,true);assert.deepEqual(h.failures,[]);
+});
