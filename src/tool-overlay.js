@@ -21,7 +21,7 @@ class ToolOverlay{
    return {opened:true,popup:true};
   }
   const parent=this.parent(),displays=this.screen.getAllDisplays();
-  const size=this.size(key)||(key==='logs'?{width:430,height:580}:{width:540,height:620});
+  const size=this.size(key)||(key==='logs'?{width:430,height:580}:{width:420,height:540});
   const sibling=[...this.windows.values()].find(entry=>!entry.window.isDestroyed())?.window;
   const anchor=sibling||parent;
   const bounds=anchor?captureBounds(anchor.getNormalBounds(),displays,size):

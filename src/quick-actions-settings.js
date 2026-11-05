@@ -7,6 +7,7 @@
   function appendOptions(root,options){
    for(const [key,label] of options){const option=node('option',label);option.value=key;root.append(option);}
   }
+  window.shortcutControls.bind($('quick-action-shortcut'));
   const typeSelect=$('quick-action-type');
   for(const [label,types] of M.TYPE_GROUPS){
    const group=node('optgroup');group.label=label;
@@ -31,7 +32,7 @@
   }
   function fields(){ $('quick-action-tag-choices').hidden=!['open-tag-menu','copy-tag-paths'].includes($('quick-action-type').value)||$('quick-action-tag').value!=='selected';const imports=$('quick-action-type').value==='import-paths';const type=$('quick-action-type').value;$('quick-action-tag-field').hidden=!['open-tag-menu','copy-tag-paths'].includes(type);$('quick-action-query-field').hidden=!['open-tag-menu','copy-tag-paths','open-search','view-logs'].includes(type);const table=['new-record','open-sheet','view-logs'].includes(type);displayFields(type);$('quick-action-scope-field').hidden=type!=='view-logs';$('quick-action-page-field').hidden=type!=='open-page';$('quick-action-tool-field').hidden=type!=='open-tool';$('quick-action-form-config').hidden=type!=='new-record';$('quick-action-table-fields').hidden=!table;$('quick-action-import-fields').hidden=!imports;masters();formFields();}
   function edit(action){
-   editing=action?.id||null;$('quick-action-scope').value=action?.scope||'all';$('quick-action-tag').value=action?.tagKeys?'selected':JSON.stringify(action?.tag??null);renderTagChecks(action?.tagKeys||[]);$('quick-action-query').value=action?.query||'';$('quick-action-label').value=action?.label||'';$('quick-action-type').value=action?.type||'new-record';$('quick-action-sheet').value=action?.sheetId||choices.sheets[0]?.id||'';
+   editing=action?.id||null;window.shortcutControls.set($('quick-action-shortcut'),action?.shortcut);$('quick-action-icon').value=action?.icon||'▤';$('quick-action-button-display').value=action?.buttonDisplay||'both';$('quick-action-scope').value=action?.scope||'all';$('quick-action-tag').value=action?.tagKeys?'selected':JSON.stringify(action?.tag??null);renderTagChecks(action?.tagKeys||[]);$('quick-action-query').value=action?.query||'';$('quick-action-label').value=action?.label||'';$('quick-action-type').value=action?.type||'new-record';$('quick-action-sheet').value=action?.sheetId||choices.sheets[0]?.id||'';
    $('quick-action-tags').value=(action?.tags||[]).join(', ');$('quick-action-clipboard').checked=action?.useClipboard===true;fields();$('quick-action-display').value=action?.display||'overlay';masters(action?.masterId||'');$('quick-action-page').value=action?.page||'home';$('quick-action-tool').value=action?.tool||'repair';$('quick-form-tags').value=(action?.tags||[]).join(', ');$('quick-form-columns').value=String(action?.form?.columns||2);$('quick-form-width').value=String(action?.form?.width||480);$('quick-form-height').value=String(action?.form?.height||650);formFields(action?.form||{});$('quick-action-editor').open=true;$('quick-action-label').focus();
   }
   async function persist(next){
@@ -64,7 +65,7 @@
   $('quick-action-drop-target').addEventListener('change',async()=>{if(saving)return;try{const result=await window.desktopAPI.configure({floatingDropActionId:$('quick-action-drop-target').value});dropTarget=result.settings.floatingDropActionId||'';$('quick-action-drop-status').textContent='拖放目標已儲存。';dropOptions();}catch(error){showFailure('拖放設定未完成',error);dropOptions();}});
   $('quick-action-add').addEventListener('click',()=>edit());$('quick-action-type').addEventListener('change',fields);$('quick-action-sheet').addEventListener('change',()=>{masters();formFields();});$('quick-action-refresh').addEventListener('click',refresh);
   $('quick-action-save').addEventListener('click',async()=>{
-   if(saving)return;const type=$('quick-action-type').value,input={id:editing||crypto.randomUUID(),label:$('quick-action-label').value,type,enabled:actions.find(item=>item.id===editing)?.enabled!==false};
+   if(saving)return;const type=$('quick-action-type').value,input={id:editing||crypto.randomUUID(),label:$('quick-action-label').value,shortcut:window.shortcutControls.get($('quick-action-shortcut')),icon:$('quick-action-icon').value,buttonDisplay:$('quick-action-button-display').value,type,enabled:actions.find(item=>item.id===editing)?.enabled!==false};
    if(M.displayOptions(type).length){
     input.display=$('quick-action-display').value;
     if(type==='view-logs'){input.sheetId=$('quick-action-sheet').value;input.scope=$('quick-action-scope').value;input.query=$('quick-action-query').value;}

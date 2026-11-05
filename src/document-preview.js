@@ -17,8 +17,10 @@ function readPreview(filename){
 
 async function readSelectedPreview(input){
  const filename=require('./notes-location-links').locationPath(input);
+ await require('./intranet-path').withIntranetPaths([filename],()=>/^\\\\/.test(filename)?require('./notes-location-links').inspectIntranetLocation(filename):require('./notes-location-links').inspectLocation(filename));
+ const selected=await fs.promises.lstat(filename);
+ if(selected.isDirectory()&&!selected.isSymbolicLink()){const rows=[];const directory=await fs.promises.opendir(filename);let truncated=false;try{for await(const entry of directory){if(rows.length===200){truncated=true;break;}rows.push((entry.isDirectory()?'[資料夾] ':'[檔案] ')+entry.name);}}finally{/* for-await closes the directory even when truncated. */}return {type:'folder',name:path.basename(filename)||filename,path:filename,text:rows.sort((a,b)=>a.localeCompare(b,'zh-Hant')).join('\n')+(truncated?'\n…僅顯示前 200 項':'')||'空資料夾'};}
  const type=previewType(filename);
- await require('./intranet-path').withIntranetPaths([filename],()=>{});
  const paths=/^(?:[a-z]:|\\\\)/i.test(filename)?path.win32:path;
  for(let current=filename;;){
   const stat=await fs.promises.lstat(current);
@@ -34,9 +36,21 @@ async function readSelectedPreview(input){
 
 class DocumentPreview{
  constructor({BrowserWindow,root,parent,screen,size,remember}){Object.assign(this,{BrowserWindow,root,parent,screen,size,remember});this.windows=new Set();}
- async show(filename){const data=await readSelectedPreview(filename);if(data.type!=='pdf')return data;const directory=path.join(this.root,crypto.randomUUID());assertLocalPath(directory);fs.mkdirSync(directory,{recursive:true,mode:0o700});const pdf=path.join(directory,'document.pdf');fs.writeFileSync(pdf,data.bytes,{mode:0o600,flag:'wx'});let window;try{const defaults={width:980,height:760,...this.size?.(),minWidth:340,minHeight:280};const bounds=this.screen?require('./desktop-state').fitBounds(null,this.screen.getAllDisplays(),defaults):defaults;window=new this.BrowserWindow({...bounds,parent:this.parent(),title:data.name+' · 文件預覽',autoHideMenuBar:true,webPreferences:{partition:'bfs-pdf-'+crypto.randomUUID(),sandbox:true,contextIsolation:true,nodeIntegration:false,plugins:true,devTools:false}});installOfflinePolicy(window.webContents.session,directory);
+ async show(filename,mode='inline',parent=this.parent()){const data=await readSelectedPreview(filename);if(data.type!=='pdf')return mode==='window'?this.showContent(data,parent):data;const directory=path.join(this.root,crypto.randomUUID());assertLocalPath(directory);fs.mkdirSync(directory,{recursive:true,mode:0o700});const pdf=path.join(directory,'document.pdf');fs.writeFileSync(pdf,data.bytes,{mode:0o600,flag:'wx'});let window;try{const defaults={width:980,height:760,...this.size?.(),minWidth:340,minHeight:280};const bounds=this.screen?require('./desktop-state').fitBounds(null,this.screen.getAllDisplays(),defaults):defaults;window=new this.BrowserWindow({...bounds,parent,title:data.name+' · 文件預覽',autoHideMenuBar:true,webPreferences:{partition:'bfs-pdf-'+crypto.randomUUID(),sandbox:true,contextIsolation:true,nodeIntegration:false,plugins:true,devTools:false}});installOfflinePolicy(window.webContents.session,directory);
 // Chromium's bundled PDF viewer imports chrome://resources; these are local engine assets.
 window.webContents.session.webRequest.onBeforeRequest((details,callback)=>callback({cancel:!allowedPreviewRequest(details.url,pdf)}));window.webContents.on('will-navigate',event=>event.preventDefault());window.webContents.on('will-attach-webview',event=>event.preventDefault());window.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.windows.add(window);this.remember?.(window);window.on('closed',()=>{this.windows.delete(window);fs.rmSync(directory,{recursive:true,force:true});});await window.loadURL(pathToFileURL(pdf).href);return {type:'pdf',name:data.name,path:data.path,opened:true};}catch(error){window?.destroy();fs.rmSync(directory,{recursive:true,force:true});throw error;}}
+ async showContent(data,parent){
+  const directory=path.join(this.root,crypto.randomUUID());assertLocalPath(directory);fs.mkdirSync(directory,{recursive:true,mode:0o700});
+  const escape=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const html=path.join(directory,'preview.html');
+  const content=data.type==='image'?'<img alt="'+escape(data.name)+'" src="'+data.data+'">':'<pre>'+escape(data.text)+'</pre>';
+  fs.writeFileSync(html,`<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'self'; base-uri 'none'; form-action 'none'"><title>${escape(data.name)}</title><link rel="stylesheet" href="preview.css"><header><strong>${escape(data.name)}</strong><p>${escape(data.path)}</p></header><main>${content}</main></html>`,{flag:'wx'});
+  fs.writeFileSync(path.join(directory,'preview.css'),'html{color-scheme:light dark;font:14px/1.6 system-ui}body{margin:20px}p{opacity:.7;overflow-wrap:anywhere}img{max-width:100%;height:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere}header{border-bottom:1px solid #8885}');
+  let window;try{const defaults={width:800,height:640,...this.size?.(),minWidth:340,minHeight:280};const bounds=this.screen?require('./desktop-state').fitBounds(null,this.screen.getAllDisplays(),defaults):defaults;
+   window=new this.BrowserWindow({...bounds,parent,title:data.name+' · 文件預覽',autoHideMenuBar:true,webPreferences:{partition:'bfs-preview-'+crypto.randomUUID(),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
+   installOfflinePolicy(window.webContents.session,directory);window.webContents.on('will-navigate',event=>event.preventDefault());window.webContents.on('will-attach-webview',event=>event.preventDefault());window.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.windows.add(window);this.remember?.(window);window.on('closed',()=>{this.windows.delete(window);fs.rmSync(directory,{recursive:true,force:true});});await window.loadFile(html);return {type:data.type,name:data.name,path:data.path,opened:true};
+  }catch(error){window?.destroy();fs.rmSync(directory,{recursive:true,force:true});throw error;}
+ }
  close(){for(const window of this.windows)window.destroy();}
 }
 module.exports={readPreview,readSelectedPreview,DocumentPreview,allowedPreviewRequest};

@@ -48,6 +48,7 @@ const config={
       "description": "視窗、模式、尺寸與快速入口",
       "keywords": "floating mini window"
     },
+    {"id":"draft","label":"草稿筆記","description":"自動儲存、編輯尺寸、獨立提醒與附件預覽","keywords":"draft notes 草稿 筆記 字數 提醒 預覽"},
     {
       "id": "system",
       "label": "啟動與系統",
@@ -146,7 +147,7 @@ const config={
     "notesSidebarSections": "settings-notes-sidebar-sections",
     "searchFileActions": "settings-search-file-actions"
   },
-  "nativeControls": {"draftRememberWindow":"settings-draft-remember-window","draftWindowWidth":"settings-draft-width","draftWindowHeight":"settings-draft-height","draftShortcut":"settings-draft-shortcut","searchShortcut":"settings-search-shortcut","floatingSearchRememberConditions":"settings-floating-search-remember",
+  "nativeControls": {"snippetsShortcut":"settings-snippets-shortcut","calendarShortcut":"settings-calendar-shortcut","draftReminders":"settings-draftReminders","draftLocalShortcuts":"settings-draftLocalShortcuts","draftBodyLimit":"settings-draftBodyLimit","draftPreviewMode":"settings-draftPreviewMode","workspacePreviewMode":"settings-workspacePreviewMode","calendarShowCount":"settings-calendarShowCount","calendarWeekStart":"settings-calendarWeekStart","calendarDayHeight":"settings-calendarDayHeight","calendarEventLimit":"settings-calendarEventLimit","calendarFontSize":"settings-calendarFontSize","calendarShowAgenda":"settings-calendarShowAgenda","backupIntervalHours":"settings-backupIntervalHours","draftRememberWindow":"settings-draft-remember-window","draftWindowWidth":"settings-draft-width","draftWindowHeight":"settings-draft-height","draftShortcut":"settings-draft-shortcut","searchShortcut":"settings-search-shortcut","floatingSearchRememberConditions":"settings-floating-search-remember",
     "floatingSearchFiltersExpanded":"settings-floating-search-filters-expanded","floatingSearchPresentation":"settings-floating-search-presentation","floatingLayoutEditing":"settings-floating-layout-editing",
     "floatingSearchMode":"settings-floating-search-mode","floatingSearchDelay":"settings-floating-search-delay","floatingSearchMinLength":"settings-floating-search-min",
     "floatingGlobalSearch":"settings-floating-global-search","floatingSearchWidth":"settings-floating-search-width","floatingSearchHeight":"settings-floating-search-height",
@@ -221,7 +222,7 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"draftRememberWindow":"system","draftWindowWidth":"system","draftWindowHeight":"system","draftShortcut":"system","planningDayShowMaster":"planning","floatingPanels":"floating","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"snippetsShortcut":"floating","calendarShortcut":"floating","draftReminders":"draft","draftLocalShortcuts":"draft","draftBodyLimit":"draft","draftPreviewMode":"draft","draftListWidth":"draft","draftBodyHeight":"draft","workspacePreviewMode":"notes","toolSplitWidths":"appearance","calendarShowCount":"planning","calendarWeekStart":"planning","calendarDayHeight":"planning","calendarEventLimit":"planning","calendarFontSize":"planning","calendarShowAgenda":"planning","backupIntervalHours":"data","draftRememberWindow":"draft","draftWindowWidth":"draft","draftWindowHeight":"draft","draftShortcut":"draft","planningDayShowMaster":"planning","floatingPanels":"floating","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"search","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
@@ -377,7 +378,7 @@ const config={
     "notesCollapsedGroups": "notes",
     "notesExpandedGroups": "notes"
   },
-  "numericKeys": ["draftWindowWidth","draftWindowHeight","notesCardMaxWidth",
+  "numericKeys": ["draftBodyLimit","calendarWeekStart","calendarDayHeight","calendarEventLimit","calendarFontSize","backupIntervalHours","draftWindowWidth","draftWindowHeight","notesCardMaxWidth",
     "floatingSearchDelay","floatingSearchMinLength",
     "floatingSearchWidth","floatingSearchHeight",
     "reminderAttentionRepeatMinutes",

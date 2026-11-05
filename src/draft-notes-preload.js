@@ -2,7 +2,7 @@
 const {contextBridge,ipcRenderer,webUtils}=require('electron');
 const invoke=(name,...args)=>ipcRenderer.invoke('draft-'+name,...args);
 contextBridge.exposeInMainWorld('draftAPI',{
- data:()=>invoke('data'),
+ data:()=>invoke('data'),configure:patch=>invoke('configure',patch),export:(id,version,extension)=>invoke('export',id,version,extension),preview:(id,index)=>invoke('preview',id,index),remind:(id,version,input)=>invoke('remind',id,version,input),
  read:id=>invoke('read',id),
  newDraft:()=>invoke('new'),
  save:(id,version,text)=>invoke('save',id,version,text),
@@ -15,6 +15,6 @@ contextBridge.exposeInMainWorld('draftAPI',{
  send:(id,version,sheetId,masterId,withReminder)=>invoke('send',id,version,sheetId,masterId,withReminder),
  close:()=>invoke('close'),
  cancelClose:()=>invoke('cancel-close'),
- onClose:callback=>ipcRenderer.on('draft-close-request',()=>callback()),
+ onClose:callback=>ipcRenderer.on('draft-close-request',()=>callback()),onSettings:callback=>ipcRenderer.on('draft-settings-changed',(_,settings)=>callback(settings)),
  pathForFile:file=>webUtils.getPathForFile(file)
 });

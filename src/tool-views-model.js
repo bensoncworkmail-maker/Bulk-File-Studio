@@ -28,7 +28,7 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
  };
  if(config.kind==='snippets'){
   const categories=[...new Set(snippets.map(item=>item.category).filter(Boolean))].sort();
-  const rows=snippetRows(snippets,filters.query??config.query,filters.category);
+  const rows=snippetRows(snippets,filters.query??config.query,filters.category).map(row=>({...row,group:row.detail||'未分類'})).sort((a,b)=>a.group.localeCompare(b.group,'zh-Hant')||a.title.localeCompare(b.title,'zh-Hant'));
   return {...paginate(rows),categories};
  }
  const query=P.text(filters.query??config.query,256,'搜尋').toLocaleLowerCase();
@@ -52,7 +52,7 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
   const byId=new Map(records.map(record=>[record.id,record]));
   const rows=P.agenda(doc,reminders,month)
    .filter(event=>[event.title,event.sheet,event.label,event.master,byId.get(event.recordId)?.notes||''].some(value=>value.toLocaleLowerCase().includes(query)))
-   .map(event=>({id:event.recordId,title:event.title,group:event.date,detail:[event.sheet,event.master,event.label].filter(Boolean).join(' · '),eventKind:event.kind}));
+   .map(event=>({id:event.recordId||event.reminderId,title:event.title,group:event.date,detail:[event.sheet,event.master,event.label].filter(Boolean).join(' · '),eventKind:event.kind}));
   if(filters.mode!=='calendar')return paginate(rows);
   const counts={};
   for(const row of rows)counts[row.group]=(counts[row.group]||0)+1;

@@ -20,6 +20,9 @@
   if(!input||typeof input!=='object'||!ID.test(input.id)||!Object.hasOwn(TYPES,input.type)||typeof input.label!=='string'||!input.label.trim()||input.label.trim().length>30||/[\x00-\x1f\x7f]/.test(input.label))throw new Error('快捷動作名稱或類型無效');
   if(input.enabled!==undefined&&typeof input.enabled!=='boolean'||input.useClipboard!==undefined&&typeof input.useClipboard!=='boolean')throw new Error('快捷動作開關無效');
   const result={id:input.id,type:input.type,label:input.label.trim(),enabled:input.enabled!==false};
+  if(input.shortcut){const shortcuts=typeof module!=='undefined'&&module.exports?require('./global-shortcuts'):globalThis.globalShortcutModel;const key=shortcuts.normalize(input.shortcut);if(!key)throw new Error('快捷鍵格式無效');result.shortcut=key;}
+  if(input.icon!==undefined){if(!['＋','↥','▤','▦','⌕','▣','☷','✎','⌚','★','⚙','↗','⧉','☰'].includes(input.icon))throw new Error('請選擇內建圖示');result.icon=input.icon;}
+  if(input.buttonDisplay!==undefined){if(!['text','icon','both'].includes(input.buttonDisplay))throw new Error('按鈕顯示方式無效');result.buttonDisplay=input.buttonDisplay;}
   if(input.type==='import-paths'){
    if(!Array.isArray(input.tags)||input.tags.length>20||input.tags.some(tag=>typeof tag!=='string'||!tag.trim()||tag.trim().length>32||/[\x00-\x1f\x7f]/.test(tag)))throw new Error('快捷標籤無效，每個最多 32 字元、每項最多 20 個');
    const tags=new Map();for(const tag of input.tags)tags.set(tag.trim().toLocaleLowerCase(),tag.trim());result.tags=[...tags.values()];result.useClipboard=input.useClipboard===true;

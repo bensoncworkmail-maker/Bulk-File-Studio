@@ -823,3 +823,62 @@ test('floating logs keep all search filters on disk and isolate shortcut context
  assert.notEqual(reopened,first);
  assert.deepEqual(get({sender:reopened.webContents,senderFrame:{url:reopened.url}}).logFilters,filters);
 });
+
+test('new panel and per-action global shortcuts stay disabled by default and register the configured action',async t=>{
+ const h=harness(t);const defaults=h.handlers.get('desktop-settings-get')();assert.equal(defaults.snippetsShortcut,'');assert.equal(defaults.calendarShortcut,'');
+ h.handlers.get('desktop-settings-set')(null,{snippetsShortcut:'Ctrl+Alt+J',calendarShortcut:'Ctrl+Alt+K'});
+ await h.registered.get('CommandOrControl+Alt+J')();let owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}};
+ assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,'snippets');
+ await h.registered.get('CommandOrControl+Alt+K')();owner=h.windows.at(-1);event={sender:owner.webContents,senderFrame:{url:owner.url}};
+ assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,'planning');
+ const action={id:require('node:crypto').randomUUID(),label:'返回首頁',type:'open-page',page:'home',shortcut:'Ctrl+Alt+H',buttonDisplay:'icon',icon:'⌕'};
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action],floatingKeepAfterQuick:false,floatingOnTop:true});
+ h.handlers.get('floating-show')();const floating=h.windows.at(-1);await h.registered.get('CommandOrControl+Alt+H')();
+ assert.equal(floating.isVisible(),true);assert.equal(floating.onTop,true);assert.ok(h.messages.some(([name,value])=>name==='open-app-page'&&value==='home'));
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{calendarShortcut:'Ctrl+Alt+H'}),/相同/);
+});
+
+test('snippet global copy shortcuts register, expand text, detect conflicts and are removed with the snippet',async t=>{
+ const h=harness(t);const saved=h.handlers.get('productivity-save')(null,'snippets',{name:'問候',category:'工作',body:'今天 {{today}}',shortcut:'Ctrl+Alt+G'}),snippet=saved.snippets[0];
+ assert.ok(h.registered.has('CommandOrControl+Alt+G'));await h.registered.get('CommandOrControl+Alt+G')();assert.match(h.getCopied(),/^今天 \d{4}-\d{2}-\d{2}$/);
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{calendarShortcut:'Ctrl+Alt+G'}),/相同/);
+ h.handlers.get('productivity-remove')(null,'snippets',snippet.id);assert.equal(h.registered.has('CommandOrControl+Alt+G'),false);
+});
+
+test('draft reminders and export work without creating workspace records, and own data files are protected',async t=>{
+ const h=harness(t);h.handlers.get('desktop-settings-set')(null,{draftBodyLimit:0});await h.registered.get('CommandOrControl+Alt+D')();
+ const owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}},draft=(name,...args)=>h.rawHandlers.get('draft-'+name)(event,...args);
+ draft('data');let value=draft('new');value=draft('save',value.id,value.version,{title:'草稿待辦',body:'獨立提醒內容'});
+ const reminder=draft('remind',value.id,value.version,{at:new Date(Date.now()+60000).toISOString(),repeat:'none'});
+ assert.equal(reminder.items[0].recordId,null);assert.equal(reminder.items[0].available,true);assert.equal(h.handlers.get('notes-get')().document.records.length,0);
+ draft('delete',value.id,value.version);assert.equal(h.handlers.get('reminders-list')().items[0].title,'草稿待辦');
+ value=draft('new');value=draft('save',value.id,value.version,{title:'另存',body:'UTF-8 測試'});
+ const out=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-draft-export-'));t.after(()=>fs.rmSync(out,{recursive:true,force:true}));
+ const target=path.join(out,'note.md');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:target});await draft('export',value.id,value.version,'md');assert.equal(fs.readFileSync(target,'utf8'),'UTF-8 測試');
+ h.dialog.showSaveDialog=async()=>({canceled:false,filePath:path.join(h.dir,'favorites.json')});await assert.rejects(draft('export',value.id,value.version,'json'),/資料目錄/);
+ h.handlers.get('desktop-settings-set')(null,{draftReminders:false});assert.throws(()=>draft('remind',value.id,value.version,{at:new Date(Date.now()+60000).toISOString()}),/啟用/);
+});
+
+test('workset direct file and folder links open without favorites and missing paths are reported',async t=>{
+ const h=harness(t),file=path.join(h.dir,'direct.txt'),folder=path.join(h.dir,'project');fs.writeFileSync(file,'text');fs.mkdirSync(folder);
+ h.dialog.showMessageBox=async()=>({response:0});const saved=h.handlers.get('productivity-save')(null,'worksets',{name:'直接工作集',favoriteIds:[],recordIds:[],paths:[file,folder,path.join(h.dir,'missing')]});
+ const result=await h.handlers.get('productivity-workset-open')(null,saved.worksets[0].id);assert.equal(result.opened,2);assert.equal(result.failures.length,1);assert.equal(h.handlers.get('favorites-list')().items.length,0);assert.ok(h.opened.includes(file)&&h.opened.includes(folder));
+});
+
+test('backup center deletes only selected files, exports a batch without overwrites and schedules a backup',async t=>{
+ const h=harness(t),first=h.handlers.get('productivity-backup-create')(null,{}),second=h.handlers.get('productivity-backup-create')(null,{}),out=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-batch-backup-'));t.after(()=>fs.rmSync(out,{recursive:true,force:true}));
+ h.dialog.showMessageBox=async()=>({response:0});h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[out]});let result=await h.handlers.get('productivity-backup-export-many')(null,[first.name,second.name]);assert.equal(result.count,2);assert.equal(fs.readdirSync(out).length,2);
+ result=await h.handlers.get('productivity-backup-export-many')(null,[first.name]);assert.equal(result.count,0);assert.equal(result.failures.length,1);
+ await assert.rejects(h.handlers.get('productivity-backup-delete')(null,['../favorites.json']),/不存在/);
+ result=await h.handlers.get('productivity-backup-delete')(null,[first.name]);assert.equal(result.count,1);assert.ok(h.handlers.get('productivity-get')().backups.some(item=>item.name===second.name));
+ h.handlers.get('desktop-settings-set')(null,{backupIntervalHours:1});const scheduled=await h.handlers.get('productivity-backup-tick')(null,{});assert.equal(scheduled.created,true);assert.equal((await h.handlers.get('productivity-backup-tick')(null,{})).created,false);
+ assert.match(h.handlers.get('productivity-get')().backupFolder,/profile-backups$/);
+});
+
+test('configurable document previews show escaped snapshots and bounded folder listings without running HTML',async t=>{
+ const h=harness(t),source=path.join(h.dir,'document.html'),folder=path.join(h.dir,'assets');fs.writeFileSync(source,'<script>alert(1)</script><b>Literal</b>');fs.mkdirSync(folder);for(let i=0;i<205;i++)fs.writeFileSync(path.join(folder,'item'+i+'.txt'),'x');
+ h.handlers.get('desktop-settings-set')(null,{workspacePreviewMode:'window'});
+ const result=await h.handlers.get('productivity-preview-choose')(null,source),owner=h.windows.at(-1),html=fs.readFileSync(require('node:url').fileURLToPath(owner.url),'utf8');assert.equal(result.opened,true);assert.match(html,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);assert.equal(html.includes('<script>'),false);assert.equal(owner.options.webPreferences.nodeIntegration,false);assert.equal(owner.options.webPreferences.sandbox,true);
+ h.handlers.get('desktop-settings-set')(null,{workspacePreviewMode:'inline'});const data=await h.handlers.get('productivity-preview-choose')(null,folder);assert.equal(data.type,'folder');assert.match(data.text,/200/);assert.equal(data.text.split('\n').length,201);
+ h.handlers.get('desktop-settings-set')(null,{workspacePreviewMode:'system'});const external=await h.handlers.get('productivity-preview-choose')(null,source);assert.equal(external.type,'system');assert.ok(h.opened.includes(source));
+});

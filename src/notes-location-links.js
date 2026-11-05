@@ -69,4 +69,5 @@ async function openRecordLink({document,favorites,recordId,index,action,shell,cl
  if(actual.type==='file'&&BLOCKED.test(actual.path))throw new Error('此類程式或捷徑請使用「定位」後自行開啟');
  const error=await shell.openPath(actual.path);if(error)throw new Error(error);
 }
-module.exports={locationPath,inspectLocation,inspectIntranetLocation,inspectLinks,openRecordLink};
+async function safeLocationOpen(raw){const filepath=locationPath(raw),actual=await withIntranetPaths([filepath],()=>/^\\\\/.test(filepath)?inspectIntranetLocation(filepath):inspectLocation(filepath));if(actual.type==='file'&&BLOCKED.test(filepath))throw new Error('此類程式或捷徑請使用檔案總管自行開啟');return actual.path;}
+module.exports={safeLocationOpen,locationPath,inspectLocation,inspectIntranetLocation,inspectLinks,openRecordLink};

@@ -465,3 +465,10 @@ test('workspace and record drops stage paths in the link tab without writing unt
  assert.equal(saved.title,'拖放紀錄');
  assert.deepEqual(saved.fileLinks.map(link=>link.path),input.value.split('\n'));
 });
+
+test('bulk edit modal blocks navigation and ignores an outdated asynchronous preview',async t=>{
+ const h=setup(t),state=h.store.addTemplate(),sheet=state.document.sheets[0];h.store.saveCopies({sheetId:sheet.id,title:'Before',notes:'keep',tags:[],values:{},fileLinks:[]},2);h.ui.activate();await flush();
+ h.els.get('notes-select-filtered').events.click();h.els.get('notes-bulk-edit').events.click();assert.equal(h.els.get('notes-bulk-dialog').open,true);assert.equal(h.ui.canLeave(),false);
+ let resolve;h.api.bulkPreview=()=>new Promise(done=>resolve=done);const input=h.els.get('notes-bulk-value').children[0];input.value='Outdated';h.els.get('notes-bulk-prepare').events.click();input.value='Current';h.els.get('notes-bulk-value').events.input();resolve({token:'outdated',count:2,rows:[]});await flush();assert.equal(h.els.get('notes-bulk-apply').disabled,true);
+ h.api.bulkPreview=async(input,revision)=>h.store.bulkPreview(input,revision);h.api.bulkCommit=async token=>h.store.bulkCommit(token);await h.els.get('notes-bulk-prepare').events.click();assert.equal(h.els.get('notes-bulk-apply').disabled,false);h.els.get('notes-bulk-apply').events.click();await flush();assert.equal(h.els.get('notes-bulk-dialog').open,false);assert.ok(h.store.get().document.records.every(record=>record.title==='Current'&&record.notes==='keep'));assert.equal(h.ui.canLeave(),true);
+});
