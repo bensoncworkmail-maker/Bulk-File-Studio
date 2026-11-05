@@ -49,3 +49,15 @@ test('schema deletion protects master relations and rejects stale confirmation b
  const {store,master,detail}=workspace(t),parent=M.parentField(store.get().document,detail),state=store.get();assert.throws(()=>store.sheetPreview({...detail,expectedVersion:detail.version,fields:detail.fields.filter(field=>field.id!==parent.id)}),/必要.*主從關聯/);
  const field=master.fields[0],preview=store.sheetPreview({...master,expectedVersion:master.version,baseRevision:state.revision,fields:master.fields.filter(item=>item.id!==field.id)});add(store,master,'New edit');const revision=store.get().revision;assert.throws(()=>store.sheetCommit(preview.token,true),/失效/);assert.equal(store.get().revision,revision);assert.ok(store.get().document.sheets[0].fields.some(item=>item.id===field.id));
 });
+test('detail-only search excludes masters and recycled details while matching renamed parent values',t=>{
+ const {store,master,detail}=workspace(t),doc=store.get().document,parent=M.parentField(doc,detail),a=add(store,master,'Renamed master'),b=add(store,detail,'Detail target',{[parent.id]:[a]}),c=add(store,detail,'Trash',{[parent.id]:[a]});store.trash('record',c,1);
+ assert.deepEqual(M.searchRecords(store.get().document,{scope:'details',query:''}).map(row=>row.id),[b]);assert.equal(M.searchRecords(store.get().document,{scope:'details',query:'Renamed',searchParent:true})[0].id,b);
+ const settings=require('../src/settings-model').normalize({notesSearchScope:'details'});assert.equal(settings.notesSearchScope,'details');assert.equal(settings.notesShowCopyCount,false);
+ const Q=require('../src/quick-actions-model');assert.equal(Q.normalize([{id:crypto.randomUUID(),type:'open-worksets',label:'Worksets',display:'menu'}],true)[0].display,'menu');assert.throws(()=>Q.normalize([{id:crypto.randomUUID(),type:'open-worksets',label:'Worksets',display:'overlay'}],true));
+});
+test('shortcut menu waits for all modifiers, cancels on lost focus, and cleans up stale requests',()=>{
+ const {ShortcutMenuTrigger}=require('../src/shortcut-menu-trigger'),owner=new EventEmitter(),wc=new EventEmitter(),timers=new Map();let next=0,opened=0,focused=true;Object.assign(owner,{webContents:wc,focus(){focused=true;},isDestroyed:()=>false,isVisible:()=>true,isFocused:()=>focused});
+ const trigger=new ShortcutMenuTrigger({window:()=>owner,show(){},defer:fn=>{timers.set(++next,fn);return next;},cancel:id=>timers.delete(id)}),event={preventDefault(){}};
+ trigger.run(()=>opened++);assert.equal(opened,0);wc.emit('before-input-event',event,{type:'keyUp',key:'R',alt:true,control:true});assert.equal(timers.size,1);wc.emit('before-input-event',event,{type:'keyUp',key:'Alt',alt:false,control:false});[...timers.values()].at(-1)();assert.equal(opened,1);assert.equal(wc.listenerCount('before-input-event'),0);assert.equal(timers.size,0);
+ trigger.run(()=>opened++);focused=false;owner.emit('blur');assert.equal(trigger.pending,null);assert.equal(timers.size,0);trigger.run(()=>opened++);trigger.run(()=>opened+=2);assert.equal(wc.listenerCount('before-input-event'),1);trigger.close();assert.equal(wc.listenerCount('before-input-event'),0);
+});

@@ -1,16 +1,17 @@
 'use strict';
 (() => {
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,LIMIT=12;
- const TYPES=Object.freeze({'new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','open-tool':'開啟工具箱功能','open-share':'開啟共享管理','share-check':'檢查共享更新','share-publish':'發佈共享快照（須確認）','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-drafts':'開啟草稿筆記','open-reminders':'管理提醒排程','view-logs':'查看紀錄','open-planning':'日曆／看板','open-snippets':'常用文字片段'});
+ const TYPES=Object.freeze({'new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','open-tool':'開啟工具箱功能','open-share':'開啟共享管理','share-check':'檢查共享更新','share-publish':'發佈共享快照（須確認）','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-drafts':'開啟草稿筆記','open-reminders':'管理提醒排程','view-logs':'查看紀錄','open-planning':'日曆／看板','open-worksets':'情境工作集','open-snippets':'常用文字片段'});
  const PAGES=Object.freeze({home:'首頁',notes:'資料工作區',favorites:'我的收藏',search:'全域搜尋',rename:'檔案工具',settings:'設定',productivity:'工具箱',planning:'日曆／看板',logs:'查看紀錄',info:'資訊與更新紀錄'});
  const TOOLS=Object.freeze({repair:'批次修復路徑',backup:'備份／還原',rules:'檔案整理規則',preview:'文件預覽',worksets:'情境工作集',snippets:'常用文字片段'});
  const TYPE_GROUPS=[
   ['工作區與共享',['new-record','open-sheet','open-share','share-check','share-publish','open-reminders','view-logs','open-planning']],
   ['收藏與搜尋',['import-paths','open-tag-menu','copy-tag-paths','open-search']],
-  ['頁面與工具',['open-page','open-tool','open-snippets','open-drafts']]
+  ['頁面與工具',['open-page','open-tool','open-worksets','open-snippets','open-drafts']]
  ];
  function displayOptions(type){
   if(type==='view-logs')return [['overlay','浮動視窗'],['main','主視窗']];
+  if(type==='open-worksets')return [['menu','外部選單'],['main','主視窗']];
   if(['open-planning','open-snippets'].includes(type))return [
    ['overlay','浮動工具內'],['menu','外部選單'],['main','主視窗']
   ];

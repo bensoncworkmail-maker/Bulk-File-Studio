@@ -252,7 +252,7 @@ app.whenReady().then(() => {
   });
   if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))require('./profile-service').recoverProfile(app.getPath('userData'),notesStore());
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
-  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),showCalendar:floatingAction(()=>openToolOverlay('planning')),extraShortcuts:settings=>[...(settings.floatingQuickActions||[]).filter(item=>item.enabled&&item.shortcut).map(item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runQuickAction?.(null,item.id))]),...(productivity?.store.get().snippets||[]).filter(item=>item.shortcut).map(item=>['accelerator:'+item.shortcut,'複製 '+item.name,floatingAction(()=>productivity.copySnippet(item.id,''))])],showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
+  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),showCalendar:floatingAction(()=>openToolOverlay('planning')),extraShortcuts:settings=>[...(settings.floatingQuickActions||[]).filter(item=>item.enabled&&item.shortcut).map(item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runShortcutQuickAction(item.id))]),...(productivity?.store.get().snippets||[]).filter(item=>item.shortcut).map(item=>['accelerator:'+item.shortcut,'複製 '+item.name,floatingAction(()=>productivity.copySnippet(item.id,''))])],showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   handle('shortcuts-recording',(_,enabled)=>{if(typeof enabled!=='boolean')throw new Error('快捷鍵錄製狀態無效');if(!enabled){endShortcutRecording();return {capturing:false};}if(!win.isFocused())return {capturing:false};shortcutRecording=true;globalShortcut.unregisterAll();return {capturing:true};});
   handle('draft-open',openDrafts);
   const draftHandlers={
@@ -346,10 +346,25 @@ app.whenReady().then(() => {
     });
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
+  let shortcutMenuTrigger;
+  function runShortcutQuickAction(id){
+    const action=configuredQuick(id);
+    if(action.type==='open-tag-menu'||action.display==='menu'){
+      closeFloatingMenu();
+      shortcutMenuTrigger??=new(require('./shortcut-menu-trigger').ShortcutMenuTrigger)({window:()=>floating,show:()=>{if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();}});
+      return shortcutMenuTrigger.run(floatingAction(()=>runQuickAction(null,id)));
+    }
+    return runQuickAction(null,id);
+  }
   runQuickAction=(event,id,anchor)=>{
     const action=configuredQuick(id);
     if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
+    if(action.type==='open-worksets'){
+      if(action.display==='main'){focusMain();send(win,'open-app-page',{tool:'worksets'});return {opened:true};}
+      const rows=productivity.store.get().worksets;
+      popupFloatingMenu(rows.length?rows.map(item=>({label:menuLabel(item.name),click:floatingAction(async()=>{const result=await productivity.openWorkset(item.id);if(result.recordId)navigateWorkspace(result.recordId);})})):[{label:'尚未建立工作集',enabled:false}],{allowCollapsed:true});return {menu:true};
+    }
     if(action.type==='open-drafts')return openDrafts();
     if(action.type==='open-search')return {...floatingSearchController().open(action.query),popup:true};
     if(['view-logs','open-planning','open-snippets'].includes(action.type)){

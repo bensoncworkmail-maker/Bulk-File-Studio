@@ -12,7 +12,7 @@
   if(!input||typeof input!=='object'||Array.isArray(input))return {};
   return Object.fromEntries(Object.entries(input).filter(([id,mode])=>ID.test(id)&&modes.includes(mode)).slice(-100));
  }
- function viewGroup(scope,detail){return ['all','area','master'].includes(scope)?'mixed':scope==='masters'?'master':detail?'detail':'master';}
+ function viewGroup(scope,detail){return ['all','area','master'].includes(scope)?'mixed':scope==='masters'?'master':scope==='details'?'detail':detail?'detail':'master';}
  function viewKey(group){return group==='master'?'notesMasterView':group==='detail'?'notesDetailView':'notesView';}
  const exports={modes,eligible,normalizeFilter,normalizeFilters,statusField,statusOptions,selection,filter,normalizeViewModes,viewGroup,viewKey};if(typeof module!=='undefined'&&module.exports)module.exports=exports;else globalThis.notesTableState=Object.freeze(exports);
 })();
