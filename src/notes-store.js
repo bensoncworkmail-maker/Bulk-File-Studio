@@ -64,7 +64,7 @@ class NotesStore {
    const beforeView=Audit.view(beforeDocument),afterView=Audit.view(doc);
    for(const record of doc.records)if(before.has(record.id)&&before.get(record.id)!==JSON.stringify(record)){
     const id=crypto.randomUUID(),previous=JSON.parse(before.get(record.id));this.db.prepare('INSERT INTO record_history VALUES (?,?,?,?)').run(id,record.id,new Date().toISOString(),before.get(record.id));
-    const metadata={operation:context.operation||'工作區操作',source:context.source||'本機',sourceRevision:context.sourceRevision??null,sourceVersion:context.sourceVersion??null,scope:context.scope||null,packageName:context.packageName||'',workspaceRevision:state.revision+1,versionFrom:previous.version,versionTo:record.version,changes:Audit.recordChanges(previous,record,beforeView,afterView)};
+    const metadata={operation:context.operation||'工作區操作',source:context.source||'本機',sourceRevision:context.sourceRevision??null,sourceVersion:context.sourceVersion??null,sourceCommit:context.sourceCommit??null,scope:context.scope||null,packageName:context.packageName||'',workspaceRevision:state.revision+1,versionFrom:previous.version,versionTo:record.version,changes:Audit.recordChanges(previous,record,beforeView,afterView)};
     this.db.prepare('INSERT INTO record_history_details VALUES (?,?)').run(id,JSON.stringify(metadata));
     this.db.prepare('DELETE FROM record_history WHERE record_id=? AND id NOT IN (SELECT id FROM record_history WHERE record_id=? ORDER BY saved_at DESC,rowid DESC LIMIT 10)').run(record.id,record.id);
    }
@@ -205,17 +205,22 @@ class NotesStore {
   const meta=SharedMerge.identity(context);
   if(mode!=='merge'){
    const result=sharing.merge(state.document,input,mode,()=>crypto.randomUUID(),now,context.scope);
-   if(meta&&['update','clone'].includes(mode))result.base=SharedMerge.baseline(result.incoming,meta);
+   if(meta&&['update','clone'].includes(mode))result.base=SharedMerge.baseline(result.incoming,meta,{commit:input.packageVersion===5?input.sharing.commit:null});
    return result;
   }
   if(!meta)throw new Error('差異合併只適用於具有效來源版本的共享資料包。');
   const projected=sharing.project(input,context.scope),incoming=model.readPackage(projected.data);
-  const prior=this.sharedBase(meta),base=SharedMerge.baseline(incoming,meta);
+  const prior=this.sharedBase(meta),{tombstones,commit}=projected;
   if(prior&&SharedMerge.older(prior,meta))throw new SharedMerge.MergeConflict('這份資料包早於已接收版本，請選擇較新的版本。');
-  if(prior&&SharedMerge.sameVersion(prior,meta)&&SharedMerge.contentDigest(prior)!==SharedMerge.contentDigest(base)){
+  if(prior?.commitId&&(!commit||commit.id!==prior.commitId&&!commit.ancestors.includes(prior.commitId))){
+   throw new SharedMerge.MergeConflict('無法驗證來源接續上次接收的提交，請核對發布鏈或手動重建接收基準。');
+  }
+  const base=SharedMerge.baseline(incoming,meta,{tombstones,commit,prior});
+  if(prior&&SharedMerge.sameVersion(prior,meta)&&(!commit||commit.id!==prior.commitId)&&
+   SharedMerge.contentDigest(prior)!==SharedMerge.contentDigest(base)){
    throw new SharedMerge.MergeConflict('同一發布版本的資料內容有變更，請來源重新發布。');
   }
-  return {...SharedMerge.merge(state.document,incoming,prior,now,projected.managed,review),incoming,base,scope:projected.config};
+  return {...SharedMerge.merge(state.document,incoming,prior,now,projected.managed,review,{tombstones,versioned:Boolean(commit)}),incoming,base,scope:projected.config};
  }
  importPreview(input,mode,context={},options={}){
   let review=options.reviewConflicts&&mode==='merge'?{}:undefined;
@@ -247,7 +252,11 @@ class NotesStore {
   if(Buffer.byteLength(JSON.stringify(merged.document))>model.LIMITS.bytes)throw new Error('匯入後工作區超過 20 MB');
   if(mode==='update'||mode==='clone')Audit.preserveUnchanged(state.document,merged.document);
   const resultIds=new Set(merged.document.records.map(record=>record.id));
-  const auditInput=mode==='merge'?{...incoming,records:incoming.records.filter(record=>resultIds.has(record.id))}:incoming;
+  const sourceIds=new Set(incoming.records.map(record=>record.id));
+  const originalVersions=new Map(state.document.records.map(record=>[record.id,record.version]));
+  const otherChanges=mode==='merge'?merged.document.records.filter(record=>!sourceIds.has(record.id)&&
+   record.version!==originalVersions.get(record.id)):[];
+  const auditInput=mode==='merge'?{...incoming,records:[...incoming.records.filter(record=>resultIds.has(record.id)),...otherChanges]}:incoming;
   const records=Audit.importRows(state.document,auditInput,merged.document,mode),structure=Audit.structureChanges(state.document,merged.document),counts=Object.fromEntries(['added','updated','skipped','unchanged',...(mode==='clone'?['removed']:[])].map(status=>[status,records.filter(row=>row.status===status).length]));
   const summary={...merged.summary,...counts,counts};this.pending={kind:'import',token:crypto.randomUUID(),revision:state.revision,data:merged.document,expires:Date.now()+600000,summary,context:{operation:mode==='clone'?'複製來源到本機':mode==='merge'?'共享差異合併':'匯入資料包',...context},mode,base:merged.base,incoming:mode==='skip'?incoming:null,recordKeys:new Set(records.map(row=>row.key))};
   return {token:this.pending.token,...summary,mode,scope:merged.scope,context:previewContext,structure,tagLinks:incoming.records.reduce((sum,record)=>sum+record.favoriteTagLinks.length,0),links:incoming.records.reduce((sum,record)=>sum+record.fileLinks.length,0),records,sheets:incoming.sheets.map(sheet=>({name:sheet.name,count:incoming.records.filter(record=>record.sheetId===sheet.id).length}))};

@@ -121,3 +121,167 @@ test('manual first pull requires choices for differing fields and rejects stale 
  assert.equal(saved.title,'合併標題');
  assert.equal(saved.notes,'base');
 });
+
+function releases(t,h){
+ const {perform}=require('../src/notes-share-worker');
+ const S=require('../src/notes-sharing-model');
+ const folder=path.dirname(h.store.filename);
+ const scope=h.meta.scope;
+ let previousCommit=null,version=h.meta.sourceVersion;
+ return {
+  publish(document,{parent=previousCommit}={}){
+   version++;
+   const published=perform({action:'publish',folder,deviceId:h.meta.source,revision:version,version,scope,
+    data:S.shareSnapshot(document,scope),previousCommit:parent});
+   previousCommit=published.commit;
+   const {data,sharing}=perform({action:'read',folder,name:published.name});
+   return {data,sharing,name:published.name,context:{...h.meta,sourceRevision:sharing.revision,sourceVersion:sharing.version}};
+  }
+ };
+}
+function pull(store,{data,context}){
+ const preview=store.importPreview(data,'merge',context);
+ store.importCommit(preview.token);
+ return preview;
+}
+
+test('published recycle and restore travel across skipped releases and keep record IDs and local-only rows',t=>{
+ const h=setup(t),publisher=releases(t,h),source=new NotesStore(path.join(path.dirname(h.store.filename),'publisher.sqlite'));
+ t.after(()=>source.close());
+ source.importCommit(source.importPreview(h.published,'clone').token,{confirmClone:true});
+ const parent=source.get().document.records.find(record=>record.id===h.id);
+ const sheet=source.get().document.sheets.find(sheet=>M.parentField(source.get().document,sheet)?.targetSheetId===parent.sheetId);
+ const parentField=M.parentField(source.get().document,sheet);
+ const child=source.saveRecord({sheetId:sheet.id,title:'聯絡資料',notes:'',tags:[],values:{[parentField.id]:[parent.id]},fileLinks:[]}).result.id;
+ const first=publisher.publish(source.get().document);
+ assert.equal(first.data.packageVersion,5);
+ assert.equal(first.sharing.commit.parentCommitId,null);
+ pull(h.store,first);
+ const localOnly=h.store.saveRecord({sheetId:parent.sheetId,title:'本機新紀錄',notes:'',tags:[],values:{},fileLinks:[]}).result.id;
+ const original=source.get().document.records.find(record=>record.id===parent.id);
+ source.saveRecord({...original,title:'主檔已改名',expectedVersion:original.version});
+ const renamed=publisher.publish(source.get().document);
+ assert.equal(pull(h.store,renamed).counts.updated,1);
+ assert.deepEqual(h.store.get().document.records.find(record=>record.id===child).values[parentField.id],[parent.id]);
+ source.trash('record',parent.id,source.get().document.records.find(record=>record.id===parent.id).version);
+ const deleted=publisher.publish(source.get().document);
+ const latest=publisher.publish(source.get().document);
+ assert.equal(latest.sharing.commit.parentCommitId,deleted.sharing.commit.id);
+ assert.ok(latest.sharing.commit.ancestors.includes(renamed.sharing.commit.id));
+ assert.deepEqual(latest.data.tombstones.map(item=>item.id),[parent.id]);
+ const preview=h.store.importPreview(latest.data,'merge',latest.context);
+ assert.equal(preview.recycled,1);
+ assert.ok(preview.records.some(row=>row.key===parent.id&&row.status==='updated'));
+ assert.ok(h.store.importDetails(preview.token,parent.id).changes.some(change=>change.label==='回收筒狀態'));
+ h.store.importCommit(preview.token);
+ assert.equal(pull(h.store,latest).recycled,0);
+ const received=h.store.get().document;
+ assert.ok(received.records.find(record=>record.id===parent.id).deletedAt);
+ assert.deepEqual(received.records.find(record=>record.id===child).values[parentField.id],[parent.id]);
+ assert.equal(received.records.find(record=>record.id===localOnly).deletedAt,null);
+ source.trash('record',parent.id,source.get().document.records.find(record=>record.id===parent.id).version,true);
+ pull(h.store,publisher.publish(source.get().document));
+ assert.equal(h.store.get().document.records.find(record=>record.id===parent.id).deletedAt,null);
+});
+
+test('a source recycle conflicting with a local edit pauses automatic merge and offers a manual decision',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document);
+ pull(h.store,publisher.publish(document));
+ const local=h.store.get().document.records.find(record=>record.id===h.id);
+ h.store.saveRecord({...local,expectedVersion:local.version,notes:'本機未發布的改動'});
+ document.records.find(record=>record.id===h.id).deletedAt='2026-11-05T00:00:00.000Z';
+ const next=publisher.publish(document);
+ assert.throws(()=>h.store.importPreview(next.data,'merge',next.context),/來源已回收，本機有變更/);
+ const conflict=h.store.importPreview(next.data,'merge',next.context,{reviewConflicts:true});
+ assert.equal(conflict.conflicts.length,1);
+ assert.equal(conflict.conflicts[0].name,'回收筒狀態');
+ const preview=h.store.importPreview(next.data,'merge',next.context,{reviewConflicts:true,
+  resolution:{token:conflict.token,choices:[{id:conflict.conflicts[0].id,choice:'local'}]}});
+ assert.equal(preview.recycled,0);
+ h.store.importCommit(preview.token);
+ assert.equal(pull(h.store,publisher.publish(document)).recycled,0);
+ assert.equal(h.store.get().document.records.find(record=>record.id===h.id).notes,'本機未發布的改動');
+});
+
+test('shared commits clear values, merge independent column additions and remove source columns by ID',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document);
+ pull(h.store,publisher.publish(document));
+ const sourceSheet=document.sheets[0],dropped=h.field.id,sourceField={...h.field,id:randomUUID(),label:'來源新增'};
+ const localField={...h.field,id:randomUUID(),label:'本機新增'};
+ h.store.change(doc=>doc.sheets[0].fields.push(localField));
+ sourceSheet.fields.push(sourceField);
+ const row=document.records.find(record=>record.id===h.id);
+ row.values[sourceField.id]='將清空';
+ pull(h.store,publisher.publish(document));
+ delete row.values[sourceField.id];
+ sourceSheet.fields=sourceSheet.fields.filter(field=>field.id!==dropped);
+ for(const record of document.records)delete record.values[dropped];
+ const preview=pull(h.store,publisher.publish(document));
+ assert.equal(preview.counts.updated,2);
+ const received=h.store.get().document;
+ assert.ok(received.sheets[0].fields.some(field=>field.id===localField.id));
+ assert.ok(received.sheets[0].fields.some(field=>field.id===sourceField.id));
+ assert.ok(!received.sheets[0].fields.some(field=>field.id===dropped));
+ assert.deepEqual(received.records.find(record=>record.id===h.id).values,{});
+});
+
+test('shared commit validation rejects tampered snapshots and unrelated release chains',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document);
+ const first=publisher.publish(document);
+ pull(h.store,first);
+ const next=publisher.publish(document);
+ const tampered=structuredClone(next.data);
+ tampered.document.records[0].title='內容被改動';
+ assert.throws(()=>h.store.importPreview(tampered,'merge',next.context),/雜湊不符/);
+ const fork=publisher.publish(document,{parent:null});
+ assert.throws(()=>h.store.importPreview(fork.data,'merge',fork.context),/無法驗證來源接續/);
+});
+
+test('automatic receive applies a safe source recycle and records it in history',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document);
+ pull(h.store,publisher.publish(document));
+ const row=document.records.find(record=>record.id===h.id);
+ row.deletedAt='2026-11-05T00:00:00.000Z';
+ const released=publisher.publish(document);
+ const applied=h.store.importShared(released.data,h.store.get().revision,
+  {...released.context,sourceCommit:released.sharing.commit.id});
+ assert.equal(applied.result.recycled,1);
+ assert.equal(applied.document.records.find(record=>record.id===h.id).deletedAt,row.deletedAt);
+ assert.equal(h.store.history(h.id)[0].sourceCommit,released.sharing.commit.id);
+});
+
+test('removing a source column with receiver edits requires an explicit decision',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document),field=h.field.id;
+ pull(h.store,publisher.publish(document));
+ const local=h.store.get().document.records.find(record=>record.id===h.id);
+ h.store.saveRecord({...local,expectedVersion:local.version,values:{[field]:'只在本機修改'}});
+ document.sheets[0].fields=document.sheets[0].fields.filter(item=>item.id!==field);
+ for(const row of document.records)delete row.values[field];
+ const {data,context}=publisher.publish(document);
+ const conflict=h.store.importPreview(data,'merge',context,{reviewConflicts:true});
+ assert.equal(conflict.conflicts.length,1);
+ assert.match(conflict.conflicts[0].name,/移除欄位/);
+ const preview=h.store.importPreview(data,'merge',context,{reviewConflicts:true,
+  resolution:{token:conflict.token,choices:[{id:conflict.conflicts[0].id,choice:'source'}]}});
+ const applied=h.store.importCommit(preview.token);
+ assert.ok(!applied.document.sheets[0].fields.some(item=>item.id===field));
+ assert.equal(applied.document.records.find(record=>record.id===h.id).values[field],undefined);
+});
+
+test('a scoped receiver applies tombstones only inside its selected master family',t=>{
+ const h=setup(t),publisher=releases(t,h);
+ const {document:withProjects}=h.store.addTemplate('projects');
+ const other=M.masterTableTree(withProjects).at(-1).master.id;
+ const outside=h.store.saveRecord({sheetId:other,title:'其他主表紀錄',values:{},notes:'',tags:[],fileLinks:[]}).result.id;
+ const document=M.clone(h.store.get().document);
+ const scope={mode:'masters',masterIds:[document.records.find(record=>record.id===h.id).sheetId]};
+ const receive=release=>({...release,context:{...release.context,scope}});
+ pull(h.store,receive(publisher.publish(document)));
+ for(const id of [h.id,outside])document.records.find(record=>record.id===id).deletedAt='2026-11-05T00:00:00.000Z';
+ const release=publisher.publish(document);
+ assert.equal(release.data.tombstones.length,2);
+ const preview=pull(h.store,receive(release));
+ assert.equal(preview.sourceRecycled,1);
+ assert.equal(preview.recycled,1);
+ assert.equal(h.store.get().document.records.find(record=>record.id===outside).deletedAt,null);
+});
