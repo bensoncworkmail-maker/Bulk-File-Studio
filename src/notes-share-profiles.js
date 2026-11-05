@@ -17,7 +17,7 @@ class NotesShareProfiles{
   channel=new NotesShare(this.file(id),{...this.options,
    canMerge:this.options.canMerge?(context=>this.options.canMerge({...context,profileId:id})):undefined,
    applyUpdate:this.options.applyUpdate?((data,revision,active,context)=>this.options.applyUpdate(data,revision,active,{...context,profileId:id})):undefined,
-   scopeFingerprint:id!=='default',snapshot:scope=>{const snapshot=this.options.snapshot(selection||scope);if(id==='default')return snapshot;return {...snapshot,fingerprint:crypto.createHash('sha256').update(JSON.stringify(snapshot.data.document)).digest('hex')};},onChange:()=>{if(!this.loading)this.emit();}});
+   scopeFingerprint:id!=='default',snapshot:scope=>{const snapshot=this.options.snapshot(selection||scope);if(id==='default')return snapshot;return {...snapshot,fingerprint:crypto.createHash('sha256').update(JSON.stringify([snapshot.data.document,snapshot.data.tombstones||[]])).digest('hex')};},onChange:()=>{if(!this.loading)this.emit();}});
   if(selection){channel.config={...channel.config,publishScope:selection,receiveScope:selection};const start=channel.start.bind(channel);channel.start=()=>{if(this.masters().some(master=>master.id===id))start();else channel.close();};const tick=channel.tick.bind(channel);channel.tick=async()=>{if(this.masters().some(master=>master.id===id))return tick();};}
   this.channels.set(id,channel);return channel;
  }

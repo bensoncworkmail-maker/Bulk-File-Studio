@@ -1,7 +1,30 @@
 'use strict';
 const M=require('./notes-model');
 function scope(value){if(value===undefined||value===null)return {mode:'all',masterIds:[]};if(!value||!['all','masters'].includes(value.mode)||!Array.isArray(value.masterIds)||value.masterIds.length>100||value.masterIds.some(id=>!M.ID.test(id))||new Set(value.masterIds).size!==value.masterIds.length||value.mode==='masters'&&!value.masterIds.length)throw new Error('請選取至少一張有效主表');return {mode:value.mode,masterIds:value.mode==='all'?[]:[...value.masterIds]};}
-function project(input,selection){const config=receivingScope(input.sharing?.scope,selection),doc=M.readPackage(input);if(config.mode==='all')return {data:input,managed:null,config};const data=M.exportPackage(doc,{scope:'masters',masterIds:config.masterIds}),managed=new Set(M.masterTableTree(doc).filter(branch=>config.masterIds.includes(branch.master.id)).flatMap(branch=>[branch.master.id,...branch.children.map(sheet=>sheet.id)]));return {data,managed,config};}
+function managedSheets(doc,config){
+ if(config.mode==='all')return new Set(doc.sheets.map(sheet=>sheet.id));
+ return new Set(doc.sheets.filter(sheet=>config.masterIds.includes(sheet.id)||
+  config.masterIds.includes(M.parentField(doc,sheet)?.targetSheetId)).map(sheet=>sheet.id));
+}
+function shareSnapshot(doc,config){
+ const data=M.exportPackage(doc,config.mode==='all'?{scope:'all'}:{scope:'masters',masterIds:config.masterIds});
+ const managed=managedSheets(doc,config),included=new Set(data.document.sheets.map(sheet=>sheet.id));
+ return {...data,tombstones:doc.records.filter(record=>record.deletedAt&&managed.has(record.sheetId)&&included.has(record.sheetId))
+  .map(({id,sheetId,deletedAt})=>({id,sheetId,deletedAt}))};
+}
+function project(input,selection){
+ const config=receivingScope(input.sharing?.scope,selection),doc=M.readPackage(input);
+ if(input.packageVersion===5){
+  const published=scope(input.sharing?.scope);
+  require('./notes-share-commit').validate(input,doc,published);
+  const allowed=managedSheets(doc,published);
+  if(input.tombstones.some(item=>!allowed.has(item.sheetId)))throw new Error('共享回收標記超出發布範圍');
+ }
+ const managed=config.mode==='all'?null:new Set(M.masterTableTree(doc).filter(branch=>config.masterIds.includes(branch.master.id)).flatMap(branch=>[branch.master.id,...branch.children.map(sheet=>sheet.id)]));
+ const data=managed?M.exportPackage(doc,{scope:'masters',masterIds:config.masterIds}):input;
+ const tombstones=input.packageVersion===5?input.tombstones.filter(item=>!managed||managed.has(item.sheetId)):[];
+ return {data,managed,config,tombstones,commit:input.packageVersion===5?input.sharing.commit:null};
+}
 function merge(current,input,mode,makeId,now,selection){
  const projected=project(input,selection),incoming=M.readPackage(projected.data);
  if(!projected.managed||mode==='copy')return {incoming,...M.mergeDocument(current,incoming,mode,makeId,now),scope:projected.config};
@@ -16,4 +39,4 @@ function merge(current,input,mode,makeId,now,selection){
  return {incoming,...merged,scope:projected.config};
 }
 function receivingScope(published,requested){const a=scope(published),b=scope(requested);if(a.mode==='all')return b;if(b.mode==='all')return a;return scope({mode:'masters',masterIds:a.masterIds.filter(id=>b.masterIds.includes(id))});}
-module.exports={scope,project,merge,receivingScope};
+module.exports={scope,shareSnapshot,project,merge,receivingScope};
