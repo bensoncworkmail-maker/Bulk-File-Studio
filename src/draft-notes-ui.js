@@ -46,6 +46,7 @@
  }
  function showDraft(draft){
   current=draft;
+  $('send-reminder').checked=false;
   title.value=draft?.title||'';body.value=draft?.body||'';
   $('empty').hidden=Boolean(draft);$('editor').hidden=!draft;
   renderList();renderAttachments();updateSend();
@@ -135,6 +136,8 @@
   timer=setTimeout(()=>flush().catch(error=>report('無法儲存。'+message(error),true)),350);
  });
  document.addEventListener('keydown',event=>{
+  if(event.defaultPrevented||event.isComposing||event.keyCode===229)return;
+  if(event.key==='Escape'){event.preventDefault();void closeEditor();return;}
   if((event.ctrlKey||event.metaKey)&&!event.shiftKey&&!event.altKey&&event.key.toLowerCase()==='s'){
    event.preventDefault();void flush().catch(error=>report('無法儲存。'+message(error),true));
   }
@@ -180,9 +183,10 @@
  master.addEventListener('change',updateSend);
  $('send').addEventListener('click',()=>run(async()=>{
   const {id,version}=current;
-  const result=await api.send(id,version,sheet.value,master.value);
+  const withReminder=$('send-reminder').checked;
+  const result=await api.send(id,version,sheet.value,master.value,withReminder);
   await nextDraft(id);
-  report('已在「'+result.sheet+'」建立紀錄');
+  report('已在「'+result.sheet+'」建立紀錄'+(result.reminderRequested?'，請在主視窗設定提醒。':''));
  }));
  void run(async()=>{
   const data=await api.data();

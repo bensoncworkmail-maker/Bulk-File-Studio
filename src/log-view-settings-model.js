@@ -1,5 +1,6 @@
 'use strict';
 
+const {createHash}=require('node:crypto');
 const {ID,LIMITS}=require('./notes-model');
 const MAX_SAVED_TABLES=2*LIMITS.sheets;
 const SORTS=Object.freeze(['recent','oldest','title']);
@@ -26,4 +27,30 @@ function allowedSheet(config,settings,sheetId){
  return settings.scope==='all'||settings.sheetIds.includes(sheetId);
 }
 
-module.exports={normalize,allowedSheet};
+function normalizeFilters(input){
+ const value=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
+ const filters={query:typeof value.query==='string'?value.query.slice(0,256):''};
+ for(const key of ['sheetId','masterId','dateField','stateField']){
+  if(typeof value[key]==='string'&&ID.test(value[key]))filters[key]=value[key];
+ }
+ for(const key of ['from','to']){
+  if(typeof value[key]==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value[key])){
+   const date=new Date(value[key]+'T12:00:00Z');
+   if(Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value[key])filters[key]=value[key];
+  }
+ }
+ if(filters.stateField&&typeof value.value==='string')filters.value=value.value.slice(0,200);
+ if(['list','cards'].includes(value.layout))filters.layout=value.layout;
+ if(SORTS.includes(value.sort))filters.sort=value.sort;
+ if(typeof value.advanced==='boolean')filters.advanced=value.advanced;
+ return filters;
+}
+
+const logFilterKey=config=>createHash('sha256').update(JSON.stringify([config.sheetId,config.scope,config.query])).digest('hex');
+function normalizeHistory(value){
+ if(!value||typeof value!=='object'||Array.isArray(value))return {};
+ return Object.fromEntries(Object.entries(value).filter(([key])=>/^[a-f0-9]{64}$/.test(key)).slice(-24)
+  .map(([key,filters])=>[key,normalizeFilters(filters)]));
+}
+
+module.exports={normalize,allowedSheet,normalizeFilters,logFilterKey,normalizeHistory};

@@ -109,7 +109,8 @@ class DraftNotes{
   if(!Number.isSafeInteger(index)||!draft.attachments[index])throw new Error('附件已移除');
   return store.saveDraft(id,version,{attachments:draft.attachments.filter((_,position)=>position!==index)});
  }
- async send(id,version,sheetId,masterId){
+ async send(id,version,sheetId,masterId,withReminder=false){
+  if(typeof withReminder!=='boolean')throw new Error('提醒選項無效');
   const store=this.store(),draft=store.draft(id);
   if(version!==draft.version)throw new Error('草稿已變更，請重新開啟');
   if(!draft.title.trim()&&!draft.body.trim()&&!draft.attachments.length)throw new Error('請先輸入內容或加入附件');
@@ -123,7 +124,12 @@ class DraftNotes{
    const result=store.saveRecord({sheetId,title,notes:draft.body,tags:[],values:parent?{[parent.id]:[masterId]}:{},fileLinks},
     {operation:'草稿轉入工作區'},{id,version});
    try{this.onSent(result);}catch(error){this.onError(error);}
-   return {id:result.result.id,sheet:sheet.name};
+   const recordId=result.result.id;
+   let reminderRequested=false;
+   if(withReminder){
+    try{this.onRemind(recordId);reminderRequested=true;}catch(error){this.onError(error);}
+   }
+   return {id:recordId,sheet:sheet.name,reminderRequested};
   });
  }
 }
