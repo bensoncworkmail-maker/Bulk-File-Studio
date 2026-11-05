@@ -336,14 +336,14 @@ app.whenReady().then(() => {
   handle('floating-search-preview',(_,query,key,activate)=>{if(!floating||floating.isDestroyed()||!floating.isVisible()||!floating.isFocused())return {opened:false};return floatingSearchController().previewLive(query,key,activate);});
   for(const [channel,method] of [['floating-search-get','data'],['floating-search-state-save','saveState'],['floating-search-run','search'],['floating-search-action','action'],['floating-search-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('floating-search',channel,()=>{if(!floatingSearch?.owns(event))throw new Error('不受信任的搜尋面板來源');return floatingSearch[method](...args);}));
   for(const [channel,method] of [['floating-capture-get','data'],['floating-capture-preview','preview'],['floating-capture-commit','commit'],['floating-capture-save','save'],['floating-capture-choose','choose'],['floating-capture-clear','clearAttachments'],['floating-capture-attach','addAttachments'],['floating-capture-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('capture',channel,()=>{if(!capture?.owns(event))throw new Error('不受信任的浮動表單來源');return capture[method](...args);}));
-  const showTagMenu=(tag,query,{allowCollapsed=false}={})=>{
+  const showTagMenu=(tag,query,{allowCollapsed=false,menuItems}={})=>{
     const result=(Array.isArray(tag)?tagListMenu:tagMenu)(favorites.list(),tag,query,{
       open:id=>floatingAction(async()=>{const item=favorites.get(id,true);assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);})(),
       main:selected=>{focusMain();favoriteActivation=true;queuedFilter={tag:selected};notifyFavorites({activate:true});},
       copy:ids=>floatingAction(()=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')))(),
       batchOpen:ids=>floatingAction(async()=>reportFloatingBatch(await confirmBatch(ids,'open',floating)))(),
       batchLocations:ids=>floatingAction(async()=>reportFloatingBatch(await confirmBatch(ids,'locations',floating)))()
-    });
+    },menuItems);
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
   let shortcutMenuTrigger;
@@ -358,7 +358,7 @@ app.whenReady().then(() => {
   }
   runQuickAction=(event,id,anchor)=>{
     const action=configuredQuick(id);
-    if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true}),menu:true};
+    if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true,menuItems:action.menuItems}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
     if(action.type==='open-worksets'){
       if(action.display==='main'){focusMain();send(win,'open-app-page',{tool:'worksets'});return {opened:true};}
