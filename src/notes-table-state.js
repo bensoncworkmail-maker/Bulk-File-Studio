@@ -8,7 +8,11 @@
  function statusOptions(field){if(!field)return [];return field.type==='checkbox'?[{value:'true',label:'已勾選'},{value:'false',label:'未勾選'}]:[{value:'empty',label:'未設定'},...(field.options||[]).map(value=>({value:'v:'+value,label:value}))];}
  function selection(sheet,config){const normalized=normalizeFilter(config),field=statusField(sheet,normalized),options=statusOptions(field),value=field&&normalized.forField===field.id&&options.some(option=>option.value===normalized.value)?normalized.value:'';return {field,options,value,config:normalized};}
  function filter(records,sheet,config){const {field,value}=selection(sheet,config);if(!field||!value)return records;return records.filter(record=>{if(record.sheetId!==sheet.id)return false;const actual=record.values[field.id];if(field.type==='checkbox')return (actual===true)===(value==='true');if(value==='empty')return actual===undefined||actual===null||actual===''||Array.isArray(actual)&&!actual.length;return Array.isArray(actual)?actual.includes(value.slice(2)):actual===value.slice(2);});}
+ function normalizeViewModes(input){
+  if(!input||typeof input!=='object'||Array.isArray(input))return {};
+  return Object.fromEntries(Object.entries(input).filter(([id,mode])=>ID.test(id)&&modes.includes(mode)).slice(-100));
+ }
  function viewGroup(scope,detail){return ['all','area','master'].includes(scope)?'mixed':scope==='masters'?'master':detail?'detail':'master';}
  function viewKey(group){return group==='master'?'notesMasterView':group==='detail'?'notesDetailView':'notesView';}
- const exports={modes,eligible,normalizeFilter,normalizeFilters,statusField,statusOptions,selection,filter,viewGroup,viewKey};if(typeof module!=='undefined'&&module.exports)module.exports=exports;else globalThis.notesTableState=Object.freeze(exports);
+ const exports={modes,eligible,normalizeFilter,normalizeFilters,statusField,statusOptions,selection,filter,normalizeViewModes,viewGroup,viewKey};if(typeof module!=='undefined'&&module.exports)module.exports=exports;else globalThis.notesTableState=Object.freeze(exports);
 })();
