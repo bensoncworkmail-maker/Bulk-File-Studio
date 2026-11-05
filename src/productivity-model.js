@@ -18,7 +18,7 @@
   return {...out,extensions:[...new Set(extensions)].join(','),contains:text(input.contains||'',100,'名稱條件'),after:input.after||'',before:input.before||'',prefix,tags:[...new Set(tags)],folder:text(input.folder||'',4096,'目標資料夾')};
  }
  function normalize(input){
-  if(!input||input.version!==1)throw new Error('生活／工作工具資料格式無效');const out={version:1};
+  if(!input||input.version!==1)throw new Error('工具箱資料格式無效');const out={version:1};
   for(const kind of ['rules','worksets','snippets']){if(!Array.isArray(input[kind])||input[kind].length>(kind==='snippets'?500:100))throw new Error('工具數量超過上限');out[kind]=input[kind].map(value=>entry(kind,value));if(new Set(out[kind].map(value=>value.id)).size!==out[kind].length)throw new Error('工具識別碼重複');}return out;
  }
  function matches(rule,file){const extension=file.name.includes('.')?file.name.split('.').pop().toLowerCase():'';return (!rule.extensions||rule.extensions.split(',').includes(extension))&&(!rule.contains||file.name.toLocaleLowerCase().includes(rule.contains.toLocaleLowerCase()))&&(!rule.after||file.date>=rule.after)&&(!rule.before||file.date<=rule.before);}

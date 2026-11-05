@@ -90,7 +90,15 @@
     });
   }
   function init(options) {
-    callbacks=options;window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(page=>{if(['home','notes','favorites','search','rename','settings','productivity','planning','logs'].includes(page)){if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}window.favoritesUI.show(page);}});syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();
+    callbacks=options;window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(target=>{
+      const routes=window.quickActionsModel;
+      const page=typeof target==='string'&&Object.hasOwn(routes.PAGES,target);
+      const tool=target&&typeof target==='object'&&Object.hasOwn(routes.TOOLS,target.tool);
+      if(!page&&!tool)return;
+      if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}
+      if(tool)window.productivityUI.openSection(target.tool);
+      else window.favoritesUI.show(target);
+    });syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();
     let nativeValues={},availableTags=[];
     const makeCheck=(parent,text,checked,onChange)=>{const label=document.createElement('label'),input=document.createElement('input'),span=document.createElement('span');label.className='check-row';input.type='checkbox';input.checked=checked;input.addEventListener('change',()=>onChange(input.checked));span.textContent=text;label.append(input,span);parent.appendChild(label);return input;};
     const buttonChecks=new Map();
@@ -128,7 +136,7 @@
     $('settings-login-startup').addEventListener('change',async()=>{const el=$('settings-login-startup');if(loginBusy)return;loginBusy=true;el.disabled=true;try{syncLogin(await window.desktopAPI.setStartup(el.checked));}catch(error){await readLogin();$('settings-login-status').textContent=loginMessage(error);}finally{loginBusy=false;el.disabled=!loginState?.supported;}});
     $('btn-settings-hide').addEventListener('click',()=>window.desktopAPI.hideToTray().catch(e=>callbacks.showFailure('無法隱藏至系統匣',e)));
     workbench=window.studioSettingsWorkbench.create({get:()=>settings,select:group=>update({settingsTab:group}),isBusy:()=>callbacks.isBusy()});
-    for(const [index,tab] of tabs.entries()){const button=$('settings-tab-'+tab);button.addEventListener('click',()=>{workbench.clear();update({settingsTab:tab});});button.addEventListener('keydown',event=>{let next;if((event.key==='ArrowRight'||event.key==='ArrowDown'))next=(index+1)%tabs.length;else if((event.key==='ArrowLeft'||event.key==='ArrowUp'))next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();workbench.clear();update({settingsTab:tabs[next]});$('settings-tab-'+tabs[next]).focus();});}
+    for(const [index,tab] of tabs.entries()){const button=$('settings-tab-'+tab);button.addEventListener('click',()=>{workbench.beforeTab();update({settingsTab:tab});});button.addEventListener('keydown',event=>{let next;if((event.key==='ArrowRight'||event.key==='ArrowDown'))next=(index+1)%tabs.length;else if((event.key==='ArrowLeft'||event.key==='ArrowUp'))next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();workbench.beforeTab();update({settingsTab:tabs[next]});$('settings-tab-'+tabs[next]).focus();});}
     for(const id of ['notes-panel-width','notes-detail-width','notes-row-height'])$('settings-'+id).addEventListener('input',event=>{$('settings-'+id+'-value').textContent=event.target.value+' px';});
     $('settings-source-panel-width').addEventListener('input',event=>{$('settings-source-width-value').textContent=event.target.value+' px';});
     $('btn-window-reset').addEventListener('click',()=>window.desktopAPI.resetWindow().catch(e=>callbacks.showFailure('無法還原視窗',e)));

@@ -367,7 +367,15 @@ app.whenReady().then(() => {
       return {opened:true};
     }
     if(action.type==='open-reminders'){focusMain();send(win,'record-reminders-open',{});keepFloatingAfterQuick();return {opened:true};}
-    if(action.type==='open-page'){focusMain();send(win,'open-app-page',action.page);keepFloatingAfterQuick();return {opened:true};}
+    if(action.type==='open-page'||action.type==='open-tool'||action.type==='open-share'){
+      focusMain();
+      const target=win,channel=action.type==='open-share'?'notes-share-open-request':'open-app-page';
+      const payload=action.type==='open-page'?action.page:action.type==='open-tool'?{tool:action.tool}:{};
+      if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',()=>send(target,channel,payload));
+      else send(target,channel,payload);
+      keepFloatingAfterQuick();
+      return {opened:true};
+    }
     if(action.type==='share-check')return notesShare.check();
     if(action.type==='share-publish'){const profileId=notesShare.selected,channel=notesShare.channel(profileId),generation=channel.generation;return dialog.showMessageBox(floating||win,{type:'question',buttons:['取消','發佈'],defaultId:0,cancelId:0,message:'發佈「'+(notesShare.status().profiles.find(profile=>profile.id===profileId)?.name||'目前共享設定')+'」資料包？',detail:'資料夾：'+(channel.config.folder||'未設定')+'\n會包含紀錄、筆記與位置；不包含原始檔案。'}).then(result=>{if(result.response!==1)return {canceled:true};if(configuredQuick(id).type!=='share-publish'||notesShare.channel(profileId)!==channel||channel.generation!==generation)throw new Error('共享設定已變更，請重新確認發布來源與資料夾');return notesShare.publish(profileId);});}
     if(desktop.settings.floatingQuickMode==='popup'&&action.type!=='open-sheet'){

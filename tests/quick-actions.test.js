@@ -69,3 +69,23 @@ test('calendar and snippet shortcuts persist the external menu while log shortcu
  assert.ok(h.$('quick-action-display').children.every(option=>option.value!=='menu'));
  assert.deepEqual(h.failures,[]);
 });
+
+test('grouped quick actions list every supported type and persist toolbox targets',async()=>{
+ const h=await settingsHarness(),types=h.$('quick-action-type').querySelectorAll('option');
+ assert.deepEqual(types.map(option=>option.value).sort(),Object.keys(M.TYPES).sort());
+ assert.deepEqual(h.$('quick-action-tool').querySelectorAll('option').map(option=>option.value),Object.keys(M.TOOLS));
+ assert.ok(h.$('quick-action-page').querySelectorAll('option').some(option=>option.value==='info'));
+ await h.$('quick-action-add').dispatch('click');
+ h.$('quick-action-label').value='預覽文件';
+ h.$('quick-action-type').value='open-tool';
+ await h.$('quick-action-type').dispatch('change');
+ assert.equal(h.$('quick-action-tool-field').hidden,false);
+ assert.equal(h.$('quick-action-table-fields').hidden,true);
+ h.$('quick-action-tool').value='preview';
+ await h.$('quick-action-save').dispatch('click');
+ const action=h.settings().floatingQuickActions[0];
+ assert.equal(action.tool,'preview');
+ assert.equal(action.sheetId,undefined);
+ assert.throws(()=>M.normalize([{...action,tool:'https://example.com'}],true),/工具箱功能/);
+ assert.deepEqual(h.failures,[]);
+});

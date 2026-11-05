@@ -575,7 +575,7 @@ test('floating calendar and snippets share one window and its size with restrict
  assert.equal(h.windows.at(-1).options.width,675);
 });
 
-test('log preferences persist, validate and belong to the workspace settings reset',t=>{
+test('log preferences persist, validate and belong to the calendar and logs settings reset',t=>{
  const h=harness(t),sheetId=h.handlers.get('notes-template')().document.sheets[0].id;
  const logView={scope:'selected',sheetIds:[sheetId],layout:'cards',sort:'oldest'};
  const save=h.handlers.get('desktop-settings-set');
@@ -585,7 +585,7 @@ test('log preferences persist, validate and belong to the workspace settings res
  assert.deepEqual(h.handlers.get('desktop-settings-get')().logView,logView);
  const {resetPatch}=require('../src/settings-catalog');
  const {DEFAULTS}=require('../src/desktop-state');
- assert.deepEqual(resetPatch('native','notes',DEFAULTS).logView,DEFAULTS.logView);
+ assert.deepEqual(resetPatch('native','planning',DEFAULTS).logView,DEFAULTS.logView);
 });
 
 test('floating content uses the same native window and rejects disabled panels and unknown actions',t=>{
@@ -776,4 +776,19 @@ test('main window resize and reset lower the native minimum on a smaller display
  h.handlers.get('desktop-reset-window')();
  assert.deepEqual(h.windows[0].minimum,[920,650]);
  assert.equal(h.windows[0].bounds.width,1520);
+});
+
+test('floating toolbox and sharing shortcuts open the configured destination without editing workspace data',t=>{
+ const h=harness(t),before=h.handlers.get('notes-get')().revision,makeId=require('node:crypto').randomUUID;
+ const tool={id:makeId(),type:'open-tool',label:'文件預覽',tool:'preview'};
+ const sharing={id:makeId(),type:'open-share',label:'共享管理'};
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[tool,sharing]});
+ h.handlers.get('floating-show')();
+ const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ const run=h.rawHandlers.get('floating-quick-action');
+ assert.equal(run(event,tool.id).opened,true);
+ assert.ok(h.messages.some(([channel,payload])=>channel==='open-app-page'&&payload?.tool==='preview'));
+ assert.equal(run(event,sharing.id).opened,true);
+ assert.ok(h.messages.some(([channel])=>channel==='notes-share-open-request'));
+ assert.equal(h.handlers.get('notes-get')().revision,before);
 });

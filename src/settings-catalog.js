@@ -33,12 +33,13 @@ const config={
       "description": "主檔明細、卡片、輸入與工作區搜尋",
       "keywords": "notes records cards master details"
     },
+    {"id":"planning","label":"日曆與紀錄","description":"月曆日期格及查看紀錄的表格、版面與排序","keywords":"calendar planning logs record view 月曆 看板"},
     {"id":"sharing","label":"匯入與共享","description":"資料搬移、預覽預設與來源接收","keywords":"import export share source backup"},
     {"id":"reminders","label":"提醒排程","description":"全部提醒、通知方式與強提醒","keywords":"reminders schedule alarm notification"},
     {
       "id": "search",
-      "label": "全域搜尋",
-      "description": "搜尋來源、關聯資料與結果顯示",
+      "label": "搜尋",
+      "description": "全域與浮動搜尋、關聯比對、面板及搜尋預設",
       "keywords": "global search relation"
     },
     {
@@ -220,12 +221,12 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"draftRememberWindow":"system","draftWindowWidth":"system","draftWindowHeight":"system","draftShortcut":"system","planningDayShowMaster":"notes","floatingPanels":"floating","logView":"notes","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
+  "groupsByKey": {"draftRememberWindow":"system","draftWindowWidth":"system","draftWindowHeight":"system","draftShortcut":"system","planningDayShowMaster":"planning","floatingPanels":"floating","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"search","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchFiltersExpanded":"search",
-    "floatingSearchPresentation":"floating","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
+    "floatingSearchPresentation":"search","floatingLayoutEditing":"floating","floatingControlOrder":"floating",
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
-    "floatingSearchMode":"floating","floatingSearchDelay":"floating","floatingSearchMinLength":"floating",
-    "floatingGlobalSearch":"floating","floatingSearchWidth":"floating","floatingSearchHeight":"floating",
+    "floatingSearchMode":"search","floatingSearchDelay":"search","floatingSearchMinLength":"search",
+    "floatingGlobalSearch":"search","floatingSearchWidth":"search","floatingSearchHeight":"search",
     "reminderAttentionSound":"reminders","reminderAttentionRepeatMinutes":"reminders","remindersEnabled":"reminders","reminderDelivery":"reminders","reminderBringToFront":"reminders","reminderSnoozeMinutes":"reminders",
     "floatingQuickPlacement":"floating","floatingQuickColumns":"floating",
     "floatingCaptureKeepValues":"floating",
