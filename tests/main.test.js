@@ -882,3 +882,31 @@ test('configurable document previews show escaped snapshots and bounded folder l
  h.handlers.get('desktop-settings-set')(null,{workspacePreviewMode:'inline'});const data=await h.handlers.get('productivity-preview-choose')(null,folder);assert.equal(data.type,'folder');assert.match(data.text,/200/);assert.equal(data.text.split('\n').length,201);
  h.handlers.get('desktop-settings-set')(null,{workspacePreviewMode:'system'});const external=await h.handlers.get('productivity-preview-choose')(null,source);assert.equal(external.type,'system');assert.ok(h.opened.includes(source));
 });
+
+test('shortcut recording temporarily suspends app bindings and restores the latest assignments on blur',t=>{
+ const h=harness(t),owner=h.windows[0];owner.isFocused=()=>true;assert.ok(h.registered.size>0);assert.equal(h.handlers.get('shortcuts-recording')(null,true).capturing,true);assert.equal(h.registered.size,0);
+ h.handlers.get('desktop-settings-set')(null,{mainShortcut:'Ctrl+Alt+H'});assert.equal(h.registered.size,0);owner.emit('blur');assert.ok(h.registered.has('CommandOrControl+Alt+H'));
+ owner.isFocused=()=>false;assert.equal(h.handlers.get('shortcuts-recording')(null,true).capturing,false);assert.ok(h.registered.size>0);
+ const stranger=new owner.constructor({width:320,height:400});stranger.loadFile(path.resolve(__dirname,'../src/floating.html'));assert.throws(()=>h.rawHandlers.get('shortcuts-recording')({sender:stranger.webContents,senderFrame:{url:stranger.url}},true),/不受信任/);
+});
+
+test('each global, quick-action, snippet and favorite shortcut entry checks overlapping local contexts',t=>{
+ const h=harness(t),favorites={...require('../src/shortcuts').DEFAULTS,search:'Ctrl+Alt+G'};h.handlers.get('desktop-settings-set')(null,{favoriteShortcuts:favorites});assert.deepEqual(h.handlers.get('desktop-settings-get')().favoriteShortcuts,favorites);
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{calendarShortcut:'Ctrl+Alt+G'}),/搜尋收藏/);
+ assert.throws(()=>h.handlers.get('productivity-save')(null,'snippets',{name:'Copy',category:'',body:'text',shortcut:'Ctrl+Alt+G'}),/搜尋收藏/);
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{calendarShortcut:'Ctrl+N'}),/新草稿/);
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{favoriteShortcuts:{...favorites,search:'Ctrl+Shift+F'}}),/全域搜尋頁/);
+ assert.deepEqual(h.handlers.get('desktop-settings-get')().favoriteShortcuts,favorites);
+ const saved=h.handlers.get('productivity-save')(null,'snippets',{name:'Untouched',category:'work',body:'Retain body'}),item=saved.snippets[0];h.handlers.get('productivity-snippet-shortcut')(null,item.id,'Ctrl+Alt+8');assert.ok(h.registered.has('CommandOrControl+Alt+8'));assert.equal(h.handlers.get('productivity-get')().data.snippets[0].body,'Retain body');assert.equal(h.handlers.get('productivity-snippet-list')()[0].shortcut,'CommandOrControl+Alt+8');
+});
+
+test('cross-master creation and schema removal IPC keep stable parent IDs and require a fresh confirmed preview',t=>{
+ const h=harness(t),doc=h.handlers.get('notes-template')().document,master=doc.sheets[0],detail=doc.sheets[1],add=(sheetId,title)=>h.handlers.get('notes-record-save')(null,{sheetId,title,notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id,a=add(master.id,'A'),b=add(master.id,'B');
+ let result=h.handlers.get('notes-record-save')(null,{sheetId:detail.id,title:'Batch',notes:'body',tags:[],values:{},masterIds:[a,b],copies:2,favoriteIds:[],keepUnlinked:[]});const parent=require('../src/notes-model').parentField(result.document,detail),records=result.document.records.filter(record=>record.sheetId===detail.id);assert.equal(records.length,4);assert.deepEqual(records.map(record=>record.values[parent.id]),[[a],[a],[b],[b]]);
+ const sheet=result.document.sheets.find(sheet=>sheet.id===detail.id),field=sheet.fields.find(field=>field.id!==parent.id),input={...sheet,expectedVersion:sheet.version,baseRevision:result.revision,fields:sheet.fields.filter(item=>item.id!==field.id)},preview=h.handlers.get('notes-sheet-preview')(null,input);assert.equal(preview.requiresConfirmation,true);assert.throws(()=>h.handlers.get('notes-sheet-commit')(null,preview.token,false),/確認/);result=h.handlers.get('notes-sheet-commit')(null,preview.token,true);assert.ok(fs.existsSync(result.result.backup));assert.ok(result.document.records.filter(record=>record.sheetId===detail.id).every(record=>record.values[parent.id].length===1));
+});
+
+test('draft export offers named formats and accepts a different chosen filename suffix without changing content',async t=>{
+ const h=harness(t);await h.registered.get('CommandOrControl+Alt+D')();const owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}},draft=(name,...args)=>h.rawHandlers.get('draft-'+name)(event,...args);draft('data');let item=draft('new');item=draft('save',item.id,item.version,{title:'Formats',body:'plain text'});
+ const folder=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-export-formats-'));t.after(()=>fs.rmSync(folder,{recursive:true,force:true}));const target=path.join(folder,'note.md');let options;h.dialog.showSaveDialog=async(_,config)=>(options=config,{canceled:false,filePath:target});await draft('export',item.id,item.version,'txt');assert.ok(options.filters.some(filter=>filter.extensions.includes('md')));assert.ok(options.filters.some(filter=>filter.extensions.includes('*')));assert.equal(fs.readFileSync(target,'utf8'),'plain text');
+});

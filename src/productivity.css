@@ -47,3 +47,5 @@
 .tool-master{overflow-x:hidden}.tool-master-row .tool-master-item{flex:1;min-width:0;width:0}.tool-master :is(.field,.productivity-fields,.snippet-bulk){min-width:0;max-width:100%}
 
 .tool-master-header{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:8px;font-size:.9em}.tool-master-header .btn{padding:3px 6px;height:auto;font-size:.9em}.tool-master>input[type=search]{margin-bottom:8px}
+
+.workset-resource-section{border:1px solid var(--line);border-radius:7px;padding:7px 9px}.workset-resource-section summary{cursor:pointer;font-weight:650}.workset-resource-section summary span{color:var(--muted);font-weight:400;font-size:.85em;margin-inline-start:6px}.workset-resource-section[open] summary{margin-bottom:7px}

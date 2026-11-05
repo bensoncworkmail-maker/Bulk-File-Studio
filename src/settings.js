@@ -98,7 +98,7 @@
       if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}
       if(tool)window.productivityUI.openSection(target.tool);
       else window.favoritesUI.show(target);
-    });syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();
+    });syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();window.shortcutOverviewUI?.init();
     let nativeValues={},availableTags=[];
     const makeCheck=(parent,text,checked,onChange)=>{const label=document.createElement('label'),input=document.createElement('input'),span=document.createElement('span');label.className='check-row';input.type='checkbox';input.checked=checked;input.addEventListener('change',()=>onChange(input.checked));span.textContent=text;label.append(input,span);parent.appendChild(label);return input;};
     const buttonChecks=new Map();
@@ -119,8 +119,8 @@
     for(const [key,id] of Object.entries(nativeControls).filter(([key])=>!window.globalShortcutModel.KEYS.includes(key)))$(id).addEventListener('change',async event=>{try{const el=event.target;const result=await window.desktopAPI.configure({[key]:el.type==='checkbox'?el.checked:numericKeys.includes(key)?Number(el.value):el.value});syncNative(result.settings);$('desktop-settings-status').textContent=result.warning||'設定已儲存';$('desktop-shell-status').textContent=result.warning||'設定已儲存';}catch(e){$('desktop-settings-status').textContent=String(e.message||e);$('desktop-shell-status').textContent=String(e.message||e);window.desktopAPI.get().then(syncNative).catch(()=>{});}});
     for(const id of ['btn-floating','btn-settings-floating'])$(id).addEventListener('click',()=>window.desktopAPI.showFloating().catch(e=>callbacks.showFailure('無法開啟浮動工具',e)));
     for(const kind of ['main','floating','collapse','search','draft','snippets','calendar']){
-      const key=kind+'Shortcut',input=$('settings-'+kind+'-shortcut');let saving=false;
-      const status=message=>{$('desktop-settings-status').textContent=message;$('desktop-shell-status').textContent=message;};
+      const key=kind+'Shortcut',input=$('settings-'+kind+'-shortcut');window.shortcutControls?.capture(input);let saving=false;
+      const status=message=>{if($('shortcut-global-status'))$('shortcut-global-status').textContent=message;$('desktop-settings-status').textContent=message;$('desktop-shell-status').textContent=message;};
       const save=async value=>{if(saving)return;saving=true;input.disabled=true;try{const result=await window.desktopAPI.configure({[key]:value});syncNative(result.settings);status(result.warning||'全域快捷鍵已儲存');}catch(e){status(String(e.message||e));try{syncNative(await window.desktopAPI.get());}catch{}}finally{saving=false;input.disabled=false;}};
       input.addEventListener('keydown',event=>{if(event.key==='Tab')return;event.preventDefault();event.stopPropagation();if(event.key==='Escape'){input.blur();return;}if(event.key==='Backspace'&&!event.ctrlKey&&!event.altKey&&!event.shiftKey){save('');return;}const value=window.globalShortcutModel.fromEvent(event);if(value===null){if(!['Control','Alt','Shift','Meta'].includes(event.key))status('請用 Ctrl／Alt 組合或 F1–F24；不接受 Alt+F4、Ctrl+Alt+Delete');return;}save(value);});
       $('btn-'+kind+'-shortcut-clear').addEventListener('click',()=>save(''));

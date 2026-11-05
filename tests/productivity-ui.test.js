@@ -58,3 +58,7 @@ test('calendar cells render a detail title before its long master name and keep 
  assert.equal(detail.children[1].textContent,master);
  assert.ok(root.querySelector('.planning-agenda').textContent.includes(master));
 });
+
+test('workset resource sections collapse without losing selections and favorites default to collapsed',async()=>{
+ const h=harness();await h.load();assert.equal(h.$('workset-favorites-section').open,false);assert.equal(h.$('workset-records-section').open,true);const check=h.$('workset-records').querySelector('input');check.checked=true;await check.dispatch('change');h.$('workset-records-section').open=false;assert.match(h.$('workset-records-count').textContent,/1/);h.$('workset-name').value='Collapsed resources';await h.submit('workset-form');assert.equal(h.state.data.worksets[0].recordIds[0],h.record.id);
+});

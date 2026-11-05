@@ -206,3 +206,5 @@
 .info-release-badge{color:var(--accent);font-size:.8em}
 .info-release-archive{margin-top:14px}
 .info-release-archive summary{cursor:pointer;color:var(--accent)}
+
+.shortcut-overview-filters{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.shortcut-overview-filters .field{flex:1;min-width:150px}.shortcut-overview-scroll{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:7px}.shortcut-overview-table{width:100%;border-collapse:collapse;text-align:left}.shortcut-overview-table :is(th,td){padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}.shortcut-overview-table th{position:sticky;top:0;background:var(--panel)}.shortcut-overview-table small{display:block;color:var(--muted);margin-top:3px}.shortcut-overview-table input{width:100%;min-width:130px;font:inherit}.shortcut-overview-table kbd{white-space:nowrap}.shortcut-overview-table tr[data-conflict=true]{background:color-mix(in srgb,#d95454 12%,var(--panel))}.shortcut-overview-table tr[data-conflict=true] td:nth-child(3) small{color:var(--danger,#b52e3a)}

@@ -219,8 +219,9 @@
  }
  $('preview-close').addEventListener('click',()=>$('attachment-preview').close());
  $('attachment-preview').addEventListener('close',()=>$('attachment-preview-content').replaceChildren());
+ for(const type of window.draftExportTypes.TYPES)$('export-type').append(option(type.extension,type.label));$('export-type').append(option('custom','自訂副檔名…'));$('export-type').value='txt';$('export-type').addEventListener('change',()=>{$('export-custom').hidden=$('export-type').value!=='custom';});
  $('save-as').addEventListener('click',()=>{if(current&&!busy)$('export-dialog').showModal();});
- $('export-confirm').addEventListener('click',()=>{const extension=$('export-extension').value;void run(async()=>{const result=await api.export(current.id,current.version,extension);if(!result.canceled){$('export-dialog').close();report('已另存：'+result.path);}});});
+ $('export-confirm').addEventListener('click',()=>{const extension=$('export-type').value==='custom'?$('export-extension').value:$('export-type').value;void run(async()=>{const result=await api.export(current.id,current.version,extension);if(!result.canceled){$('export-dialog').close();report('已另存：'+result.path);}});});
  $('reminder-save').addEventListener('click',()=>run(async()=>{const at=new Date($('reminder-at').value);if(!Number.isFinite(at.getTime()))throw new Error('請選擇提醒時間');await api.remind(current.id,current.version,{at:at.toISOString(),repeat:$('reminder-repeat').value});report('草稿提醒已建立；可在提醒排程中管理，送出或刪除草稿後仍會保留。');}));
  const bodyObserver=new ResizeObserver(()=>{clearTimeout(bodyResizeTimer);if(!current)return;bodyResizeTimer=setTimeout(()=>{const height=Math.round(body.getBoundingClientRect().height);if(height>=140&&height<=2000)api.configure({draftBodyHeight:height}).catch(error=>report('編輯高度未能儲存：'+message(error),true));},350);});bodyObserver.observe(body);
  void run(async()=>{

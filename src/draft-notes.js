@@ -71,12 +71,12 @@ class DraftNotes{
  }
  save(id,version,patch){return this.store().saveDraft(id,version,{title:patch?.title,body:patch?.body},this.settings().draftBodyLimit??100000);}
  async export(id,version,extension='txt'){
-  if(typeof extension!=='string'||!/^\.?[a-zA-Z0-9]{1,12}$/.test(extension))throw new Error('副檔名請使用 1–12 個英文字母或數字');
+  extension=require('./draft-export-types').extension(extension);
   const draft=this.store().draft(id);if(draft.version!==version)throw new Error('草稿已變更，請重試');
   const ext=extension.replace(/^\./,'').toLowerCase(),name=(draft.title.trim()||'草稿筆記').replace(/[<>:"/\\|?*\x00-\x1f]/g,'_');
-  const result=await this.dialog.showSaveDialog(this.window,{title:'另存草稿（UTF-8 文字）',defaultPath:name+'.'+ext,filters:[{name:'文字檔 .'+ext,extensions:[ext]}]});
+  const result=await this.dialog.showSaveDialog(this.window,{title:'另存草稿（UTF-8 文字）',defaultPath:name+'.'+ext,filters:require('./draft-export-types').filters(ext)});
   if(result.canceled||!result.filePath)return {canceled:true};
-  const dest=assertLocalPath(result.filePath),relative=path.relative(path.dirname(this.imageDir),dest);if(relative===''||!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))throw new Error('請選擇程式資料目錄以外的位置');if(path.extname(dest).slice(1).toLowerCase()!==ext)throw new Error('請使用選定的副檔名 .'+ext);
+  const dest=assertLocalPath(result.filePath),relative=path.relative(path.dirname(this.imageDir),dest);if(relative===''||!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))throw new Error('請選擇程式資料目錄以外的位置');if(!path.extname(dest))throw new Error('請為檔名加上副檔名，例如 .'+ext);require('./draft-export-types').extension(path.extname(dest).slice(1));
   // User-selected extension controls the filename; this remains plain UTF-8, not binary Word/PDF.
   fs.writeFileSync(dest,draft.body,{encoding:'utf8'});return {path:dest};
  }

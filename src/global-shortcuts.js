@@ -15,7 +15,11 @@
   return normalize([e.ctrlKey||e.metaKey?'CommandOrControl':'',e.altKey?'Alt':'',e.shiftKey?'Shift':'',key?.length===1?key.toUpperCase():key].filter(Boolean).join('+'));
  }
  const KEYS=Object.freeze(['mainShortcut','floatingShortcut','collapseShortcut','searchShortcut','draftShortcut','snippetsShortcut','calendarShortcut']);
- function validatePair(settings,snippets=[]){const used=new Set();for(const value of [...KEYS.map(key=>settings[key]),...(settings.floatingQuickActions||[]).filter(item=>item.enabled).map(item=>item.shortcut),...snippets.map(item=>item.shortcut)]){if(value&&used.has(value))throw new Error('各項功能不能使用相同的全域快捷鍵');if(value)used.add(value);}}
+ function validatePair(settings,snippets=[]){
+  const native=typeof module!=='undefined'&&module.exports,local=native?require('./shortcuts'):globalThis.studioShortcutModel;
+  const model=native?require('./shortcut-inventory-model'):globalThis.shortcutInventoryModel;
+  model.assertGlobal(settings,snippets,settings.favoriteShortcuts||local?.DEFAULTS||{},local?.LABELS||{});
+ }
  const api={KEYS,normalize,fromEvent,validatePair,display:value=>value?value.replace('CommandOrControl','Ctrl'):'未設定'};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else globalThis.globalShortcutModel=Object.freeze(api);
 })();

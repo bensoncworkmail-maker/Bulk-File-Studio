@@ -9,7 +9,7 @@ class FloatingPin{
   this.timer=setIntervalFn(refresh,2000);this.timer?.unref?.();
   window.on('closed',()=>clearIntervalFn(this.timer));this.sync();
  }
- sync(){const win=this.window;if(win.isDestroyed())return;const pinned=this.settings().floatingOnTop===true;
+ sync(){const win=this.window;if(win.isDestroyed())return;const pinned=this.settings().floatingOnTop===true;if(win.nativeMenuOpen)return;
   if(pinned&&win.isVisible()){win.setAlwaysOnTop(true,'floating');if(win.isAlwaysOnTop?.()===false)win.moveTop?.();}
   else if(!pinned&&win.isAlwaysOnTop?.())win.setAlwaysOnTop(false);
  }
