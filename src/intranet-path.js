@@ -6,7 +6,7 @@ const accessScope=new(require('node:async_hooks').AsyncLocalStorage)();
 const isUNC=value=>typeof value==='string'&&/^[\\/]{2}/.test(value);
 const separator=require('node:path').win32.sep;
 const hostKey=value=>value.replaceAll('/',separator).split(separator)[2]?.toLowerCase();
-function isValidated(value){return isUNC(value)&&Boolean(accessScope.getStore()?.has(hostKey(value)));}
+function isValidated(value){if(!isUNC(value))return false;const key=hostKey(value);for(let scope=accessScope.getStore();scope;scope=scope.parent)if(scope.active&&scope.hosts.has(key))return true;return false;}
 function assertIntranetPath(value){uncServer(value);if(!isValidated(value))throw new Error('內網共享位置須先驗證主機，請使用開啟或路徑修復操作');return value;}
 
 function privateAddress(address){
@@ -37,7 +37,10 @@ function uncServer(filename){
 
 function withIntranetPaths(paths,action,resolve=lookup){
  const hosts=[...new Set(paths.map(uncServer).filter(Boolean))];
- const run=()=>accessScope.run(new Set([...(accessScope.getStore()||[]),...paths.filter(isUNC).map(hostKey)]),action);
+ const run=()=>{
+  const scope={hosts:new Set(paths.filter(isUNC).map(hostKey)),parent:accessScope.getStore(),active:true};
+  return accessScope.run(scope,()=>{let result;try{result=action();}catch(error){scope.active=false;throw error;}if(result&&typeof result.then==='function')return Promise.resolve(result).finally(()=>{scope.active=false;});scope.active=false;return result;});
+ };
  if(!hosts.length)return run();
  return Promise.all(hosts.map(async host=>{
   const addresses=await resolve(host,{all:true});

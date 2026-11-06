@@ -24,6 +24,7 @@ test('UNC host validation is scoped to one operation and never authorizes a publ
  const selected=String.raw`\\fileserver\share\file.txt`,other=String.raw`\\other\share\file.txt`;
  assert.equal(N.isValidated(selected),false);await N.withIntranetPaths([selected],async()=>{assert.equal(N.isValidated(selected),true);assert.equal(N.isValidated(other),false);await Promise.resolve();N.assertIntranetPath(selected);},async()=>[{address:'10.10.2.60'}]);assert.equal(N.isValidated(selected),false);assert.throws(()=>N.assertIntranetPath(selected),/先驗證/);
  let touched=false;await assert.rejects(N.withIntranetPaths([selected],()=>{touched=true;},async()=>[{address:'8.8.8.8'}]),/內網/);assert.equal(touched,false);assert.throws(()=>N.withIntranetPaths([String.raw`\\8.8.8.8\share\file.txt`],()=>{touched=true;}),/外部網路/);assert.equal(touched,false);
+ let finish;const later=new Promise(resolve=>finish=resolve);await N.withIntranetPaths([selected],()=>{setImmediate(()=>finish(N.isValidated(selected)));return Promise.resolve();},async()=>[{address:'10.10.2.60'}]);assert.equal(await later,false);
 });
 function networkFixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-unc-')),share=path.join(root,'share'),target=path.join(share,'testing','testingA.txt');fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,'data');
