@@ -15,7 +15,7 @@
    if(item.type==='relation'&&choices.length>8){const search=node('input');search.type='search';search.placeholder='搜尋'+item.label;search.setAttribute('aria-label','搜尋'+item.label);search.addEventListener('input',()=>{const query=search.value.toLocaleLowerCase();for(const option of control.options)option.hidden=Boolean(option.value)&&!option.textContent.toLocaleLowerCase().includes(query);});label.append(search);}
    if(control.multiple)label.append(node('small','可按 Ctrl／Command 選擇多項。'));
   }else{
-   control=node(item.type==='longtext'?'textarea':'input');control.type=item.type==='checkbox'?'checkbox':item.type==='number'?'number':item.type==='date'?'date':item.type==='email'?'email':'text';if(item.type==='number')control.step='any';if(item.type==='longtext')control.rows=3;control.maxLength=item.type==='longtext'?20000:2000;
+   control=node(item.type==='longtext'?'textarea':'input');control.type=item.type==='checkbox'?'checkbox':item.type==='number'?'number':item.type==='date'?'date':item.type==='email'?'email':item.type==='url'?'url':'text';if(item.type==='number')control.step='any';if(item.type==='longtext')control.rows=3;control.maxLength=item.type==='longtext'?20000:2000;
    getters.push({id:item.id,control,get:()=>item.type==='checkbox'?control.checked:item.type==='number'?(control.value===''?'':Number(control.value)):control.value});
   }
   const initial=data.form?.defaults?.[item.id];if(initial!==undefined&&item.id!==data.parentId){if(item.type==='checkbox')control.checked=initial===true;else if(control.multiple)for(const option of control.options)option.selected=Array.isArray(initial)&&initial.includes(option.value);else control.value=String(initial);}

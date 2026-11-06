@@ -3,14 +3,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {assertLocalPath}=require('./offline-policy');
+const network=require('./intranet-path');
+function favoriteReference(filepath){if(network.isUNC(filepath)){const clean=require('./notes-location-links').locationPath(filepath);network.uncServer(clean);return clean;}if(process.platform!=='win32'&&/^[a-z]:/i.test(filepath))return require('./notes-location-links').locationPath(filepath);return assertLocalPath(filepath);}
+const absolute=value=>typeof value==='string'&&(path.isAbsolute(value)||path.win32.isAbsolute(value));
 const MAX_FAVORITES = 10000;
-const pathKey = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
+const pathKey = value => network.isUNC(value)?path.win32.normalize(value).toLowerCase():process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
 const identityKeys = ['dev','ino','birthtimeNs'];
 function identity(stat) { return Object.fromEntries(identityKeys.map(key=>[key,String(stat[key])])); }
 function sameIdentity(a,b) { return a && b && identityKeys.every(key=>a[key]===b[key]); }
 function inspectPath(filepath) {
-  if (typeof filepath !== 'string' || !path.isAbsolute(filepath) || filepath.includes('\0')) throw new Error('請選取有效的完整檔案或資料夾路徑');
-  assertLocalPath(filepath);
+  if (typeof filepath !== 'string' || (!path.isAbsolute(filepath)&&!network.isUNC(filepath)) || filepath.includes('\0')) throw new Error('請選取有效的完整檔案或資料夾路徑');
+  favoriteReference(filepath);
+  if(network.isUNC(filepath)){network.assertIntranetPath(filepath);require('./notes-location-links').inspectLocation(filepath);}
   const stat=fs.lstatSync(filepath,{bigint:true});
   if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) throw new Error('只支援一般檔案及資料夾，不包含符號連結');
   return {type:stat.isDirectory()?'folder':'file',identity:identity(stat),size:stat.isFile()?Number(stat.size):null,modifiedMs:Number(stat.mtimeMs)};
@@ -28,7 +32,7 @@ function cleanTags(tags) {
 }
 function validateFavorites(data){
  if(!data||data.version!==1||!Array.isArray(data.items)||data.items.length>MAX_FAVORITES)throw new Error('收藏資料格式無效');const ids=new Set(),paths=new Set();
- for(const item of data.items){if(!item||typeof item.id!=='string'||ids.has(item.id)||typeof item.path!=='string'||!path.isAbsolute(item.path)||!['file','folder'].includes(item.type)||typeof item.label!=='string'||item.label.length>100||!item.identity||!identityKeys.every(key=>typeof item.identity[key]==='string')||typeof item.createdAt!=='string'||typeof item.updatedAt!=='string')throw new Error('收藏紀錄不完整');assertLocalPath(item.path);cleanTags(item.tags);if(paths.has(pathKey(item.path)))throw new Error('收藏位置重複');ids.add(item.id);paths.add(pathKey(item.path));}
+ for(const item of data.items){if(!item||typeof item.id!=='string'||ids.has(item.id)||typeof item.path!=='string'||!absolute(item.path)||!['file','folder'].includes(item.type)||typeof item.label!=='string'||item.label.length>100||!item.identity||!identityKeys.every(key=>typeof item.identity[key]==='string')||typeof item.createdAt!=='string'||typeof item.updatedAt!=='string')throw new Error('收藏紀錄不完整');favoriteReference(item.path);cleanTags(item.tags);if(paths.has(pathKey(item.path)))throw new Error('收藏位置重複');ids.add(item.id);paths.add(pathKey(item.path));}
  return structuredClone(data);
 }
 class FavoritesStore {
@@ -42,7 +46,7 @@ class FavoritesStore {
       if(data.version!==1 || !Array.isArray(data.items) || data.items.length>MAX_FAVORITES)throw new Error('資料格式不正確');
       const ids=new Set();
       for(const item of data.items) {
-        if(!item || typeof item.id!=='string' || ids.has(item.id) || typeof item.path!=='string' || !path.isAbsolute(item.path) ||
+        if(!item || typeof item.id!=='string' || ids.has(item.id) || typeof item.path!=='string' || !absolute(item.path) ||
           !['file','folder'].includes(item.type) || typeof item.label!=='string' || item.label.length>100 || !Array.isArray(item.tags) ||
           !item.identity || !identityKeys.every(key=>typeof item.identity[key]==='string') || typeof item.createdAt!=='string' || typeof item.updatedAt!=='string')throw new Error('收藏紀錄不完整');
         cleanTags(item.tags);ids.add(item.id);
@@ -61,6 +65,7 @@ class FavoritesStore {
   }
   state(item) {
     try {
+      if(network.isUNC(item.path)&&!network.isValidated(item.path)){favoriteReference(item.path);return {status:'ready',needsValidation:true,reason:'內網共享位置，開啟時驗證連線與原檔案識別',size:null,modifiedMs:null};}
       const actual=inspectPath(item.path);
       return actual.type===item.type && sameIdentity(item.identity,actual.identity) ? {status:'ready',reason:'',size:actual.size,modifiedMs:actual.modifiedMs} :
         {status:'replaced',size:null,modifiedMs:null,reason:'這個位置的項目可能已被替換，請編輯收藏並重新連結後再使用'};
@@ -72,6 +77,7 @@ class FavoritesStore {
   get(id,requireReady=false) {
     const item=this.read().items.find(item=>item.id===id);
     if(!item)throw new Error('找不到選取的收藏，請重新整理');
+    if(requireReady&&network.isUNC(item.path))network.assertIntranetPath(item.path);
     const state=this.state(item);
     if(requireReady && state.status!=='ready')throw new Error(`${item.path}\n${state.reason}`);
     return {...item,...state};
@@ -84,7 +90,7 @@ class FavoritesStore {
     let added=0,existing=0,changed=false;const ids=new Set();
     for(const input of inputs) {
       try {
-        const checked=inspectPath(input),filepath=path.resolve(input);
+        const checked=inspectPath(input),filepath=network.isUNC(input)?path.win32.normalize(input):path.resolve(input);
         const candidates=known.get(pathKey(filepath))||[];
         const prior=candidates.find(item=>sameIdentity(item.identity,checked.identity))||candidates[0];
         if(prior) {
@@ -123,7 +129,7 @@ class FavoritesStore {
     for(const item of items) {
       if(tags!==undefined)item.tags=tags;
       if(changes.label!==undefined)item.label=changes.label.trim();
-      if(linked){item.path=path.resolve(changes.path);item.identity=linked.identity;}
+      if(linked){item.path=network.isUNC(changes.path)?path.win32.normalize(changes.path):path.resolve(changes.path);item.identity=linked.identity;}
       item.updatedAt=new Date().toISOString();
     }
     this.write(data);return {updated:items.length};
@@ -156,7 +162,7 @@ class FavoritesStore {
   recordedPaths(ids) { return this.selection(this.read(),ids).map(item=>item.path); }
   readyPaths(ids) {
     const data=this.read(),items=this.selection(data,ids);
-    for(const item of items){const state=this.state(item);if(state.status!=='ready')throw new Error(`${item.path}\n${state.reason}`);}
+    for(const item of items){if(network.isUNC(item.path))network.assertIntranetPath(item.path);const state=this.state(item);if(state.status!=='ready')throw new Error(`${item.path}\n${state.reason}`);}
     return items.map(item=>item.path);
   }
   applyMoves(moves) {
@@ -181,4 +187,4 @@ class FavoritesStore {
     return updated;
   }
 }
-module.exports={FavoritesStore,cleanTags,inspectPath,sameIdentity,MAX_FAVORITES,validateFavorites};
+module.exports={favoriteReference,FavoritesStore,cleanTags,inspectPath,sameIdentity,MAX_FAVORITES,validateFavorites};

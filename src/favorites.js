@@ -95,7 +95,7 @@
           cell.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();activate();}});
         }else if(key==='tags'){
           cell=node('div','favorite-badges');for(const tag of item.tags)cell.appendChild(button(tag,()=>{activeTag=tag.toLocaleLowerCase();pageIndex=0;render();},'favorite-badge'));if(!item.tags.length)cell.appendChild(node('span','favorite-badge','未分類'));
-        }else if(key==='status'){cell=node('div','favorite-status'+(item.status==='ready'?'':' problem'),labels[item.status]||'需要處理');cell.title=item.reason||'位置及檔案識別可使用';}
+        }else if(key==='status'){cell=node('div','favorite-status'+(item.status==='ready'?'':' problem'),item.needsValidation?'開啟時檢查':labels[item.status]||'需要處理');cell.title=item.reason||'位置及檔案識別可使用';}
         else if(key==='type')cell=node('div','favorite-metadata',model.typeLabel(item));
         else if(key==='size'){cell=node('div','favorite-metadata',model.sizeLabel(item.size));cell.title=item.type==='folder'?'不掃描資料夾大小':item.size==null?'無法讀取':item.size.toLocaleString()+' bytes';}
         else {cell=node('div','favorite-metadata',item.modifiedMs==null?'—':new Date(item.modifiedMs).toLocaleString('zh-Hant',{hour12:false}));}

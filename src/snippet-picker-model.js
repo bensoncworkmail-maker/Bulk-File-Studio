@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const DEFAULTS=Object.freeze({width:360,height:460,fontSize:13,density:'compact',previewLines:0,showCounts:true,showHint:true,rememberGroups:true,defaultExpanded:true});
+ const DEFAULTS=Object.freeze({width:360,height:460,fontSize:13,density:'compact',groupTone:'accent',previewLines:0,showCounts:true,showHint:true,rememberGroups:true,defaultExpanded:true});
  const ranges={width:[280,800],height:[240,1000],fontSize:[12,20],previewLines:[0,2]};
  function normalize(input,strict=false){
   const value=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
@@ -9,7 +9,7 @@
   for(const key of Object.keys(out)){
    if(!Object.hasOwn(value,key))continue;
    const item=value[key],range=ranges[key];
-   const valid=range?Number.isInteger(item)&&item>=range[0]&&item<=range[1]:key==='density'?['compact','comfortable'].includes(item):typeof item==='boolean';
+   const valid=range?Number.isInteger(item)&&item>=range[0]&&item<=range[1]:key==='density'?['compact','comfortable'].includes(item):key==='groupTone'?['accent','strong','neutral'].includes(item):typeof item==='boolean';
    if(strict&&!valid)throw new Error('片段選擇窗設定無效：'+key);
    if(valid)out[key]=item;
   }
