@@ -57,6 +57,7 @@ function updateSharedNotification(value){
  }catch(error){diagnostics.record('main','share-notification',error);}
 }
 function closeFloatingMenu(){floatingMenuController?.close();}
+function reportSnippetPasteFailure(error){const message=String(error.message||error).slice(0,400);send(win,'desktop-settings-changed',{error:message});if(Notification?.isSupported?.())try{new Notification({title:'文字已複製，未能自動貼上',body:message}).show();}catch{}}
 function floatingAction(task){return async()=>{try{await task();}catch(error){diagnostics.record('floating','native-menu',error);send(floating,'desktop-settings-changed',{error:String(error.message||error)});}};}
 function popupFloatingMenu(template,options){
  floatingMenuController??=new(require('./floating-menu').FloatingMenu)({Menu,getWindow:()=>floating,showWindow:showFloating,settings:()=>desktop.settings,onError:error=>diagnostics.record('floating','native-menu',error)});
@@ -350,8 +351,10 @@ app.whenReady().then(() => {
   let shortcutMenuTrigger,snippetPickerRequest=0;
   async function runShortcutQuickAction(id){
     const action=configuredQuick(id),request=++snippetPickerRequest;
-    const pasteTarget=action.type==='open-snippets'&&action.snippetAction==='paste'?await require('./snippet-paste').capture():null;
+    let captureFailure;
+    const pasteTarget=action.type==='open-snippets'&&action.snippetAction==='paste'?await require('./snippet-paste').capture({onError:error=>{captureFailure=error;diagnostics.record('floating','snippet-target-capture',error);}}):null;
     if(request!==snippetPickerRequest)return {canceled:true};
+    if(action.type==='open-snippets'&&action.snippetAction==='paste'&&!pasteTarget){const error=new Error('尚未取得有效貼上目標。'+(captureFailure?String(captureFailure.message||captureFailure).slice(0,300)+'。':'')+'請先在目標程式的文字欄位按一下，再按快捷鍵。');if(Notification?.isSupported?.())try{new Notification({title:'尚未開啟貼上選單',body:error.message}).show();}catch{}throw error;}
     if(action.type==='open-tag-menu'||action.display==='menu'){
       closeFloatingMenu();
       shortcutMenuTrigger??=new(require('./shortcut-menu-trigger').ShortcutMenuTrigger)({window:()=>floating,show:()=>{if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();}});
@@ -888,7 +891,7 @@ app.whenReady().then(() => {
         const category=row.detail==='未分類'?'':row.detail;
         if(!groups.has(category))groups.set(category,[]);
         groups.get(category).push({label:menuLabel(row.title),toolTip:row.summary,
-          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');productivity.copySnippet(row.id,'');if(!pasteTarget){closeFloatingMenu();throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await floatingMenuController?.closeAndWait();return productivity.pasteSnippet(row.id,pasteTarget);})});
+          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');try{productivity.copySnippet(row.id,'');if(!pasteTarget){closeFloatingMenu();throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await floatingMenuController?.closeAndWait();floating?.blur?.();return await productivity.pasteSnippet(row.id,pasteTarget);}catch(error){reportSnippetPasteFailure(error);throw error;}})});
       }
       const compare=new Intl.Collator('zh-Hant',{numeric:true});
       const categories=[...groups].sort(([a],[b])=>a&&b?compare.compare(a,b):Number(!a)-Number(!b));
