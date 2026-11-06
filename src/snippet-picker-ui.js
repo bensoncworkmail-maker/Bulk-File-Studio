@@ -7,7 +7,7 @@
  $('close').addEventListener('click',()=>api.close().catch(failure));
  try{
   const data=await api.get(),prefs=M.normalize(data.prefs);
-  document.documentElement.dataset.theme=data.theme;document.body.dataset.density=prefs.density;
+  document.documentElement.dataset.theme=data.theme;document.body.dataset.density=prefs.density;document.body.dataset.groupTone=prefs.groupTone;
   document.body.style.setProperty('--picker-font-size',prefs.fontSize+'px');document.body.style.setProperty('--picker-preview-lines',String(prefs.previewLines));
   $('hint').hidden=!prefs.showHint;
   const grouped=M.grouped(data.rows,prefs,data.groupStates);

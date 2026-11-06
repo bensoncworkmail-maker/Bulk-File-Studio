@@ -3,9 +3,9 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const M=require('../src/snippet-picker-model'),{DesktopState,normalize}=require('../src/desktop-state'),{documentFromHTML}=require('./helpers/dom');
 const plain=value=>JSON.parse(JSON.stringify(value)),flush=()=>new Promise(setImmediate);
 test('picker layout validates sizes and exports/resets independently of group memory',()=>{
- const prefs=M.normalize({width:500,height:700,fontSize:18,density:'comfortable',previewLines:2,defaultExpanded:false},true);
+ const prefs=M.normalize({width:500,height:700,fontSize:18,density:'comfortable',previewLines:2,groupTone:'strong',defaultExpanded:false},true);
  assert.equal(normalize({snippetPicker:prefs}).snippetPicker.width,500);
- for(const patch of [{width:0},{height:Infinity},{fontSize:'13'},{previewLines:3},{rememberGroups:'yes'},{density:'bad'}])assert.throws(()=>M.normalize(patch,true),/設定無效/);
+ for(const patch of [{width:0},{height:Infinity},{fontSize:'13'},{previewLines:3},{rememberGroups:'yes'},{density:'bad'},{groupTone:'bad'}])assert.throws(()=>M.normalize(patch,true),/設定無效/);
  assert.deepEqual(M.normalize({width:0,unknown:true}),M.DEFAULTS);
  const exported=require('../src/settings-export').createSettingsExport({settings:{},rules:{}},{snippetPicker:prefs},'1.83.0');
  assert.deepEqual(exported.desktop.snippetPicker,prefs);assert.equal(exported.desktop.snippetPickerGroups,undefined);
@@ -34,8 +34,8 @@ async function renderer(prefs={},groupStates=[]){
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/snippet-picker-ui.js'),'utf8'),{window,document});await flush();return {document,saved,selected,$:id=>document.getElementById(id)};
 }
 test('renderer restores each category without saving initial toggle events and batches expand/collapse updates',async()=>{
- const h=await renderer({previewLines:2},[['Work',false]]),groups=h.$('items').querySelectorAll('details'),work=groups.find(g=>g.querySelector('summary').textContent.includes('Work'));
- assert.equal(work.open,false);assert.equal(h.$('items').querySelectorAll('.picker-row-preview').length,2);assert.equal(h.$('items').querySelectorAll('script').length,0);
+ const h=await renderer({previewLines:2,groupTone:'strong'},[['Work',false]]),groups=h.$('items').querySelectorAll('details'),work=groups.find(g=>g.querySelector('summary').textContent.includes('Work'));
+ assert.equal(h.document.body.dataset.groupTone,'strong');assert.equal(work.open,false);assert.equal(h.$('items').querySelectorAll('.picker-row-preview').length,2);assert.equal(h.$('items').querySelectorAll('script').length,0);
  for(const group of groups)await group.dispatch('toggle');assert.deepEqual(h.saved,[]);
  await h.$('collapse-all').dispatch('click');assert.deepEqual(h.saved,[[['Other',false]]]);
  for(const group of groups)await group.dispatch('toggle');assert.equal(h.saved.length,1);

@@ -94,15 +94,18 @@ async function confirmTrash(ids,validateScope=()=>{}){
   validateScope();const result=await executeTrash(favorites,plan,filepath=>shell.trashItem(filepath));notifyFavorites({trashedPaths:result.trashedPaths});return result;
  }finally{trashing=false;}
 }
+function openFavorite(id,action='open'){return require('./favorites-network').openFavorite({favorites,id,action,shell});}
 let batchOpening=false;
 async function confirmBatch(ids,kind,parent){
  if(batchOpening)throw new Error('另一項批次開啟仍在處理');
  batchOpening=true;
  try{
+  return await require('./intranet-path').withIntranetPaths(favorites.selection(favorites.read(),ids).map(item=>item.path),async()=>{
   const plan=prepareBatch(favorites,ids,kind),locations=kind==='locations';
   const choice=await dialog.showMessageBox(parent,{type:'question',title:locations?'批次開啟所在資料夾':'批次開啟檔案／資料夾',message:`將開啟 ${plan.targets.length} 個${locations?'所在資料夾（已合併相同位置）':'檔案／資料夾'}，是否繼續？`,detail:plan.targets.map(target=>target.path).join('\n'),buttons:['開啟','取消'],defaultId:1,cancelId:1,noLink:true});
   if(choice.response!==0||parent.isDestroyed())return {canceled:true,opened:0,failures:[]};
-  return await executeBatch(favorites,plan,filepath=>shell.openPath(filepath));
+  return await require('./intranet-path').withIntranetPaths(plan.targets.map(item=>item.path),()=>executeBatch(favorites,plan,filepath=>shell.openPath(filepath)));
+  });
  }finally{batchOpening=false;}
 }
 function reportFloatingBatch(result){send(floating,'desktop-settings-changed',result.failures.length?{error:`已開啟 ${result.opened} 項；${result.failures.join('\n')}`}:{notice:result.canceled?'已取消批次開啟':`已開啟 ${result.opened} 項`});}
@@ -142,7 +145,7 @@ const saveHistory = history => writeHistory(historyFile(),history,fs);
 
 function searchLocalData(query,options,transient){const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],templates:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('檢視／範本讀取失敗：'+error.message);}return {...require('./app-search-model').search({document,favorites:favorites.read().items,tools,transient:transient||{}},query,{...options,criteria:options?.criteria??desktop.settings.globalSearchCriteria,includeAreas:false}),warnings};}
 function floatingSearchController(){
- if(!floatingSearch)floatingSearch=new(require('./floating-search').FloatingSearch)({BrowserWindow,screen,secureWindow,remember:window=>rememberAuxSize('search',window),settings:()=>desktop.settings,saveConditions:value=>{if(!desktop.settings.floatingSearchRememberConditions)return {saved:false};const settings=desktop.update({floatingSearchLastState:value});send(win,'desktop-settings-changed',{settings});return {saved:true};},tables:()=>{const doc=notesStore().get().document;return doc.sheets.filter(sheet=>!sheet.deletedAt).map(sheet=>({id:sheet.id,name:sheet.name,parentSheetId:require('./notes-model').parentField(doc,sheet)?.targetSheetId||null}));},parent:()=>{if(!floating||floating.isDestroyed())showFloating();return floating;},returnFocus:()=>{if(floating&&!floating.isDestroyed()&&floating.isVisible())floating.focus();},favorites,run:searchLocalData,copy:value=>clipboard.writeText(value),visit:item=>{const M=require('./notes-model');if(['record','sheet'].includes(item.kind)){const doc=notesStore().get().document;if(item.kind==='record'&&!doc.records.some(record=>record.id===item.id&&M.live(doc,record))||item.kind==='sheet'&&!doc.sheets.some(sheet=>sheet.id===item.id&&!sheet.deletedAt))throw new Error('資料已移除，請重新搜尋');}if(item.kind==='favorite')favorites.get(item.id);focusMain();send(win,'studio-search-target',item);},fileAction:async(action,item)=>{if(fileOperationBusy)throw new Error('檔案操作進行中，請稍後再試');if(action==='show'){shell.showItemInFolder(assertLocalPath(item.path));return;}assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);}});return floatingSearch;
+ if(!floatingSearch)floatingSearch=new(require('./floating-search').FloatingSearch)({BrowserWindow,screen,secureWindow,remember:window=>rememberAuxSize('search',window),settings:()=>desktop.settings,saveConditions:value=>{if(!desktop.settings.floatingSearchRememberConditions)return {saved:false};const settings=desktop.update({floatingSearchLastState:value});send(win,'desktop-settings-changed',{settings});return {saved:true};},tables:()=>{const doc=notesStore().get().document;return doc.sheets.filter(sheet=>!sheet.deletedAt).map(sheet=>({id:sheet.id,name:sheet.name,parentSheetId:require('./notes-model').parentField(doc,sheet)?.targetSheetId||null}));},parent:()=>{if(!floating||floating.isDestroyed())showFloating();return floating;},returnFocus:()=>{if(floating&&!floating.isDestroyed()&&floating.isVisible())floating.focus();},favorites,run:searchLocalData,copy:value=>clipboard.writeText(value),visit:item=>{const M=require('./notes-model');if(['record','sheet'].includes(item.kind)){const doc=notesStore().get().document;if(item.kind==='record'&&!doc.records.some(record=>record.id===item.id&&M.live(doc,record))||item.kind==='sheet'&&!doc.sheets.some(sheet=>sheet.id===item.id&&!sheet.deletedAt))throw new Error('資料已移除，請重新搜尋');}if(item.kind==='favorite')favorites.get(item.id);focusMain();send(win,'studio-search-target',item);},fileAction:async(action,item)=>{if(fileOperationBusy)throw new Error('檔案操作進行中，請稍後再試');return require('./intranet-path').withIntranetPaths([require('./notes-location-links').locationPath(item.path)],async()=>{if(action==='show'){require('./favorites-store').inspectPath(item.path);shell.showItemInFolder(item.path);return;}await require('./notes-location-links').safeLocationOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);});}});return floatingSearch;
 }
 function captureController(){
  if(!capture)capture=new FloatingCapture({BrowserWindow,screen,secureWindow,size:()=>desktop.settings.toolWindowSizes.capture,remember:window=>rememberAuxSize('capture',window),parent:()=>{if(!floating||floating.isDestroyed())showFloating();return floating;},settings:()=>desktop.settings,notesStore,favorites,notesChanged,notifyFavorites,choosePaths:async(kind,parent)=>{const value=await dialog.showOpenDialog(parent,{title:kind==='folder'?'連結資料夾':'連結檔案',properties:[kind==='folder'?'openDirectory':'openFile','multiSelections']});return value.canceled?[]:value.filePaths;}});return capture;
@@ -340,7 +343,7 @@ app.whenReady().then(() => {
   for(const [channel,method] of [['floating-capture-get','data'],['floating-capture-preview','preview'],['floating-capture-commit','commit'],['floating-capture-save','save'],['floating-capture-choose','choose'],['floating-capture-clear','clearAttachments'],['floating-capture-attach','addAttachments'],['floating-capture-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('capture',channel,()=>{if(!capture?.owns(event))throw new Error('不受信任的浮動表單來源');return capture[method](...args);}));
   const showTagMenu=(tag,query,{allowCollapsed=false,menuItems}={})=>{
     const result=(Array.isArray(tag)?tagListMenu:tagMenu)(favorites.list(),tag,query,{
-      open:id=>floatingAction(async()=>{const item=favorites.get(id,true);assertSafeOpen(item.path);const error=await shell.openPath(item.path);if(error)throw new Error(error);})(),
+      open:id=>floatingAction(()=>openFavorite(id))(),
       main:selected=>{focusMain();favoriteActivation=true;queuedFilter={tag:selected};notifyFavorites({activate:true});},
       copy:ids=>floatingAction(()=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')))(),
       batchOpen:ids=>floatingAction(async()=>reportFloatingBatch(await confirmBatch(ids,'open',floating)))(),
@@ -466,6 +469,7 @@ app.whenReady().then(() => {
   handle('notes-history-restore',(_,id,historyId,version)=>notesChanged(notesStore().restoreHistory(id,historyId,version)));
   handle('notes-favorites',()=>({items:favorites.list()}));
   handle('notes-inspect-links',(_,paths)=>require('./intranet-path').withIntranetPaths(validatedLinkPaths(paths),()=>require('./notes-location-links').inspectLinks(paths).map(({path,type})=>({path,type}))));
+  handle('notes-open-website',(_,recordId,fieldId,action)=>require('./notes-web-links').openRecordWebsite({document:notesStore().get().document,recordId,fieldId,action,shell,clipboard}));
   handle('notes-open-link',(_,recordId,index,action)=>require('./notes-location-links').openRecordLink({document:notesStore().get().document,favorites,recordId,index,action,shell,clipboard}));
   handle('notes-export-preview',(_,options)=>notesStore().exportPreview(options));
   handle('notes-export-save',async(_,token)=>{
@@ -619,11 +623,11 @@ app.whenReady().then(() => {
   handle('floating-collapse',(_,collapsed)=>{if(typeof collapsed!=='boolean')throw new Error('收合設定無效');return setFloatingCollapsed(collapsed);});
   handle('floating-copy-paths',(_,ids)=>{const paths=favorites.recordedPaths(ids);clipboard.writeText(paths.join('\r\n'));return {count:paths.length};});
   handle('floating-item-menu',(_,id)=>{
-    const item=favorites.get(id);let ready=true;try{favorites.get(id,true);}catch{ready=false;}
+    const item=favorites.get(id),ready=item.status==='ready';
     popupFloatingMenu([
       {label:(item.label||basename(item.path)).replaceAll('&','&&').replace(/[\x00-\x1f\x7f]/g,' ').slice(0,180),enabled:false},
-      {label:'開啟',enabled:ready,click:floatingAction(async()=>{const current=favorites.get(id,true);assertSafeOpen(current.path);const error=await shell.openPath(current.path);if(error)throw new Error(error);})},
-      {label:'在檔案總管定位',enabled:ready,click:floatingAction(()=>shell.showItemInFolder(assertLocalPath(favorites.get(id,true).path)))},
+      {label:'開啟',enabled:ready,click:floatingAction(()=>openFavorite(id))},
+      {label:'在檔案總管定位',enabled:ready,click:floatingAction(()=>openFavorite(id,'show'))},
       {label:'複製完整路徑',click:floatingAction(()=>clipboard.writeText(favorites.get(id).path))}
     ]);
   });
@@ -674,22 +678,17 @@ app.whenReady().then(() => {
     if(desktop.settings.floatingQuickMode==='popup')return captureController().open({resolve:()=>({type:'import-paths',label:'匯入標籤連結',tags:floatingTags(tag),enabled:true}),text:''});
     if(pendingImportRequest)throw new Error('上一個匯入要求仍待開啟');pendingImportRequest={tags:floatingTags(tag)};favoriteActivation=true;focusMain();keepFloatingAfterQuick();notifyFavorites({activate:true});return {opened:true};
   });
-  handle('favorites-add', (_, paths, tags) => {
-    const result=favorites.addPaths(paths,tags);notifyFavorites();return result;
-  });
+  handle('favorites-add',(_,paths,tags)=>{if(!Array.isArray(paths)||paths.length>10000)throw new Error('收藏位置資料無效');return require('./intranet-path').withIntranetPaths(paths.map(value=>require('./notes-location-links').locationPath(value)),()=>{const result=favorites.addPaths(paths,tags);notifyFavorites();return result;});});
   handle('favorites-choose', async (_, kind) => {
     if(!['file','folder'].includes(kind))throw new Error('不支援的收藏類型');
     const result=await dialog.showOpenDialog(win,{title:kind==='folder'?'收藏資料夾位置':'收藏檔案',properties:[kind==='folder'?'openDirectory':'openFile','multiSelections']});
     if(result.canceled)return {canceled:true,added:0,existing:0,issues:[]};
     const added=favorites.addPaths(result.filePaths);notifyFavorites();return added;
   });
-  handle('favorites-update', (_, ids, changes) => {const result=favorites.update(ids,changes);notifyFavorites();return result;});
+  handle('favorites-update',(_,ids,changes)=>require('./intranet-path').withIntranetPaths(changes?.path===undefined?[]:[require('./notes-location-links').locationPath(changes.path)],()=>{const result=favorites.update(ids,changes);notifyFavorites();return result;}));
   handle('favorites-remove', (_, ids, options) => {if(options?.trashFiles)return confirmTrash(ids);const result=favorites.remove(ids);notifyFavorites();return result;});
-  handle('favorites-open', async (_, id) => {
-    const item=favorites.get(id,true);assertSafeOpen(item.path);const error=await shell.openPath(item.path);
-    if(error)throw new Error(error);
-  });
-  handle('favorites-show', (_, id) => shell.showItemInFolder(assertLocalPath(favorites.get(id,true).path)));
+  handle('favorites-open',(_,id)=>openFavorite(id));
+  handle('favorites-show',(_,id)=>openFavorite(id,'show'));
   handle('favorites-copy', (_, id) => clipboard.writeText(favorites.get(id).path));
   handle('favorites-choose-link', async (_,id,dropped) => {
     const item=favorites.get(id);let defaultPath;try{defaultPath=assertLocalPath(item.path);}catch{/* Select a local replacement without probing an old network path. */}
@@ -701,10 +700,12 @@ app.whenReady().then(() => {
   handle('favorites-open-locations',(_,ids)=>confirmBatch(ids,'locations',win));
   handle('favorites-batch-open-confirmed',(_,ids)=>confirmBatch(ids,'open',win));
   handle('favorites-bulk-open',async(_,ids)=>{
+    return require('./intranet-path').withIntranetPaths(favorites.selection(favorites.read(),ids).map(item=>item.path),async()=>{
     const paths=favorites.readyPaths(ids);if(paths.length>20)throw new Error('每次最多開啟 20 項，避免同時啟動過多程式');
-    paths.forEach(assertSafeOpen);
+    paths.forEach(require('./notes-location-links').assertOpenableLocation);
     const failures=[];for(const filepath of paths){try{const error=await shell.openPath(filepath);if(error)failures.push(filepath+'：'+error);}catch(e){failures.push(filepath+'：'+e.message);}}
     return {opened:paths.length-failures.length,failures};
+    });
   });
   handle('favorites-copy-many',(_,ids)=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')));
   handle('app-info',()=>({name:'Bulk File Studio',version:app.getVersion(),history:require('./release-history'),offline:!notesShare?.status().anyEnabled}));

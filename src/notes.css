@@ -171,3 +171,5 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 
 #notes-copy-targets{border:1px solid var(--line);border-radius:7px;padding:8px}#notes-copy-masters .notes-choice-list,#notes-bulk-records .notes-choice-list{max-height:200px;overflow:auto}#notes-bulk-targets{border:1px solid var(--line);padding:8px;border-radius:7px;margin-bottom:10px}#notes-bulk-targets summary{cursor:pointer;font-weight:650}#notes-sheet-review-dialog{width:min(680px,calc(100vw - 32px));max-height:88dvh;overflow:auto}#notes-sheet-review-list p{white-space:pre-wrap;overflow-wrap:anywhere}
 .notes-layout[data-scope=details] .notes-master-context,.notes-layout[data-scope=details] .notes-content>.notes-detail-tabs{display:none}
+
+.notes-website-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}.notes-detail dd{overflow-wrap:anywhere}

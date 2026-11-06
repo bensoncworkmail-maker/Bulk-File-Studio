@@ -62,12 +62,12 @@ async function openRecordLink({document,favorites,recordId,index,action,shell,cl
  if(!record||!Number.isInteger(index)||index<0||index>=record.fileLinks.length||!['open','show','copy'].includes(action))throw new Error('檔案連結操作無效');
  const link=record.fileLinks[index],catalog=favorites.read().items,current=catalog.find(item=>item.id===link.favoriteId),filepath=current?.path||link.path;
  if(action==='copy'){clipboard.writeText(filepath);return;}
- // Existing local favorites retain their original identity checks.
- if(current)favorites.get(current.id,true);
- const actual=await withIntranetPaths([locationPath(filepath)],()=>inspectLocation(filepath));if(actual.type!==link.type)throw new Error('連結位置類型已變更，請重新連結');
+ // Validate the selected host before inspecting a linked network favorite.
+ const actual=await withIntranetPaths([locationPath(filepath)],()=>{if(current)favorites.get(current.id,true);return inspectLocation(filepath);});if(actual.type!==link.type)throw new Error('連結位置類型已變更，請重新連結');
  if(action==='show'){shell.showItemInFolder(actual.path);return;}
  if(actual.type==='file'&&BLOCKED.test(actual.path))throw new Error('此類程式或捷徑請使用「定位」後自行開啟');
  const error=await shell.openPath(actual.path);if(error)throw new Error(error);
 }
+function assertOpenableLocation(value){const filepath=locationPath(value);if(!require('./intranet-path').isUNC(filepath))return require('./offline-policy').assertSafeOpen(filepath);require('./intranet-path').assertIntranetPath(filepath);if(BLOCKED.test(filepath))throw new Error('此類程式或捷徑請使用「定位」後自行開啟');return filepath;}
 async function safeLocationOpen(raw){const filepath=locationPath(raw),actual=await withIntranetPaths([filepath],()=>/^\\\\/.test(filepath)?inspectIntranetLocation(filepath):inspectLocation(filepath));if(actual.type==='file'&&BLOCKED.test(filepath))throw new Error('此類程式或捷徑請使用檔案總管自行開啟');return actual.path;}
-module.exports={safeLocationOpen,locationPath,inspectLocation,inspectIntranetLocation,inspectLinks,openRecordLink};
+module.exports={assertOpenableLocation,safeLocationOpen,locationPath,inspectLocation,inspectIntranetLocation,inspectLinks,openRecordLink};

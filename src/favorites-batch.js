@@ -1,9 +1,9 @@
 'use strict';
 const path=require('node:path');
 const {inspectPath,sameIdentity}=require('./favorites-store');
-const {assertSafeOpen}=require('./offline-policy');
+const {assertOpenableLocation:assertSafeOpen}=require('./notes-location-links');
 const LIMIT=20;
-const windowsPath=value=>/^[a-z]:[\\/]/i.test(value);
+const windowsPath=value=>/^[a-z]:[\\/]/i.test(value)||require('./intranet-path').isUNC(value);
 function parentPath(value){return (windowsPath(value)?path.win32:path).dirname(value);}
 function pathKey(value){return windowsPath(value)?path.win32.normalize(value).toLocaleLowerCase():path.normalize(value);}
 function locationCount(items){return new Set(items.map(item=>pathKey(parentPath(item.path)))).size;}

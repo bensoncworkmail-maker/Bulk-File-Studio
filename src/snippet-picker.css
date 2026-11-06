@@ -18,3 +18,9 @@ button{font:inherit;cursor:pointer;color:inherit}
 body[data-density="comfortable"] .picker-row{min-height:40px;padding-top:9px;padding-bottom:9px}body[data-density="comfortable"] .picker-group summary{padding-top:9px;padding-bottom:9px}
 footer{border-top:1px solid var(--line);padding:5px 10px;font-size:.8em;color:var(--muted);flex-shrink:0}#status{margin:0;padding:5px 10px;font-size:.85em;color:var(--bad);flex-shrink:0}.picker-empty{margin:12px;color:var(--muted);font-size:.9em;line-height:1.8}
 [hidden]{display:none!important}
+
+.picker-group summary{border-left:3px solid var(--line);border-bottom:1px solid var(--line)}
+body[data-group-tone="accent"] .picker-group summary{background:color-mix(in srgb,var(--accent) 17%,var(--panel));color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+body[data-group-tone="accent"] :is(.picker-group-count,.picker-group summary::before){color:var(--accent)}
+body[data-group-tone="strong"] .picker-group summary{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+body[data-group-tone="strong"] :is(.picker-group-count,.picker-group summary::before){color:inherit}
