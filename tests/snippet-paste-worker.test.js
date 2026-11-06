@@ -12,3 +12,6 @@ test('closing during startup rejects the startup wait and timeout kills queued o
  const start=fixture({auto:false}),wait=start.worker.start(),reject=assert.rejects(wait,/停止/);start.worker.stop();await reject;assert.equal(start.children[0].killed,true);
  const {worker,children}=fixture({timeout:20});await worker.start();await assert.rejects(worker.request({op:'paste'}),/逾時/);assert.equal(children[0].killed,true);assert.equal(worker.pending.size,0);
 });
+test('selected-menu paste never starts or waits for a cold helper and rejects a previous helper epoch',async t=>{
+ const {worker,children}=fixture();t.after(()=>worker.stop());await assert.rejects(worker.request({op:'paste'},{readyOnly:true,epoch:'old'}),/重新啟動/);assert.equal(children.length,0);await worker.start();const epoch=worker.epoch;worker.stop();await worker.start();assert.notEqual(worker.epoch,epoch);await assert.rejects(worker.request({op:'paste'},{readyOnly:true,epoch}),/重新啟動/);assert.equal(children[1].requests.length,0);const paste=worker.request({op:'paste'},{readyOnly:true,epoch:worker.epoch});await tick();children[1].stdout.emit('data',JSON.stringify({id:children[1].requests[0].id,ok:true,value:true})+'\n');assert.equal(await paste,true);
+});
