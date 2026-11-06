@@ -346,17 +346,19 @@ app.whenReady().then(() => {
     },menuItems);
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
-  let shortcutMenuTrigger;
-  function runShortcutQuickAction(id){
-    const action=configuredQuick(id);
+  let shortcutMenuTrigger,snippetPickerRequest=0;
+  async function runShortcutQuickAction(id){
+    const action=configuredQuick(id),request=++snippetPickerRequest;
+    const pasteTarget=action.type==='open-snippets'&&action.snippetAction==='paste'?await require('./snippet-paste').capture():null;
+    if(request!==snippetPickerRequest)return {canceled:true};
     if(action.type==='open-tag-menu'||action.display==='menu'){
       closeFloatingMenu();
       shortcutMenuTrigger??=new(require('./shortcut-menu-trigger').ShortcutMenuTrigger)({window:()=>floating,show:()=>{if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();}});
-      return shortcutMenuTrigger.run(floatingAction(()=>runQuickAction(null,id)));
+      return shortcutMenuTrigger.run(floatingAction(()=>runQuickAction(null,id,undefined,pasteTarget)));
     }
     return runQuickAction(null,id);
   }
-  runQuickAction=(event,id,anchor)=>{
+  runQuickAction=(event,id,anchor,pasteTarget)=>{
     const action=configuredQuick(id);
     if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true,menuItems:action.menuItems}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
@@ -371,9 +373,10 @@ app.whenReady().then(() => {
     if(['view-logs','open-planning','open-snippets'].includes(action.type)){
       const kind={'view-logs':'logs','open-planning':'planning','open-snippets':'snippets'}[action.type];
       const config=require('./tool-views-model').configuration({...action,kind});
+      if(kind==='snippets')config.snippetAction=action.snippetAction||'copy';
       if(action.display==='menu'){
         if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();
-        return openQuickToolMenu(config,event?.sender===floating.webContents?anchor:undefined);
+        return openQuickToolMenu(config,event?.sender===floating.webContents?anchor:undefined,pasteTarget);
       }
       if(action.display==='overlay')return kind==='logs'?toolOverlay.open(config):openInlinePanel(kind);
       focusMain();
@@ -874,7 +877,7 @@ app.whenReady().then(() => {
     popupFloatingMenu(template,{allowCollapsed,anchor});
     return {opened:true,menu:true};
   }
-  function openQuickToolMenu(config,anchor){
+  function openQuickToolMenu(config,anchor,pasteTarget){
     const options={allowCollapsed:true,anchor};
     if(config.kind==='snippets'){
       const {snippetRows}=require('./tool-views-model');
@@ -884,14 +887,14 @@ app.whenReady().then(() => {
         const category=row.detail==='未分類'?'':row.detail;
         if(!groups.has(category))groups.set(category,[]);
         groups.get(category).push({label:menuLabel(row.title),toolTip:row.summary,
-          click:floatingAction(()=>actOnTool(config,'copy',row.id,''))});
+          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');closeFloatingMenu();if(!pasteTarget){productivity.copySnippet(row.id,'');throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await new Promise(resolve=>setTimeout(resolve,80));return productivity.pasteSnippet(row.id,pasteTarget);})});
       }
       const compare=new Intl.Collator('zh-Hant',{numeric:true});
       const categories=[...groups].sort(([a],[b])=>a&&b?compare.compare(a,b):Number(!a)-Number(!b));
       const menuSize=25;
       function showCategories(page=0){
         const last=Math.max(0,Math.ceil(categories.length/menuSize)-1);
-        const template=[{label:'常用文字片段 · 點選複製',enabled:false}];
+        const template=[{label:'常用文字片段 · '+(config.snippetAction==='paste'?'選取後貼上':'點選複製'),enabled:false}];
         for(const [category,items] of categories.slice(page*menuSize,(page+1)*menuSize)){
           const submenu=items.length<=menuSize?items:Array.from({length:Math.ceil(items.length/menuSize)},(_,index)=>{
             const start=index*menuSize,end=Math.min(start+menuSize,items.length);
