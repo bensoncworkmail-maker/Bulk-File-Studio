@@ -20,7 +20,7 @@ const {FloatingCapture,checkedPaths}=require('./floating-capture');
 const {tagMenu,tagListMenu}=require('./floating-tag-menu');
 const {prepareBatch,executeBatch}=require('./favorites-batch');
 const {tagList,basename}=require('./favorites-model');
-let recordReminders,recordNotification,recordAttention,floatingSearch,productivity,toolOverlay;
+let recordReminders,recordNotification,recordAttention,floatingSearch,productivity,toolOverlay,snippetPicker;
 const quickActions=require('./quick-actions-model');
 const panelModel=require('./floating-panels-model');
 const {prepareTrash,executeTrash}=require('./favorites-trash');
@@ -348,13 +348,20 @@ app.whenReady().then(() => {
     },menuItems);
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
+  for(const [channel,method] of [['snippet-picker-get','data'],['snippet-picker-select','select'],['snippet-picker-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('snippet-picker',channel,()=>{if(!snippetPicker?.owns(event))throw new Error('不受信任的片段選擇來源');return snippetPicker[method](...args);}));
   let shortcutMenuTrigger,snippetPickerRequest=0;
   async function runShortcutQuickAction(id){
-    const action=configuredQuick(id),request=++snippetPickerRequest;
+    const action=configuredQuick(id),request=++snippetPickerRequest;snippetPicker?.close();
     let captureFailure;
     const pasteTarget=action.type==='open-snippets'&&action.snippetAction==='paste'?await require('./snippet-paste').capture({onError:error=>{captureFailure=error;diagnostics.record('floating','snippet-target-capture',error);}}):null;
     if(request!==snippetPickerRequest)return {canceled:true};
     if(action.type==='open-snippets'&&action.snippetAction==='paste'&&!pasteTarget){const error=new Error('尚未取得有效貼上目標。'+(captureFailure?String(captureFailure.message||captureFailure).slice(0,300)+'。':'')+'請先在目標程式的文字欄位按一下，再按快捷鍵。');if(Notification?.isSupported?.())try{new Notification({title:'尚未開啟貼上選單',body:error.message}).show();}catch{}throw error;}
+    if(action.type==='open-snippets'&&action.snippetAction==='paste'){
+      closeFloatingMenu();
+      snippetPicker??=new(require('./snippet-picker').SnippetPicker)({BrowserWindow,screen,secureWindow,globalShortcut,settings:()=>desktop.settings,onError:error=>{diagnostics.record('floating','snippet-picker-open',error);send(floating,'desktop-settings-changed',{error:'片段選擇窗未能開啟：'+String(error.message||error)});}});
+      const rows=require('./tool-views-model').snippetRows(productivity.store.get().snippets,desktop.settings.floatingPanels.snippetQuery);
+      return snippetPicker.open(rows,pasteTarget,async(snippetId,target)=>{try{const current=configuredQuick(id);if(current.type!=='open-snippets'||current.snippetAction!=='paste')throw new Error('快捷動作已變更，請重新開啟');return await productivity.pasteSnippet(snippetId,target);}catch(error){reportSnippetPasteFailure(error);throw error;}});
+    }
     if(action.type==='open-tag-menu'||action.display==='menu'){
       closeFloatingMenu();
       shortcutMenuTrigger??=new(require('./shortcut-menu-trigger').ShortcutMenuTrigger)({window:()=>floating,show:()=>{if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();}});
@@ -968,7 +975,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy||trashing){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(drafts?.requestClose(true)){event?.preventDefault();return;}recordReminders?.close();recordAttention?.close();if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();
