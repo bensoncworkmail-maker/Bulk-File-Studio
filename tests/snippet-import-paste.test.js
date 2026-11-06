@@ -14,3 +14,10 @@ test('selection paste captures native target identity, validates its age and res
  const {capture,paste}=require('../src/snippet-paste');assert.equal(await capture({platform:'linux'}),null);const target=await capture({platform:'win32',run:(f,a,o,cb)=>cb(null,'12345:88\r\n','')});assert.equal(target.handle,'12345');assert.equal(target.pid,88);assert.equal(await capture({platform:'win32',run:(f,a,o,cb)=>cb(new Error('no target'),'','')}),null);
  let code;await paste({platform:'win32',pid:123,target,run:(f,a,o,cb)=>{code=Buffer.from(a.at(-1),'base64').toString('utf16le');cb(null,'','');}});assert.match(code,/Paste\(123,12345,88\)/);assert.match(code,/actualPid!=targetPid/);assert.match(code,/SetForegroundWindow\(requested\)/);assert.match(code,/currentPid!=appPid/);await assert.rejects(paste({platform:'win32',target:{...target,at:Date.now()-61000}}),/過期/);await assert.rejects(paste({platform:'win32',target:{...target,handle:'1); bad'}}),/無效/);
 });
+test('nonactivating selection carries the no-activation flag and checks it before any foreground restoration',async()=>{
+ const {paste}=require('../src/snippet-paste');let code;
+ await paste({platform:'win32',pid:123,target:{handle:'12345',pid:88,at:Date.now(),noActivate:true},run:(f,a,o,cb)=>{code=Buffer.from(a.at(-1),'base64').toString('utf16le');cb(null,'','');}});
+ assert.match(code,/Paste\(123,12345,88,\$true\)/);assert.match(code,/bool noActivate=false/);
+ assert.ok(code.indexOf('if(noActivate&&GetForegroundWindow()!=requested)')<code.indexOf('SetForegroundWindow(requested)'));
+ assert.ok(code.indexOf('if(noActivate)throw')<code.indexOf('SetForegroundWindow(requested)'));
+});
