@@ -658,7 +658,7 @@ async function init() {
   window.homeUI.init({showFailure,isBusy:()=>busy});
   window.dialogSizesUI?.init();
   window.logViewSettingsUI?.init();
-  window.floatingPanelsSettings?.init();
+  window.floatingPanelsSettings?.init();window.snippetPickerSettings?.init();
   window.productivityUI?.init({showFailure,isBusy:()=>busy,configuration:()=>({rules:getRules(),presets:savedPresets}),rename:async(paths,prefix)=>{const result=await api.addPaths(paths,false);selected.clear();addFromResult(result);applyRules({...defaults,prefix});enqueuePreview();window.favoritesUI.show('rename');}});
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,onTrashed:paths=>{files=files.filter(file=>!paths.some(p=>norm(file)===norm(p)||norm(file).startsWith(norm(p).replace(/[\\/]$/,'')+(p.includes('\\')?'\\':'/'))));selected=new Set([...selected].filter(p=>files.some(file=>norm(file)===p)));enqueuePreview();},getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}

@@ -966,6 +966,29 @@
                     <p id="floating-panel-settings-status" role="status"></p>
                   </form>
                 </section>
+                <section class="settings-card">
+                  <h2>文字片段分類選擇窗</h2>
+                  <p class="rule-hint">用全域快捷鍵選取片段並立即貼上時使用。保留原欄位焦點，以滑鼠操作；版面變更於下次開啟生效。</p>
+                  <form id="snippet-picker-settings">
+                    <fieldset disabled>
+                      <legend class="sr-only">文字片段分類選擇窗設定</legend>
+                      <div class="snippet-picker-settings-grid">
+                        <label class="field"><span>選擇窗寬度（px）</span><input id="snippet-picker-width" type="number" min="280" max="800" step="1"></label>
+                        <label class="field"><span>選擇窗高度（px）</span><input id="snippet-picker-height" type="number" min="240" max="1000" step="1"></label>
+                        <label class="field"><span>選擇窗字級（px）</span><input id="snippet-picker-fontSize" type="number" min="12" max="20" step="1"></label>
+                        <label class="field"><span>片段清單間距</span><select id="snippet-picker-density"><option value="compact">精簡</option><option value="comfortable">寬鬆</option></select></label>
+                        <label class="field"><span>片段內容預覽</span><select id="snippet-picker-previewLines"><option value="0">僅名稱</option><option value="1">名稱＋1 行預覽</option><option value="2">名稱＋2 行預覽</option></select></label>
+                        <label class="field"><span>新分類預設狀態</span><select id="snippet-picker-defaultExpanded"><option value="true">展開</option><option value="false">收合</option></select></label>
+                      </div>
+                      <label class="check-row"><input id="snippet-picker-showCounts" type="checkbox"><span>顯示分類筆數與片段總數</span></label>
+                      <label class="check-row"><input id="snippet-picker-showHint" type="checkbox"><span>顯示底部操作提示</span></label>
+                      <label class="check-row"><input id="snippet-picker-rememberGroups" type="checkbox"><span>記住各分類展開／收合狀態（重新啟動後保留）</span></label>
+                      <p class="rule-hint">停用記憶時，每次依預設狀態顯示。分類改名視為新分類；設定共用於所有立即貼上快捷按鈕。</p>
+                      <div class="snippet-picker-settings-actions"><button type="submit" id="snippet-picker-save" class="btn btn-secondary">套用選擇窗設定</button><button type="button" id="snippet-picker-reset-groups" class="btn btn-ghost">重設分類展開狀態</button></div>
+                    </fieldset>
+                    <p id="snippet-picker-settings-status" role="status"></p>
+                  </form>
+                </section>
                 <section class="settings-card"><h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示浮動快捷動作列</span></label>
                   <label class="check-row"><input id="settings-floating-show-new-master" type="checkbox"><span>顯示「＋新增主檔」按鈕（工作區／混合檢視）</span></label>
                   <p class="rule-hint">內建新增主檔與自訂快捷按鈕顯示在同一列；關閉快捷動作列會一起隱藏。</p>
@@ -2559,7 +2582,7 @@
     <script src="share-receive-ui.js" defer></script>
     <script src="menu-dismiss.js" defer></script><script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
-    <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
+    <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="snippet-picker-model.js" defer></script><script src="snippet-picker-settings.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
     <script src="layout-editor.js" defer></script><script src="home.js" defer></script>
     <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>

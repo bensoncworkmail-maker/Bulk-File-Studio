@@ -1,1 +1,23 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>選取片段貼上</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="themes.css"><link rel="stylesheet" href="snippet-picker.css"><script src="snippet-picker-ui.js" defer></script></head><body><header><strong>選取片段貼上</strong><button id="close" class="btn btn-ghost" aria-label="關閉">關閉</button></header><p class="hint">原文字欄位保持焦點。滑鼠選片段；Esc 取消。</p><main id="items"></main><p id="status" role="status"></p></body></html>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+ <title>常用文字片段 · 選取貼上</title>
+ <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="themes.css"><link rel="stylesheet" href="graphite-theme.css"><link rel="stylesheet" href="snippet-picker.css">
+ <script src="snippet-picker-model.js" defer></script><script src="snippet-picker-ui.js" defer></script>
+</head>
+<body>
+ <header class="picker-header">
+  <div class="picker-heading"><strong>常用文字片段</strong><span class="picker-action">選取貼上</span></div>
+  <button id="close" class="picker-close" type="button" aria-label="關閉選擇窗" title="關閉（Esc）">×</button>
+ </header>
+ <nav class="picker-toolbar" aria-label="分類清單操作">
+  <button id="expand-all" type="button">全部展開</button><button id="collapse-all" type="button">全部收合</button>
+  <span id="count" class="picker-total"></span>
+ </nav>
+ <main id="items" aria-label="依分類選取文字片段"><p id="empty" class="picker-empty" hidden>沒有符合條件的片段。<br>可至浮動內容設定調整預設搜尋。</p></main>
+ <footer id="hint">按片段即貼上 · Esc 關閉</footer>
+ <p id="status" role="status" hidden></p>
+</body>
+</html>

@@ -99,7 +99,7 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({captureShortcuts:ena
  setFloatingView:mode=>invoke('floating-view',mode),
  importPaths:tag=>invoke('floating-import',tag),togglePin:()=>invoke('floating-pin'),
  diagnosticsStatus:recent=>invoke('diagnostics-status',recent),openDiagnostics:()=>invoke('diagnostics-open'),exportDiagnostics:()=>invoke('diagnostics-export'),clearDiagnostics:()=>invoke('diagnostics-clear'),
- resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),setFloatingLayoutOrder:order=>invoke('floating-layout-order',order),
+ resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),resetSnippetPickerGroups:()=>invoke('snippet-picker-reset-groups'),setFloatingLayoutOrder:order=>invoke('floating-layout-order',order),
  resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),showMain:tag=>invoke('floating-main',tag),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));

@@ -348,7 +348,7 @@ app.whenReady().then(() => {
     },menuItems);
     popupFloatingMenu(result.template,{allowCollapsed});return {count:result.count};
   };
-  for(const [channel,method] of [['snippet-picker-get','data'],['snippet-picker-select','select'],['snippet-picker-close','close']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('snippet-picker',channel,()=>{if(!snippetPicker?.owns(event))throw new Error('不受信任的片段選擇來源');return snippetPicker[method](...args);}));
+  for(const [channel,method] of [['snippet-picker-get','data'],['snippet-picker-select','select'],['snippet-picker-close','close'],['snippet-picker-groups','setGroups']])ipcMain.handle(channel,(event,...args)=>loggedInvocation('snippet-picker',channel,()=>{if(!snippetPicker?.owns(event))throw new Error('不受信任的片段選擇來源');return snippetPicker[method](...args);}));
   let shortcutMenuTrigger,snippetPickerRequest=0;
   async function runShortcutQuickAction(id){
     const action=configuredQuick(id),request=++snippetPickerRequest;snippetPicker?.close();
@@ -358,7 +358,7 @@ app.whenReady().then(() => {
     if(action.type==='open-snippets'&&action.snippetAction==='paste'&&!pasteTarget){const error=new Error('尚未取得有效貼上目標。'+(captureFailure?String(captureFailure.message||captureFailure).slice(0,300)+'。':'')+'請先在目標程式的文字欄位按一下，再按快捷鍵。');if(Notification?.isSupported?.())try{new Notification({title:'尚未開啟貼上選單',body:error.message}).show();}catch{}throw error;}
     if(action.type==='open-snippets'&&action.snippetAction==='paste'){
       closeFloatingMenu();
-      snippetPicker??=new(require('./snippet-picker').SnippetPicker)({BrowserWindow,screen,secureWindow,globalShortcut,settings:()=>desktop.settings,onError:error=>{diagnostics.record('floating','snippet-picker-open',error);send(floating,'desktop-settings-changed',{error:'片段選擇窗未能開啟：'+String(error.message||error)});}});
+      snippetPicker??=new(require('./snippet-picker').SnippetPicker)({BrowserWindow,screen,secureWindow,globalShortcut,settings:()=>desktop.settings,groupStates:()=>desktop.snippetPickerGroups(),saveGroups:changes=>desktop.saveSnippetPickerGroups(changes,productivity.store.get().snippets.map(item=>item.category)),onError:error=>{diagnostics.record('floating','snippet-picker-open',error);send(floating,'desktop-settings-changed',{error:'片段選擇窗未能開啟：'+String(error.message||error)});}});
       const rows=require('./tool-views-model').snippetRows(productivity.store.get().snippets,desktop.settings.floatingPanels.snippetQuery);
       return snippetPicker.open(rows,pasteTarget,async(snippetId,target)=>{try{const current=configuredQuick(id);if(current.type!=='open-snippets'||current.snippetAction!=='paste')throw new Error('快捷動作已變更，請重新開啟');return await productivity.pasteSnippet(snippetId,target);}catch(error){reportSnippetPasteFailure(error);throw error;}});
     }
@@ -550,6 +550,7 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingSearchLastState'))require('./floating-search-state').normalize(patch.floatingSearchLastState,true);
     if(Object.hasOwn(patch,'floatingSearchTablePresets'))require('./floating-search-state').tablePresets(patch.floatingSearchTablePresets,true);
     if(Object.hasOwn(patch,'floatingSearchDatePresets'))require('./search-date-presets').normalize(patch.floatingSearchDatePresets,true);
+    if(Object.hasOwn(patch,'snippetPicker'))require('./snippet-picker-model').normalize(patch.snippetPicker,true);
     if(Object.hasOwn(patch,'floatingPanels'))panelModel.normalize(patch.floatingPanels,true);
     if(Object.hasOwn(patch,'logView'))require('./log-view-settings-model').normalize(patch.logView,true);
     if(Object.hasOwn(patch,'globalSearchCriteria'))require('./search-criteria').normalize(patch.globalSearchCriteria,true);
@@ -570,6 +571,7 @@ app.whenReady().then(() => {
     if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
     drafts?.updateSettings();floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
+  handle('snippet-picker-reset-groups',()=>desktop.replaceSnippetPickerGroups([]));
   handle('desktop-reset-window',()=>applyMainBounds(null));
   handle('floating-show',()=>showFloating());
   handle('floating-hide',()=>{floatingSearch?.destroy();floating?.hide();});
