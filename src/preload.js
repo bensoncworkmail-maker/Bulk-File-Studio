@@ -130,6 +130,7 @@ contextBridge.exposeInMainWorld('productivityAPI',Object.freeze({
  rulesChoose:()=>invoke('productivity-rules-choose'),rulesPreview:(id,paths)=>invoke('productivity-rules-preview',id,paths),rulesAction:(token,paths,action)=>invoke('productivity-rules-action',token,paths,action),
  viewData:(config,filters)=>invoke('tool-view-data',config,filters),openOverlay:config=>invoke('tool-view-open',config),onToolOpen:callback=>ipcRenderer.on('tool-view-open',(_,config)=>callback(config)),
  snippetShortcut:(id,shortcut)=>invoke('productivity-snippet-shortcut',id,shortcut),onShortcutSources:callback=>ipcRenderer.on('shortcut-sources-changed',()=>callback()),snippetsBulk:(ids,action,category)=>invoke('productivity-snippets-bulk',ids,action,category),snippetList:()=>invoke('productivity-snippet-list'),snippetText:(id,customer)=>invoke('productivity-snippet-text',id,customer),
+ snippetImportFile:filepath=>invoke('productivity-snippet-import-file',filepath),snippetImportPreview:input=>invoke('productivity-snippet-import-preview',input),snippetImportCommit:token=>invoke('productivity-snippet-import-commit',token),
  snippetCopy:(id,customer)=>invoke('productivity-snippet-copy',id,customer),worksetOpen:id=>invoke('productivity-workset-open',id),previewChoose:filepath=>invoke('productivity-preview-choose',filepath),previewLink:(recordId,index)=>invoke('productivity-preview-link',recordId,index),boardMove:(recordId,fieldId,value,revision)=>invoke('productivity-board-move',recordId,fieldId,value,revision)
 }));
 
