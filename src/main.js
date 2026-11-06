@@ -326,7 +326,7 @@ app.whenReady().then(() => {
   handle('notes-navigation',()=>{const next=pendingNotesNavigation;pendingNotesNavigation=null;return next;});
   handle('quick-action-options',()=>{
     const M=require('./notes-model'),doc=notesStore().get().document,live=doc.sheets.filter(sheet=>!sheet.deletedAt),masterSheets=new Set(doc.areas.map(area=>area.masterSheetId));
-    return {tags:tagList(favorites.read().items),sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
+    return {snippets:productivity.store.get().snippets.map(({id,name,category})=>({id,name,category})),tags:tagList(favorites.read().items),sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
   });
   handle('floating-search-open',(_,query)=>floatingSearchController().open(query));
   handle('floating-layout-order',(_,order)=>{if(!desktop.settings.floatingLayoutEditing)throw new Error('請先在設定啟用浮動版面拖曳');if(!Array.isArray(order)||order.length!==3||new Set(order).size!==3||order.some(key=>!['search','tools','tags'].includes(key)))throw new Error('浮動列順序無效');const settings=desktop.update({floatingControlOrder:order});const result={settings};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;});
@@ -360,6 +360,7 @@ app.whenReady().then(() => {
     const action=configuredQuick(id);
     if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true,menuItems:action.menuItems}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
+    if(action.type==='paste-snippet')return productivity.pasteSnippet(action.snippetId);
     if(action.type==='open-worksets'){
       if(action.display==='main'){focusMain();send(win,'open-app-page',{tool:'worksets'});return {opened:true};}
       const rows=productivity.store.get().worksets;
