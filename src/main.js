@@ -891,7 +891,7 @@ app.whenReady().then(() => {
         const category=row.detail==='未分類'?'':row.detail;
         if(!groups.has(category))groups.set(category,[]);
         groups.get(category).push({label:menuLabel(row.title),toolTip:row.summary,
-          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');try{productivity.copySnippet(row.id,'');if(!pasteTarget){closeFloatingMenu();throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await floatingMenuController?.closeAndWait();floating?.blur?.();return await productivity.pasteSnippet(row.id,pasteTarget);}catch(error){reportSnippetPasteFailure(error);throw error;}})});
+          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');try{productivity.copySnippet(row.id,'');if(!pasteTarget){closeFloatingMenu();throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await floatingMenuController?.closeAndWait();return await productivity.pasteSnippet(row.id,pasteTarget);}catch(error){reportSnippetPasteFailure(error);throw error;}})});
       }
       const compare=new Intl.Collator('zh-Hant',{numeric:true});
       const categories=[...groups].sort(([a],[b])=>a&&b?compare.compare(a,b):Number(!a)-Number(!b));
