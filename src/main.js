@@ -232,7 +232,8 @@ function showFloating(toggle=false){
 }
 function setFloatingCollapsed(collapsed){closeFloatingMenu();const settings=desktop.update({floatingCollapsed:collapsed});if(floating&&!floating.isDestroyed())floatingWindow.apply();const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;}
 function toggleFloatingCollapse(){try{if(!floating||floating.isDestroyed()){setFloatingCollapsed(false);showFloating();return;}if(!floating.isVisible()){setFloatingCollapsed(false);floating.showInactive();return;}setFloatingCollapsed(!desktop.settings.floatingCollapsed);}catch(error){send(win,'desktop-settings-changed',{error:error.message});}}
-function registerShortcut(){if(shortcutRecording){globalShortcut.unregisterAll();return '';}return desktopShell.registerShortcuts();}
+function preparePasteWorker(){const paste=require('./snippet-paste');if((desktop.settings.floatingQuickActions||[]).some(action=>action.enabled&&(action.type==='paste-snippet'||action.type==='open-snippets'&&action.snippetAction==='paste')))paste.warm();else paste.close();}
+function registerShortcut(){preparePasteWorker();if(shortcutRecording){globalShortcut.unregisterAll();return '';}return desktopShell.registerShortcuts();}
 function endShortcutRecording(){if(!shortcutRecording)return;shortcutRecording=false;shortcutWarning=registerShortcut();send(win,'desktop-settings-changed',{settings:desktop.settings,warning:shortcutWarning});}
 
 
@@ -354,7 +355,7 @@ app.whenReady().then(() => {
     if(action.type==='open-tag-menu'||action.display==='menu'){
       closeFloatingMenu();
       shortcutMenuTrigger??=new(require('./shortcut-menu-trigger').ShortcutMenuTrigger)({window:()=>floating,show:()=>{if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();}});
-      return shortcutMenuTrigger.run(floatingAction(()=>runQuickAction(null,id,undefined,pasteTarget)));
+      return shortcutMenuTrigger.run(floatingAction(()=>runQuickAction(null,id,undefined,pasteTarget)),{released:pasteTarget?.released===true});
     }
     return runQuickAction(null,id);
   }
@@ -551,7 +552,7 @@ app.whenReady().then(() => {
     const candidate=normalizeDesktop({...previous,...patch});if(globalShortcuts.KEYS.some(key=>Object.hasOwn(patch,key))||Object.hasOwn(patch,'floatingQuickActions')||Object.hasOwn(patch,'favoriteShortcuts')||Object.hasOwn(patch,'draftLocalShortcuts'))globalShortcuts.validatePair(candidate,productivity?.store.get().snippets||[]);closeFloatingMenu();
     const changed=globalShortcuts.KEYS.some(key=>previous[key]!==candidate[key])||JSON.stringify(previous.floatingQuickActions)!==JSON.stringify(candidate.floatingQuickActions);
     if(changed){const warning=desktopShell.registerShortcuts(candidate);if(warning){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();throw new Error(warning+' 已保留原設定。'+shortcutWarning);}if(shortcutRecording)globalShortcut.unregisterAll();}
-    let settings;try{settings=desktop.update(patch);}catch(e){if(changed){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();}throw e;}
+    let settings;try{settings=desktop.update(patch);preparePasteWorker();}catch(e){if(changed){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();}throw e;}
     if(changed)shortcutWarning='';
     if(!settings.explorerTagPrompt)pendingTagIds.clear();
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
@@ -964,7 +965,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy||trashing){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(drafts?.requestClose(true)){event?.preventDefault();return;}recordReminders?.close();recordAttention?.close();if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

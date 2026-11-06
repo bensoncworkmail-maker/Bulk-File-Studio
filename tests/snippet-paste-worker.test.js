@@ -1,0 +1,14 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),{EventEmitter}=require('node:events'),{PasteWorker}=require('../src/snippet-paste-worker');
+function fixture(options={}){const children=[];const worker=new PasteWorker('fixed source',{timeout:options.timeout||1000,launch:(file,args,config)=>{assert.equal(config.windowsHide,true);assert.equal(config.stdio[0],'pipe');assert.equal(Buffer.from(args.at(-1),'base64').toString('utf16le'),'fixed source');const child=new EventEmitter();for(const name of ['stdin','stdout','stderr']){child[name]=new EventEmitter();child[name].setEncoding=()=>{};}child.requests=[];child.stdin.write=(line,callback)=>{child.requests.push(JSON.parse(line));callback?.();};child.stdin.destroy=()=>{};child.kill=()=>{child.killed=true;child.emit('exit',1);};children.push(child);if(options.auto!==false)queueMicrotask(()=>child.stdout.emit('data','{"ready":true}\n'));return child;}});return {worker,children};}
+const tick=()=>new Promise(setImmediate);
+test('warm helper reuses one process and correlates split responses without recompilation',async t=>{
+ const {worker,children}=fixture();t.after(()=>worker.stop());await worker.start();const first=worker.request({op:'capture',appPid:123}),second=worker.request({op:'paste',appPid:123,handle:'4',targetPid:5});await tick();assert.equal(children.length,1);const child=children[0];assert.equal(child.requests.length,2);child.stdout.emit('data',JSON.stringify({id:child.requests[1].id,ok:true,value:true})+'\n{"id":');child.stdout.emit('data',child.requests[0].id+',"ok":true,"value":"4:5"}\n');assert.equal(await first,'4:5');assert.equal(await second,true);assert.equal(worker.pending.size,0);
+});
+test('process crash rejects all queued work and next request starts fresh without replaying paste',async t=>{
+ const {worker,children}=fixture();t.after(()=>worker.stop());await worker.start();const first=worker.request({op:'paste'}),rejection=assert.rejects(first,/結束/);await tick();children[0].emit('exit',1);await rejection;assert.equal(children[0].killed,true);const next=worker.request({op:'capture'});await tick();assert.equal(children.length,2);assert.deepEqual(children[1].requests.map(row=>row.op),['capture']);children[1].stdout.emit('data',JSON.stringify({id:children[1].requests[0].id,ok:true,value:'1:2'})+'\n');assert.equal(await next,'1:2');
+});
+test('closing during startup rejects the startup wait and timeout kills queued operations',async()=>{
+ const start=fixture({auto:false}),wait=start.worker.start(),reject=assert.rejects(wait,/停止/);start.worker.stop();await reject;assert.equal(start.children[0].killed,true);
+ const {worker,children}=fixture({timeout:20});await worker.start();await assert.rejects(worker.request({op:'paste'}),/逾時/);assert.equal(children[0].killed,true);assert.equal(worker.pending.size,0);
+});
