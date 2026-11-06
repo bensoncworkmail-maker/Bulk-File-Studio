@@ -888,7 +888,7 @@ app.whenReady().then(() => {
         const category=row.detail==='未分類'?'':row.detail;
         if(!groups.has(category))groups.set(category,[]);
         groups.get(category).push({label:menuLabel(row.title),toolTip:row.summary,
-          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');closeFloatingMenu();if(!pasteTarget){productivity.copySnippet(row.id,'');throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await new Promise(resolve=>setTimeout(resolve,80));return productivity.pasteSnippet(row.id,pasteTarget);})});
+          click:floatingAction(async()=>{if(config.snippetAction!=='paste')return actOnTool(config,'copy',row.id,'');productivity.copySnippet(row.id,'');if(!pasteTarget){closeFloatingMenu();throw new Error('文字已複製，未取得原目標；請在目標欄位按 Ctrl+V。使用全域快捷鍵開啟此選單可記住目標。');}await floatingMenuController?.closeAndWait();return productivity.pasteSnippet(row.id,pasteTarget);})});
       }
       const compare=new Intl.Collator('zh-Hant',{numeric:true});
       const categories=[...groups].sort(([a],[b])=>a&&b?compare.compare(a,b):Number(!a)-Number(!b));

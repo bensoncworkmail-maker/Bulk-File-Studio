@@ -15,6 +15,11 @@ class FloatingMenu{
   entry.owner.nativeMenuOpen=false;
   if(!entry.owner.isDestroyed())try{entry.owner.pinController?.sync();}catch(error){this.onError(error);}
  }
+ closeAndWait(){
+  const entry=this.current;if(!entry)return Promise.resolve();
+  this.close();if(entry.nativeClosed)return Promise.resolve();
+  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{entry.waiters.delete(done);reject(new Error('選單仍在關閉，文字已複製；請手動貼上'));},500);const done=()=>{clearTimeout(timer);resolve();};entry.waiters.add(done);});
+ }
  close(){
   const entry=this.current;if(!entry)return;
   try{if(!entry.owner.isDestroyed())entry.menu.closePopup(entry.owner);else entry.menu.closePopup();}catch(error){this.onError(error);}finally{this.release(entry);}
@@ -26,13 +31,13 @@ class FloatingMenu{
   // A global accelerator can arrive while another application owns foreground focus.
   // Native menus dismiss correctly only when their owner participates in activation.
   owner.show();owner.focus();
-  const entry={owner,menu:this.Menu.buildFromTemplate(template)};this.current=entry;owner.nativeMenuOpen=true;
+  const entry={owner,menu:this.Menu.buildFromTemplate(template),waiters:new Set(),nativeClosed:false};this.current=entry;owner.nativeMenuOpen=true;
   const bounds=anchor&&(owner.getContentBounds?.()||owner.getNormalBounds()),zoom=owner.webContents.getZoomFactor?.()||1;
   const point=bounds&&Number.isFinite(anchor.x)&&Number.isFinite(anchor.y)?{
    x:Math.round(Math.min(bounds.width,Math.max(0,anchor.x*zoom))),
    y:Math.round(Math.min(bounds.height,Math.max(0,anchor.y*zoom)))
   }:{};
-  try{entry.menu.popup({window:owner,...point,callback:()=>this.release(entry)});}
+  try{entry.menu.popup({window:owner,...point,callback:()=>{entry.nativeClosed=true;for(const done of entry.waiters)done();entry.waiters.clear();this.release(entry);}});}
   catch(error){this.release(entry);throw error;}
  }
 }
