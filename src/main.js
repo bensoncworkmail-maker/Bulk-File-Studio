@@ -870,7 +870,7 @@ app.whenReady().then(() => {
   }));
   ipcMain.handle('tool-overlay-data',(event,kind,filters)=>overlayAction(event,({config})=>{
     if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
-    return productivity.viewData(config,filters);
+    return productivity.viewData(config,filters,kind==='logs'?toolsStore().get().logPins||[]:undefined);
   }));
   const menuLabel=text=>text.replace(/[\x00-\x1f\x7f]+/g,' ').slice(0,100).replace(/&/g,'&&');
   function showToolRows(config,filters,{allowCollapsed=false,anchor,back}={}){
@@ -965,9 +965,32 @@ app.whenReady().then(() => {
     if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
     return actOnTool(config,action,value,customer);
   }));
+  ipcMain.handle('tool-overlay-log-record',(event,context,action,id,pinned)=>overlayAction(event,entry=>{
+    const {config}=entry;
+    if(config.kind!=='logs'||context!==require('./log-view-settings-model').logFilterKey(config))throw new Error('查看紀錄已切換，請重新選擇');
+    const model=require('./tool-views-model'),doc=notesStore().get().document;
+    const record=model.logRecord(doc,config,desktop.settings.logView,id);
+    if(action==='pin'){
+      toolsStore().setLogPin(doc,id,pinned);
+      return;
+    }
+    if(!(toolsStore().get().logPins||[]).includes(id))throw new Error('紀錄已取消釘選');
+    if(action==='detail')return model.logDetail(doc,record);
+    if(action==='edit'){
+      if(pendingNotesNavigation)throw new Error('請先完成主視窗待開啟的操作');
+      pendingNotesNavigation={recordId:id,editRecord:true};
+      focusMain();send(win,'notes-navigate',{});
+      return;
+    }
+    throw new Error('紀錄操作無效');
+  }));
+  ipcMain.handle('tool-overlay-log-window',(event,context,pinned)=>overlayAction(event,entry=>{
+    if(entry.config.kind!=='logs'||context!==require('./log-view-settings-model').logFilterKey(entry.config))throw new Error('查看紀錄已切換，請重新選擇');
+    return toolOverlay.setPinned(entry,pinned);
+  }));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
-  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();send(win,'record-reminders-changed',recordReminders.list());}});
+  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();toolOverlay.invalidate('logs');send(win,'record-reminders-changed',recordReminders.list());}});
   const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
   if(desktop.settings.closeToTray)desktopShell.ensureTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));

@@ -42,7 +42,7 @@ function normalizeFilters(input){
  if(filters.stateField&&typeof value.value==='string')filters.value=value.value.slice(0,200);
  if(['list','cards'].includes(value.layout))filters.layout=value.layout;
  if(SORTS.includes(value.sort))filters.sort=value.sort;
- if(typeof value.advanced==='boolean')filters.advanced=value.advanced;
+ for(const key of ['advanced','pinnedOnly','pinsExpanded'])if(typeof value[key]==='boolean')filters[key]=value[key];
  return filters;
 }
 

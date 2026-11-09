@@ -20,7 +20,7 @@ function snippetRows(snippets,query,category){
   .map(({id,name,category,body})=>({id,title:name,detail:category,summary:body.slice(0,220)}));
 }
 
-function viewData(doc,reminders,snippets,config,filters={},logView){
+function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
  const page=Number.isSafeInteger(filters.page)?Math.max(0,filters.page):0;
  const paginate=rows=>{
   const last=Math.max(0,Math.ceil(rows.length/PAGE_SIZE)-1),current=Math.min(page,last);
@@ -78,10 +78,12 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
  const states=stateField?.type==='checkbox'?['true','false']:stateField?.options||[];
  const dateValue=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)?value:'';
  const from=dateValue(filters.from),to=dateValue(filters.to);
- if(from&&to&&from>to)throw new Error('開始日期必須早於或等於結束日期');
+ const filterError=from&&to&&from>to?'開始日期必須早於或等於結束日期':'';
+ if(filterError&&!logPins)throw new Error(filterError);
+ const pins=new Set(logPins);
  const rows=[];
  for(const record of records){
-  if(record.sheetId!==table?.id)continue;
+  if(filterError||record.sheetId!==table?.id||pins.has(record.id))continue;
   if(parent&&(master||config.scope==='master')&&(!master||!record.values[parent.id]?.includes(master.id)))continue;
   const day=dateField?(record.values[dateField.id]||''):new Date(record.updatedAt).toLocaleDateString('sv-SE');
   if((from&&(!day||day<from))||(to&&(!day||day>to)))continue;
@@ -96,11 +98,49 @@ function viewData(doc,reminders,snippets,config,filters={},logView){
   const dateOrder=a.date.localeCompare(b.date)||a.updatedAt.localeCompare(b.updatedAt);
   return (sort==='oldest'?dateOrder:-dateOrder)||a.title.localeCompare(b.title,'zh-Hant');
  });
- return {...paginate(rows),sort,layout,restricted:!config.sheetId&&settings.scope==='selected',
+ const pinned=logPins&&pinnedRows(doc,records,tables,logPins,filters);
+ return {...paginate(rows),...(pinned?{pinned,filterError}:{}),sort,layout,restricted:!config.sheetId&&settings.scope==='selected',
   tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
   masters:masters.map(({id,title})=>({id,title})),masterRequired:Boolean(parent&&config.scope==='master'),
   dateFields:dateFields.map(({id,label})=>({id,label})),
   stateFields:stateFields.map(({id,label})=>({id,label})),states,checkbox:stateField?.type==='checkbox'};
 }
 
-module.exports={configuration,viewData,snippetRows};
+function pinnedRows(doc,records,tables,ids,filters){
+ const byId=new Map(records.map(record=>[record.id,record]));
+ const bySheet=new Map(tables.map(sheet=>[sheet.id,sheet]));
+ const rows=[];
+ for(const id of ids){
+  const record=byId.get(id),table=bySheet.get(record?.sheetId);
+  if(!table)continue;
+  const firstField=(id,types)=>table.fields.find(field=>field.id===id&&types.includes(field.type))||
+   table.fields.find(field=>types.includes(field.type)&&Object.hasOwn(record.values,field.id));
+  const date=firstField(filters.dateField,['date']);
+  const state=firstField(filters.stateField,['select','checkbox']);
+  const markers=[date,state].filter(Boolean).map(field=>({label:field.label,value:logValue(doc,record,field)}))
+   .filter(field=>field.value);
+  rows.push({id,title:record.title,sheet:table.name,markers,summary:record.notes.slice(0,140)});
+ }
+ return rows;
+}
+
+function logValue(doc,record,field){
+ const value=record.values[field.id];
+ if(field.type==='checkbox'&&typeof value==='boolean')return value?'已勾選':'未勾選';
+ return M.cell(doc,field,value);
+}
+
+function logRecord(doc,config,settings,id){
+ M.id(id);
+ const record=doc.records.find(record=>record.id===id&&M.live(doc,record));
+ if(!record||!allowedSheet(config,settings,record.sheetId))throw new Error('紀錄已移除或不在選定表格');
+ return record;
+}
+
+function logDetail(doc,record){
+ const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId);
+ return {title:record.title,sheet:sheet.name,updatedAt:record.updatedAt,notes:record.notes,tags:record.tags,
+  fields:sheet.fields.map(field=>({label:field.label,value:logValue(doc,record,field)})).filter(field=>field.value)};
+}
+
+module.exports={configuration,viewData,snippetRows,logRecord,logDetail};

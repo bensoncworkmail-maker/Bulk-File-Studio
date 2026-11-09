@@ -85,3 +85,46 @@ test('clicking a snippet row copies the snippet with the entered customer name',
  assert.deepEqual(calls,[['copy','reply','陳小姐']]);
  assert.match(root.querySelector('[role=status]').textContent,/已複製/);
 });
+
+
+test('floating log pins can be collapsed, expanded on demand, and shown without the search results',async()=>{
+ const document=documentFromHTML('<html><body><section id="view"></section></body></html>');
+ const window={},calls=[],saved=[],root=document.getElementById('view');
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
+ let pinned=false;
+ const row={id:'row',title:'New Fingerprint',detail:'2026-11-09',sheet:'紀錄',markers:[{label:'狀態',value:'跟進中'}]};
+ const view=window.toolViewsUI.mount(root,{
+  close(){},action(){},saveFilters:async value=>saved.push({...value}),
+  data:async()=>({rows:pinned?[]:[row],pinned:pinned?[row]:[],page:0,last:0,total:pinned?0:1,layout:'list',sort:'recent',
+   tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]}),
+  logRecord:async(action,id,next)=>{
+   calls.push([action,id,next]);
+   if(action==='pin'){pinned=next;return;}
+   if(action==='detail')return {updatedAt:'2026-11-09',fields:row.markers,notes:'完整的跟進內容',tags:[]};
+  }
+ },{kind:'logs'});
+ await new Promise(setImmediate);
+ const byText=text=>root.querySelectorAll('button').find(button=>button.textContent===text);
+ await root.querySelector('.tool-view-pin-star').dispatch('click');
+ const pins=root.querySelector('.tool-view-pins');
+ assert.equal(pins.open,true);
+ assert.match(pins.textContent,/釘選紀錄 · 1 筆/);
+ assert.match(pins.textContent,/跟進中/);
+ assert.deepEqual(calls,[['pin','row',true]]);
+ await byText('New Fingerprint').dispatch('click');
+ await new Promise(setImmediate);
+ assert.equal(byText('New Fingerprint').getAttribute('aria-expanded'),'true');
+ assert.match(pins.textContent,/完整的跟進內容/);
+ await byText('編輯').dispatch('click');
+ assert.deepEqual(calls.at(-1),['edit','row',undefined]);
+ await byText('只看釘選').dispatch('click');
+ await new Promise(setImmediate);
+ assert.equal(root.querySelector('.tool-view-results').hidden,true);
+ assert.equal(saved.at(-1).pinnedOnly,true);
+ await byText('New Fingerprint').dispatch('click');
+ assert.equal(byText('New Fingerprint').getAttribute('aria-expanded'),'false');
+ assert.doesNotMatch(pins.textContent,/完整的跟進內容/);
+ await root.querySelector('.tool-view-pin-star').dispatch('click');
+ assert.match(pins.textContent,/釘選紀錄 · 0 筆/);
+ view.dispose();
+});

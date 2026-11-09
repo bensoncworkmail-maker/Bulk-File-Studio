@@ -61,9 +61,18 @@ class ToolOverlay{
    this.refresh(entry);
   }
  }
- payload({config}){
+ payload({config,pinned}){
   const {theme,fontSize}=this.settings();
-  return {config,theme,fontSize,...(config.kind==='logs'?{logFilters:this.logFilters(config),logContext:logFilterKey(config)}:{})};
+  return {config,theme,fontSize,...(config.kind==='logs'?{logFilters:this.logFilters(config),logContext:logFilterKey(config),pinnedWindow:Boolean(pinned)}:{})};
+ }
+ setPinned(entry,pinned){
+  if(typeof pinned!=='boolean')throw new Error('視窗釘選設定無效');
+  const parent=this.parent();
+  entry.window.setParentWindow(pinned?null:parent||null);
+  entry.parent=pinned?undefined:parent;
+  entry.pinned=pinned;
+  entry.window.setAlwaysOnTop(pinned||this.settings().floatingOnTop);
+  return pinned;
  }
  refresh(entry){
   if(!entry.window.isDestroyed())entry.window.webContents.send('tool-overlay-refresh',this.payload(entry));
@@ -78,7 +87,7 @@ class ToolOverlay{
   for(const entry of this.windows.values()){
    if(entry.window.isDestroyed())continue;
    if(!previous||previous.floatingOnTop!==settings.floatingOnTop){
-    entry.window.setAlwaysOnTop(settings.floatingOnTop);
+    entry.window.setAlwaysOnTop(Boolean(entry.pinned)||settings.floatingOnTop);
    }
    if(previous&&(previous.theme!==settings.theme||previous.fontSize!==settings.fontSize||
     entry.config.kind==='logs'&&JSON.stringify(previous.logView)!==JSON.stringify(settings.logView))){
