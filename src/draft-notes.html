@@ -50,7 +50,7 @@
   </section>
  </main>
  <dialog id="export-dialog"><form method="dialog"><h2>另存草稿</h2><p>以 UTF-8 純文字儲存；自訂副檔名不會轉成 Word／PDF 格式。</p><label>儲存類型<select id="export-type"></select></label><label id="export-custom" hidden>自訂副檔名<input id="export-extension" value="txt" maxlength="12" placeholder="例如：ini、yaml、sql"></label><div class="dialog-actions"><button value="cancel">取消</button><button id="export-confirm" type="button" class="primary">選擇位置並儲存</button></div></form></dialog>
- <dialog id="attachment-preview"><header><strong id="attachment-preview-title"></strong><button id="preview-close" type="button">關閉預覽</button></header><div id="attachment-preview-content"></div></dialog>
+ <dialog id="attachment-preview" aria-labelledby="attachment-preview-title"><header><strong id="attachment-preview-title"></strong><button id="preview-image-size" type="button" aria-pressed="false" hidden>原始大小</button><button id="preview-close" type="button">關閉預覽</button></header><div id="attachment-preview-content"></div></dialog>
  <footer>
   <span id="status" role="status" aria-live="polite">正在讀取草稿…</span>
   <span class="shortcut">Ctrl+N 新增 · Ctrl+S 儲存 · Esc 關閉</span>

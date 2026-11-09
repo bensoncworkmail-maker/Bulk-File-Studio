@@ -74,7 +74,7 @@ test('the info page displays recent history and searches across earlier releases
  const list=h.$('info-history'),search=h.$('info-history-search'),results=h.$('info-history-results');
  assert.equal(h.$('info-version').textContent,'v'+history[0].version);
  assert.equal(list.children.filter(node=>node.tagName==='ARTICLE').length,5);
- assert.equal(list.children[0].querySelectorAll('li').length,3);
+ assert.equal(list.children[0].querySelectorAll('li').length,2);
  search.value='v1.85.0 置頂';
  await search.dispatch('input');
  assert.equal(results.querySelectorAll('article').length,1);
@@ -136,4 +136,16 @@ test('settings search scopes the same query to each selected tab and can return 
  assert.equal(h.document.activeElement.id,'log-settings-sort');
  assert.equal(query.value,'');
  assert.equal(Object.hasOwn(JSON.parse(h.saved[Settings.KEY]),'settingsQueryScope'),false);
+});
+
+test('draft thumbnail height and floating search close behavior can be configured independently',async()=>{
+ const h=setup();await flush();
+ const height=h.$('settings-draftImageHeight'),close=h.$('settings-floating-search-close-on-visit');
+ assert.equal(height.value,'96');
+ assert.equal(close.checked,true);
+ height.value='160';await height.dispatch('change');
+ close.checked=false;await close.dispatch('change');
+ assert.equal(h.values().draftImageHeight,160);
+ assert.equal(h.values().floatingSearchCloseOnVisit,false);
+ assert.equal(Desktop.normalize({draftImageHeight:500}).draftImageHeight,96);
 });

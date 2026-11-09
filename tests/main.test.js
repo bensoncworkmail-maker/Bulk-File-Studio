@@ -992,3 +992,35 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  assert.deepEqual(call('data','logs',{}).pinned,[]);
  assert.deepEqual(call('data','logs',{}).rows.map(row=>row.id),[id]);
 });
+
+test('floating search closes only after a trusted acknowledgement for the current result',async t=>{
+ const h=harness(t),file=path.join(h.dir,'Visit.txt');
+ fs.writeFileSync(file,'example');
+ h.handlers.get('notes-add-paths')(null,[file]);
+ h.handlers.get('floating-show')();
+ const eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
+ const main=eventFor(h.windows[0]),mini=eventFor(h.windows[1]);
+ h.rawHandlers.get('floating-search-open')(mini,'Visit');
+ const panel=h.windows.at(-1),pe=eventFor(panel);
+ const search=()=>h.rawHandlers.get('floating-search-run')(pe,'Visit',{kind:'favorites'});
+ const visit=async result=>{
+  await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'visit');
+  return h.messages.filter(([channel])=>channel==='studio-search-target').at(-1)[1].requestId;
+ };
+ const first=await visit(search());
+ assert.equal(typeof first,'string');
+ assert.equal(panel.destroyed,false);
+ const ack=h.rawHandlers.get('studio-search-target-opened');
+ assert.throws(()=>ack(pe,first),/不受信任/);
+ assert.equal(ack(main,'wrong'),false);
+ const result=search();
+ assert.equal(ack(main,first),false);
+ h.handlers.get('desktop-settings-set')(null,{floatingSearchCloseOnVisit:false});
+ assert.equal(await visit(result),undefined);
+ assert.equal(panel.destroyed,false);
+ h.handlers.get('desktop-settings-set')(null,{floatingSearchCloseOnVisit:true});
+ const latest=await visit(search());
+ assert.equal(ack(main,latest),true);
+ assert.equal(panel.destroyed,true);
+ assert.equal(ack(main,latest),false);
+});
