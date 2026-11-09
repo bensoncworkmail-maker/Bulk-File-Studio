@@ -89,13 +89,13 @@ class NotesStore {
   const backup=this.backup('before-sheet-change');return this.change(doc=>{Object.assign(doc,pending.document);return {id:pending.result.id,backup,removed:pending.result.removed.length};},pending.revision,{operation:'確認移除欄位（已備份）'});
  }
  draftList(){
-  return this.db.prepare("SELECT id, updated_at AS updatedAt, json_extract(data,'$.title') AS title, substr(json_extract(data,'$.body'),1,80) AS summary FROM note_drafts ORDER BY updated_at DESC, rowid DESC").all();
+  return this.db.prepare("SELECT id, updated_at AS updatedAt, json_extract(data,'$.title') AS title, substr(CASE WHEN trim(json_extract(data,'$.body'))='' THEN COALESCE(json_extract(data,'$.items[0].label'),'') ELSE json_extract(data,'$.body') END,1,80) AS summary FROM note_drafts ORDER BY updated_at DESC, rowid DESC").all();
  }
  draft(id){
   model.id(id);
   const row=this.db.prepare('SELECT version, updated_at AS updatedAt, data FROM note_drafts WHERE id=?').get(id);
   if(!row)throw new Error('草稿已移除，請重新開啟');
-  return {id,version:row.version,updatedAt:row.updatedAt,...JSON.parse(row.data)};
+  return {id,version:row.version,updatedAt:row.updatedAt,type:'text',items:[],...JSON.parse(row.data)};
  }
  createDraft(){
   const id=crypto.randomUUID(),now=new Date().toISOString(),data={title:'',body:'',attachments:[]};
@@ -105,13 +105,15 @@ class NotesStore {
  }
  saveDraft(id,version,patch,limit=100000){
   const old=this.draft(id);
-  const {title,body,attachments}={...old,...patch};
+  const {title,body,attachments,type,items}={...old,...patch};
+  if(type!=='text'&&!model.structured.isType(type))throw new Error('草稿類型無效');
+  const rows=type==='text'?[]:model.structured.normalize(type,items);
   model.text(title,200,'草稿標題');if(!Number.isSafeInteger(limit)||limit<0||limit>10000000)throw new Error('草稿上限設定無效');if(typeof body!=='string'||body.includes('\0')||limit>0&&body.length>limit&&body.length>old.body.length)throw new Error('草稿內容超過設定上限或格式無效');
   if(old.version!==version)throw new Error('草稿已變更，請重新開啟');
-  if(title===old.title&&body===old.body&&attachments===old.attachments)return old;
+  if(title===old.title&&body===old.body&&attachments===old.attachments&&type===old.type&&JSON.stringify(rows)===JSON.stringify(old.items))return old;
   const now=new Date().toISOString();
   const update=this.db.prepare('UPDATE note_drafts SET version=version+1,updated_at=?,data=? WHERE id=? AND version=?');
-  if(!update.run(now,JSON.stringify({title,body,attachments}),id,version).changes)throw new Error('草稿已變更，請重新開啟');
+  if(!update.run(now,JSON.stringify({title,body,attachments,type,items:rows}),id,version).changes)throw new Error('草稿已變更，請重新開啟');
   return this.draft(id);
  }
  deleteDraft(id,version){

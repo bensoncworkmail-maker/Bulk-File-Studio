@@ -1,6 +1,8 @@
 'use strict';
 (() => {
- const api=window.draftAPI,$=id=>document.getElementById(id);
+ const api=window.draftAPI,structured=window.structuredNoteModel,$=id=>document.getElementById(id);
+ const type=$('draft-type');
+ let itemsEditor;
  const title=$('title'),body=$('body'),sheet=$('sheet'),master=$('master'),status=$('status');
  let current=null,summaries=[],sheets=[],timer,writing,busy=false,closeRequested=false,closing=false;
  let listFocusRequested=false,draftSplit;
@@ -9,6 +11,26 @@
  function report(text,error=false){status.textContent=text;status.dataset.error=String(error);}
  function el(tag,text){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;}
  function option(value,text){const node=el('option',text);node.value=value;return node;}
+ for(const [key,label] of Object.entries(structured.TYPES))type.append(option(key,label));
+ function draftItems(){return itemsEditor?.value()||[];}
+ function renderItems(items){
+  const host=$('draft-items'),enabled=structured.isType(type.value);
+  host.hidden=!enabled;
+  $('draft-type-hint').hidden=type.value!=='timeline';
+  $('draft-type-hint').textContent='輸出時按日期排列';
+  $('draft-transfer-hint').hidden=!enabled;
+  itemsEditor=enabled?window.structuredNoteUI.editor(type.value,items,inputChanged):null;
+  if(itemsEditor)itemsEditor.element.dataset.type=type.value;
+  host.replaceChildren(...(itemsEditor?[itemsEditor.element]:[]));
+ }
+ type.addEventListener('change',()=>{
+  const previous=itemsEditor?.element.dataset.type||'text';
+  if(draftItems().length&&!window.confirm('切換類型會移除目前的清單項目。要繼續嗎？')){
+   type.value=previous;
+   return;
+  }
+  renderItems([]);inputChanged();
+ });
  function caption(draft){return draft.title.trim()||draft.summary.trim()||'未命名草稿';}
  function renderList(){
   const buttons=summaries.map(draft=>{
@@ -21,12 +43,12 @@
   $('drafts').replaceChildren(...buttons);
  }
  function remember(draft){
-  summaries=[{id:draft.id,title:draft.title,summary:draft.body.slice(0,80)},...summaries.filter(item=>item.id!==draft.id)];
+  summaries=[{id:draft.id,title:draft.title,summary:(draft.body.trim()||draft.items?.[0]?.label||'').slice(0,80)},...summaries.filter(item=>item.id!==draft.id)];
   renderList();
  }
  function updateSend(){
   $('send').disabled=!current||!sheet.value||(!$('master-field').hidden&&!master.value)||
-   (!title.value.trim()&&!body.value.trim()&&!current.attachments.length);
+   (!title.value.trim()&&!body.value.trim()&&!draftItems().length&&!current.attachments.length);
  }
  function renderAttachments(){
   const target=$('attachments'),request=++attachmentsRequest;
@@ -48,12 +70,13 @@
  }
  function showDraft(draft){
   current=draft;
+  type.value=draft?.type||'text';renderItems(draft?.items||[]);
   $('send-reminder').checked=false;
   title.value=draft?.title||'';body.value=draft?.body||'';if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);updateCount();
   $('empty').hidden=Boolean(draft);$('editor').hidden=!draft;
   renderList();renderAttachments();updateSend();
  }
- function dirty(){return current&&(title.value!==current.title||body.value!==current.body);}
+ function dirty(){return current&&(title.value!==current.title||body.value!==current.body||type.value!==(current.type||'text')||JSON.stringify(draftItems())!==JSON.stringify(current.items||[]));}
  function flush(){
   clearTimeout(timer);
   if(writing)return writing;
@@ -61,7 +84,7 @@
   writing=(async()=>{
    while(dirty()){
     report('正在儲存…');
-    current=await api.save(current.id,current.version,{title:title.value,body:body.value});
+    current=await api.save(current.id,current.version,{title:title.value,body:body.value,type:type.value,items:draftItems()});
     remember(current);
    }
    report('已自動儲存');
@@ -134,10 +157,11 @@
    current=await task();remember(current);renderAttachments();report('附件已自動儲存');
   });
  }
- for(const input of [title,body])input.addEventListener('input',()=>{
+ function inputChanged(){
   clearTimeout(timer);updateCount();report('等候自動儲存…');updateSend();
   timer=setTimeout(()=>flush().catch(error=>report('無法儲存。'+message(error),true)),350);
- });
+ }
+ for(const input of [title,body])input.addEventListener('input',inputChanged);
  document.addEventListener('keydown',event=>{
   if(event.defaultPrevented||event.isComposing||event.keyCode===229)return;
   if(event.key==='Escape'){if(document.querySelector('dialog[open]'))return;event.preventDefault();void closeEditor();return;}
