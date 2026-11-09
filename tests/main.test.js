@@ -25,7 +25,7 @@ function harness(t, overrides = {}) {
     close(){let canceled=false;this.emit('close',{preventDefault(){canceled=true;}});if(!canceled)this.destroy();}
     isDestroyed(){return this.destroyed;}isVisible(){return this.visible;}hide(){this.visible=false;}destroy(){this.destroyed=true;this.emit('closed');}
     setMinimumSize(width,height){this.minimum=[width,height];}setResizable(value){this.resizable=value;}setOpacity(value){this.opacity=value;}isFocused(){return false;}
-    getNormalBounds(){return this.bounds;}isMaximized(){return Boolean(this.maximized);}maximize(){this.maximized=true;}unmaximize(){this.maximized=false;}setBounds(bounds){this.bounds=bounds;}setAlwaysOnTop(flag){this.onTop=flag;}
+    getNormalBounds(){return this.bounds;}isMaximized(){return Boolean(this.maximized);}maximize(){this.maximized=true;}unmaximize(){this.maximized=false;}setBounds(bounds){this.bounds=bounds;}setAlwaysOnTop(flag){this.onTop=flag;}setParentWindow(parent){this.parent=parent;}
     flashFrame(value){this.flashing=value;}setTitle(value){this.title=value;}
     setBackgroundColor(value) { this.background = value; }
     isMinimized(){return false;}show(){this.visible=true;}showInactive(){this.visible=true;this.inactiveShown=true;}focus(){}restore(){}
@@ -927,4 +927,58 @@ test('snippet paste uses a nonactivating picker without opening or focusing a na
 });
 test('scheduled backup quietly skips busy work without advancing its schedule while manual backup stays blocked',async t=>{
  const real=require('../src/productivity-ipc'),h=harness(t,{'./productivity-ipc':{registerProductivity:options=>real.registerProductivity({...options,blocked:()=>true})}});const value=await h.handlers.get('productivity-backup-tick')(null,{});assert.equal(value.created,false);assert.equal(value.skipped,true);assert.equal(value.reason,'busy');assert.equal(value.last,0);assert.equal(fs.existsSync(path.join(h.dir,'backup-schedule.json')),false);assert.throws(()=>h.handlers.get('productivity-backup-create')(null,{}),/另一項操作/);
+});
+
+
+test('floating log shortcut persists detail pins, limits scope and keeps a pinned window independent',t=>{
+ const h=harness(t),doc=h.handlers.get('notes-template')().document;
+ const {randomUUID}=require('node:crypto'),M=require('../src/notes-model');
+ const master=doc.sheets[0],logs=doc.sheets.find(sheet=>sheet.name==='紀錄'),parentField=M.parentField(doc,logs);
+ const save=h.handlers.get('notes-record-save');
+ const add=(sheet,title,values={},notes='')=>save(null,{sheetId:sheet.id,title,notes,tags:[],values,favoriteIds:[],keepUnlinked:[]}).result.id;
+ const parent=add(master,'客戶 A'),date=logs.fields.find(field=>field.type==='date'),done=logs.fields.find(field=>field.type==='checkbox');
+ const id=add(logs,'跟進報價',{[parentField.id]:[parent],[date.id]:'2026-11-09',[done.id]:false},'要在星期一確認');
+ const action={id:randomUUID(),type:'view-logs',label:'查 LOG',sheetId:logs.id,scope:'all',display:'overlay',query:'',enabled:true};
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action],floatingOnTop:false});
+ h.handlers.get('floating-show')();
+ const floating=h.windows.at(-1);
+ const run=()=>h.rawHandlers.get('floating-quick-action')({sender:floating.webContents,senderFrame:{url:floating.url}},action.id);
+ const open=()=>{assert.equal(run().popup,true);const owner=h.windows.at(-1);return {owner,event:{sender:owner.webContents,senderFrame:{url:owner.url}}};};
+ let {owner,event}=open();
+ const call=(name,...args)=>h.rawHandlers.get('tool-overlay-'+name)(event,...args);
+ let {logContext}=call('get');
+ assert.deepEqual(call('data','logs',{}).rows.map(row=>row.id),[id]);
+ assert.throws(()=>call('log-record',logContext,'pin',parent,true),/不在選定表格/);
+ assert.throws(()=>call('log-record','stale','pin',id,true),/已切換/);
+ assert.throws(()=>call('log-record',logContext,'detail',id),/取消釘選/);
+ call('log-record',logContext,'pin',id,true);
+ call('log-record',logContext,'pin',id,true);
+ const data=call('data','logs',{query:'無符合',from:'2027-01-01',to:'2026-12-31'});
+ assert.equal(data.total,0);
+ assert.match(data.filterError,/開始日期/);
+ assert.deepEqual(data.pinned.map(row=>row.id),[id]);
+ assert.deepEqual(data.pinned[0].markers.map(field=>field.value),['2026-11-09','未勾選']);
+ assert.equal(call('log-record',logContext,'detail',id).notes,'要在星期一確認');
+ assert.ok(call('log-record',logContext,'detail',id).fields.some(field=>field.value==='客戶 A'));
+ call('log-record',logContext,'edit',id);
+ assert.equal(h.handlers.get('notes-navigation')().editRecord,true);
+ assert.equal(call('log-window',logContext,true),true);
+ assert.equal(owner.parent,null);
+ assert.equal(owner.onTop,true);
+ floating.emit('hide');
+ assert.equal(owner.isDestroyed(),false);
+ call('log-window',logContext,false);
+ assert.equal(owner.parent,floating);
+ assert.equal(owner.onTop,false);
+ call('close');
+ ({owner,event}=open());
+ ({logContext}=call('get'));
+ assert.deepEqual(call('data','logs',{}).pinned.map(row=>row.id),[id]);
+ const {NotesToolsStore,normalizeTools}=require('../src/notes-tools-store');
+ const stored=new NotesToolsStore(path.join(h.dir,'workspace-tools.json')).get();
+ assert.deepEqual(normalizeTools(stored).logPins,[id]);
+ assert.deepEqual(stored.pins,[]);
+ call('log-record',logContext,'pin',id,false);
+ assert.deepEqual(call('data','logs',{}).pinned,[]);
+ assert.deepEqual(call('data','logs',{}).rows.map(row=>row.id),[id]);
 });

@@ -163,3 +163,45 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 .tool-overlay-body .tool-overlay-bar{padding:0 0 8px;margin-bottom:8px;gap:6px;align-items:center}
 .tool-overlay-body .tool-overlay-tabs{gap:5px}
 .tool-overlay-body .tool-overlay-bar .btn{min-height:30px;padding:5px 9px;font-size:.9em}
+
+.tool-view-pins {
+ margin:5px 0 8px; padding:5px 7px; border:1px solid var(--line); border-radius:8px;
+ background:var(--panel);
+}
+.tool-view-pins>summary { cursor:pointer; font-weight:650; }
+.tool-view-pins[open]>summary { margin-bottom:5px; }
+[data-compact-logs=true] :is(.tool-view-actions,.tool-view-result) button[aria-pressed=true] {
+ border-color:var(--accent); color:var(--accent);
+}
+[data-compact-logs=true] .tool-view-result:has(.tool-view-pin-star) {
+ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px; align-items:start;
+}
+[data-compact-logs=true] .tool-view-pin:has(.tool-view-pin-star) {
+ display:grid; grid-template-columns:minmax(0,1fr); justify-items:stretch;
+ border-inline-start:3px solid var(--accent);
+}
+.tool-view-pin[data-expanded=true] { grid-column:1/-1; }
+.tool-view-pin-star { min-width:27px; }
+.tool-view-pin-top,.tool-view-pin-footer {
+ display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:0;
+}
+.tool-view-pin-top .tool-view-log-link { min-width:0; cursor:pointer; }
+.tool-view-pin-top .tool-view-log-link::before { content:'▸ '; color:var(--accent); }
+.tool-view-pin-top [aria-expanded=true]::before { content:'▾ '; }
+.tool-view-pin-fields {
+ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr); gap:2px 8px; margin:0;
+}
+.tool-view-pin-fields dt,.tool-view-pin-empty { color:var(--muted); }
+.tool-view-pin-fields dd { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.tool-view-pin-detail { display:grid; gap:6px; border-top:1px solid var(--line); padding-top:6px; }
+[data-compact-logs=true] .tool-view-list .tool-view-pin p.tool-view-pin-note {
+ white-space:pre-wrap; overflow-wrap:anywhere;
+}
+.tool-view-pin-preview {
+ display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden;
+}
+.tool-view-pin-empty { margin:2px 0; }
+[data-pinned-only=true] .tool-view-filter-panel>.tool-view-filters,
+[data-pinned-only=true] .tool-view-advanced .tool-view-filters>label:nth-child(n+3),
+[data-pinned-only=true] .tool-view-log-status:has(.tool-view-status:empty),
+[data-compact-logs=true] .tool-view-filters[hidden] { display:none; }

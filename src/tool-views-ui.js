@@ -21,6 +21,11 @@
  function mount(root,api,config,filters={query:config.query||'',page:0}){
   let request=0,timer,disposed=false,advanced,filterSummary;
   const compactLogs=config.kind==='logs'&&Boolean(api.close);
+  const canPin=compactLogs&&Boolean(api.logRecord);
+  const pinsPanel=canPin?node('details',undefined,'tool-view-pins'):null;
+  const pinsHeading=canPin?node('summary'):null;
+  const pinsList=canPin?node('div',undefined,'tool-view-list'):null;
+  let expandedId,pinnedOnlyButton,clearButton,pinBusy=false;
   const embeddedPlanning=config.embedded&&config.kind==='planning';
   const smallPlanning=config.smallCalendar&&config.kind==='planning',calendarPlanning=embeddedPlanning||smallPlanning;
   root.dataset.smallCalendar=String(Boolean(smallPlanning));
@@ -37,6 +42,26 @@
   const actions=node('div',undefined,'tool-view-actions');
   if(compactLogs){
    root.dataset.compactLogs='true';
+   if(canPin){
+    pinnedOnlyButton=button('只看釘選',()=>{
+     filters.pinnedOnly=!filters.pinnedOnly;applyPinnedOnly();saveLogFilters();void load();
+    });
+    actions.append(pinnedOnlyButton);
+    if(api.pinWindow){
+     const stay=button('釘住視窗',async()=>{
+      stay.disabled=true;
+      try{setWindowPin(await api.pinWindow(stay.getAttribute('aria-pressed')!=='true'));}
+      catch(error){status.textContent=error.message;}
+      finally{stay.disabled=false;}
+     });
+     const setWindowPin=value=>{
+      stay.setAttribute('aria-pressed',String(value));
+      stay.title=value?'取消獨立置頂':'保持置頂，隱藏浮動工具時仍顯示';
+     };
+     setWindowPin(Boolean(config.pinnedWindow));
+     actions.append(stay);
+    }
+   }
    const close=button('關閉',api.close);close.title='關閉（Esc）';actions.append(close);
   }
   if(api.clearScope)actions.append(button('返回預設表格',api.clearScope));
@@ -44,7 +69,23 @@
   if(actions.children.length)toolbar.append(actions);
   const filterPanel=node('div',undefined,'tool-view-filter-panel');
   filterPanel.append(controls);
-  root.replaceChildren(toolbar,filterPanel,status,results);
+  root.replaceChildren(toolbar,filterPanel,status,...(pinsPanel?[pinsPanel]:[]),results);
+  if(canPin){
+   pinsPanel.open=filters.pinnedOnly||filters.pinsExpanded!==false;
+   pinsPanel.append(pinsHeading,pinsList);
+   pinsPanel.addEventListener('toggle',()=>{
+    if(disposed||filters.pinsExpanded===pinsPanel.open)return;
+    filters.pinsExpanded=pinsPanel.open;saveLogFilters();
+   });
+  }
+  function applyPinnedOnly(){
+   if(!canPin)return;
+   const only=Boolean(filters.pinnedOnly);
+   pinnedOnlyButton.setAttribute('aria-pressed',String(only));
+   controls.hidden=results.hidden=clearButton.hidden=only;
+   root.dataset.pinnedOnly=String(only);
+   if(only)pinsPanel.open=true;
+  }
   if(config.embedded){title.hidden=true;root.dataset.embeddedKind=config.kind;}
   const inputs={};
   function field(key,label,type,parent=controls){
@@ -65,7 +106,7 @@
   }
   const filterKeys=['masterId','dateField','from','to','stateField','value'];
   function updateFilterSummary(){
-   const count=filterKeys.filter(key=>filters[key]).length;
+   const count=filters.pinnedOnly?0:filterKeys.filter(key=>filters[key]).length;
    filterSummary.textContent='篩選與顯示'+(count?' · '+count+' 項':'');
   }
   function saveLogFilters(){
@@ -102,13 +143,13 @@
     ['from','日期由','date'],['to','日期至','date'],['stateField','欄位','select'],['value','欄位值','select']
    ])field(key,label,type,advancedFields);
    if(compactLogs){
-    const clear=button('清除篩選',()=>{
+    clearButton=button('清除篩選',()=>{
      for(const key of ['query',...filterKeys]){delete filters[key];inputs[key].value='';}
      reloadField('query');
     });
     const tools=node('div',undefined,'tool-view-log-status');
-    tools.append(status,clear);filterPanel.after(tools);
-    updateFilterSummary();
+    tools.append(status,clearButton);root.insertBefore(tools,pinsPanel||results);
+    applyPinnedOnly();updateFilterSummary();
     advanced.addEventListener('toggle',()=>{
      if(disposed||filters.advanced===advanced.open)return;
      filters.advanced=advanced.open;saveLogFilters();
@@ -200,6 +241,77 @@
     if(action==='copy')status.textContent='已複製文字片段。';
    }catch(error){status.textContent=error.message;}
   }
+  function pinButton(row,pinned){
+   const toggle=button(pinned?'★':'☆',async()=>{
+    if(pinBusy||disposed)return;
+    pinBusy=true;toggle.disabled=true;
+    try{
+     await api.logRecord('pin',row.id,!pinned);
+     if(disposed)return;
+     if(!pinned)pinsPanel.open=true;
+     if(pinned&&expandedId===row.id)expandedId=undefined;
+     await load();
+     pinsHeading.focus();
+    }catch(error){if(!disposed)status.textContent=error.message;}
+    finally{pinBusy=false;toggle.disabled=false;}
+   });
+   toggle.title=pinned?'取消釘選':'釘選以便跟進';
+   toggle.setAttribute('aria-label',toggle.title+' '+row.title);
+   toggle.setAttribute('aria-pressed',String(pinned));
+   toggle.className='btn btn-secondary tool-view-pin-star';
+   return toggle;
+  }
+  function detailFields(fields){
+   const list=node('dl',undefined,'tool-view-pin-fields');
+   for(const {label,value} of fields)list.append(node('dt',label),node('dd',value));
+   return list;
+  }
+  async function renderPinDetail(row,detail){
+   try{
+    const data=await api.logRecord('detail',row.id);
+    if(disposed||expandedId!==row.id)return;
+    const footer=node('footer',undefined,'tool-view-pin-footer');
+    const edit=button('編輯',async()=>{
+     try{await api.logRecord('edit',row.id);}
+     catch(error){status.textContent=error.message;}
+    });
+    footer.append(node('small','修改日期 '+data.updatedAt.slice(0,10)),edit);
+    detail.replaceChildren(detailFields(data.fields),node('p',data.notes||'尚未填寫筆記。','tool-view-pin-note'),
+     ...(data.tags.length?[node('small',data.tags.join('、'))]:[]),footer);
+   }catch(error){if(!disposed)detail.textContent=error.message;}
+  }
+  function renderPins(data,focusId){
+   pinsHeading.textContent='釘選紀錄 · '+data.pinned.length+' 筆';
+   pinsList.dataset.layout=data.layout;
+   pinsList.replaceChildren();
+   if(!data.pinned.some(row=>row.id===expandedId))expandedId=undefined;
+   for(const row of data.pinned){
+    const expanded=row.id===expandedId;
+    const item=node('article',undefined,'tool-view-result tool-view-pin');
+    item.dataset.expanded=String(expanded);
+    const top=node('div',undefined,'tool-view-pin-top');
+    const title=button(row.title,()=>{
+     expandedId=expanded?undefined:row.id;
+     renderPins(data,row.id);
+    });
+    title.title=(expanded?'收合詳情 ':'展開詳情 ')+row.title;
+    title.className='tool-view-log-link';
+    title.setAttribute('aria-expanded',String(expanded));
+    top.append(title,pinButton(row,true));
+    item.append(top,node('small',row.sheet));
+    if(expanded){
+     const detail=node('div','正在讀取詳情…','tool-view-pin-detail');
+     item.append(detail);
+     void renderPinDetail(row,detail);
+    }else{
+     if(row.markers.length)item.append(detailFields(row.markers));
+     if(row.summary&&data.layout==='cards')item.append(node('p',row.summary,'tool-view-pin-preview'));
+    }
+    pinsList.append(item);
+    if(row.id===focusId)title.focus();
+   }
+   if(!data.pinned.length)pinsList.append(node('p','按紀錄旁的 ☆，加入要跟進的項目。','tool-view-pin-empty'));
+  }
   function card(row){
    const item=node('article',undefined,'tool-view-result');
    const snippets=config.kind==='snippets',body=node(snippets?'span':'div',undefined,'tool-view-result-body');
@@ -220,7 +332,7 @@
     const mark=node('span','⧉','tool-view-copy-mark');
     mark.setAttribute('aria-hidden','true');
     copy.append(mark,body);item.append(copy);
-   }else if(compactLogs)item.append(body);
+   }else if(compactLogs)item.append(body,...(canPin?[pinButton(row,false)]:[]));
    else item.append(body,button('開啟紀錄',()=>act('visit',row.id)));
    if(row.eventKind)item.dataset.eventKind=row.eventKind;
    return item;
@@ -293,7 +405,7 @@
     if(config.kind==='snippets')choices('category',[['','全部分類'],...(data.categories||[]).map(value=>[value,value])]);
     if(calendarPlanning)renderMonth(data);
     const monthGrid=calendarPlanning&&Boolean(data.month);
-    results.hidden=embeddedPlanning&&monthGrid;
+    results.hidden=embeddedPlanning&&monthGrid||canPin&&Boolean(filters.pinnedOnly);
     if(monthGrid&&embeddedPlanning){
      inputs.month.value=data.month;
      results.replaceChildren();
@@ -302,6 +414,10 @@
     }else{
      status.textContent=(smallPlanning&&data.day?data.day+' · ':'')+'共 '+data.total+' 筆';
      showRows(data);
+     if(canPin){
+      renderPins(data);
+      status.textContent=filters.pinnedOnly?'':data.filterError||'其他紀錄 '+data.total+' 筆';
+     }
     }
     if(focusResults){status.tabIndex=-1;status.focus();}
    }catch(error){
@@ -333,7 +449,7 @@
   overlay.append(header,viewRoot);
   let view,last;
   const states=new Map();
-  const render=({config,theme,fontSize,logFilters,logContext})=>{
+  const render=({config,theme,fontSize,logFilters,logContext,pinnedWindow})=>{
    document.documentElement.dataset.theme=theme;
    document.documentElement.dataset.fontSize=fontSize;
    const signature=JSON.stringify(config);
@@ -348,8 +464,12 @@
    view=mount(viewRoot,{
     data:filters=>api.data(config.kind,filters),
     action:(action,value,customer)=>api.action(config.kind,action,value,customer),
-    ...(config.kind==='logs'?{close:api.close,saveFilters:filters=>api.saveLogFilters(logContext,filters)}:{})
-   },{...config,smallCalendar:config.kind==='planning'},filters);
+    ...(config.kind==='logs'?{
+     close:api.close,saveFilters:filters=>api.saveLogFilters(logContext,filters),
+     ...(api.logRecord?{logRecord:(...args)=>api.logRecord(logContext,...args)}:{}),
+     ...(api.pinLogWindow?{pinWindow:value=>api.pinLogWindow(logContext,value)}:{})
+    }:{})
+   },{...config,pinnedWindow,smallCalendar:config.kind==='planning'},filters);
    document.title=config.kind==='logs'?titles.logs:'日曆／看板與文字片段';
   };
   api.onRefresh(render);

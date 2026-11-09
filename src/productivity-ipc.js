@@ -40,10 +40,10 @@ function registerProductivity(options){
   clipboard.writeText(snippetText(id,customer));
   return {copied:true};
  }
- function viewData(config,filters){
+ function viewData(config,filters,logPins){
   const doc=config.kind==='snippets'?null:notes().get().document;
   const dates=config.kind==='planning'?reminders().list().items:[];
-  return require('./tool-views-model').viewData(doc,dates,config.kind==='snippets'?store.get().snippets:[],config,filters,desktop().settings.logView);
+  return require('./tool-views-model').viewData(doc,dates,config.kind==='snippets'?store.get().snippets:[],config,filters,desktop().settings.logView,logPins);
  }
  handle('productivity-snippet-shortcut',(_,id,shortcut)=>{ensure();const before=store.get(),item=before.snippets.find(item=>item.id===id);if(!item)throw new Error('文字片段已移除');const candidate=require('./productivity-model').entry('snippets',{...item,shortcut});options.validateShortcuts?.(before.snippets.map(item=>item.id===id?candidate:item));store.save('snippets',candidate);try{options.shortcutsChanged?.();options.overlayChanged?.();}catch(error){store.replace(before);options.shortcutsChanged?.();throw error;}return {id,shortcut:candidate.shortcut||''};});
  let snippetPending=null;
