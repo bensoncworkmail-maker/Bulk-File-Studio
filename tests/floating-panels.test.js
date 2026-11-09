@@ -138,7 +138,7 @@ test('compact logs can hide previews and toolbar extras while expanding and crea
  const document=documentFromHTML('<html><body><section id="view"></section></body></html>'),window={},actions=[];
  const root=document.getElementById('view');
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
- const row={id:'record',title:'Report',date:'2026-11-10',summary:'Preview note'};
+ const row={id:'record',title:'Report',context:'Client',date:'2026-11-10',summary:'Preview note'};
  const view=window.toolViewsUI.mount(root,{
   close(){},pinWindow(){},saveFilters:async()=>{},
   data:async()=>({rows:[row],pinned:[],page:0,last:0,total:1,layout:'list',sort:'recent',
@@ -149,6 +149,12 @@ test('compact logs can hide previews and toolbar extras while expanding and crea
  },{kind:'logs'});
  await new Promise(setImmediate);
  assert.equal(root.querySelector('.tool-view-log-preview'),null);
+ const master=root.querySelector('.tool-view-log-master');
+ assert.equal(master.textContent,'Client');
+ assert.equal(master.closest('.tool-view-log-top'),root.querySelector('time').closest('.tool-view-log-top'));
+ const toggle=root.querySelectorAll('button').find(button=>button.textContent==='只看釘選');
+ assert.equal(toggle.parentElement,root.querySelector('.tool-view-log-filter-footer'));
+ assert.equal(root.querySelector('.tool-view-heading'),null);
  assert.equal(root.querySelector('.tool-view-pins').hidden,true);
  assert.equal(root.querySelectorAll('button').find(button=>button.textContent==='釘住視窗').hidden,true);
  assert.equal(root.querySelector('.tool-view-status').textContent,'');

@@ -47,7 +47,6 @@
     pinnedOnlyButton=button('只看釘選',()=>{
      filters.pinnedOnly=!filters.pinnedOnly;applyPinnedOnly();saveLogFilters();void load();
     });
-    actions.append(pinnedOnlyButton);
     if(api.pinWindow){
      const stay=windowPinButton=button('釘住視窗',async()=>{
       stay.disabled=true;
@@ -60,17 +59,15 @@
       stay.title=value?'取消獨立置頂':'保持置頂，隱藏浮動工具時仍顯示';
      };
      setWindowPin(Boolean(config.pinnedWindow));
-     actions.append(stay);
     }
    }
-   if(api.close){const close=button('關閉',api.close);close.title='關閉（Esc）';actions.append(close);}
   }
   if(api.clearScope)actions.append(button('返回預設表格',api.clearScope));
   if(config.kind==='planning'&&!embeddedPlanning&&!smallPlanning)actions.append(button('開啟完整日曆／看板',()=>act('main')));
   if(actions.children.length)toolbar.append(actions);
   const filterPanel=node('div',undefined,'tool-view-filter-panel');
   filterPanel.append(controls);
-  root.replaceChildren(toolbar,filterPanel,status,...(pinsPanel?[pinsPanel]:[]),results);
+  root.replaceChildren(...(compactLogs&&api.close?[]:[toolbar]),filterPanel,status,...(pinsPanel?[pinsPanel]:[]),results);
   if(canPin){
    pinsPanel.open=filters.pinnedOnly||filters.pinsExpanded!==false;
    pinsPanel.append(pinsHeading,pinsList);
@@ -137,10 +134,14 @@
    advanced.open=filters.advanced??config.scope==='master';
    filterSummary=node('summary',compactLogs?'篩選與顯示':'主紀錄、日期與欄位篩選');
    advanced.append(filterSummary,advancedFields);
-   filterPanel.append(advanced);
+   const filterFooter=node('div',undefined,'tool-view-log-filter-footer');
+   filterFooter.append(advanced);
+   if(pinnedOnlyButton)filterFooter.append(pinnedOnlyButton);
+   filterPanel.append(filterFooter);
    const displayFields=compactLogs?advancedFields:controls;
    field('layout','顯示方式','select',displayFields);
    field('sort','排序','select',displayFields);
+   if(windowPinButton)displayFields.append(windowPinButton);
    for(const [key,label,type] of [
     ['masterId','所屬主紀錄','select'],['dateField','日期欄位','select'],
     ['from','日期由','date'],['to','日期至','date'],['stateField','欄位','select'],['value','欄位值','select']
@@ -299,7 +300,12 @@
    title.className='tool-view-log-link';title.title=row.title;
    if(pinned){title.dataset.logToggle=row.id;title.setAttribute('aria-expanded',String(expanded));title.setAttribute('aria-label','切換詳情 '+row.title);}
    const date=node('time',row.date||'');if(row.date)date.dateTime=row.date;
-   top.append(title,date);
+   const identity=node('div',undefined,'tool-view-log-identity');
+   identity.append(title);
+   if(row.context){
+    const master=node('small',row.context,'tool-view-log-master');master.title='所屬主紀錄：'+row.context;identity.append(master);
+   }
+   top.append(identity,date);
    if(readLogDetail){
     const expand=button(expanded?'▾':'▸',toggle);if(!pinned)expand.dataset.logToggle=row.id;expand.title=expanded?'收合詳情':'展開詳情';
     expand.setAttribute('aria-expanded',String(expanded));expand.setAttribute('aria-label','切換詳情 '+row.title);actions.append(expand);
@@ -314,7 +320,6 @@
     item.append(detail);void renderLogDetail(row,detail,pinned);
    }else{
     if(pinned&&row.markers.length)item.append(node('small',row.markers.map(({label,value})=>label+' '+value).join(' · '),'tool-view-log-context'));
-    else if(row.context)item.append(node('small',row.context,'tool-view-log-context'));
     if(row.summary&&(settings.previewLines??1)>0){
      const preview=node('p',row.summary,'tool-view-log-preview');
      preview.style.setProperty('--log-preview-lines',String(settings.previewLines??1));item.append(preview);

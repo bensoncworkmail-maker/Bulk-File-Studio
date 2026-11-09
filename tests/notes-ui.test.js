@@ -591,3 +591,46 @@ test('the right-side overview width saves on drag and resets using the same pref
  await handle.dispatch('dblclick');
  assert.deepEqual(widths,[470,460,400]);
 });
+
+test('card preview supports direct reorder and value placement with per-field settings',async t=>{
+ const h=setup(t,{settings:{notesView:'cards'}}),root=h.store.addTemplate().document.sheets[0];
+ const [code,status]=root.fields;
+ h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{[code.id]:'A-10',[status.id]:'合作中'},fileLinks:[]});
+ h.ui.activate();await flush();
+ h.els.get('notes-card-config').events.click();await flush();
+ const preview=h.els.get('notes-card-preview'),rows=()=>descendants(preview).filter(node=>node.className==='notes-card-field');
+ const drag={dataTransfer:{setData(){}},preventDefault(){}};
+ rows()[1].children[0].events.dragstart(drag);
+ rows()[0].events.drop(drag);
+ assert.equal(rows()[0].children[0].textContent,status.label);
+ rows()[0].children[1].events.dragstart(drag);
+ assert.equal(preview.dataset.placingValue,'true');
+ descendants(preview).find(node=>node.tagName==='SPAN'&&node.dataset.position==='below').events.drop(drag);
+ assert.equal(preview.dataset.placingValue,'false');
+ assert.equal(rows()[0].dataset.position,'below');
+ h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();
+ assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[status.id,code.id]);
+ assert.equal(h.preferences.notesCardFieldPositions[root.id][status.id],'below');
+ const rendered=descendants(h.els.get('notes-table')).filter(node=>node.className==='notes-card-field');
+ assert.equal(rendered[0].dataset.position,'below');
+ assert.equal(rendered[1].dataset.position,'right');
+ assert.equal(require('../src/settings-model').normalize(h.preferences).notesCardFieldPositions[root.id][status.id],'below');
+});
+
+test('record file buttons are optional and direct file links stay available',async t=>{
+ const h=setup(t),sheet=h.store.saveSheet({name:'Links',fields:[]}).document.sheets[0];
+ const saved=h.store.saveRecord({sheetId:sheet.id,title:'Linked',notes:'',tags:[],values:{},
+  fileLinks:[{favoriteId:null,path:'/local/folder',label:'Folder',type:'folder'}]}).document.records[0];
+ const calls=[];h.api.openLink=async(...args)=>calls.push(args);
+ h.ui.activate();await flush();
+ findButton(h.els.get('notes-table'),'Linked').events.click();
+ const detail=h.els.get('notes-detail-body');
+ findButton(detail,'開啟').events.click();await flush();
+ findButton(detail,'定位').events.click();await flush();
+ h.preferences.notesShowFileLinkButtons=false;h.ui.settingsChanged(['notesShowFileLinkButtons']);
+ const labels=descendants(detail).filter(node=>node.tagName==='BUTTON').map(node=>node.textContent);
+ assert.equal(labels.includes('開啟'),false);assert.equal(labels.includes('定位'),false);
+ findButton(detail,'Folder').events.click();await flush();
+ findButton(detail,'/local/folder').events.click();await flush();
+ assert.deepEqual(calls,['open','show','open','show'].map(action=>[saved.id,0,action]));
+});
