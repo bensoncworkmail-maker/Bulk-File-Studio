@@ -23,15 +23,20 @@
    return {label,date};
   });
  }
+ const ordered=(type,items)=>type==='timeline'?[...items].sort((a,b)=>(a.date||'9999-99-99').localeCompare(b.date||'9999-99-99')):items;
+ function summary(type,items){
+  if(type==='timeline')return items.length+' 個事件';
+  const done=items.filter(item=>type==='checklist'?item.done:item.status==='done').length;
+  return done+' / '+items.length+' 已完成';
+ }
  function format(type,items){
-  const rows=type==='timeline'?[...items].sort((a,b)=>(a.date||'9999-99-99').localeCompare(b.date||'9999-99-99')):items;
-  return rows.map((item,index)=>{
+  return ordered(type,items).map((item,index)=>{
    if(type==='checklist')return (item.done?'[x] ':'[ ] ')+item.label;
    if(type==='workflow')return (index+1)+'. ['+STATES[item.status]+'] '+item.label;
    return (item.date||'未設定日期')+' · '+item.label;
   }).join('\n');
  }
- const api=Object.freeze({TYPES,STATES,MAX_ROWS,MAX_LABEL,isType,normalize,format});
+ const api=Object.freeze({TYPES,STATES,MAX_ROWS,MAX_LABEL,isType,normalize,ordered,summary,format});
  if(typeof module!=='undefined'&&module.exports)module.exports=api;
  else window.structuredNoteModel=api;
 })();

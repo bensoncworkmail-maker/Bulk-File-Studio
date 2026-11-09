@@ -101,12 +101,17 @@ test('card field choices are per table, persist through views and allow an empty
  const phone=contacts.fields.find(field=>field.type==='phone'),email=contacts.fields.find(field=>field.type==='email');
  h.store.saveRecord({sheetId:contacts.id,title:'Alice',notes:'Private note',tags:['VIP'],values:{[contacts.fields[0].id]:[client],[phone.id]:'12345',[email.id]:'alice@example.com'},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Acme').events.click();
  h.els.get('notes-card-config').events.click();await flush();assert.equal(h.els.get('notes-card-dialog').open,true);
- const labels=h.els.get('notes-card-fields').children;for(const label of labels)label.children[0].checked=label.textContent===email.label;
- h.els.get('notes-card-apply').events.click();assert.deepEqual([...h.preferences.notesCardFields[contacts.id]],[email.id]);h.els.get('notes-card-cancel').events.click();
+ const labels=h.els.get('notes-card-fields').children;for(const row of labels)row.children[0].children[0].checked=row.children[0].textContent===email.label;
+ const position=h.els.get('notes-card-value-position');
+ position.value='below';position.events.change();
+ assert.ok(descendants(h.els.get('notes-card-preview')).some(node=>node.dataset.position==='below'));
+ h.els.get('notes-card-apply').events.click();assert.deepEqual([...h.preferences.notesCardFields[contacts.id]],[email.id]);
+ assert.equal(h.preferences.notesCardValuePositions[contacts.id],'below');assert.equal(h.preferences.notesCardValuePositions[root.id],undefined);h.els.get('notes-card-cancel').events.click();
  assert.match(h.els.get('notes-table').textContent,/alice@example.com/);assert.doesNotMatch(h.els.get('notes-table').textContent,/12345/);
+ assert.ok(descendants(h.els.get('notes-table')).some(node=>node.dataset.position==='below'));
  h.els.get('notes-view-list').events.click();assert.match(h.els.get('notes-table').textContent,/12345/);h.els.get('notes-view-cards').events.click();assert.doesNotMatch(h.els.get('notes-table').textContent,/12345/);
- h.els.get('notes-card-config').events.click();await flush();for(const label of h.els.get('notes-card-fields').children)label.children[0].checked=false;h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();assert.doesNotMatch(h.els.get('notes-table').textContent,/alice@example.com/);assert.match(h.els.get('notes-table').textContent,/Alice/);
- h.els.get('notes-card-config').events.click();await flush();h.els.get('notes-card-reset').events.click();h.els.get('notes-card-cancel').events.click();assert.equal(h.preferences.notesCardFields[contacts.id],undefined);assert.match(h.els.get('notes-table').textContent,/12345/);assert.deepEqual(h.errors,[]);
+ h.els.get('notes-card-config').events.click();await flush();for(const row of h.els.get('notes-card-fields').children)row.children[0].children[0].checked=false;h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();assert.doesNotMatch(h.els.get('notes-table').textContent,/alice@example.com/);assert.match(h.els.get('notes-table').textContent,/Alice/);
+ h.els.get('notes-card-config').events.click();await flush();h.els.get('notes-card-reset').events.click();h.els.get('notes-card-cancel').events.click();assert.equal(h.preferences.notesCardFields[contacts.id],undefined);assert.equal(h.preferences.notesCardValuePositions[contacts.id],undefined);assert.match(h.els.get('notes-table').textContent,/12345/);assert.deepEqual(h.errors,[]);
 });
 test('card metadata visibility does not affect saved records or list columns',async t=>{
  const h=setup(t,{settings:{notesView:'cards',notesCardShowContext:false,notesCardShowNotes:false,notesCardShowTags:false,notesCardShowDate:false,notesCardShowLinks:false}}),state=h.store.addTemplate(),root=state.document.sheets[0];
@@ -493,4 +498,27 @@ test('website field renders open/copy controls and edits as a URL input',async t
  h.api.openWebsite=async(...args)=>calls.push(args);h.ui.activate();await flush();await h.ui.openSearchTarget('record',record.id);await flush();
  const walk=node=>[node,...node.children.flatMap(walk)],nodes=walk(h.els.get('notes-detail-body')),open=nodes.find(node=>node.tagName==='BUTTON'&&node.textContent==='開啟網站 ↗'),copy=nodes.find(node=>node.tagName==='BUTTON'&&node.textContent==='複製網址');assert.ok(open);assert.ok(copy);open.events.click();await flush();copy.events.click();await flush();assert.deepEqual(calls,[[record.id,field.id],[record.id,field.id,'copy']]);
  nodes.find(node=>node.tagName==='BUTTON'&&node.textContent==='編輯').events.click();assert.ok(walk(h.els.get('notes-record-fields')).some(node=>node.tagName==='INPUT'&&node.type==='url'));assert.deepEqual(h.errors,[]);
+});
+
+
+test('card field ordering survives apply and the color editor leaves names in a dedicated column',async t=>{
+ const h=setup(t,{settings:{notesView:'cards'}}),state=h.store.addTemplate(),root=state.document.sheets[0];
+ const [code,status]=root.fields;
+ h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{[code.id]:'A-10',[status.id]:'合作中'},fileLinks:[]});
+ h.ui.activate();await flush();
+ h.els.get('notes-card-config').events.click();await flush();
+ const settings=h.els.get('notes-card-fields');
+ const move=descendants(settings).find(node=>node.attrs['aria-label']==='上移 '+status.label);
+ move.events.click();
+ assert.match(h.els.get('notes-card-preview').textContent,/狀態合作中客戶代號A-10/);
+ h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();
+ assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[status.id,code.id]);
+ assert.match(h.els.get('notes-table').textContent,/狀態合作中客戶代號A-10/);
+ h.els.get('notes-edit-sheet').events.click();
+ const editor=h.els.get('notes-field-editor');
+ const entry=descendants(editor).find(node=>node.className==='notes-option-color-row');
+ assert.equal(entry.children[0].textContent,'合作中');
+ assert.equal(entry.children[1].type,'color');
+ assert.equal(entry.children[2].textContent,'清除顏色');
+ assert.deepEqual(h.errors,[]);
 });

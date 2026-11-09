@@ -75,3 +75,23 @@ test('drafts preserve existing text and transfer structured items to the only ma
  assert.equal(plain.notes,'1. [進行中] 測試');
  assert.deepEqual(plain.values,{});
 });
+
+
+test('structured notes render explicit states, completion progress and dates in chronological order',async()=>{
+ const {documentFromHTML}=require('./helpers/dom'),vm=require('node:vm');
+ const document=documentFromHTML('<html><body></body></html>'),window={structuredNoteModel:M.structured};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/structured-note-ui.js'),'utf8'),{window,document});
+ const {view,editor}=window.structuredNoteUI;
+ const checklist=view('checklist',[{label:'核對報價',done:true},{label:'寄出',done:false}]);
+ assert.match(checklist.textContent,/1 \/ 2 已完成/);
+ assert.equal(checklist.querySelector('[aria-label="未完成"]').textContent,'');
+ const workflow=view('workflow',[{label:'覆核',status:'active'}]);
+ assert.equal(workflow.querySelector('.structured-note-meta').dataset.status,'active');
+ assert.match(workflow.textContent,/覆核進行中/);
+ const items=[{label:'交付',date:'2026-11-20'},{label:'啟動',date:'2026-11-10'}];
+ assert.match(view('timeline',items).textContent,/啟動2026-11-10交付2026-11-20/);
+ const timeline=editor('timeline',items);
+ assert.deepEqual(Array.from(timeline.value(),row=>row.label),['交付','啟動']);
+ await timeline.element.querySelector('[aria-label="依日期排序時間軸"]').dispatch('click');
+ assert.deepEqual(Array.from(timeline.value(),row=>row.label),['啟動','交付']);
+});
