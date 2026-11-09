@@ -110,24 +110,38 @@ test('structured notes render explicit states, completion progress and dates in 
  assert.deepEqual(Array.from(timeline.value(),row=>row.label),['啟動','交付']);
 });
 
-test('draft images render below the editor and file images expand without a modal',async()=>{
+test('draft thumbnails resize and zoom while dragged images can still expand inline',async()=>{
  const {documentFromHTML}=require('./helpers/dom'),vm=require('node:vm');
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/draft-notes.html'),'utf8'));
  const $=id=>document.getElementById(id);
  document.addEventListener=()=>{};
+ const styles={};let updateSettings;
+ $('draft-images').style.setProperty=(key,value)=>styles[key]=value;
  const source='data:image/png;base64,AA==';
  const draft={id:randomUUID(),title:'草稿',body:'正文',version:1,type:'text',items:[],attachments:[
   {image:true,path:'/images/paste.png'},{path:'/files/dragged.png'}
  ]};
  const window={structuredNoteModel:M.structured,draftExportTypes:require('../src/draft-export-types'),
   resizableSplit:{attach(){}},
-  draftAPI:{data:async()=>({drafts:[draft],sheets:[],fontSize:13}),read:async()=>draft,onClose(){},
+  draftAPI:{data:async()=>({drafts:[draft],sheets:[],fontSize:13,preferences:{draftImageHeight:120}}),read:async()=>draft,onClose(){},onSettings:callback=>{updateSettings=callback;},
    image:async()=>source,preview:async()=>({type:'image',data:source,name:'dragged.png'})}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/draft-notes-ui.js'),'utf8'),
   {window,document,ResizeObserver:class{observe(){}},clearTimeout,setTimeout});
  await new Promise(setImmediate);
  assert.equal($('draft-images').hidden,false);
  assert.equal($('draft-images').querySelector('img').src,source);
+ assert.equal(styles['--draft-image-height'],'120px');
+ updateSettings({draftImageHeight:72});
+ assert.equal(styles['--draft-image-height'],'72px');
+ const zoom=$('draft-images').querySelector('.draft-image-zoom');
+ await zoom.dispatch('click');
+ assert.equal($('attachment-preview').open,true);
+ assert.equal($('attachment-preview-content').querySelector('img').src,source);
+ await $('preview-image-size').dispatch('click');
+ assert.ok($('attachment-preview-content').classList.contains('preview-original'));
+ await $('preview-close').dispatch('click');
+ assert.equal($('attachment-preview-content').children.length,0);
+ assert.equal($('attachment-preview-content').classList.contains('preview-original'),false);
  assert.equal($('attachments').children.length,1);
  const button=$('attachments').querySelector('button'),image=$('attachments').querySelector('img');
  assert.equal(image.hidden,true);

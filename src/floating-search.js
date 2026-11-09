@@ -1,7 +1,7 @@
 'use strict';
 const path=require('node:path'),crypto=require('node:crypto'),{pathToFileURL}=require('node:url'),{captureBounds}=require('./floating-capture'),{fitBounds}=require('./desktop-state');
 class FloatingSearch{
- constructor(options){Object.assign(this,options);this.window=null;this.current=null;this.query='';this.automatic=false;this.version=0;this.liveKey=null;this.pending=false;this.ready=false;this.activateRequested=false;this.anchor=null;}
+ constructor(options){Object.assign(this,options);this.window=null;this.current=null;this.query='';this.automatic=false;this.version=0;this.liveKey=null;this.pending=false;this.ready=false;this.activateRequested=false;this.anchor=null;this.visitRequest=null;}
  owns(event){return this.window&&!this.window.isDestroyed()&&event?.sender===this.window.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating-search.html')).href;}
  open(query='',{automatic=false,activate=false,anchor=null}={}){
   if(!this.settings().floatingGlobalSearch)throw new Error('浮動全域搜尋已停用，請至設定啟用');if(typeof query!=='string'||query.length>256)throw new Error('搜尋文字最多 256 字元');this.query=query;this.current=null;
@@ -25,13 +25,27 @@ class FloatingSearch{
  }
  async action(token,section,index,action){
   const current=this.current;if(!this.settings().floatingGlobalSearch||!current||token!==current.token||current.expires<Date.now())throw new Error('搜尋結果已更新，請重新搜尋');if(!Number.isSafeInteger(index)||index<0)throw new Error('搜尋項目無效');const item=current.result.sections.find(value=>value.kind===section)?.items[index];if(!item)throw new Error('搜尋項目無效');
-  if(action==='visit'&&['record','sheet','favorite','tag'].includes(item.kind)){this.visit(item);return {message:'已要求主視窗開啟；若有未儲存內容，請先完成或取消編輯。'};}
+  if(action==='visit'&&['record','sheet','favorite','tag'].includes(item.kind)){
+   const requestId=this.settings().floatingSearchCloseOnVisit===true?crypto.randomUUID():null;
+   this.visitRequest=null;
+   this.visit(item,requestId);
+   if(requestId)this.visitRequest={id:requestId,current};
+   return {message:'已要求主視窗開啟；若有未儲存內容，請先完成或取消編輯。'};
+  }
   if(action==='copy'&&['path','favorite'].includes(item.kind)){this.copy(item.path);return {message:'已複製路徑。'};}
   if(!['open','show'].includes(action)||!['favorite','path'].includes(item.kind))throw new Error('此結果不支援這個操作');const id=item.kind==='favorite'?item.id:item.favoriteId;if(!id)throw new Error('文字位置須先連結收藏，才能開啟或定位');
   const favorite=this.favorites.get(id,true);if(favorite.path!==item.path)throw new Error('收藏位置已變更，請重新搜尋');await this.fileAction(action,favorite);return {message:action==='open'?'已開啟。':'已定位。'};
  }
- invalidate(){this.current=null;if(this.window&&!this.window.isDestroyed())this.window.webContents.send('floating-search-invalidated',{});}
+ targetOpened(requestId){
+  const pending=this.visitRequest;
+  if(!pending||pending.id!==requestId||pending.current!==this.current)return false;
+  this.visitRequest=null;
+  if(this.settings().floatingSearchCloseOnVisit!==true)return false;
+  this.destroy();
+  return true;
+ }
+ invalidate(){this.visitRequest=null;this.current=null;if(this.window&&!this.window.isDestroyed())this.window.webContents.send('floating-search-invalidated',{});}
  updateSettings(){if(!this.settings().floatingGlobalSearch||this.automatic&&this.settings().floatingSearchMode!=='live'){this.destroy();return;}if(this.window&&!this.window.isDestroyed()){this.window.setAlwaysOnTop(this.settings().floatingOnTop);this.window.webContents.send('floating-search-theme',this.data());}}
- destroy(){const win=this.window;this.window=null;this.current=null;this.ready=false;this.liveKey=null;this.pending=false;++this.version;if(win&&!win.isDestroyed())win.destroy();}
+ destroy(){const win=this.window;this.visitRequest=null;this.window=null;this.current=null;this.ready=false;this.liveKey=null;this.pending=false;++this.version;if(win&&!win.isDestroyed())win.destroy();}
 }
 module.exports={FloatingSearch};

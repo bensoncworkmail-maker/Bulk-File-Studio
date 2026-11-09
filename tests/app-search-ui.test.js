@@ -14,3 +14,18 @@ test('search file actions use stored favorite identifiers and never open raw tex
 test('searchFor carries a home query into the search page and restores it when navigation is blocked',()=>{const h=setup();assert.equal(h.ui.searchFor('Acme'),true);assert.equal(h.els.get('app-search-query').value,'Acme');h.window.favoritesUI.show=()=>false;assert.equal(h.ui.searchFor('Should not replace'),false);assert.equal(h.els.get('app-search-query').value,'Acme');});
 
 test('outside search target requests respect unsaved editor guards and record-only tags route to global search',async()=>{const h=setup();h.window.notesUI.canLeave=()=>false;h.target({kind:'record',id:'r'});await flush();assert.equal(h.opened.length,0);assert.match(h.errors[0].message,/未儲存內容已保留/);h.window.notesUI.canLeave=()=>true;h.target({kind:'record',id:'r'});await flush();assert.deepEqual(h.opened.at(-1),['record','r']);h.target({kind:'tag',title:'Workspace tag',favoriteCount:0,recordCount:1});await flush();assert.equal(h.els.get('app-search-query').value,'Workspace tag');assert.deepEqual(h.opened.at(-1),['page','search']);});
+
+test('the main window acknowledges only search targets it actually opens',async()=>{
+ const h=setup(),confirmed=[];
+ h.api.targetOpened=async requestId=>confirmed.push(requestId);
+ h.window.notesUI.openSearchTarget=async()=>true;
+ h.target({kind:'record',id:'record',requestId:'opened'});
+ await flush();
+ h.window.notesUI.openSearchTarget=async()=>false;
+ h.target({kind:'record',id:'record',requestId:'blocked'});
+ await flush();
+ h.window.notesUI.canLeave=()=>false;
+ h.target({kind:'record',id:'record',requestId:'unsaved'});
+ await flush();
+ assert.deepEqual(confirmed,['opened']);
+});

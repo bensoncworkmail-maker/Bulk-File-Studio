@@ -6,7 +6,7 @@
  const title=$('title'),body=$('body'),sheet=$('sheet'),master=$('master'),status=$('status');
  let current=null,summaries=[],sheets=[],timer,writing,busy=false,closeRequested=false,closing=false;
  let listFocusRequested=false,draftSplit;
- let mastersRequest=0,attachmentsRequest=0,preferences={draftLocalShortcuts:true,draftReminders:true,draftBodyLimit:100000},bodyResizeTimer;
+ let mastersRequest=0,attachmentsRequest=0,preferences={draftLocalShortcuts:true,draftReminders:true,draftBodyLimit:100000,draftImageHeight:96},bodyResizeTimer;
  const message=error=>String(error.message||error).replace(/^Error invoking remote method '[^']+': (?:Error: )?/i,'');
  function report(text,error=false){status.textContent=text;status.dataset.error=String(error);}
  function el(tag,text){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;}
@@ -60,10 +60,13 @@
    const remove=el('button','移除');remove.type='button';remove.setAttribute('aria-label','移除 '+name);
    remove.addEventListener('click',()=>changeAttachments(()=>api.remove(current.id,current.version,index)));
    if(item.image){
-    const figure=el('figure'),preview=el('img'),caption=el('figcaption');
-    const label=el('span',name);preview.alt=name;preview.hidden=true;
-    caption.append(label,remove);figure.append(preview,caption);images.append(figure);images.hidden=false;
-    api.image(current.id,index).then(source=>{if(request===attachmentsRequest){preview.src=source;preview.hidden=false;}})
+    const figure=el('figure'),preview=el('img'),caption=el('figcaption'),zoom=el('button');
+    const label=el('span',name);preview.alt='';
+    zoom.className='draft-image-zoom';zoom.type='button';zoom.hidden=true;
+    zoom.title='放大查看 '+name;zoom.setAttribute('aria-label',zoom.title);zoom.setAttribute('aria-haspopup','dialog');
+    zoom.addEventListener('click',()=>showPreview({type:'image',name,data:preview.src}));
+    zoom.append(preview);caption.append(label,remove);figure.append(zoom,caption);images.append(figure);images.hidden=false;
+    api.image(current.id,index).then(source=>{if(request===attachmentsRequest){preview.src=source;zoom.hidden=false;}})
      .catch(()=>{if(request===attachmentsRequest)label.textContent+='（無法預覽）';});
     continue;
    }
@@ -245,6 +248,7 @@
   if(settings.fontSize)document.documentElement.style.fontSize=settings.fontSize+'px';
   if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);else body.removeAttribute('maxlength');
   if(previous.draftBodyHeight!==preferences.draftBodyHeight)body.style.height=(preferences.draftBodyHeight||280)+'px';
+  $('draft-images').style.setProperty('--draft-image-height',preferences.draftImageHeight+'px');
   if(previous.draftListWidth!==preferences.draftListWidth)draftSplit?.set(preferences.draftListWidth||170);
   $('draft-reminder').hidden=preferences.draftReminders===false;updateCount();
  }
@@ -253,12 +257,25 @@
  async function showPreview(value){
   if(!value||value.canceled)return;
   if(value.opened){report('已開啟預覽：'+value.name);return;}
-  const root=$('attachment-preview-content');root.replaceChildren();$('attachment-preview-title').textContent=value.name;
-  root.append(el('pre',value.text));
-  $('attachment-preview').showModal();
+  const root=$('attachment-preview-content'),dialog=$('attachment-preview'),size=$('preview-image-size');
+  root.replaceChildren();$('attachment-preview-title').textContent=value.name;
+  const image=value.type==='image';
+  size.hidden=!image;size.setAttribute('aria-pressed','false');size.textContent='原始大小';
+  dialog.classList.toggle('preview-image',image);
+  if(image){
+   const preview=el('img');preview.alt=value.name;preview.src=value.data;root.append(preview);
+  }else root.append(el('pre',value.text));
+  dialog.showModal();
  }
+ $('preview-image-size').addEventListener('click',()=>{
+  const size=$('preview-image-size'),actual=size.getAttribute('aria-pressed')!=='true';
+  size.setAttribute('aria-pressed',String(actual));size.textContent=actual?'符合視窗':'原始大小';
+  $('attachment-preview-content').classList.toggle('preview-original',actual);
+ });
  $('preview-close').addEventListener('click',()=>$('attachment-preview').close());
- $('attachment-preview').addEventListener('close',()=>$('attachment-preview-content').replaceChildren());
+ $('attachment-preview').addEventListener('close',()=>{
+  const root=$('attachment-preview-content');root.replaceChildren();root.classList.remove('preview-original');
+ });
  for(const type of window.draftExportTypes.TYPES)$('export-type').append(option(type.extension,type.label));$('export-type').append(option('custom','自訂副檔名…'));$('export-type').value='txt';$('export-type').addEventListener('change',()=>{$('export-custom').hidden=$('export-type').value!=='custom';});
  $('save-as').addEventListener('click',()=>{if(current&&!busy)$('export-dialog').showModal();});
  $('export-confirm').addEventListener('click',()=>{const extension=$('export-type').value==='custom'?$('export-extension').value:$('export-type').value;void run(async()=>{const result=await api.export(current.id,current.version,extension);if(!result.canceled){$('export-dialog').close();report('已另存：'+result.path);}});});
