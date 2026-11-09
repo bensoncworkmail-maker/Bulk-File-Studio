@@ -62,3 +62,19 @@ test('calendar cells render a detail title before its long master name and keep 
 test('workset resource sections collapse without losing selections and favorites default to collapsed',async()=>{
  const h=harness();await h.load();assert.equal(h.$('workset-favorites-section').open,false);assert.equal(h.$('workset-records-section').open,false);const check=h.$('workset-records').querySelector('input');check.checked=true;await check.dispatch('change');h.$('workset-records-section').open=false;assert.match(h.$('workset-records-count').textContent,/1/);h.$('workset-name').value='Collapsed resources';await h.submit('workset-form');assert.equal(h.state.data.worksets[0].recordIds[0],h.record.id);
 });
+
+test('calendar displays and searches timeline item names and opens the original record',async()=>{
+ const h=harness(),sheet=h.state.workspace.document.sheets[0],today=new Date().toLocaleDateString('sv-SE');
+ const field={id:crypto.randomUUID(),type:'timeline',label:'專案階段'};
+ sheet.fields.push(field);
+ h.record.values[field.id]=[{label:'交付文件',date:today}];
+ await h.load();
+ h.$('planning-query').value='交付文件';
+ await h.$('planning-query').dispatch('input');
+ const root=h.$('planning-content'),preview=root.querySelector('.planning-day-preview'),event=root.querySelector('.productivity-event');
+ assert.equal(preview.dataset.eventKind,'timeline');
+ assert.equal(preview.children[0].textContent,'交付文件');
+ assert.match(event.textContent,/交付文件.*客戶 A.*專案階段/);
+ await event.dispatch('click');
+ assert.ok(h.calls.some(call=>call.includes(h.record.id)));
+});

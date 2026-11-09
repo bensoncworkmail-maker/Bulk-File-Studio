@@ -30,8 +30,9 @@
     </div>
     <div id="draft-items" hidden></div>
     <div class="note-body-label"><span>內容 · 自動儲存</span><span id="char-count"></span></div><textarea id="body" spellcheck="false" placeholder="輸入筆記，或直接貼上圖片" title="拖曳右下角可調整編輯高度" aria-label="草稿內容"></textarea>
+    <div id="draft-images" aria-label="筆記圖片" hidden></div>
     <section id="drop-zone" aria-label="草稿附件">
-     <p>拖放檔案或資料夾到此視窗，也可貼上 PNG 圖片。</p>
+     <p>拖放檔案或資料夾到此視窗。貼上的 PNG 圖片會顯示在筆記內容下方。</p>
      <ul id="attachments" aria-label="附件清單"></ul>
     </section>
     <details id="draft-reminder"><summary>提醒排程（不必建立工作區紀錄）</summary><div class="draft-reminder-fields"><label>時間<input id="reminder-at" type="datetime-local"></label><label>重複<select id="reminder-repeat"><option value="none">一次</option><option value="daily">每天</option><option value="weekly">每週</option></select></label><button id="reminder-save" type="button">建立提醒</button></div></details>

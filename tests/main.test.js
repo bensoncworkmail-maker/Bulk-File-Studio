@@ -740,7 +740,17 @@ test('draft window opens from the global shortcut and creates a detail record wi
  await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,''),/主紀錄/);
  assert.equal(draft('read',pictured.id).version,pictured.version);
  await assert.rejects(draft('send',pictured.id,pictured.version,detail.id,parent,'invalid'),/提醒選項/);
+ h.dialog.showMessageBox=async(owner,options)=>{
+  assert.equal(owner,reopened);
+  assert.equal(options.buttons[options.defaultId],'保留草稿');
+  assert.equal(options.cancelId,options.defaultId);
+  assert.equal(draft('read',pictured.id).version,pictured.version);
+  assert.ok(h.handlers.get('notes-get')().document.records.some(item=>item.sheetId===detail.id));
+  assert.equal(h.messages.some(([name])=>name==='record-reminders-open'),false);
+  return {response:1};
+ };
  const sent=await draft('send',pictured.id,pictured.version,detail.id,parent,true);
+ assert.equal(sent.draftDeleted,true);
  assert.equal(sent.reminderRequested,true);
  assert.ok(h.messages.some(([name,payload])=>name==='record-reminders-open'&&payload?.recordId===sent.id));
  assert.deepEqual(h.handlers.get('reminders-list')().items,[]);

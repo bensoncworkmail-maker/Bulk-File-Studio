@@ -40,7 +40,22 @@
  }
  function agenda(document,reminders,month){
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw new Error('月份無效');const sheets=new Map(document.sheets.filter(value=>!value.deletedAt).map(value=>[value.id,value])),records=new Map(document.records.filter(value=>!value.deletedAt&&sheets.has(value.sheetId)).map(value=>[value.id,value])),events=[],masterLabel=masterLabels(document);
-  for(const record of records.values())for(const field of sheets.get(record.sheetId).fields.filter(value=>value.type==='date')){const date=record.values[field.id];if(date?.startsWith(month+'-'))events.push({recordId:record.id,title:record.title,sheet:sheets.get(record.sheetId).name,label:field.label,master:masterLabel(record),date,kind:'date'});}
+  for(const record of records.values()){
+   const sheet=sheets.get(record.sheetId);
+   const fields=sheet.fields.filter(field=>field.type==='date'||field.type==='timeline');
+   if(!fields.length)continue;
+   const base={recordId:record.id,title:record.title,sheet:sheet.name,master:masterLabel(record)};
+   for(const field of fields){
+    const value=record.values[field.id];
+    if(field.type==='date'){
+     if(value?.startsWith(month+'-'))events.push({...base,label:field.label,date:value,kind:'date'});
+    }else{
+     for(const item of value||[]){
+      if(item.date.startsWith(month+'-'))events.push({...base,label:field.label,date:item.date,kind:'timeline',itemLabel:item.label});
+     }
+    }
+   }
+  }
   for(const item of reminders){const record=records.get(item.recordId);if(!record&&!item.standalone)continue;const time=new Date(item.at),date=time.getFullYear()+'-'+String(time.getMonth()+1).padStart(2,'0')+'-'+String(time.getDate()).padStart(2,'0');if(date.startsWith(month+'-'))events.push({recordId:record?.id||null,...(item.standalone?{standalone:true,reminderId:item.id}:{}),title:item.standalone?.title||record?.title||'草稿提醒',sheet:item.standalone?'草稿提醒':sheets.get(record.sheetId).name,label:'提醒',master:record?masterLabel(record):'',date,at:item.at,status:item.status,kind:'reminder'});}
   return events.sort((a,b)=>a.date.localeCompare(b.date)||a.title.localeCompare(b.title));
  }

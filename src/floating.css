@@ -80,6 +80,7 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 #mini-panel-content .tool-view-result small{color:var(--muted)}
 #mini-panel-content .tool-view-result button{flex:0 0 auto}
 #mini-panel-content .tool-view-pager{display:flex;align-items:center;justify-content:center;gap:5px;margin:6px 0}
+#mini-panel-content .tool-view-result[data-event-kind=timeline]{border-inline-start:3px solid #187963}
 #mini-panel-content .tool-view-result[data-event-kind=reminder]{border-inline-start:3px solid var(--accent)}
 :root[data-mini-panel]:not([data-mini-panel=files]) #mini-heading{display:none}
 

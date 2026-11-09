@@ -1,5 +1,5 @@
-:root{--planning-date:var(--accent);--planning-reminder:#f0ba76}
-:root[data-theme=light]{--planning-reminder:#a55917}
+:root{--planning-date:var(--accent);--planning-timeline:#72c3b0;--planning-reminder:#f0ba76}
+:root[data-theme=light]{--planning-reminder:#a55917;--planning-timeline:#187963}
 :root[data-theme=graphite]{--planning-reminder:#e4bb82}
 .tool-overlay-body{margin:0;min-width:0;overflow:auto}
 .tool-view{padding:clamp(12px,2vw,24px);min-width:0}
@@ -38,6 +38,7 @@
 .tool-view-result small{color:var(--muted)}
 .tool-view-result p{white-space:pre-wrap;margin:6px 0 0;line-height:1.45}
 .tool-view-list[data-layout=cards] .tool-view-result{display:grid;align-content:start;justify-items:start;justify-content:stretch}
+.tool-view-result[data-event-kind=timeline]{border-inline-start:3px solid var(--planning-timeline)}
 .tool-view-result[data-event-kind=reminder]{border-inline-start:3px solid var(--planning-reminder,var(--accent))}
 .tool-view-pager{justify-content:center;margin-top:12px}
 .tool-view-empty{color:var(--muted);padding:16px;border:1px dashed var(--line);border-radius:8px}

@@ -51,8 +51,8 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
   const month=filters.month||new Date().toLocaleDateString('sv-SE').slice(0,7);
   const byId=new Map(records.map(record=>[record.id,record]));
   const rows=P.agenda(doc,reminders,month)
-   .filter(event=>[event.title,event.sheet,event.label,event.master,byId.get(event.recordId)?.notes||''].some(value=>value.toLocaleLowerCase().includes(query)))
-   .map(event=>({id:event.recordId||event.reminderId,title:event.title,group:event.date,detail:[event.sheet,event.master,event.label].filter(Boolean).join(' · '),eventKind:event.kind}));
+   .filter(event=>[event.title,event.sheet,event.label,event.master,event.itemLabel,byId.get(event.recordId)?.notes].some(value=>value?.toLocaleLowerCase().includes(query)))
+   .map(event=>({id:event.recordId||event.reminderId,title:event.itemLabel||event.title,group:event.date,detail:[event.sheet,event.master,event.itemLabel&&event.title,event.label].filter(Boolean).join(' · '),eventKind:event.kind}));
   if(filters.mode!=='calendar')return paginate(rows);
   const counts={};
   for(const row of rows)counts[row.group]=(counts[row.group]||0)+1;

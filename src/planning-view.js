@@ -60,7 +60,7 @@
    const records=new Map(doc.records.map(record=>[record.id,record]));
    const events=model.agenda(doc,state.reminders.items,month.value).filter(event=>
     (!sheet.value||records.get(event.recordId)?.sheetId===sheet.value)&&
-    (event.title+' '+event.sheet+' '+event.label+' '+event.master+' '+(records.get(event.recordId)?.notes||'')).toLocaleLowerCase().includes(text));
+    [event.title,event.sheet,event.label,event.master,event.itemLabel,records.get(event.recordId)?.notes].join(' ').toLocaleLowerCase().includes(text));
    const byDate=new Map();
    for(const event of events){
     if(!byDate.has(event.date))byDate.set(event.date,[]);
@@ -76,7 +76,7 @@
    const formatMonth=new Intl.DateTimeFormat('zh-Hant',{year:'numeric',month:'long'});
    summary.append(node('h2',formatMonth.format(monthStart)),node('span',events.length+' 項行程'));
    const legend=node('div',undefined,'planning-legend');
-   legend.append(node('span','日期欄位','planning-date-key'),node('span','提醒','planning-reminder-key'));
+   legend.append(node('span','日期欄位','planning-date-key'),node('span','時間軸','planning-timeline-key'),node('span','提醒','planning-reminder-key'));
    summary.append(legend);
    const region=node('div',undefined,'planning-calendar-layout');
    const agenda=node('section',undefined,'planning-agenda');
@@ -93,9 +93,9 @@
     agenda.replaceChildren(heading);
     if(!rows.length)agenda.append(node('p','這一天沒有符合條件的行程。可選擇其他日期。','planning-column-empty'));
     for(const event of rows){
-     const open=button(event.title,()=>openEvent(event),'btn btn-ghost productivity-event');
+     const open=button(event.itemLabel||event.title,()=>openEvent(event),'btn btn-ghost productivity-event');
      const time=event.at?new Date(event.at).toLocaleTimeString('zh-Hant',{hour:'2-digit',minute:'2-digit'})+' · ':'';
-     open.append(node('small',[time+event.sheet,event.master,event.label].filter(Boolean).join(' ／ ')));
+     open.append(node('small',[time+event.sheet,event.master,event.itemLabel&&event.title,event.label].filter(Boolean).join(' ／ ')));
      open.dataset.eventKind=event.kind;
      agenda.append(open);
     }
@@ -119,8 +119,8 @@
     for(const event of rows.slice(0,eventLimit)){
      const preview=node('span',undefined,'planning-day-preview');
      preview.dataset.eventKind=event.kind;
-     const title=node('span',event.title,'planning-day-title');
-     title.title=event.title;
+     const title=node('span',event.itemLabel||event.title,'planning-day-title');
+     title.title=event.itemLabel?event.itemLabel+' · '+event.title:event.title;
      preview.append(title);
      if(event.master){
       const master=node('span',event.master,'planning-day-master');

@@ -107,3 +107,24 @@ test('floating month uses unpaginated day counts and searches the related master
  assert.equal(result.rows.length,30);
  assert.match(result.rows[0].detail,/北區客戶/);
 });
+
+test('small calendar counts dated timeline items separately and searches their labels',()=>{
+ const {randomUUID}=require('node:crypto'),M=require('../src/notes-model');
+ const now='2026-11-01T12:00:00Z',doc=M.template(randomUUID,now,'projects');
+ const sheet=doc.sheets[0],timeline={id:randomUUID(),type:'timeline',label:'專案階段'},recordId=randomUUID();
+ sheet.fields.push(timeline);
+ doc.records=[{id:recordId,sheetId:sheet.id,title:'網站改版',notes:'',deletedAt:null,values:{
+  [timeline.id]:[{label:'上線',date:'2026-11-03'},{label:'檢查',date:'2026-11-03'},
+   {label:'未排期',date:''},{label:'回顧',date:'2026-12-03'}]
+ }}];
+ const calendar=configuration({kind:'planning'}),filters={mode:'calendar',month:'2026-11',day:'2026-11-03'};
+ const all=viewData(doc,[],[],calendar,filters);
+ assert.deepEqual(all.counts,{'2026-11-03':2});
+ assert.ok(all.rows.every(row=>row.id===recordId&&row.eventKind==='timeline'));
+ const filtered=viewData(doc,[],[],calendar,{...filters,query:'上線'});
+ assert.equal(filtered.total,1);
+ assert.equal(filtered.rows[0].title,'上線');
+ assert.match(filtered.rows[0].detail,/網站改版.*專案階段/);
+ doc.records[0].deletedAt=now;
+ assert.equal(viewData(doc,[],[],calendar,filters).total,0);
+});
