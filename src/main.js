@@ -960,7 +960,7 @@ app.whenReady().then(() => {
     if(config.kind==='snippets'&&action==='copy')return productivity.copySnippet(value,customer);
     if(config.kind==='snippets')throw new Error('此工具只可複製文字片段');
     if(action==='main'&&config.kind==='planning'){focusMain();send(win,'open-app-page','planning');return;}
-    if(action!=='visit')throw new Error('操作無效');
+    if(action!=='visit'&&!(kind==='logs'&&action==='reminder'))throw new Error('操作無效');
     if(kind==='planning'&&recordReminders.list().items.some(item=>item.id===value&&item.standalone&&item.available)){focusMain();send(win,'record-reminders-open',{});return;}
     const M=require('./notes-model'),doc=notesStore().get().document;
     const {allowedSheet}=require('./log-view-settings-model');
@@ -968,7 +968,11 @@ app.whenReady().then(() => {
      (kind!=='logs'||allowedSheet(config,desktop.settings.logView,record.sheetId)))){
       throw new Error('紀錄已移除或不在選定表格');
     }
-    focusMain();send(win,'studio-search-target',{kind:'record',id:value});
+    focusMain();
+    if(action==='reminder'){
+     const target=win,show=()=>send(target,'record-reminders-open',{recordId:value});
+     if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',show);else show();
+    }else send(win,'studio-search-target',{kind:'record',id:value});
   }
   ipcMain.handle('tool-overlay-action',(event,kind,action,value,customer)=>overlayAction(event,({config})=>{
     if(config.kind!==kind)throw new Error('浮動工具已切換分頁');
@@ -983,9 +987,9 @@ app.whenReady().then(() => {
       toolsStore().setLogPin(doc,id,pinned);
       return;
     }
-    if(!(toolsStore().get().logPins||[]).includes(id))throw new Error('紀錄已取消釘選');
     if(action==='detail')return model.logDetail(doc,record);
     if(action==='edit'){
+      if(!(toolsStore().get().logPins||[]).includes(id))throw new Error('紀錄已取消釘選');
       if(pendingNotesNavigation)throw new Error('請先完成主視窗待開啟的操作');
       pendingNotesNavigation={recordId:id,editRecord:true};
       focusMain();send(win,'notes-navigate',{});

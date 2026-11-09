@@ -57,6 +57,11 @@ function registerProductivity(options){
  handle('productivity-snippet-list',()=>store.get().snippets.map(({id,name,category,shortcut})=>({id,name,category,shortcut:shortcut||''})));
  handle('productivity-snippet-text',(_,id,customer)=>snippetText(id,customer));
  handle('tool-view-data',(_,input,filters)=>viewData(require('./tool-views-model').configuration(input),filters));
+ handle('tool-view-log-detail',(_,input,id)=>{
+  const model=require('./tool-views-model'),config=model.configuration(input),doc=notes().get().document;
+  if(config.kind!=='logs')throw new Error('紀錄操作無效');
+  return model.logDetail(doc,model.logRecord(doc,config,desktop().settings.logView,id));
+ });
 
  async function openWorkset(id){ensure();const value=store.get().worksets.find(value=>value.id===id);if(!value)throw new Error('工作集已移除');return fileOperation(async()=>{
   const doc=notes().get().document,records=value.recordIds.filter(id=>doc.records.some(record=>record.id===id&&M.live(doc,record))),available=[];for(const id of value.favoriteIds)try{const item=favorites.get(id);if(await require('./intranet-path').withIntranetPaths([item.path],()=>favorites.get(id,true).status==='ready'))available.push(id);}catch{}

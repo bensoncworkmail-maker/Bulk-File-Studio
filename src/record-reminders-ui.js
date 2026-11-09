@@ -32,6 +32,7 @@
    $('record-reminders-query').value='';$('record-reminders-filter').value=automatic?'fired':'all';
    reset(target);$('record-reminder-editor').open=Boolean(target);render(list);
    if(!$('record-reminders-dialog').open)$('record-reminders-dialog').showModal();
+   if(target)$('record-reminder-at').focus();
    if(recordId&&!target)fail('要設定提醒的紀錄已移除。');
    if(requestedRecord===recordId)requestedRecord=null;
    queued=false;

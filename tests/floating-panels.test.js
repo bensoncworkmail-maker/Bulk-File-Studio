@@ -92,10 +92,11 @@ test('floating log pins can be collapsed, expanded on demand, and shown without 
  const window={},calls=[],saved=[],root=document.getElementById('view');
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
  let pinned=false;
- const row={id:'row',title:'New Fingerprint',detail:'2026-11-09',sheet:'紀錄',markers:[{label:'狀態',value:'跟進中'}]};
+ const row={id:'row',title:'New Fingerprint',date:'2026-11-09',summary:'已開啟紀錄',sheet:'紀錄',markers:[{label:'狀態',value:'跟進中'}]};
  const view=window.toolViewsUI.mount(root,{
   close(){},action(){},saveFilters:async value=>saved.push({...value}),
   data:async()=>({rows:pinned?[]:[row],pinned:pinned?[row]:[],page:0,last:0,total:pinned?0:1,layout:'list',sort:'recent',
+   presentation:{previewLines:2,showCount:true,showEmptyPins:false,showWindowPin:false},
    tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]}),
   logRecord:async(action,id,next)=>{
    calls.push([action,id,next]);
@@ -105,6 +106,10 @@ test('floating log pins can be collapsed, expanded on demand, and shown without 
  },{kind:'logs'});
  await new Promise(setImmediate);
  const byText=text=>root.querySelectorAll('button').find(button=>button.textContent===text);
+ assert.equal(root.querySelector('.tool-view-pins').hidden,true);
+ assert.equal(root.querySelector('time').textContent,'2026-11-09');
+ assert.match(root.querySelector('.tool-view-log-preview').textContent,/已開啟紀錄/);
+
  await root.querySelector('.tool-view-pin-star').dispatch('click');
  const pins=root.querySelector('.tool-view-pins');
  assert.equal(pins.open,true);
@@ -126,5 +131,31 @@ test('floating log pins can be collapsed, expanded on demand, and shown without 
  assert.doesNotMatch(pins.textContent,/完整的跟進內容/);
  await root.querySelector('.tool-view-pin-star').dispatch('click');
  assert.match(pins.textContent,/釘選紀錄 · 0 筆/);
+ view.dispose();
+});
+
+test('compact logs can hide previews and toolbar extras while expanding and creating a reminder for a row',async()=>{
+ const document=documentFromHTML('<html><body><section id="view"></section></body></html>'),window={},actions=[];
+ const root=document.getElementById('view');
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
+ const row={id:'record',title:'Report',date:'2026-11-10',summary:'Preview note'};
+ const view=window.toolViewsUI.mount(root,{
+  close(){},pinWindow(){},saveFilters:async()=>{},
+  data:async()=>({rows:[row],pinned:[],page:0,last:0,total:1,layout:'list',sort:'recent',
+   presentation:{previewLines:0,showCount:false,showEmptyPins:false,showWindowPin:false},
+   tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]}),
+  action:async(action,id)=>actions.push([action,id]),
+  logRecord:async()=>({updatedAt:'2026-11-10',fields:[],notes:'Full note',tags:[]})
+ },{kind:'logs'});
+ await new Promise(setImmediate);
+ assert.equal(root.querySelector('.tool-view-log-preview'),null);
+ assert.equal(root.querySelector('.tool-view-pins').hidden,true);
+ assert.equal(root.querySelectorAll('button').find(button=>button.textContent==='釘住視窗').hidden,true);
+ assert.equal(root.querySelector('.tool-view-status').textContent,'');
+ await root.querySelector('[aria-label="新增提醒 Report"]').dispatch('click');
+ assert.deepEqual(actions,[['reminder','record']]);
+ await root.querySelector('[aria-label="切換詳情 Report"]').dispatch('click');
+ await new Promise(setImmediate);
+ assert.match(root.querySelector('.tool-view-pin-detail').textContent,/Full note/);
  view.dispose();
 });
