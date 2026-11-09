@@ -764,7 +764,8 @@ test('draft window opens from the global shortcut and creates a detail record wi
  assert.deepEqual(records[0].values[M.parentField(workspace.document,detail).id],[parent]);
  assert.deepEqual(records[0].fileLinks.map(item=>item.path),pictured.attachments.map(item=>item.path));
  const imagePath=records[0].fileLinks[2].path;
- assert.equal(path.basename(path.dirname(imagePath)),'draft-images');
+ assert.equal(path.basename(path.dirname(imagePath)),pictured.id);
+ assert.equal(path.basename(path.dirname(path.dirname(imagePath))),'draft-images');
  assert.deepEqual(fs.readFileSync(imagePath),png);
 });
 
@@ -1023,4 +1024,21 @@ test('floating search closes only after a trusted acknowledgement for the curren
  assert.equal(ack(main,latest),true);
  assert.equal(panel.destroyed,true);
  assert.equal(ack(main,latest),false);
+});
+
+test('focus mode unregisters excluded global shortcuts and restores them when turned off',t=>{
+ const h=harness(t),quickId=require('node:crypto').randomUUID();
+ const snippet=h.handlers.get('productivity-save')(null,'snippets',{name:'Focus snippet',body:'Text'}).snippets[0];
+ h.handlers.get('productivity-snippet-shortcut')(null,snippet.id,'Ctrl+Alt+8');
+ const configure=patch=>h.handlers.get('desktop-settings-set')(null,patch);
+ configure({floatingQuickActions:[{id:quickId,type:'open-drafts',label:'Drafts',enabled:true,shortcut:'Ctrl+Alt+7'}]});
+ const normal=[...h.registered.keys()].sort();
+ assert.ok(normal.includes('CommandOrControl+Alt+7'));
+ assert.ok(normal.includes('CommandOrControl+Alt+8'));
+ configure({focusMode:true,focusShortcutIds:['draftShortcut','action:'+quickId,'snippet:'+snippet.id]});
+ assert.deepEqual([...h.registered.keys()].sort(),['CommandOrControl+Alt+7','CommandOrControl+Alt+8','CommandOrControl+Alt+D']);
+ configure({focusShortcutIds:[]});
+ assert.equal(h.registered.size,0);
+ configure({focusMode:false});
+ assert.deepEqual([...h.registered.keys()].sort(),normal);
 });

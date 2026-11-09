@@ -10,6 +10,8 @@ const toolPreferences=require('./tool-preferences');
 const MAX_IMAGE=5*1024*1024,MAX_ATTACHMENTS=48,MAX_IMAGES=8;
 const fileKey=value=>process.platform==='win32'?value.toLowerCase():value;
 const html=path.join(__dirname,'draft-notes.html');
+const textField=field=>['text','longtext'].includes(field.type);
+const extraField=field=>!['relation','multiselect'].includes(field.type)&&!M.structured.isType(field.type);
 
 function draftText(draft){
  const rows=M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
@@ -66,7 +68,8 @@ class DraftNotes{
   const {theme,fontSize}=this.settings(),store=this.store(),drafts=store.draftList();
   const doc=store.get().document;
   const sheets=doc.sheets.filter(sheet=>!sheet.deletedAt).map(sheet=>({id:sheet.id,name:sheet.name,
-   group:doc.areas.find(area=>area.id===sheet.areaId)?.name||'',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null}));
+   group:doc.areas.find(area=>area.id===sheet.areaId)?.name||'',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null,
+   fields:sheet.fields.filter(field=>extraField(field)||M.structured.isType(field.type)).map(({id,label,type,options})=>({id,label,type,options}))}));
   this.ready=true;
   return {theme,fontSize,drafts,sheets,preferences:require('./desktop-state').normalize(this.settings())};
  }
@@ -116,22 +119,24 @@ class DraftNotes{
  }
  paste(id,version,input){
   const bytes=pngBytes(input),store=this.store(),draft=store.draft(id);
+  if(draft.version!==version)throw new Error('草稿已變更，請重新開啟');
   if(draft.attachments.length>=MAX_ATTACHMENTS||draft.attachments.filter(item=>item.image).length>=MAX_IMAGES){
    throw new Error('每份草稿最多 48 個附件，其中最多 8 張貼上的圖片');
   }
   const image=this.nativeImage.createFromBuffer(bytes);
   if(image.isEmpty())throw new Error('無法讀取 PNG 圖片');
   const png=pngBytes(image.toPNG());
-  assertLocalPath(this.imageDir);
-  fs.mkdirSync(this.imageDir,{recursive:true});
-  const filepath=path.join(this.imageDir,randomUUID()+'.png');
+  const folder=assertLocalPath(path.join(this.imageDir,draft.id));
+  fs.mkdirSync(folder,{recursive:true});
+  const filepath=assertLocalPath(path.join(folder,randomUUID()+'.png'));
   fs.writeFileSync(filepath,png,{flag:'wx',mode:0o600});
   try{return store.saveDraft(id,version,{attachments:[...draft.attachments,{path:filepath,type:'file',image:true}]});}
   catch(error){fs.rmSync(filepath,{force:true});throw error;}
  }
  image(id,index){
-  const item=this.store().draft(id).attachments[index];
-  if(!Number.isSafeInteger(index)||!item?.image||path.dirname(item.path)!==this.imageDir||!M.ID.test(path.basename(item.path,'.png')))throw new Error('圖片附件不存在');
+  const draft=this.store().draft(id),item=draft.attachments[index];
+  if(!Number.isSafeInteger(index)||!item?.image||path.extname(item.path)!=='.png'||!M.ID.test(path.basename(item.path,'.png'))||
+   ![this.imageDir,path.join(this.imageDir,draft.id)].includes(path.dirname(item.path)))throw new Error('圖片附件不存在');
   assertLocalPath(item.path);
   const bytes=pngBytes(readStableBytes(item.path,{maxBytes:MAX_IMAGE,label:'草稿圖片'}));
   return 'data:image/png;base64,'+bytes.toString('base64');
@@ -141,11 +146,14 @@ class DraftNotes{
   if(!Number.isSafeInteger(index)||!draft.attachments[index])throw new Error('附件已移除');
   return store.saveDraft(id,version,{attachments:draft.attachments.filter((_,position)=>position!==index)});
  }
- async send(id,version,sheetId,masterId,withReminder=false){
+ async send(id,version,sheetId,masterId,withReminder=false,mapping={}){
   if(typeof withReminder!=='boolean')throw new Error('提醒選項無效');
   const store=this.store(),draft=store.draft(id);
   if(version!==draft.version)throw new Error('草稿已變更，請重新開啟');
   if(!draft.title.trim()&&!draft.body.trim()&&!draft.items?.length&&!draft.attachments.length)throw new Error('請先輸入內容或加入附件');
+  if(!mapping||typeof mapping!=='object'||Array.isArray(mapping)||
+   Object.entries(mapping).some(([key,value])=>typeof value!=='string'||(key==='extraValue'?
+    value.length>20000||value.includes('\0'):!['title','body','items','extraField'].includes(key)||value&&!M.ID.test(value))))throw new Error('草稿欄位對應無效');
   const paths=draft.attachments.map(item=>item.path);
   const afterTransfer=toolPreferences.value('draftAfterTransfer',this.settings().draftAfterTransfer);
   const saved=await withIntranetPaths(paths,()=>{
@@ -156,9 +164,26 @@ class DraftNotes{
    const fileLinks=paths.length?inspectLinks(paths).map(({path,type})=>({path,type,favoriteId:null,label:''})):[];
    const values=parent?{[parent.id]:[masterId]}:{};
    const targets=sheet.fields.filter(field=>field.type===draft.type);
-   const structured=Boolean(draft.items?.length&&targets.length===1);
-   if(structured)values[targets[0].id]=draft.items;
+   const target=Object.hasOwn(mapping,'items')?mapping.items:targets.length===1?targets[0].id:'';
+   if(target&&!targets.some(field=>field.id===target))throw new Error('清單對應的欄位已變更，請更新表格');
+   const structured=Boolean(draft.items?.length&&target);
+   if(structured)values[target]=draft.items;
    const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,200)||draft.items?.[0]?.label||'草稿筆記';
+   if(mapping.title&&mapping.title===mapping.body)throw new Error('標題與正文請對應不同欄位');
+   for(const [fieldId,value] of [[mapping.title,title],[mapping.body,draft.body]]){
+    if(!fieldId)continue;
+    const field=sheet.fields.find(item=>item.id===fieldId&&textField(item));
+    if(!field)throw new Error('文字對應的欄位已變更，請更新表格');
+    const limit=field.type==='longtext'?20000:2000;
+    if(value.length>limit)throw new Error('「'+field.label+'」最多 '+limit+' 字，請選擇其他欄位或保留在紀錄筆記');
+    values[field.id]=value;
+   }
+   if(mapping.extraField){
+    const field=sheet.fields.find(item=>item.id===mapping.extraField&&extraField(item));
+    if(!field)throw new Error('另填值的欄位已變更，請更新表格');
+    if(Object.hasOwn(values,field.id))throw new Error('另填值請選擇尚未對應的欄位');
+    if(mapping.extraValue!==undefined&&mapping.extraValue!=='')values[field.id]=M.gridValue(field,mapping.extraValue);
+   }
    const result=store.saveRecord({sheetId,title,notes:structured?draft.body:draftText(draft),tags:[],values,fileLinks},
     {operation:'草稿轉入工作區'},afterTransfer==='delete'?{id,version}:undefined);
    try{this.onSent(result);}catch(error){this.onError(error);}

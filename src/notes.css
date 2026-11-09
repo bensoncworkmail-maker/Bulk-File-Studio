@@ -88,6 +88,15 @@ dialog.notes-record-dialog .notes-form-footer .btn{height:auto;min-height:34px;w
 .notes-master-title-row>#notes-master-back{flex-shrink:0;order:0;}
 .notes-master-title-row>#notes-master-heading{order:1;}
 .notes-master-title-row>.notes-tools{order:2;}
+.notes-master-actions>.btn,.notes-master-actions #notes-compact-more>summary{min-height:28px;height:auto;padding:3px 7px;}
+#notes-master-more-slot:empty,#notes-header-more-slot:empty,#notes-selection-slot:empty{display:none;}
+#notes-compact-actions{width:min(280px,calc(100vw - 40px));max-height:min(65vh,480px);overflow:auto;}
+#notes-current-actions-slot,#notes-current-actions{display:contents;}
+#notes-compact-actions :is(.notes-tools,.notes-selection-bar,#notes-current-actions){display:grid;gap:4px;min-width:0;}
+#notes-compact-actions .notes-overflow-menu{position:static;min-width:0;box-shadow:none;margin-top:4px;}
+#notes-compact-actions .btn{justify-content:flex-start;}
+#notes-compact-actions .notes-selection-bar{padding-top:6px;border-top:1px solid var(--line);}
+#notes-compact-actions #notes-card-select-hint{display:none;}
 #notes-grid-paste-label{font-size:11px;display:flex;align-items:center;gap:4px;}
 #notes-grid-paste-label[hidden]{display:none;}
 .notes-table-mapping{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;padding:7px 0;}

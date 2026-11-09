@@ -152,3 +152,37 @@ test('draft thumbnails resize and zoom while dragged images can still expand inl
  await button.dispatch('click');
  assert.equal(image.hidden,true);
 });
+
+test('draft transfer maps chosen columns and validates duplicates before creating a record',async t=>{
+ const {store,addSheet,dir}=setup(t),sheet=addSheet('工作',['text','longtext','timeline','timeline','checkbox']);
+ const [subject,body,,milestones,done]=sheet.fields;
+ const drafts=new DraftNotes({store:()=>store,settings:()=>({draftAfterTransfer:'keep'}),imageDir:path.join(dir,'draft-images'),
+  onSent(){},onError(error){throw error;}});
+ const initial=store.createDraft(),items=[{label:'交付',date:'2026-11-15'}];
+ const draft=drafts.save(initial.id,initial.version,{title:'專案 A',body:'原始筆記',type:'timeline',items});
+ const send=mapping=>drafts.send(draft.id,draft.version,sheet.id,'',false,mapping);
+ await assert.rejects(send({title:subject.id,body:subject.id}),/不同欄位/);
+ await assert.rejects(send({items:done.id}),/欄位已變更/);
+ assert.equal(store.get().document.records.length,0);
+ const {id}=await send({title:subject.id,body:body.id,items:milestones.id,extraField:done.id,extraValue:'false'});
+ const record=store.get().document.records.find(item=>item.id===id);
+ assert.equal(record.title,'專案 A');
+ assert.equal(record.notes,'原始筆記');
+ assert.deepEqual(record.values,{[subject.id]:'專案 A',[body.id]:'原始筆記',[milestones.id]:items,[done.id]:false});
+});
+
+test('pasted images share a folder per draft and older root-level images still open',t=>{
+ const {store,dir}=setup(t),imageDir=path.join(dir,'draft-images');
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aSOkAAAAASUVORK5CYII=','base64');
+ const drafts=new DraftNotes({store:()=>store,imageDir,nativeImage:{createFromBuffer:()=>({isEmpty:()=>false,toPNG:()=>png})}});
+ const initial=store.createDraft(),first=drafts.paste(initial.id,initial.version,png),second=drafts.paste(first.id,first.version,png);
+ const other=store.createDraft(),otherImage=drafts.paste(other.id,other.version,png);
+ assert.deepEqual(second.attachments.map(item=>path.dirname(item.path)),[path.join(imageDir,first.id),path.join(imageDir,first.id)]);
+ assert.equal(path.dirname(otherImage.attachments[0].path),path.join(imageDir,other.id));
+ const legacy=path.join(imageDir,randomUUID()+'.png');
+ fs.writeFileSync(legacy,png);
+ store.saveDraft(second.id,second.version,{attachments:[...second.attachments,{path:legacy,type:'file',image:true}]});
+ assert.equal(drafts.image(second.id,0),drafts.image(second.id,2));
+ store.saveDraft(otherImage.id,otherImage.version,{attachments:[second.attachments[0]]});
+ assert.throws(()=>drafts.image(other.id,0),/圖片附件不存在/);
+});

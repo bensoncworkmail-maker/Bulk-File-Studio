@@ -18,7 +18,6 @@
   host.hidden=!enabled;
   $('draft-type-hint').hidden=type.value!=='timeline';
   $('draft-type-hint').textContent='輸出時按日期排列';
-  $('draft-transfer-hint').hidden=!enabled;
   itemsEditor=enabled?window.structuredNoteUI.editor(type.value,items,inputChanged):null;
   if(itemsEditor)itemsEditor.element.dataset.type=type.value;
   host.replaceChildren(...(itemsEditor?[itemsEditor.element]:[]));
@@ -29,7 +28,7 @@
    type.value=previous;
    return;
   }
-  renderItems([]);inputChanged();
+  renderItems([]);renderMapping(true);inputChanged();
  });
  function caption(draft){return draft.title.trim()||draft.summary.trim()||'未命名草稿';}
  function renderList(){
@@ -93,7 +92,7 @@
   $('send-reminder').checked=false;
   title.value=draft?.title||'';body.value=draft?.body||'';if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);updateCount();
   $('empty').hidden=Boolean(draft);$('editor').hidden=!draft;
-  renderList();renderAttachments();updateSend();
+  renderList();renderAttachments();renderMapping(true);updateSend();
  }
  function dirty(){return current&&(title.value!==current.title||body.value!==current.body||type.value!==(current.type||'text')||JSON.stringify(draftItems())!==JSON.stringify(current.items||[]));}
  function flush(){
@@ -159,11 +158,45 @@
    if(request===mastersRequest){master.replaceChildren(option('','請更新表格'));report(message(error),true);}
   }
  }
+ let extraInput;
+ function targetFields(){return sheets.find(item=>item.id===sheet.value)?.fields||[];}
+ function renderExtra(previous=''){
+  const host=$('draft-map-extra'),field=targetFields().find(item=>item.id===$('draft-map-extraField').value);
+  host.replaceChildren();host.hidden=!field;extraInput=null;if(!field)return;
+  const label=el('label','輸入值');
+  if(['select','checkbox'].includes(field.type)){
+   extraInput=el('select');
+   const choices=field.type==='checkbox'?[['true','是'],['false','否']]:field.options.map(value=>[value,value]);
+   extraInput.append(option('','留空'),...choices.map(([value,text])=>option(value,text)));
+  }else{
+   extraInput=el(field.type==='longtext'?'textarea':'input');
+   if(field.type!=='longtext')extraInput.type=field.type==='date'?'date':field.type==='number'?'number':'text';
+   if(field.type==='number')extraInput.step='any';
+   else if(field.type!=='date')extraInput.maxLength=field.type==='longtext'?20000:2000;
+  }
+  extraInput.value=previous;label.append(extraInput);host.append(label);
+ }
+ function renderMapping(reset=false){
+  const fields=targetFields(),extra=fields.filter(field=>!structured.isType(field.type));
+  const priorField=$('draft-map-extraField').value,priorValue=extraInput?.value;
+  const text=fields.filter(field=>['text','longtext'].includes(field.type));
+  const items=structured.isType(type.value)?fields.filter(field=>field.type===type.value):[];
+  $('draft-mapping').hidden=!extra.length&&!items.length;
+  for(const [key,choices,label] of [['title',text,'只保留在紀錄標題'],['body',text,'只保留在紀錄筆記'],['items',items,'附在紀錄筆記'],['extraField',extra,'不另填欄位']]){
+   const control=$('draft-map-'+key),previous=control.value;
+   $('draft-map-'+key+'-field').hidden=!choices.length;
+   control.replaceChildren(option('',label),...choices.map(field=>option(field.id,field.label)));
+   control.value=!reset&&(previous===''||choices.some(field=>field.id===previous))?previous:key==='items'&&choices.length===1?choices[0].id:'';
+  }
+  renderExtra(!reset&&priorField===$('draft-map-extraField').value?priorValue:undefined);
+ }
+ $('draft-map-extraField').addEventListener('change',()=>renderExtra());
  async function refreshTargets(data){
   const previous=sheet.value;sheets=data.sheets;
   sheet.replaceChildren(option('',sheets.length?'請選擇表格':'工作區尚無表格'),
    ...sheets.map(item=>option(item.id,item.group?item.group+' ／ '+item.name:item.name)));
   if(sheets.some(item=>item.id===previous))sheet.value=previous;
+  renderMapping(sheet.value!==previous);
   await loadMasters();
  }
  async function nextDraft(removed){
@@ -232,12 +265,14 @@
   void run(async()=>{const {id,version}=current;await api.deleteDraft(id,version);await nextDraft(id);report('已刪除草稿');});
  });
  $('refresh').addEventListener('click',()=>run(async()=>refreshTargets(await api.data())));
- sheet.addEventListener('change',()=>{master.value='';void loadMasters();});
+ sheet.addEventListener('change',()=>{master.value='';renderMapping(true);void loadMasters();});
  master.addEventListener('change',updateSend);
  $('send').addEventListener('click',()=>run(async()=>{
   const {id,version}=current;
   const withReminder=$('send-reminder').checked;
-  const result=await api.send(id,version,sheet.value,master.value,withReminder);
+  const mapping=Object.fromEntries(['title','body','items','extraField'].map(key=>[key,$('draft-map-'+key).value]));
+  if(extraInput)mapping.extraValue=extraInput.value;
+  const result=await api.send(id,version,sheet.value,master.value,withReminder,mapping);
   if(result.draftDeleted)await nextDraft(id);
   report('已在「'+result.sheet+'」建立紀錄，'+(result.draftDeleted?'已刪除原草稿。':'已保留原草稿。')+
    (result.draftWarning||'')+(result.reminderRequested?'請在主視窗設定提醒。':''),Boolean(result.draftWarning));

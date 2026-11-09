@@ -5,7 +5,7 @@
   let settings={},snippets=[],request=0,writing=false,signature='';const drafts=new Map();
   const node=(tag,text)=>{const element=document.createElement(tag);if(text!==undefined)element.textContent=text;return element;};
   const status=text=>$('shortcut-overview-status').textContent=text;
-  const sourceSignature=value=>JSON.stringify([window.globalShortcutModel.KEYS.map(key=>value[key]),value.floatingQuickActions,value.favoriteShortcuts,value.draftLocalShortcuts]);
+  const sourceSignature=value=>JSON.stringify([window.globalShortcutModel.KEYS.map(key=>value[key]),value.floatingQuickActions,value.favoriteShortcuts,value.draftLocalShortcuts,value.focusShortcutIds]);
   function focusEntry(row){const id=row.kind==='global'?'settings-'+row.key.replace(/Shortcut$/,'')+'-shortcut':'favorite-shortcut-'+row.key;const input=$(id);input?.scrollIntoView({block:'center'});input?.focus();}
   async function save(row,input){
    if(writing)return;writing=true;const value=window.shortcutControls.get(input);
@@ -18,6 +18,15 @@
     }else{const candidate=all.map(item=>item.id===row.target?{...item,shortcut:value}:item);window.globalShortcutModel.validatePair(fresh,candidate);await window.productivityAPI.snippetShortcut(row.target,value);}
     drafts.delete(row.id);status('快捷鍵已儲存');await refresh();
    }catch(error){status(String(error.message||error));}finally{writing=false;}
+  }
+  async function saveFocus(row,checked){
+   if(writing){render();return;}writing=true;
+   try{
+    const fresh=await window.desktopAPI.get(),ids=new Set(fresh.focusShortcutIds);
+    if(checked)ids.add(row.id);else ids.delete(row.id);
+    const result=await window.desktopAPI.configure({focusShortcutIds:[...ids]});
+    settings=result.settings;signature=sourceSignature(settings);status(result.warning||'專注模式的保留清單已儲存');render();
+   }catch(error){status(String(error.message||error));render();}finally{writing=false;}
   }
   function render(){
    const rows=M.rows(settings,snippets,window.studioShortcuts.getBindings(),window.studioShortcutModel?.LABELS||{}),conflicts=M.conflicts(rows),bad=new Map();
@@ -34,6 +43,12 @@
      input.addEventListener('keydown',()=>drafts.set(row.id,window.shortcutControls.get(input)));
      const button=node('button','儲存');button.type='button';button.className='btn btn-ghost';button.addEventListener('click',()=>save(row,input));binding.append(input);actions.append(button);
     }else{binding.append(node('kbd',row.shortcut?row.shortcut.replace('CommandOrControl','Ctrl'):'未設定'));if(row.kind!=='fixed'){const edit=node('button','設定');edit.type='button';edit.className='btn btn-ghost';edit.addEventListener('click',()=>focusEntry(row));actions.append(edit);}else actions.append(node('small','依操作情境啟用'));}
+    if(row.scope==='global'&&row.enabled&&row.shortcut){
+     const label=node('label'),check=node('input');check.type='checkbox';check.checked=settings.focusShortcutIds?.includes(row.id)===true;
+     check.setAttribute('aria-label','專注時保留 '+row.label);
+     check.addEventListener('change',()=>saveFocus(row,check.checked));
+     label.className='check-row';label.append(check,node('span','專注時保留'));actions.append(label);
+    }
     if(bad.has(row.id)){tr.dataset.conflict='true';binding.append(node('small','與「'+bad.get(row.id)+'」重複'));}
     tr.append(binding,actions);root.append(tr);
    }

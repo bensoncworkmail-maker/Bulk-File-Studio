@@ -79,4 +79,8 @@ footer{flex-wrap:wrap}
 
 .draft-type-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
 #draft-type-hint,.draft-transfer-hint { color:var(--muted); font-size:.85rem; }
-.draft-transfer-hint { flex:1 0 100%; margin:0; }
+#draft-mapping { flex:1 0 100%; border:1px solid var(--border);border-radius:7px;padding:5px 7px; }
+.draft-mapping-fields { display:flex;flex-wrap:wrap;gap:6px; }
+#draft-map-extra { flex:1 1 120px;min-width:0; }
+#draft-map-extra textarea { min-height:65px;resize:vertical; }
+.draft-transfer-hint { margin:5px 0 0; }
