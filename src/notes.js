@@ -153,9 +153,8 @@
   const fields=new Map(sheet.fields.map(field=>[field.id,field]));
   return selected.map(id=>fields.get(id)).filter(field=>field&&(showRelations||field.type!=='relation'));
  }
- function cardFieldList(fields,record,position,{preview=false,limit=50}={}){
+ function cardFieldList(fields,record,position,{preview=false,limit=50,positions={}}={}){
   const list=el('dl',undefined,'notes-card-field-list');
-  list.dataset.position=position||'right';
   for(const field of fields){
    const stored=record?.values[field.id],text=M.structured.isType(field.type)&&stored?.length?
     M.structured.summary(field.type,stored):display(field,stored);
@@ -163,7 +162,14 @@
    const row=el('div',undefined,'notes-card-field'),value=el('dd',text||'—');
    value.title=text;
    paintChoices(value,field,stored);
-   row.append(el('dt',field.label),value);list.append(row);
+   const label=el('dt',field.label);
+   row.dataset.position=positions[field.id]||position||'right';
+   if(preview){
+    bindCardDragSource(label,field.id,'order');
+    bindCardDragSource(value,field.id,'value');
+    bindCardDrop(row,field.id);
+   }
+   row.append(label,value);list.append(row);
    if(list.children.length===limit)break;
   }
   return list;
@@ -178,7 +184,7 @@
    if(options.notesCardShowParent&&context.masters.length)body.append(el('p','所屬：'+context.masters.join('、'),'notes-card-parent'));
    const chosen=options.notesCardFields[record.sheetId];
    const fields=orderedCardFields(sheetMap.get(record.sheetId),chosen,options.notesCardShowRelations);
-   const data=cardFieldList(fields,record,options.notesCardValuePositions[record.sheetId],{limit:Array.isArray(chosen)?50:3});
+   const data=cardFieldList(fields,record,options.notesCardValuePositions[record.sheetId],{limit:Array.isArray(chosen)?50:3,positions:options.notesCardFieldPositions?.[record.sheetId]});
    if(data.children.length)body.append(data);
    if(options.notesCardShowNotes&&record.notes){const note=el('p',record.notes.slice(0,120),'notes-card-note');note.title=record.notes.slice(0,1000);body.append(note);}
    if(options.notesCardShowTags&&record.tags.length){const tags=el('div',undefined,'notes-card-tags');for(const tag of record.tags.slice(0,3))tags.append(el('span',tag,'notes-chip'));body.append(tags);}
@@ -279,6 +285,7 @@
    location.title='在檔案總管定位';
    row.append(name,location);
    const actions=el('div',undefined,'notes-tools');
+   if(prefs().notesShowFileLinkButtons)actions.append(button('開啟',()=>action('open')),button('定位',()=>action('show')));
    actions.append(button('複製路徑',()=>action('copy')));
    if(link.type==='file')actions.append(button('預覽',()=>window.productivityUI?.previewLink(record.id,index)));
    row.append(actions);body.append(row);
@@ -566,6 +573,37 @@
  }
 
  const cardDisplayControls={notesCardShowType:'type',notesCardShowContext:'context',notesCardShowParent:'parent',notesCardShowRelations:'relations',notesCardShowNotes:'notes',notesCardShowTags:'tags',notesCardShowDate:'date',notesCardShowLinks:'links',notesCardShowEmptyLinks:'empty-links'};
+ const cardPositions=[['left','名稱左側'],['right','名稱右側'],['below','名稱下方']];
+ let cardFieldPositions={},cardDrag;
+ function finishCardDrag(){
+  cardDrag=null;
+  $('notes-card-preview').dataset.placingValue='false';
+ }
+ function bindCardDragSource(control,id,kind){
+  control.draggable=true;
+  control.addEventListener('dragstart',event=>{
+   cardDrag={id,kind};
+   event.dataTransfer.setData('text/plain',id);
+   event.dataTransfer.effectAllowed='move';
+   $('notes-card-preview').dataset.placingValue=String(kind==='value');
+  });
+  control.addEventListener('dragend',finishCardDrag);
+ }
+ function bindCardDrop(target,id,position){
+  const accepted=()=>position?cardDrag?.kind==='value':cardDrag?.kind==='order'&&cardDrag.id!==id;
+  target.addEventListener('dragover',event=>{if(accepted()){event.preventDefault();event.dataTransfer.dropEffect='move';}});
+  target.addEventListener('drop',event=>{
+   if(!accepted())return;
+   event.preventDefault();
+   const from=cardChecks.findIndex(item=>item.id===cardDrag.id),to=cardChecks.findIndex(item=>item.id===id);
+   finishCardDrag();
+   if(from<0||!position&&to<0)return;
+   const item=cardChecks[from];
+   if(position)cardFieldPositions[item.id]=position;
+   else{cardChecks.splice(from,1);cardChecks.splice(to,0,item);}
+   drawCardFieldRows();renderCardPreview();item.check.focus();
+  });
+ }
  function renderCardPreview(){
   const sheet=sheetMap.get($('notes-card-sheet').value),preview=$('notes-card-preview');
   preview.replaceChildren();
@@ -576,11 +614,18 @@
   const fields=orderedCardFields(sheet,selected,$('notes-card-show-relations').checked);
   const card=el('div',undefined,'notes-card notes-card-preview-card');
   card.append(el('strong',sample?.title||'紀錄標題','notes-card-title'));
-  if(fields.length)card.append(cardFieldList(fields,sample,$('notes-card-value-position').value,{preview:true}));
+  if(fields.length)card.append(cardFieldList(fields,sample,$('notes-card-value-position').value,{preview:true,positions:cardFieldPositions}));
   else card.append(el('small','目前未顯示資料欄位。','notes-hint'));
   preview.append(card);
+  if(fields.length){
+   const targets=el('div',undefined,'notes-card-position-targets');
+   targets.setAttribute('aria-hidden','true');
+   for(const [position,label] of cardPositions){
+    const target=el('span',label);target.dataset.position=position;bindCardDrop(target,null,position);targets.append(target);
+   }
+   preview.append(targets);
+  }
  }
- let draggedCardField;
  function drawCardFieldRows(){
   const parent=$('notes-card-fields');
   parent.replaceChildren();
@@ -589,17 +634,8 @@
    const row=el('div',undefined,'notes-card-field-setting'),label=el('label',undefined,'check-row');
    label.append(item.check,el('span',item.label));
    const grip=el('span','⠿','notes-card-field-grip');
-   grip.draggable=true;grip.title='拖曳調整 '+item.label;grip.setAttribute('aria-hidden','true');
-   grip.addEventListener('dragstart',event=>{draggedCardField=item;event.dataTransfer.setData('text/plain',item.id);event.dataTransfer.effectAllowed='move';});
-   grip.addEventListener('dragend',()=>{draggedCardField=null;});
-   row.addEventListener('dragover',event=>{if(draggedCardField&&draggedCardField!==item){event.preventDefault();event.dataTransfer.dropEffect='move';}});
-   row.addEventListener('drop',event=>{
-    if(!draggedCardField||draggedCardField===item)return;
-    event.preventDefault();const from=cardChecks.indexOf(draggedCardField);draggedCardField=null;
-    if(from<0)return;
-    const [moved]=cardChecks.splice(from,1);cardChecks.splice(index,0,moved);
-    drawCardFieldRows();renderCardPreview();moved.check.focus();
-   });
+   grip.title='拖曳調整 '+item.label;grip.setAttribute('aria-hidden','true');
+   bindCardDragSource(grip,item.id,'order');bindCardDrop(row,item.id);
    row.append(grip,label);
    for(const [delta,title,mark] of [[-1,'上移','↑'],[1,'下移','↓']]){
     const next=index+delta;
@@ -612,12 +648,22 @@
     move.disabled=next<0||next>=cardChecks.length;
     row.append(move);
    }
-   parent.append(row);
+   const placement=el('select');placement.setAttribute('aria-label',item.label+'的值位置');
+   for(const [position,text] of [['','依表格'],...cardPositions]){
+    const option=el('option',text);option.value=position;placement.append(option);
+   }
+   placement.value=cardFieldPositions[item.id]||'';
+   placement.addEventListener('change',()=>{
+    if(placement.value)cardFieldPositions[item.id]=placement.value;else delete cardFieldPositions[item.id];
+    renderCardPreview();
+   });
+   row.append(placement);parent.append(row);
   }
  }
  function renderCardFields(){
-  draggedCardField=null;
+  finishCardDrag();
   const sheet=sheetMap.get($('notes-card-sheet').value),options=prefs(),selected=options.notesCardFields[sheet?.id];
+  cardFieldPositions={...options.notesCardFieldPositions?.[sheet?.id]};
   const chosen=orderedCardFields(sheet||{fields:[]},selected,true);
   const automatic=chosen.slice(0,3).map(field=>field.id);
   const order=Array.isArray(selected)?[...chosen,...sheet.fields.filter(field=>!selected.includes(field.id))]:sheet?.fields||[];
@@ -667,19 +713,20 @@
    const width=Number($('notes-card-max-width').value),height=Number($('notes-card-height').value);
    if(!Number.isFinite(width)||width<240||width>720){$('notes-card-status').textContent='寬度上限請填 240–720 px。';return;}
    if(!Number.isFinite(height)||height!==0&&(height<120||height>600)){$('notes-card-status').textContent='高度請輸入 0（自動）或 120–600 px。';return;}
-   const forExistingSheets=map=>Object.fromEntries(Object.entries(map).filter(([key])=>sheetMap.has(key)));
+   const forExistingSheets=(map={})=>Object.fromEntries(Object.entries(map).filter(([key])=>sheetMap.has(key)));
    window.settingsUI.update({
     notesCardWidthMode:$('notes-card-width-mode').value,notesCardMaxWidth:Math.round(width),notesCardHeight:Math.round(height),
     ...Object.fromEntries(Object.entries(cardDisplayControls).map(([key,id])=>[key,$('notes-card-show-'+id).checked])),
     notesCardFields:{...forExistingSheets(prefs().notesCardFields),[id]:cardChecks.filter(item=>item.check.checked).map(item=>item.id)},
-    notesCardValuePositions:{...forExistingSheets(prefs().notesCardValuePositions),[id]:$('notes-card-value-position').value}
+    notesCardValuePositions:{...forExistingSheets(prefs().notesCardValuePositions),[id]:$('notes-card-value-position').value},
+    notesCardFieldPositions:{...forExistingSheets(prefs().notesCardFieldPositions),[id]:Object.fromEntries(cardChecks.filter(item=>cardFieldPositions[item.id]).map(item=>[item.id,cardFieldPositions[item.id]]))}
    });
    $('notes-card-status').textContent='已儲存卡片版面與此表格的顯示欄位。';
   });
   $('notes-card-reset').addEventListener('click',()=>{
-   const id=$('notes-card-sheet').value,fields={...prefs().notesCardFields},positions={...prefs().notesCardValuePositions};
-   delete fields[id];delete positions[id];
-   window.settingsUI.update({notesCardFields:fields,notesCardValuePositions:positions});renderCardFields();
+   const id=$('notes-card-sheet').value,fields={...prefs().notesCardFields},positions={...prefs().notesCardValuePositions},fieldPositions={...prefs().notesCardFieldPositions};
+   delete fields[id];delete positions[id];delete fieldPositions[id];
+   window.settingsUI.update({notesCardFields:fields,notesCardValuePositions:positions,notesCardFieldPositions:fieldPositions});renderCardFields();
   });
   $('notes-card-dialog').addEventListener('close',()=>{if(loaded)render();});
  }

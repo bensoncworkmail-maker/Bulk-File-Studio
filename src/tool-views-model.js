@@ -120,7 +120,9 @@ function pinnedRows(doc,records,tables,ids,filters){
   const state=firstField(filters.stateField,['select','checkbox']);
   const markers=[date,state].filter(Boolean).map(field=>({label:field.label,value:logValue(doc,record,field)}))
    .filter(field=>field.value);
-  rows.push({id,title:record.title,sheet:table.name,markers,date:new Date(record.updatedAt).toLocaleDateString('sv-SE'),summary:record.notes.slice(0,800)});
+  const parent=M.parentField(doc,table);
+  const context=parent?(record.values[parent.id]||[]).map(id=>byId.get(id)?.title).filter(Boolean).join('、'):'';
+  rows.push({id,title:record.title,sheet:table.name,markers,context,date:new Date(record.updatedAt).toLocaleDateString('sv-SE'),summary:record.notes.slice(0,800)});
  }
  return rows;
 }
