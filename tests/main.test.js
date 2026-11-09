@@ -753,6 +753,9 @@ test('draft window opens from the global shortcut and creates a detail record wi
  assert.equal(records[0].notes,'第一行\n第二行');
  assert.deepEqual(records[0].values[M.parentField(workspace.document,detail).id],[parent]);
  assert.deepEqual(records[0].fileLinks.map(item=>item.path),pictured.attachments.map(item=>item.path));
+ const imagePath=records[0].fileLinks[2].path;
+ assert.equal(path.basename(path.dirname(imagePath)),'draft-images');
+ assert.deepEqual(fs.readFileSync(imagePath),png);
 });
 
 test('dropped paths use the same read and folder validation without opening native pickers',async t=>{

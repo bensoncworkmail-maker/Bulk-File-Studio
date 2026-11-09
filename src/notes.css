@@ -173,3 +173,11 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 .notes-layout[data-scope=details] .notes-master-context,.notes-layout[data-scope=details] .notes-content>.notes-detail-tabs{display:none}
 
 .notes-website-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}.notes-detail dd{overflow-wrap:anywhere}
+
+.notes-choice-chip { display:inline-flex; align-items:center; gap:4px; max-width:100%; margin-inline-end:4px; padding:1px 5px; border:1px solid var(--line); border-radius:5px; }
+.notes-choice-chip::before { content:''; width:8px; height:8px; flex:none; border-radius:50%; background:var(--notes-choice-color,var(--muted)); }
+.notes-option-colors { min-width:0; }
+.notes-option-color-list { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px; }
+.notes-option-color-list label { display:flex; align-items:center; justify-content:space-between; gap:5px; overflow-wrap:anywhere; }
+.notes-option-color-list input[type="color"] { flex:none; width:34px; padding:2px; }
+.notes-structured-value { white-space:pre-wrap; overflow-wrap:anywhere; }

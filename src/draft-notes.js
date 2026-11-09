@@ -10,6 +10,11 @@ const MAX_IMAGE=5*1024*1024,MAX_ATTACHMENTS=48,MAX_IMAGES=8;
 const fileKey=value=>process.platform==='win32'?value.toLowerCase():value;
 const html=path.join(__dirname,'draft-notes.html');
 
+function draftText(draft){
+ const rows=M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
+ return [draft.body,rows].filter(Boolean).join('\n\n');
+}
+
 function pngBytes(input){
  if(!ArrayBuffer.isView(input)||input.byteLength<33||input.byteLength>MAX_IMAGE)throw new Error('請貼上 5 MB 以下的 PNG 圖片');
  const bytes=Buffer.from(input.buffer,input.byteOffset,input.byteLength);
@@ -69,7 +74,7 @@ class DraftNotes{
   if(!patch||Object.keys(patch).some(key=>!allowed.includes(key)))throw new Error('草稿版面設定無效');
   return this.desktop.update(patch);
  }
- save(id,version,patch){return this.store().saveDraft(id,version,{title:patch?.title,body:patch?.body},this.settings().draftBodyLimit??100000);}
+ save(id,version,patch){return this.store().saveDraft(id,version,{title:patch?.title,body:patch?.body,...(patch?.type===undefined?{}:{type:patch.type,items:patch.items})},this.settings().draftBodyLimit??100000);}
  async export(id,version,extension='txt'){
   extension=require('./draft-export-types').extension(extension);
   const draft=this.store().draft(id);if(draft.version!==version)throw new Error('草稿已變更，請重試');
@@ -78,7 +83,7 @@ class DraftNotes{
   if(result.canceled||!result.filePath)return {canceled:true};
   const dest=assertLocalPath(result.filePath),relative=path.relative(path.dirname(this.imageDir),dest);if(relative===''||!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative))throw new Error('請選擇程式資料目錄以外的位置');if(!path.extname(dest))throw new Error('請為檔名加上副檔名，例如 .'+ext);require('./draft-export-types').extension(path.extname(dest).slice(1));
   // User-selected extension controls the filename; this remains plain UTF-8, not binary Word/PDF.
-  fs.writeFileSync(dest,draft.body,{encoding:'utf8'});return {path:dest};
+  fs.writeFileSync(dest,draftText(draft),{encoding:'utf8'});return {path:dest};
  }
  async preview(id,index){
   const item=this.store().draft(id).attachments[index];if(!Number.isSafeInteger(index)||!item)throw new Error('附件已移除');
@@ -87,7 +92,7 @@ class DraftNotes{
  remind(id,version,input){
   if(this.settings().draftReminders===false)throw new Error('請先在草稿筆記設定啟用提醒');
   const draft=this.store().draft(id);if(draft.version!==version)throw new Error('草稿已變更，請重試');
-  return this.onStandaloneReminder({recordId:null,standalone:{title:draft.title.trim()||'未命名草稿',body:draft.body.slice(0,4000)},at:input?.at,repeat:input?.repeat||'none',delivery:input?.delivery||'default',fieldIds:[],includeNotes:false,message:''});
+  return this.onStandaloneReminder({recordId:null,standalone:{title:draft.title.trim()||'未命名草稿',body:draftText(draft).slice(0,4000)},at:input?.at,repeat:input?.repeat||'none',delivery:input?.delivery||'default',fieldIds:[],includeNotes:false,message:''});
  }
  masters(sheetId){
   const doc=this.store().get().document,sheet=doc.sheets.find(sheet=>sheet.id===sheetId&&!sheet.deletedAt);
@@ -139,15 +144,19 @@ class DraftNotes{
   if(typeof withReminder!=='boolean')throw new Error('提醒選項無效');
   const store=this.store(),draft=store.draft(id);
   if(version!==draft.version)throw new Error('草稿已變更，請重新開啟');
-  if(!draft.title.trim()&&!draft.body.trim()&&!draft.attachments.length)throw new Error('請先輸入內容或加入附件');
+  if(!draft.title.trim()&&!draft.body.trim()&&!draft.items?.length&&!draft.attachments.length)throw new Error('請先輸入內容或加入附件');
   const paths=draft.attachments.map(item=>item.path);
   return withIntranetPaths(paths,()=>{
    const doc=store.get().document,sheet=doc.sheets.find(sheet=>sheet.id===sheetId&&!sheet.deletedAt);
    if(!sheet)throw new Error('請選擇可用表格');
    const parent=M.parentField(doc,sheet);
    const fileLinks=paths.length?inspectLinks(paths).map(({path,type})=>({path,type,favoriteId:null,label:''})):[];
-   const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,200)||'草稿筆記';
-   const result=store.saveRecord({sheetId,title,notes:draft.body,tags:[],values:parent?{[parent.id]:[masterId]}:{},fileLinks},
+   const values=parent?{[parent.id]:[masterId]}:{};
+   const targets=sheet.fields.filter(field=>field.type===draft.type);
+   const structured=Boolean(draft.items?.length&&targets.length===1);
+   if(structured)values[targets[0].id]=draft.items;
+   const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,200)||draft.items?.[0]?.label||'草稿筆記';
+   const result=store.saveRecord({sheetId,title,notes:structured?draft.body:draftText(draft),tags:[],values,fileLinks},
     {operation:'草稿轉入工作區'},{id,version});
    try{this.onSent(result);}catch(error){this.onError(error);}
    const recordId=result.result.id;

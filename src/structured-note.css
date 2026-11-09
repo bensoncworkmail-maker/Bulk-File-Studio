@@ -1,0 +1,8 @@
+.structured-note { min-width:0; }
+.structured-note-rows { display:grid; gap:5px; margin:0 0 6px; padding:0; list-style:none; }
+.structured-note-rows:empty { margin:0; }
+.structured-note-rows li { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.structured-note-rows input[type="text"] { flex:1 1 130px; min-width:0; width:auto; }
+.structured-note-rows :is(input[type="date"], select) { flex:0 1 auto; width:auto; }
+.structured-note-rows input[type="checkbox"] { width:auto; margin:0 5px; }
+.structured-note-rows button { padding-inline:7px; }

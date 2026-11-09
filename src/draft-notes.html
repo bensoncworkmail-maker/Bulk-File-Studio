@@ -6,6 +6,8 @@
  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
  <title>草稿筆記 · Bulk File Studio</title>
  <link rel="stylesheet" href="draft-notes.css">
+ <link rel="stylesheet" href="structured-note.css">
+ <script src="structured-note-model.js" defer></script><script src="structured-note-ui.js" defer></script>
  <script defer src="resizable-split.js"></script><script defer src="draft-export-types.js"></script><script defer src="draft-notes-ui.js"></script>
 </head>
 <body>
@@ -22,7 +24,12 @@
      <input id="title" maxlength="200" placeholder="標題（選填）" aria-label="草稿標題">
      <button id="save-as" type="button" title="Ctrl+Shift+S">另存檔案</button><button id="delete" type="button">刪除</button>
     </div>
-    <div class="note-body-label"><span>內容 · 自動儲存</span><span id="char-count"></span></div><textarea id="body" placeholder="輸入筆記，或直接貼上圖片" title="拖曳右下角可調整編輯高度" aria-label="草稿內容"></textarea>
+    <div class="draft-type-row">
+     <label>筆記類型 <select id="draft-type"><option value="text">文字</option></select></label>
+     <span id="draft-type-hint" hidden></span>
+    </div>
+    <div id="draft-items" hidden></div>
+    <div class="note-body-label"><span>內容 · 自動儲存</span><span id="char-count"></span></div><textarea id="body" spellcheck="false" placeholder="輸入筆記，或直接貼上圖片" title="拖曳右下角可調整編輯高度" aria-label="草稿內容"></textarea>
     <section id="drop-zone" aria-label="草稿附件">
      <p>拖放檔案或資料夾到此視窗，也可貼上 PNG 圖片。</p>
      <ul id="attachments" aria-label="附件清單"></ul>
@@ -30,6 +37,7 @@
     <details id="draft-reminder"><summary>提醒排程（不必建立工作區紀錄）</summary><div class="draft-reminder-fields"><label>時間<input id="reminder-at" type="datetime-local"></label><label>重複<select id="reminder-repeat"><option value="none">一次</option><option value="daily">每天</option><option value="weekly">每週</option></select></label><button id="reminder-save" type="button">建立提醒</button></div></details>
     <details class="send-details" open><summary>送往資料工作區</summary><div class="destination">
      <label>送往工作區<select id="sheet"></select></label>
+     <p class="draft-transfer-hint" id="draft-transfer-hint" hidden>目的表格只有一個同類欄位時，清單會填入該欄位；其他情況會附在紀錄筆記。</p>
      <label id="master-field" hidden>主紀錄<select id="master"></select></label>
      <div class="destination-actions">
       <button id="refresh" type="button" title="重新讀取工作區表格及主紀錄">更新表格</button>

@@ -1,7 +1,8 @@
 'use strict';
 (() => {
  const web=typeof module!=='undefined'&&module.exports?require('./web-link-model'):window.webLinkModel;
- const TYPES={text:'文字',longtext:'長文字',number:'數字',date:'日期',checkbox:'勾選',select:'單選',multiselect:'多選',phone:'電話',email:'Email',url:'網址',relation:'關聯紀錄'};
+ const structured=typeof module!=='undefined'&&module.exports?require('./structured-note-model'):window.structuredNoteModel;
+ const TYPES={...structured.TYPES,text:'文字',longtext:'長文字',number:'數字',date:'日期',checkbox:'勾選',select:'單選',multiselect:'多選',phone:'電話',email:'Email',url:'網址',relation:'關聯紀錄'};
  const TEMPLATES={clients:{name:'客戶管理',description:'客戶主檔；聯絡人、文件／位置、紀錄及合約明細'},projects:{name:'專案管理',description:'專案、任務、會議紀錄'},assets:{name:'設備管理',description:'設備、維修紀錄、供應商'},knowledge:{name:'知識筆記',description:'主題、筆記、參考資料'},inventory:{name:'物品管理',description:'物品、出入紀錄、存放位置'}};
  const LIMITS={areas:50,sheets:100,fields:50,records:5000,bytes:20*1024*1024};
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,7 +27,15 @@
    const sheet={id:unique(source.id),name:text(source.name,100,'表格名稱',true).trim(),areaId:source.areaId==null?null:id(source.areaId),fields:[],...meta(source)};
    for(const field of source.fields){
     if(!isObject(field)||!Object.hasOwn(TYPES,field.type))fail('欄位類型無效');
-    sheet.fields.push({id:unique(field.id),label:text(field.label,80,'欄位名稱',true).trim(),type:field.type,options:['select','multiselect'].includes(field.type)?strings(field.options,100,100,'選項'):[],targetSheetId:field.type==='relation'?id(field.targetSheetId):null});
+    const options=['select','multiselect'].includes(field.type)?strings(field.options,100,100,'選項'):[];
+    const colors=field.optionColors;
+    if(colors!==undefined&&!isObject(colors))fail('選項顏色格式無效');
+    const entries=options.filter(option=>Object.hasOwn(colors||{},option)).map(option=>{
+     const color=colors[option];
+     if(typeof color!=='string'||!/^#[0-9a-f]{6}$/i.test(color))fail('選項顏色請使用六位十六進位色碼');
+     return [option,color.toLowerCase()];
+    });
+    sheet.fields.push({id:unique(field.id),label:text(field.label,80,'欄位名稱',true).trim(),type:field.type,options,...(entries.length?{optionColors:Object.fromEntries(entries)}:{}),targetSheetId:field.type==='relation'?id(field.targetSheetId):null});
    }
    doc.sheets.push(sheet);
   }
@@ -48,6 +57,7 @@
     else if(field.type==='relation'){if(!Array.isArray(value)||value.length>500)fail('關聯數量無效');record.values[field.id]=[...new Set(value.map(id))];}
     else if(field.type==='select'){if(!field.options.includes(value))fail('單選值不在選項中');record.values[field.id]=value;}
     else if(field.type==='multiselect'){const list=strings(value,100,100,'多選');if(list.some(item=>!field.options.includes(item)))fail('多選值不在選項中');record.values[field.id]=list;}
+    else if(structured.isType(field.type)){const items=structured.normalize(field.type,value);if(items.length)record.values[field.id]=items;}
     else record.values[field.id]=text(value,field.type==='longtext'?20000:2000,'欄位文字');
    }
    if(!Array.isArray(source.fileLinks)||source.fileLinks.length>100)fail('檔案連結數量無效');
@@ -64,7 +74,7 @@
   const ids=new Set(),sheets=new Map(doc.sheets.map(sheet=>[sheet.id,sheet]));for(const record of doc.records){const sheet=sheets.get(record.sheetId);for(const field of sheet.fields.filter(field=>field.type==='relation')){const targets=record.values[field.id]||[];if(record.id===recordId)targets.forEach(target=>ids.add(target));if(targets.includes(recordId))ids.add(record.id);}}
   ids.delete(recordId);return doc.records.filter(record=>ids.has(record.id)&&live(doc,record));
  }
- function cell(doc,field,value){if(value===null||value===undefined)return '';if(field.type==='checkbox')return value?'✓':'—';if(field.type==='relation')return value.map(id=>{const record=doc.records.find(record=>record.id===id);return record?(live(doc,record)?record.title:record.title+'（已刪除）'):'（未提供）';}).join('、');return Array.isArray(value)?value.join('、'):String(value);}
+ function cell(doc,field,value){if(value===null||value===undefined)return '';if(structured.isType(field.type))return structured.format(field.type,value);if(field.type==='checkbox')return value?'✓':'—';if(field.type==='relation')return value.map(id=>{const record=doc.records.find(record=>record.id===id);return record?(live(doc,record)?record.title:record.title+'（已刪除）'):'（未提供）';}).join('、');return Array.isArray(value)?value.join('、'):String(value);}
  function template(makeId,now,kind='clients'){
   if(!Object.hasOwn(TEMPLATES,kind))fail('範本不存在');
   const area={id:makeId(),name:TEMPLATES[kind].name,masterSheetId:null},doc={schemaVersion:3,id:makeId(),name:'我的資料工作區',areas:[area],sheets:[],records:[]};
@@ -159,7 +169,11 @@
    next.areas.push(...doc.areas);next.sheets.push(...doc.sheets);next.records.push(...doc.records);added=doc.records.length;
   }else{
    for(const area of doc.areas){const old=next.areas.find(value=>value.id===area.id);if(!old)next.areas.push(area);else if(mode==='update'&&!preserveAreas.has(area.id))Object.assign(old,area);}
-   for(const sheet of doc.sheets){const old=next.sheets.find(value=>value.id===sheet.id);if(!old){next.sheets.push(sheet);continue;}if(preserveSheets.has(sheet.id))continue;for(const field of sheet.fields){const existing=old.fields.find(value=>value.id===field.id);if(existing){if(existing.type!==field.type||existing.targetSheetId!==field.targetSheetId)fail('欄位結構衝突，請改用另存副本');if(mode==='update'){existing.label=field.label;existing.options=[...new Set([...existing.options,...field.options])];}}else old.fields.push(field);}if(mode==='update'){old.areaId=sheet.areaId;old.name=sheet.name;old.updatedAt=now;old.version++;}}
+   for(const sheet of doc.sheets){const old=next.sheets.find(value=>value.id===sheet.id);if(!old){next.sheets.push(sheet);continue;}if(preserveSheets.has(sheet.id))continue;for(const field of sheet.fields){const existing=old.fields.find(value=>value.id===field.id);if(existing){if(existing.type!==field.type||existing.targetSheetId!==field.targetSheetId)fail('欄位結構衝突，請改用另存副本');if(mode==='update'){existing.label=field.label;existing.options=[...new Set([...existing.options,...field.options])];
+      if(existing.optionColors||field.optionColors){
+       const retained=Object.entries(existing.optionColors||{}).filter(([option])=>!field.options.includes(option));
+       existing.optionColors=Object.fromEntries([...retained,...Object.entries(field.optionColors||{})]);
+      }}}else old.fields.push(field);}if(mode==='update'){old.areaId=sheet.areaId;old.name=sheet.name;old.updatedAt=now;old.version++;}}
    for(const record of doc.records){const index=next.records.findIndex(value=>value.id===record.id);if(index<0){next.records.push(record);added++;}else if(mode==='skip')skipped++;else{if(next.records[index].sheetId!==record.sheetId)fail('紀錄所屬表格衝突，請改用另存副本');const local=next.records[index];
     if(preserveSheets.size)for(const field of doc.sheets.find(sheet=>sheet.id===record.sheetId).fields){
      if(field.type==='relation'&&preserveSheets.has(field.targetSheetId))delete record.values[field.id];
@@ -181,7 +195,11 @@
   if(quoted)fail('貼上內容的引號未結束');if(cell||rows[rows.length-1].length||!rows[rows.length-1].length&&rows.length===1)push();else rows.pop();return rows;
  }
  function gridValue(field,value){
-  if(!field||['relation','multiselect'].includes(field.type))fail('關聯與多選欄位請使用完整表單');if(typeof value!=='string')fail('儲存格內容無效');if(field.type==='url')return value.trim()?web.normalize(value):'';if(field.type==='number'){if(!value.trim())return null;const number=Number(value);if(!Number.isFinite(number))fail('請輸入有效數字');return number;}if(field.type==='checkbox'){if(['true','1','✓','是'].includes(value.toLowerCase()))return true;if(['false','0','','—','否'].includes(value.toLowerCase()))return false;fail('勾選欄位請輸入 true／false');}return value;
+  if(!field||['relation','multiselect'].includes(field.type))fail('關聯與多選欄位請使用完整表單');if(typeof value!=='string')fail('儲存格內容無效');if(structured.isType(field.type)){
+   if(!value.trim())return '';
+   let items;try{items=JSON.parse(value);}catch{fail(field.label+'：請貼上由 Excel 匯出的清單資料');}
+   return structured.normalize(field.type,items);
+  }if(field.type==='url')return value.trim()?web.normalize(value):'';if(field.type==='number'){if(!value.trim())return null;const number=Number(value);if(!Number.isFinite(number))fail('請輸入有效數字');return number;}if(field.type==='checkbox'){if(['true','1','✓','是'].includes(value.toLowerCase()))return true;if(['false','0','','—','否'].includes(value.toLowerCase()))return false;fail('勾選欄位請輸入 true／false');}return value;
  }
  function tabularRows(input){
   if(!Array.isArray(input)||input.length>1001)fail('每次最多 1000 筆資料（另加一列標題）');let total=0,cells=0;return input.map(row=>{if(!Array.isArray(row)||row.length>100)fail('每列最多 100 欄');return Array.from(row,value=>{if(++cells>50000)fail('每次最多 50,000 格');const textValue=value===null||value===undefined?'':value;if(typeof textValue!=='string'||textValue.length>20000||textValue.includes('\0'))fail('儲存格文字無效或超過 20,000 字');total+=textValue.length;if(total>2*1024*1024)fail('資料文字超過 2 MB');return textValue;});});
@@ -243,6 +261,7 @@
    if(!record)fail('表格或紀錄已變更，請重新整理後再匯出');
    return [record.title,...fields.map(field=>{
     const value=record.values[field.id];
+    if(structured.isType(field.type))return value?.length?JSON.stringify(value):'';
     return Array.isArray(value)?writeTabularList(value):String(value??'');
    }),record.notes,writeTabularList(record.tags),record.fileLinks.map(link=>link.path).join('\n')];
   });
@@ -281,6 +300,6 @@
   const groups=[...doc.areas.map(area=>({id:area.id,title:area.name,masterSheetId:area.masterSheetId,category:areaCategory(doc,area)})),{id:'ungrouped',title:'未分組',masterSheetId:null,category:'未分組'}];
   return groups.filter(group=>(!category||group.category===category)&&(tokens.length||areaId==='all'||areaId===group.id)).map(group=>{const all=sheets.filter(sheet=>(sheet.areaId||'ungrouped')===group.id),groupMatch=tokens.length&&matches(group.title+' '+group.category),masterSheet=all.find(sheet=>sheet.id===group.masterSheetId),masters=tokens.length&&masterSheet?records.filter(record=>record.sheetId===masterSheet.id&&matches(record.title+' '+masterSheet.fields.map(field=>cell(doc,field,record.values[field.id])).join(' '))):[];const visible=all.filter(sheet=>!tokens.length||groupMatch||matches(sheet.name)).sort((a,b)=>Number(b.id===group.masterSheetId)-Number(a.id===group.masterSheetId));return {...group,sheets:visible.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields.length,role:sheet.id===group.masterSheetId?'master':parentField(doc,sheet)?'detail':'other',count:counts.get(sheet.id)||0})),masters:masters.slice(0,30).map(record=>({id:record.id,title:record.title})),masterTotal:masters.length,tableTotal:all.length,match:Boolean(groupMatch)};}).filter(group=>tokens.length?group.sheets.length||group.masterTotal||group.match:group.tableTotal||areaId===group.id||group.id!=='ungrouped');
  }
- const api={masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={structured,masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();
