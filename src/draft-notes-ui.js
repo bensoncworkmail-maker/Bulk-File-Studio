@@ -51,21 +51,37 @@
    (!title.value.trim()&&!body.value.trim()&&!draftItems().length&&!current.attachments.length);
  }
  function renderAttachments(){
-  const target=$('attachments'),request=++attachmentsRequest;
+  const target=$('attachments'),images=$('draft-images'),request=++attachmentsRequest;
   target.replaceChildren();
+  images.replaceChildren();images.hidden=true;
   if(!current)return;
   for(const [index,item] of current.attachments.entries()){
-   const row=el('li'),label=el('span',item.image?'貼上的圖片 '+(index+1):item.path);
-   label.title=item.path;
-   if(item.image){
-    const preview=el('img');preview.alt='貼上的圖片 '+(index+1);
-    api.image(current.id,index).then(source=>{if(request===attachmentsRequest){preview.src=source;row.prepend(preview);}})
-     .catch(()=>{if(request===attachmentsRequest)label.textContent+='（無法預覽）';});
-   }
-   const previewButton=el('button','預覽');previewButton.type='button';previewButton.title='預覽 '+item.path;previewButton.addEventListener('click',()=>run(async()=>showPreview(await api.preview(current.id,index))));
-   const remove=el('button','移除');remove.type='button';remove.setAttribute('aria-label','移除 '+label.textContent);
+   const name=item.image?'貼上的圖片 '+(images.children.length+1):item.path;
+   const remove=el('button','移除');remove.type='button';remove.setAttribute('aria-label','移除 '+name);
    remove.addEventListener('click',()=>changeAttachments(()=>api.remove(current.id,current.version,index)));
-   row.append(label,previewButton,remove);target.append(row);
+   if(item.image){
+    const figure=el('figure'),preview=el('img'),caption=el('figcaption');
+    const label=el('span',name);preview.alt=name;preview.hidden=true;
+    caption.append(label,remove);figure.append(preview,caption);images.append(figure);images.hidden=false;
+    api.image(current.id,index).then(source=>{if(request===attachmentsRequest){preview.src=source;preview.hidden=false;}})
+     .catch(()=>{if(request===attachmentsRequest)label.textContent+='（無法預覽）';});
+    continue;
+   }
+   const row=el('li'),label=el('span',name),previewButton=el('button','預覽'),inline=el('img');
+   label.title=name;inline.hidden=true;inline.alt=name;
+   previewButton.type='button';previewButton.title='預覽 '+name;previewButton.setAttribute('aria-expanded','false');
+   previewButton.addEventListener('click',()=>run(async()=>{
+    if(!inline.hidden){
+     inline.hidden=true;inline.removeAttribute('src');
+     previewButton.textContent='預覽';previewButton.setAttribute('aria-expanded','false');return;
+    }
+    const value=await api.preview(current.id,index);
+    if(value?.type==='image'&&!value.opened&&!value.canceled){
+     inline.src=value.data;inline.alt=value.name;inline.hidden=false;
+     previewButton.textContent='收合預覽';previewButton.setAttribute('aria-expanded','true');
+    }else await showPreview(value);
+   }));
+   row.append(label,previewButton,remove,inline);target.append(row);
   }
  }
  function showDraft(draft){
@@ -219,8 +235,9 @@
   const {id,version}=current;
   const withReminder=$('send-reminder').checked;
   const result=await api.send(id,version,sheet.value,master.value,withReminder);
-  await nextDraft(id);
-  report('已在「'+result.sheet+'」建立紀錄'+(result.reminderRequested?'，請在主視窗設定提醒。':''));
+  if(result.draftDeleted)await nextDraft(id);
+  report('已在「'+result.sheet+'」建立紀錄，'+(result.draftDeleted?'已刪除原草稿。':'已保留原草稿。')+
+   (result.draftWarning||'')+(result.reminderRequested?'請在主視窗設定提醒。':''),Boolean(result.draftWarning));
  }));
  function applyPreferences(settings){
   const previous=preferences;preferences={...preferences,...settings};
@@ -237,8 +254,7 @@
   if(!value||value.canceled)return;
   if(value.opened){report('已開啟預覽：'+value.name);return;}
   const root=$('attachment-preview-content');root.replaceChildren();$('attachment-preview-title').textContent=value.name;
-  if(value.type==='image'){const img=el('img');img.alt=value.name;img.src=value.data;root.append(img);}
-  else root.append(el('pre',value.text));
+  root.append(el('pre',value.text));
   $('attachment-preview').showModal();
  }
  $('preview-close').addEventListener('click',()=>$('attachment-preview').close());

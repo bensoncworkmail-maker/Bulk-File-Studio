@@ -52,7 +52,9 @@ test('drafts preserve existing text and transfer structured items to the only ma
  const {store,addSheet,dir}=setup(t);
  const target=addSheet('工作',['workflow']);
  const fallback=addSheet('備忘',['workflow','workflow']);
- const drafts=new DraftNotes({store:()=>store,settings:()=>({}),imageDir:path.join(dir,'draft-images'),
+ let policy='ask',prompts=0;
+ const drafts=new DraftNotes({store:()=>store,settings:()=>({draftAfterTransfer:policy}),imageDir:path.join(dir,'draft-images'),
+  dialog:{showMessageBox:async()=>{prompts++;return {response:0};}},
   onSent(){},onError(error){throw error;}});
  const legacy=store.createDraft();
  assert.equal(legacy.type,'text');
@@ -65,6 +67,10 @@ test('drafts preserve existing text and transfer structured items to the only ma
  const structured=store.get().document.records.find(record=>record.id===first.id);
  assert.equal(structured.notes,'備註');
  assert.deepEqual(structured.values[target.fields[0].id],items);
+ assert.equal(first.draftDeleted,false);
+ assert.equal(store.draft(saved.id).version,saved.version);
+ assert.equal(prompts,1);
+ policy='keep';
 
  const empty=store.createDraft();
  const listOnly=drafts.save(empty.id,empty.version,{title:'',body:'',type:'workflow',items});
@@ -74,6 +80,14 @@ test('drafts preserve existing text and transfer structured items to the only ma
  assert.equal(plain.title,'測試');
  assert.equal(plain.notes,'1. [進行中] 測試');
  assert.deepEqual(plain.values,{});
+ assert.equal(second.draftDeleted,false);
+ assert.equal(store.draft(listOnly.id).version,listOnly.version);
+ policy='delete';
+ await assert.rejects(drafts.send(listOnly.id,listOnly.version,randomUUID(),''),/可用表格/);
+ assert.equal(store.draft(listOnly.id).version,listOnly.version);
+ assert.equal((await drafts.send(listOnly.id,listOnly.version,fallback.id,'')).draftDeleted,true);
+ assert.throws(()=>store.draft(listOnly.id),/草稿已移除/);
+ assert.equal(prompts,1);
 });
 
 
@@ -94,4 +108,33 @@ test('structured notes render explicit states, completion progress and dates in 
  assert.deepEqual(Array.from(timeline.value(),row=>row.label),['交付','啟動']);
  await timeline.element.querySelector('[aria-label="依日期排序時間軸"]').dispatch('click');
  assert.deepEqual(Array.from(timeline.value(),row=>row.label),['啟動','交付']);
+});
+
+test('draft images render below the editor and file images expand without a modal',async()=>{
+ const {documentFromHTML}=require('./helpers/dom'),vm=require('node:vm');
+ const document=documentFromHTML(fs.readFileSync(require.resolve('../src/draft-notes.html'),'utf8'));
+ const $=id=>document.getElementById(id);
+ document.addEventListener=()=>{};
+ const source='data:image/png;base64,AA==';
+ const draft={id:randomUUID(),title:'草稿',body:'正文',version:1,type:'text',items:[],attachments:[
+  {image:true,path:'/images/paste.png'},{path:'/files/dragged.png'}
+ ]};
+ const window={structuredNoteModel:M.structured,draftExportTypes:require('../src/draft-export-types'),
+  resizableSplit:{attach(){}},
+  draftAPI:{data:async()=>({drafts:[draft],sheets:[],fontSize:13}),read:async()=>draft,onClose(){},
+   image:async()=>source,preview:async()=>({type:'image',data:source,name:'dragged.png'})}};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/draft-notes-ui.js'),'utf8'),
+  {window,document,ResizeObserver:class{observe(){}},clearTimeout,setTimeout});
+ await new Promise(setImmediate);
+ assert.equal($('draft-images').hidden,false);
+ assert.equal($('draft-images').querySelector('img').src,source);
+ assert.equal($('attachments').children.length,1);
+ const button=$('attachments').querySelector('button'),image=$('attachments').querySelector('img');
+ assert.equal(image.hidden,true);
+ await button.dispatch('click');
+ assert.equal(image.hidden,false);
+ assert.equal(image.src,source);
+ assert.equal($('attachment-preview').open,false);
+ await button.dispatch('click');
+ assert.equal(image.hidden,true);
 });

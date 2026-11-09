@@ -13,11 +13,12 @@
 #planning-month-wrap[hidden],#planning-field-wrap[hidden],#planning-status:empty{display:none}
 .planning-calendar-summary{flex-wrap:wrap;gap:10px;margin:12px 0;color:var(--muted)}
 .planning-calendar-summary h2{margin:0;color:var(--text)}
-.planning-legend{margin-inline-start:auto;gap:10px}
+.planning-legend{margin-inline-start:auto;gap:10px;flex-wrap:wrap}
 .planning-legend span::before{
  content:'';display:inline-block;width:8px;height:8px;border-radius:50%;
  margin-inline-end:5px;background:var(--planning-date)
 }
+.planning-legend .planning-timeline-key::before{background:var(--planning-timeline)}
 .planning-legend .planning-reminder-key::before{background:var(--planning-reminder)}
 .planning-calendar-layout{
  display:grid;grid-template-columns:minmax(0,1fr) minmax(205px,25%);gap:14px;align-items:start
@@ -59,6 +60,10 @@
  border-color:var(--planning-reminder);
  background:color-mix(in srgb,var(--planning-reminder) 12%,var(--surface))
 }
+.planning-day-preview[data-event-kind=timeline]{
+ border-color:var(--planning-timeline);
+ background:color-mix(in srgb,var(--planning-timeline) 12%,var(--surface))
+}
 .planning-day-more{color:var(--muted);font-size:.85em}
 .planning-agenda{
  min-width:0;max-height:420px;overflow:auto;padding:12px;
@@ -71,6 +76,7 @@
  border-inline-start:3px solid var(--planning-date)
 }
 .planning-agenda .productivity-event[data-event-kind=reminder]{border-inline-start-color:var(--planning-reminder)}
+.planning-agenda .productivity-event[data-event-kind=timeline]{border-inline-start-color:var(--planning-timeline)}
 .productivity-event small{display:block;color:var(--muted)}
 .productivity-board{display:flex;gap:12px;overflow:auto;align-items:flex-start;padding:2px 2px 10px}
 .productivity-column{

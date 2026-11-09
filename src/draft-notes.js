@@ -6,6 +6,7 @@ const {locationPath,inspectLinks}=require('./notes-location-links');
 const {withIntranetPaths}=require('./intranet-path');
 const {assertLocalPath}=require('./offline-policy');
 const {readStableBytes}=require('./bounded-file-read');
+const toolPreferences=require('./tool-preferences');
 const MAX_IMAGE=5*1024*1024,MAX_ATTACHMENTS=48,MAX_IMAGES=8;
 const fileKey=value=>process.platform==='win32'?value.toLowerCase():value;
 const html=path.join(__dirname,'draft-notes.html');
@@ -146,7 +147,9 @@ class DraftNotes{
   if(version!==draft.version)throw new Error('草稿已變更，請重新開啟');
   if(!draft.title.trim()&&!draft.body.trim()&&!draft.items?.length&&!draft.attachments.length)throw new Error('請先輸入內容或加入附件');
   const paths=draft.attachments.map(item=>item.path);
-  return withIntranetPaths(paths,()=>{
+  const afterTransfer=toolPreferences.value('draftAfterTransfer',this.settings().draftAfterTransfer);
+  const saved=await withIntranetPaths(paths,()=>{
+   if(store.draft(id).version!==version)throw new Error('草稿已變更，請重新開啟');
    const doc=store.get().document,sheet=doc.sheets.find(sheet=>sheet.id===sheetId&&!sheet.deletedAt);
    if(!sheet)throw new Error('請選擇可用表格');
    const parent=M.parentField(doc,sheet);
@@ -157,15 +160,28 @@ class DraftNotes{
    if(structured)values[targets[0].id]=draft.items;
    const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,200)||draft.items?.[0]?.label||'草稿筆記';
    const result=store.saveRecord({sheetId,title,notes:structured?draft.body:draftText(draft),tags:[],values,fileLinks},
-    {operation:'草稿轉入工作區'},{id,version});
+    {operation:'草稿轉入工作區'},afterTransfer==='delete'?{id,version}:undefined);
    try{this.onSent(result);}catch(error){this.onError(error);}
-   const recordId=result.result.id;
-   let reminderRequested=false;
-   if(withReminder){
-    try{this.onRemind(recordId);reminderRequested=true;}catch(error){this.onError(error);}
-   }
-   return {id:recordId,sheet:sheet.name,reminderRequested};
+   return {id:result.result.id,sheet:sheet.name};
   });
+  let draftDeleted=afterTransfer==='delete',draftWarning='';
+  if(afterTransfer==='ask'){
+   try{
+    const {response}=await this.dialog.showMessageBox(this.window,{
+     type:'question',title:'處理原草稿',message:'紀錄已建立。要刪除原草稿嗎？',
+     buttons:['保留草稿','刪除草稿'],defaultId:0,cancelId:0,noLink:true
+    });
+    if(response===1){store.deleteDraft(id,version);draftDeleted=true;}
+   }catch(error){
+    draftWarning='未能刪除原草稿，可在草稿清單中處理。';
+    this.onError(error);
+   }
+  }
+  let reminderRequested=false;
+  if(withReminder){
+   try{this.onRemind(saved.id);reminderRequested=true;}catch(error){this.onError(error);}
+  }
+  return {...saved,draftDeleted,draftWarning,reminderRequested};
  }
 }
 
