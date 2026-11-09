@@ -190,10 +190,11 @@
                 <button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button>
                 <small id="notes-master-badge">目前主檔</small><strong id="notes-master-heading"></strong>
                 <p id="notes-master-info" class="notes-hint"></p>
-                <div class="notes-tools">
-                  <button id="notes-master-edit" class="btn btn-ghost">編輯主檔</button>
-                  <button id="notes-pin-master" class="btn btn-ghost" aria-pressed="false">☆ 釘選浮動工具</button>
-                  <button id="notes-master-overview" class="btn btn-ghost">主檔總覽</button>
+                <div class="notes-tools notes-master-actions">
+                  <button id="notes-master-edit" class="btn btn-ghost" title="編輯目前主紀錄">編輯</button>
+                  <button id="notes-pin-master" class="btn btn-ghost" aria-pressed="false" title="釘選至浮動工具">☆ 釘選</button>
+                  <button id="notes-master-overview" class="btn btn-ghost" title="查看目前主紀錄詳細資料">詳情</button>
+                  <div id="notes-master-more-slot"></div>
                   <button id="notes-complete-client" class="btn btn-ghost" hidden>補齊客戶明細表</button>
                 </div>
               </div>
@@ -203,6 +204,10 @@
               <div class="notes-panel-header">
                 <button id="notes-panel-toggle" class="notes-panel-toggle" type="button" aria-expanded="true" aria-controls="notes-panel-tools"><span id="notes-panel-arrow" aria-hidden="true">▾</span><span class="notes-panel-toggle-label">搜尋與操作</span><span id="notes-panel-tools-summary"></span></button>
                 <div id="notes-status-filter-wrap" class="notes-status-filter" role="group" aria-label="目前表格狀態篩選" hidden><label for="notes-status-filter" id="notes-status-filter-label">狀態</label><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select><button id="notes-status-clear" type="button" aria-label="清除此表狀態篩選" title="清除此表狀態篩選" hidden>×</button></div>
+                <div id="notes-header-more-slot"><details id="notes-compact-more" class="notes-overflow" hidden>
+                  <summary class="btn btn-ghost" aria-label="更多表格與批次操作">更多 ▾</summary>
+                  <div id="notes-compact-actions" class="notes-overflow-menu"></div>
+                </details></div>
               </div>
             <div id="notes-panel-tools" class="notes-panel-tools" role="region" aria-labelledby="notes-panel-toggle">
             <div class="notes-searchbar">
@@ -260,12 +265,14 @@
                 <span id="notes-count" class="notes-sub"></span>
               <div class="notes-current-bar">
                 <strong id="notes-current-record">尚未選取紀錄</strong>
-                <button id="notes-record-reminder" class="btn btn-ghost" disabled>設定提醒</button><button id="notes-inspect-current" class="btn btn-ghost" disabled>查看目前紀錄</button>
+                <div id="notes-current-actions-slot"><div id="notes-current-actions">
+                  <button id="notes-record-reminder" class="btn btn-ghost" disabled>設定提醒</button><button id="notes-inspect-current" class="btn btn-ghost" disabled>查看目前紀錄</button>
+                </div></div>
                 <small>目前紀錄與批次勾選分開標示</small>
               </div>
 
               </div>
-              <div class="notes-tools">
+              <div id="notes-table-actions-slot"><div id="notes-table-actions" class="notes-tools">
             <details id="notes-quickbar" class="notes-overflow"><summary class="btn btn-ghost">資料操作 ▾</summary><div class="notes-overflow-menu">
               <button id="notes-copy-table" class="btn btn-ghost">複製篩選表格</button>
               <button id="notes-export-excel" class="btn btn-ghost" disabled title="匯出目前表格的篩選結果，可用貼上／Excel 建立紀錄重新匯入">匯出篩選表格（Excel）</button>
@@ -279,9 +286,9 @@
                 <button id="notes-open-drafts" type="button" class="btn btn-ghost">草稿筆記</button>
                 <button id="notes-tabular-open" class="btn btn-ghost" title="貼上 Excel 清單或選擇 .xlsx，對應欄位後建立新紀錄">貼上／Excel 建立</button>
                 <button id="notes-new-record" class="btn btn-primary">＋ 紀錄</button>
-              </div>
+              </div></div>
             </div>
-            <div class="notes-selection-top">
+            <div id="notes-selection-slot" class="notes-selection-top">
               <div id="notes-selection-bar" class="notes-selection-bar">
                 <small id="notes-card-select-hint" hidden>單擊開啟 · 勾選框選取 · Shift 範圍／Ctrl 增減</small>
                 <span id="notes-selected-count">已選 0 筆</span>
@@ -1249,7 +1256,7 @@
                   <p>在小視窗切換標籤、搜尋、開啟、複製路徑及拖放收藏；標題列可切換置頂。主程式執行期間可使用全域快捷鍵顯示／隱藏；系統匣及退出行為可於「啟動」設定。</p>
                 </section>
               </div>
-              <div id="settings-panel-shortcuts" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-shortcuts" hidden><section class="settings-card"><h2>全部快捷鍵</h2><p>全域按鍵會攔截各情境中的相同按鍵。不同頁面共用 Esc／Enter 等情境按鍵可保留；重複檢查只阻止實際重疊的操作。</p><div class="shortcut-overview-filters"><label class="field"><span>搜尋功能、按鍵或來源</span><input id="shortcut-overview-query" type="search" maxlength="200"></label><label class="field"><span>使用情境</span><select id="shortcut-overview-scope"><option value="">全部</option><option value="global">全域</option><option value="favorites">收藏頁</option><option value="draft">草稿</option><option value="main">主視窗</option><option value="record">紀錄表單</option><option value="grid">工作區儲存格</option><option value="rename">檔案工具</option><option value="workspace">工作區導覽</option><option value="cards">工作區卡片</option><option value="split">版面分隔線</option><option value="auxiliary">獨立浮動視窗</option></select></label><button id="shortcut-overview-refresh" class="btn btn-ghost">重新讀取</button></div><p id="shortcut-overview-count"></p><div class="shortcut-overview-scroll"><table class="shortcut-overview-table"><thead><tr><th>功能／來源</th><th>情境</th><th>按鍵</th><th>操作</th></tr></thead><tbody id="shortcut-overview-list"></tbody></table></div><p id="shortcut-overview-status" role="status"></p></section><section class="settings-card"><h2>全域功能快捷鍵</h2><label class="field">
+              <div id="settings-panel-shortcuts" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-shortcuts" hidden><section class="settings-card"><h2>全部快捷鍵</h2><label class="check-row"><input id="settings-focus-mode" type="checkbox"><span>啟用專注模式</span></label><p class="rule-hint">啟用時只註冊下方勾選「專注時保留」的全域快捷鍵。其餘按鍵交還目前使用的程式，視窗內操作照常使用。也可從系統匣切換。</p><p>全域按鍵會攔截各情境中的相同按鍵。不同頁面共用 Esc／Enter 等情境按鍵可保留；重複檢查只阻止實際重疊的操作。</p><div class="shortcut-overview-filters"><label class="field"><span>搜尋功能、按鍵或來源</span><input id="shortcut-overview-query" type="search" maxlength="200"></label><label class="field"><span>使用情境</span><select id="shortcut-overview-scope"><option value="">全部</option><option value="global">全域</option><option value="favorites">收藏頁</option><option value="draft">草稿</option><option value="main">主視窗</option><option value="record">紀錄表單</option><option value="grid">工作區儲存格</option><option value="rename">檔案工具</option><option value="workspace">工作區導覽</option><option value="cards">工作區卡片</option><option value="split">版面分隔線</option><option value="auxiliary">獨立浮動視窗</option></select></label><button id="shortcut-overview-refresh" class="btn btn-ghost">重新讀取</button></div><p id="shortcut-overview-count"></p><div class="shortcut-overview-scroll"><table class="shortcut-overview-table"><thead><tr><th>功能／來源</th><th>情境</th><th>按鍵</th><th>操作</th></tr></thead><tbody id="shortcut-overview-list"></tbody></table></div><p id="shortcut-overview-status" role="status"></p></section><section class="settings-card"><h2>全域功能快捷鍵</h2><label class="field">
                     <span>快速叫回主視窗（程式執行期間）</span>
                     <input id="settings-main-shortcut" type="text" readonly autocomplete="off" placeholder="點此後按快捷鍵" aria-label="自訂主視窗全域快捷鍵">
                     <span class="shortcut-buttons">

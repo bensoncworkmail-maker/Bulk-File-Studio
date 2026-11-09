@@ -15,6 +15,7 @@ class DesktopShell {
     {label:'開啟 Bulk File Studio',click:()=>this.showMain()},
     {label:'顯示浮動工具',click:()=>this.showFloating()},
     {label:'隱藏至系統匣',click:()=>this.hideToTray()},
+    ...(this.toggleFocusMode?[{label:'切換專注模式',click:()=>this.toggleFocusMode()}]:[]),
     {type:'separator'},
     {label:'結束程式',click:()=>{this.quitting=true;this.app.quit();}}
    ]));
@@ -26,7 +27,8 @@ class DesktopShell {
  onClose(event){if(this.quitting||!this.getSettings().closeToTray)return false;if(!this.ensureTray())return false;event.preventDefault();this.hideMain();this.hideFloatingForTray();return true;}
  registerShortcuts(settings=this.getSettings()){
   this.globalShortcut.unregisterAll();const warnings=[];
-  for(const [key,label,callback] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','收合／展開浮動工具',()=>this.toggleFloatingCollapse()],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],...(this.extraShortcuts?.(settings)||[]) ]){
+  for(const [key,label,callback,actionId=key] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','收合／展開浮動工具',()=>this.toggleFloatingCollapse()],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],...(this.extraShortcuts?.(settings)||[]) ]){
+   if(settings.focusMode===true&&!settings.focusShortcutIds?.includes(actionId))continue;
    const accelerator=key.startsWith('accelerator:')?key.slice(12):settings[key];if(!accelerator)continue;
    try{if(!this.globalShortcut.register(accelerator,callback))warnings.push(label+'快捷鍵已被其他程式使用，請在設定選擇另一組。');}
    catch(e){warnings.push('無法註冊'+label+'快捷鍵：'+e.message);}

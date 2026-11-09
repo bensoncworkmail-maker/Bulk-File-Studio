@@ -257,7 +257,7 @@ app.whenReady().then(() => {
   });
   if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))require('./profile-service').recoverProfile(app.getPath('userData'),notesStore());
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
-  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),showCalendar:floatingAction(()=>openToolOverlay('planning')),extraShortcuts:settings=>[...(settings.floatingQuickActions||[]).filter(item=>item.enabled&&item.shortcut).map(item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runShortcutQuickAction(item.id))]),...(productivity?.store.get().snippets||[]).filter(item=>item.shortcut).map(item=>['accelerator:'+item.shortcut,'複製 '+item.name,floatingAction(()=>productivity.copySnippet(item.id,''))])],showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
+  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),showCalendar:floatingAction(()=>openToolOverlay('planning')),toggleFocusMode:floatingAction(()=>configureDesktop({focusMode:!desktop.settings.focusMode})),extraShortcuts:settings=>[...(settings.floatingQuickActions||[]).filter(item=>item.enabled&&item.shortcut).map(item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runShortcutQuickAction(item.id)),'action:'+item.id]),...(productivity?.store.get().snippets||[]).filter(item=>item.shortcut).map(item=>['accelerator:'+item.shortcut,'複製 '+item.name,floatingAction(()=>productivity.copySnippet(item.id,'')),'snippet:'+item.id])],showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   handle('shortcuts-recording',(_,enabled)=>{if(typeof enabled!=='boolean')throw new Error('快捷鍵錄製狀態無效');if(!enabled){endShortcutRecording();return {capturing:false};}if(!win.isFocused())return {capturing:false};shortcutRecording=true;globalShortcut.unregisterAll();return {capturing:true};});
   handle('draft-open',openDrafts);
   const draftHandlers={
@@ -547,7 +547,8 @@ app.whenReady().then(() => {
   handle('startup-open-settings',()=>desktopShell.openLoginSettings());
   handle('startup-set',(_,enabled)=>desktopShell.setLogin(enabled));
   handle('app-hide-to-tray',()=>{if(!desktopShell.hideToTray())throw new Error(shellWarning||'無法隱藏至系統匣');});
-  handle('desktop-settings-set',(_,patch)=>{
+  const configureDesktop=patch=>{
+    if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
     const previous=desktop.settings;
     if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new Error('設定無效');
     for(const key of globalShortcuts.KEYS)if(Object.hasOwn(patch,key)&&globalShortcuts.normalize(patch[key])===null)throw new Error('快捷鍵格式無效，請使用 Ctrl／Alt 組合或 F1–F24');
@@ -566,16 +567,23 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingDropActionId')&&patch.floatingDropActionId!==''&&!quickActions.ID.test(patch.floatingDropActionId))throw new Error('拖放目標無效');
     if(Object.hasOwn(patch,'globalSearchCriteria'))floatingSearch?.invalidate();
     const candidate=normalizeDesktop({...previous,...patch});if(globalShortcuts.KEYS.some(key=>Object.hasOwn(patch,key))||Object.hasOwn(patch,'floatingQuickActions')||Object.hasOwn(patch,'favoriteShortcuts')||Object.hasOwn(patch,'draftLocalShortcuts'))globalShortcuts.validatePair(candidate,productivity?.store.get().snippets||[]);closeFloatingMenu();
-    const changed=globalShortcuts.KEYS.some(key=>previous[key]!==candidate[key])||JSON.stringify(previous.floatingQuickActions)!==JSON.stringify(candidate.floatingQuickActions);
-    if(changed){const warning=desktopShell.registerShortcuts(candidate);if(warning){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();throw new Error(warning+' 已保留原設定。'+shortcutWarning);}if(shortcutRecording)globalShortcut.unregisterAll();}
+    const bindingsChanged=globalShortcuts.KEYS.some(key=>previous[key]!==candidate[key])||JSON.stringify(previous.floatingQuickActions)!==JSON.stringify(candidate.floatingQuickActions);
+    const focusChanged=previous.focusMode!==candidate.focusMode||candidate.focusMode&&JSON.stringify(previous.focusShortcutIds)!==JSON.stringify(candidate.focusShortcutIds);
+    const changed=bindingsChanged||focusChanged;
+    if(changed){
+     const warning=desktopShell.registerShortcuts(candidate);
+     if(warning&&bindingsChanged){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();throw new Error(warning+' 已保留原設定。'+shortcutWarning);}
+     shortcutWarning=warning;
+     if(shortcutRecording)globalShortcut.unregisterAll();
+    }
     let settings;try{settings=desktop.update(patch);preparePasteWorker();}catch(e){if(changed){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();}throw e;}
-    if(changed)shortcutWarning='';
     if(!settings.explorerTagPrompt)pendingTagIds.clear();
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
     if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
     drafts?.updateSettings();floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
-  });
+  };
+  handle('desktop-settings-set',(_,patch)=>configureDesktop(patch));
   handle('snippet-picker-reset-groups',()=>desktop.replaceSnippetPickerGroups([]));
   handle('desktop-reset-window',()=>applyMainBounds(null));
   handle('floating-show',()=>showFloating());

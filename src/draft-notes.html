@@ -38,7 +38,16 @@
     <details id="draft-reminder"><summary>提醒排程（不必建立工作區紀錄）</summary><div class="draft-reminder-fields"><label>時間<input id="reminder-at" type="datetime-local"></label><label>重複<select id="reminder-repeat"><option value="none">一次</option><option value="daily">每天</option><option value="weekly">每週</option></select></label><button id="reminder-save" type="button">建立提醒</button></div></details>
     <details class="send-details" open><summary>送往資料工作區</summary><div class="destination">
      <label>送往工作區<select id="sheet"></select></label>
-     <p class="draft-transfer-hint" id="draft-transfer-hint" hidden>目的表格只有一個同類欄位時，清單會填入該欄位；其他情況會附在紀錄筆記。</p>
+     <details id="draft-mapping" hidden><summary>對應工作區欄位</summary>
+      <div class="draft-mapping-fields">
+       <label id="draft-map-title-field">紀錄標題另存到<select id="draft-map-title"></select></label>
+       <label id="draft-map-body-field">草稿正文另存到<select id="draft-map-body"></select></label>
+       <label id="draft-map-items-field">清單／流程／時間軸<select id="draft-map-items"></select></label>
+       <label id="draft-map-extraField-field">另填欄位<select id="draft-map-extraField"></select></label>
+       <div id="draft-map-extra" hidden></div>
+      </div>
+      <p class="draft-transfer-hint">原有標題與正文會保留。表格只有一個同類欄位時，會自動選為清單目的欄位。</p>
+     </details>
      <label id="master-field" hidden>主紀錄<select id="master"></select></label>
      <div class="destination-actions">
       <button id="refresh" type="button" title="重新讀取工作區表格及主紀錄">更新表格</button>
