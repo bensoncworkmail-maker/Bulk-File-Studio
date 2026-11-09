@@ -74,6 +74,13 @@ test('the info page displays recent history and searches across earlier releases
  const list=h.$('info-history'),search=h.$('info-history-search'),results=h.$('info-history-results');
  assert.equal(h.$('info-version').textContent,'v'+history[0].version);
  assert.equal(list.children.filter(node=>node.tagName==='ARTICLE').length,5);
+ const previous=list.children[1];
+ assert.match(previous.querySelector('h3').textContent,/v1\.85\.0/);
+ assert.equal(previous.querySelectorAll('li').length,5);
+ search.value='v1.85.0 置頂';
+ await search.dispatch('input');
+ assert.equal(results.querySelectorAll('article').length,1);
+ assert.equal(results.querySelectorAll('li').length,5);
  const older=list.querySelector('details');
  assert.equal(older.open,false);
  assert.equal(older.querySelectorAll('article').length,history.length-5);

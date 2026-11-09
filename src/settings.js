@@ -40,7 +40,6 @@
     const search=$('info-history-search'),status=$('info-history-count');
     const releaseCard=(item,latest=false)=>{
       const card=document.createElement('article'),heading=document.createElement('h3');
-      const body=document.createElement('p');
       card.className='info-release';
       heading.textContent='v'+item.version;
       if(latest){
@@ -57,8 +56,21 @@
         time.textContent=item.date;
         card.append(time);
       }
-      body.textContent=item.text;
-      card.append(body);
+      const lines=item.text.split('\n');
+      if(lines.length>1&&lines.every(line=>line.startsWith('- '))){
+        const changes=document.createElement('ul');
+        changes.className='info-release-changes';
+        for(const line of lines){
+          const change=document.createElement('li');
+          change.textContent=line.slice(2);
+          changes.append(change);
+        }
+        card.append(changes);
+      }else{
+        const body=document.createElement('p');
+        body.textContent=item.text;
+        card.append(body);
+      }
       return card;
     };
     const recent=history.slice(0,5),older=history.slice(5);
