@@ -20,12 +20,13 @@
  };
  function mount(root,api,config,filters={query:config.query||'',page:0}){
   let request=0,timer,disposed=false,advanced,filterSummary;
-  const compactLogs=config.kind==='logs'&&Boolean(api.close);
-  const canPin=compactLogs&&Boolean(api.logRecord);
+  const compactLogs=config.kind==='logs';
+  const canPin=compactLogs&&Boolean(api.close&&api.logRecord);
+  const readLogDetail=api.logDetail||(canPin?(id=>api.logRecord('detail',id)):null);
   const pinsPanel=canPin?node('details',undefined,'tool-view-pins'):null;
   const pinsHeading=canPin?node('summary'):null;
   const pinsList=canPin?node('div',undefined,'tool-view-list'):null;
-  let expandedId,pinnedOnlyButton,clearButton,pinBusy=false;
+  let expandedId,pinnedOnlyButton,clearButton,windowPinButton,pinBusy=false;
   const embeddedPlanning=config.embedded&&config.kind==='planning';
   const smallPlanning=config.smallCalendar&&config.kind==='planning',calendarPlanning=embeddedPlanning||smallPlanning;
   root.dataset.smallCalendar=String(Boolean(smallPlanning));
@@ -48,7 +49,7 @@
     });
     actions.append(pinnedOnlyButton);
     if(api.pinWindow){
-     const stay=button('釘住視窗',async()=>{
+     const stay=windowPinButton=button('釘住視窗',async()=>{
       stay.disabled=true;
       try{setWindowPin(await api.pinWindow(stay.getAttribute('aria-pressed')!=='true'));}
       catch(error){status.textContent=error.message;}
@@ -62,7 +63,7 @@
      actions.append(stay);
     }
    }
-   const close=button('關閉',api.close);close.title='關閉（Esc）';actions.append(close);
+   if(api.close){const close=button('關閉',api.close);close.title='關閉（Esc）';actions.append(close);}
   }
   if(api.clearScope)actions.append(button('返回預設表格',api.clearScope));
   if(config.kind==='planning'&&!embeddedPlanning&&!smallPlanning)actions.append(button('開啟完整日曆／看板',()=>act('main')));
@@ -82,7 +83,8 @@
    if(!canPin)return;
    const only=Boolean(filters.pinnedOnly);
    pinnedOnlyButton.setAttribute('aria-pressed',String(only));
-   controls.hidden=results.hidden=clearButton.hidden=only;
+   controls.hidden=results.hidden=only;
+   clearButton.hidden=only||!hasLogFilters();
    root.dataset.pinnedOnly=String(only);
    if(only)pinsPanel.open=true;
   }
@@ -105,6 +107,7 @@
    wrap.append(input);parent.append(wrap);return input;
   }
   const filterKeys=['masterId','dateField','from','to','stateField','value'];
+  const hasLogFilters=()=>Boolean(filters.query||filterKeys.some(key=>filters[key]));
   function updateFilterSummary(){
    const count=filters.pinnedOnly?0:filterKeys.filter(key=>filters[key]).length;
    filterSummary.textContent='篩選與顯示'+(count?' · '+count+' 項':'');
@@ -113,7 +116,7 @@
    if(!compactLogs)return;
    updateFilterSummary();
    const {page,...memory}=filters;
-   api.saveFilters(memory).catch(error=>{if(!disposed)status.textContent='無法記住篩選。'+error.message;});
+   api.saveFilters?.(memory).catch(error=>{if(!disposed)status.textContent='無法記住篩選。'+error.message;});
   }
   function reloadField(key,typing=false){
    filters.page=0;
@@ -251,7 +254,7 @@
      if(!pinned)pinsPanel.open=true;
      if(pinned&&expandedId===row.id)expandedId=undefined;
      await load();
-     pinsHeading.focus();
+     (pinsPanel.hidden?inputs.query:pinsHeading).focus();
     }catch(error){if(!disposed)status.textContent=error.message;}
     finally{pinBusy=false;toggle.disabled=false;}
    });
@@ -266,59 +269,71 @@
    for(const {label,value} of fields)list.append(node('dt',label),node('dd',value));
    return list;
   }
-  async function renderPinDetail(row,detail){
+  async function renderLogDetail(row,detail,pinned){
    try{
-    const data=await api.logRecord('detail',row.id);
+    const data=await readLogDetail(row.id);
     if(disposed||expandedId!==row.id)return;
     const footer=node('footer',undefined,'tool-view-pin-footer');
-    const edit=button('編輯',async()=>{
+    footer.append(node('small','修改日期 '+data.updatedAt.slice(0,10)));
+    if(pinned)footer.append(button('編輯',async()=>{
      try{await api.logRecord('edit',row.id);}
      catch(error){status.textContent=error.message;}
-    });
-    footer.append(node('small','修改日期 '+data.updatedAt.slice(0,10)),edit);
+    }));
     detail.replaceChildren(detailFields(data.fields),node('p',data.notes||'尚未填寫筆記。','tool-view-pin-note'),
      ...(data.tags.length?[node('small',data.tags.join('、'))]:[]),footer);
    }catch(error){if(!disposed)detail.textContent=error.message;}
   }
-  function renderPins(data,focusId){
-   pinsHeading.textContent='釘選紀錄 · '+data.pinned.length+' 筆';
-   pinsList.dataset.layout=data.layout;
-   pinsList.replaceChildren();
-   if(!data.pinned.some(row=>row.id===expandedId))expandedId=undefined;
-   for(const row of data.pinned){
-    const expanded=row.id===expandedId;
-    const item=node('article',undefined,'tool-view-result tool-view-pin');
-    item.dataset.expanded=String(expanded);
-    const top=node('div',undefined,'tool-view-pin-top');
-    const title=button(row.title,()=>{
-     expandedId=expanded?undefined:row.id;
-     renderPins(data,row.id);
-    });
-    title.title=(expanded?'收合詳情 ':'展開詳情 ')+row.title;
-    title.className='tool-view-log-link';
-    title.setAttribute('aria-expanded',String(expanded));
-    top.append(title,pinButton(row,true));
-    item.append(top,node('small',row.sheet));
-    if(expanded){
-     const detail=node('div','正在讀取詳情…','tool-view-pin-detail');
-     item.append(detail);
-     void renderPinDetail(row,detail);
-    }else{
-     if(row.markers.length)item.append(detailFields(row.markers));
-     if(row.summary&&data.layout==='cards')item.append(node('p',row.summary,'tool-view-pin-preview'));
-    }
-    pinsList.append(item);
-    if(row.id===focusId)title.focus();
+  function logRow(row,data,pinned){
+   const expanded=row.id===expandedId,settings=data.presentation||{};
+   const item=node('article',undefined,'tool-view-result tool-view-log-row'+(pinned?' tool-view-pin':''));
+   item.dataset.expanded=String(expanded);
+   const top=node('div',undefined,'tool-view-log-top'),actions=node('div',undefined,'tool-view-log-actions');
+   function toggle(){
+    expandedId=expanded?undefined:row.id;
+    showRows(data);
+    if(canPin)renderPins(data);
+    const root=pinned?pinsList:results;
+    [...root.querySelectorAll('button')].find(button=>button.dataset.logToggle===row.id)?.focus();
    }
+   const title=button(row.title,()=>pinned?toggle():act('visit',row.id));
+   title.className='tool-view-log-link';title.title=row.title;
+   if(pinned){title.dataset.logToggle=row.id;title.setAttribute('aria-expanded',String(expanded));title.setAttribute('aria-label','切換詳情 '+row.title);}
+   const date=node('time',row.date||'');if(row.date)date.dateTime=row.date;
+   top.append(title,date);
+   if(readLogDetail){
+    const expand=button(expanded?'▾':'▸',toggle);if(!pinned)expand.dataset.logToggle=row.id;expand.title=expanded?'收合詳情':'展開詳情';
+    expand.setAttribute('aria-expanded',String(expanded));expand.setAttribute('aria-label','切換詳情 '+row.title);actions.append(expand);
+   }
+   const reminder=button('提醒',()=>act('reminder',row.id));
+   reminder.setAttribute('aria-label','新增提醒 '+row.title);
+   reminder.title='為此紀錄新增提醒';actions.append(reminder);
+   if(canPin)actions.append(pinButton(row,pinned));
+   top.append(actions);item.append(top);
+   if(expanded){
+    const detail=node('div','正在讀取詳情…','tool-view-pin-detail');
+    item.append(detail);void renderLogDetail(row,detail,pinned);
+   }else{
+    if(pinned&&row.markers.length)item.append(node('small',row.markers.map(({label,value})=>label+' '+value).join(' · '),'tool-view-log-context'));
+    else if(row.context)item.append(node('small',row.context,'tool-view-log-context'));
+    if(row.summary&&(settings.previewLines??1)>0){
+     const preview=node('p',row.summary,'tool-view-log-preview');
+     preview.style.setProperty('--log-preview-lines',String(settings.previewLines??1));item.append(preview);
+    }
+   }
+   return item;
+  }
+  function renderPins(data){
+   const settings=data.presentation||{};
+   pinsPanel.hidden=!filters.pinnedOnly&&!settings.showEmptyPins&&!data.pinned.length;
+   pinsHeading.textContent='釘選紀錄'+(settings.showCount?' · '+data.pinned.length+' 筆':'');
+   pinsList.dataset.layout=data.layout;
+   pinsList.replaceChildren(...data.pinned.map(row=>logRow(row,data,true)));
    if(!data.pinned.length)pinsList.append(node('p','按紀錄旁的 ☆，加入要跟進的項目。','tool-view-pin-empty'));
   }
   function card(row){
    const item=node('article',undefined,'tool-view-result');
    const snippets=config.kind==='snippets',body=node(snippets?'span':'div',undefined,'tool-view-result-body');
-   if(compactLogs){
-    const heading=node('h3'),visit=button(row.title,()=>act('visit',row.id));
-    visit.title=row.title;visit.className='tool-view-log-link';heading.append(visit);body.append(heading);
-   }else body.append(node(snippets?'strong':'h3',row.title));
+   body.append(node(snippets?'strong':'h3',row.title));
    if(row.detail)body.append(node('small',row.detail));
    if(row.summary&&(!snippets||filters.layout==='preview')){
     body.append(node(snippets?'span':'p',row.summary,snippets?'tool-view-snippet-preview':undefined));
@@ -332,8 +347,7 @@
     const mark=node('span','⧉','tool-view-copy-mark');
     mark.setAttribute('aria-hidden','true');
     copy.append(mark,body);item.append(copy);
-   }else if(compactLogs)item.append(body,...(canPin?[pinButton(row,false)]:[]));
-   else item.append(body,button('開啟紀錄',()=>act('visit',row.id)));
+   }else item.append(body,button('開啟紀錄',()=>act('visit',row.id)));
    if(row.eventKind)item.dataset.eventKind=row.eventKind;
    return item;
   }
@@ -352,7 +366,7 @@
      group.append(card(row));
     }
    }else{
-    for(const row of data.rows)list.append(card(row));
+    for(const row of data.rows)list.append(compactLogs?logRow(row,data,false):card(row));
    }
    results.replaceChildren(list);
    if(!data.rows.length){
@@ -414,12 +428,15 @@
     }else{
      status.textContent=(smallPlanning&&data.day?data.day+' · ':'')+'共 '+data.total+' 筆';
      showRows(data);
-     if(canPin){
-      renderPins(data);
-      status.textContent=filters.pinnedOnly?'':data.filterError||'其他紀錄 '+data.total+' 筆';
+     if(compactLogs){
+      const settings=data.presentation||{};
+      if(canPin)renderPins(data);
+      if(windowPinButton)windowPinButton.hidden=settings.showWindowPin===false;
+      clearButton.hidden=Boolean(filters.pinnedOnly)||!hasLogFilters();
+      status.textContent=data.filterError||(settings.showCount&&!filters.pinnedOnly?(canPin?'其他紀錄 ':'共 ')+data.total+' 筆':'');
      }
     }
-    if(focusResults){status.tabIndex=-1;status.focus();}
+    if(focusResults){const target=compactLogs&&!status.textContent?results:status;target.tabIndex=-1;target.focus();}
    }catch(error){
     if(version===request){status.textContent=error.message;results.replaceChildren();calendar.hidden=true;}
    }finally{

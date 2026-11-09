@@ -61,8 +61,8 @@ test('batch selection works across pages, clears on filtering, previews cascades
 test('client batch confirmation previews optional child deletion and leaves another client intact',async t=>{
  const h=setup(t),state=h.store.addTemplate(),[root,contacts]=state.document.sheets;const add=(sheet,title,values={})=>h.store.saveRecord({sheetId:sheet.id,title,notes:'',tags:[],values,fileLinks:[]}).result.id,a=add(root,'Client A'),b=add(root,'Client B');add(contacts,'Alice',{[contacts.fields[0].id]:[a]});add(contacts,'Bob',{[contacts.fields[0].id]:[b]});h.ui.activate();await flush();const check=descendants(h.els.get('notes-table')).find(node=>node.attrs['aria-label']==='選取 Client A');check.checked=true;check.events.change();h.els.get('notes-batch-delete').events.click();assert.match(h.els.get('notes-confirm-text').textContent,/共 1 筆/);h.els.get('notes-delete-details').checked=true;h.els.get('notes-delete-details').events.change();assert.match(h.els.get('notes-confirm-text').textContent,/共 2 筆/);h.els.get('notes-confirm-cancel').events.click();assert.ok(h.store.get().document.records.every(record=>!record.deletedAt));h.els.get('notes-batch-delete').events.click();assert.equal(h.els.get('notes-delete-details').checked,false);h.els.get('notes-delete-details').checked=true;h.els.get('notes-delete-details').events.change();h.els.get('notes-confirm-apply').events.click();await flush();assert.deepEqual(h.store.get().document.records.filter(record=>!record.deletedAt).map(record=>record.title),['Client B','Bob']);assert.deepEqual(h.errors,[]);
 });
-test('document detail keeps paths as text and offers an explicit matching favorites tag action',async t=>{
- const h=setup(t,{favoriteItems:[{id:crypto.randomUUID(),path:'/local/report.pdf',label:'Report',tags:['ClientFiles'],type:'file'}]}),state=h.store.addTemplate(),root=state.document.sheets[0],documents=state.document.sheets.find(sheet=>sheet.name==='文件／位置'),client=h.store.saveRecord({sheetId:root.id,title:'Client',notes:'',tags:[],values:{},fileLinks:[]}).result.id;h.store.saveRecord({sheetId:documents.id,title:'Documents',notes:'',tags:['ClientFiles'],values:{[documents.fields[0].id]:[client],[documents.fields[2].id]:'/marked/file.txt'},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Client').events.click();const tab=h.els.get('notes-detail-tabs').children.find(node=>node.textContent.startsWith('文件／位置'));tab.events.click();findButton(h.els.get('notes-table'),'Documents').events.click();assert.match(h.els.get('notes-detail-body').textContent,/\/marked\/file.txt/);findButton(h.els.get('notes-detail-body'),'查看收藏標籤：ClientFiles').events.click();assert.ok(h.toasts.includes('tag:ClientFiles'));assert.deepEqual(h.errors,[]);
+test('document detail keeps text-only columns as text and can show matching favorite tags',async t=>{
+ const h=setup(t,{settings:{notesShowFavoriteTagLinks:true},favoriteItems:[{id:crypto.randomUUID(),path:'/local/report.pdf',label:'Report',tags:['ClientFiles'],type:'file'}]}),state=h.store.addTemplate(),root=state.document.sheets[0],documents=state.document.sheets.find(sheet=>sheet.name==='文件／位置'),client=h.store.saveRecord({sheetId:root.id,title:'Client',notes:'',tags:[],values:{},fileLinks:[]}).result.id;h.store.saveRecord({sheetId:documents.id,title:'Documents',notes:'',tags:['ClientFiles'],values:{[documents.fields[0].id]:[client],[documents.fields[2].id]:'/marked/file.txt'},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Client').events.click();const tab=h.els.get('notes-detail-tabs').children.find(node=>node.textContent.startsWith('文件／位置'));tab.events.click();findButton(h.els.get('notes-table'),'Documents').events.click();assert.match(h.els.get('notes-detail-body').textContent,/\/marked\/file.txt/);findButton(h.els.get('notes-detail-body'),'查看收藏標籤：ClientFiles').events.click();assert.ok(h.toasts.includes('tag:ClientFiles'));assert.deepEqual(h.errors,[]);
 });
 test('new detail stays in the list with a clear current marker and opens overview only by choice',async t=>{
  const h=setup(t),state=h.store.addTemplate(),root=state.document.sheets[0];h.store.saveRecord({sheetId:root.id,title:'Client',notes:'',tags:[],values:{},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Client').events.click();h.els.get('notes-new-record').events.click();h.els.get('notes-record-title').value='New Person';h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();assert.equal(h.els.get('notes-detail').hidden,true);assert.match(h.els.get('notes-current-record').textContent,/New Person/);const row=descendants(h.els.get('notes-table')).find(node=>node.tagName==='TR'&&node.classList.contains('notes-current'));assert.ok(row);assert.equal(row.attrs['aria-selected'],'true');assert.match(h.els.get('notes-selected-count').textContent,/0 筆/);h.els.get('notes-inspect-current').events.click();assert.equal(h.els.get('notes-detail').hidden,false);assert.match(h.els.get('notes-detail-body').textContent,/New Person/);assert.deepEqual(h.errors,[]);
@@ -74,7 +74,7 @@ test('saving with the overview preference enabled keeps the new detail visible i
  const h=setup(t,{settings:{notesOpenAfterSave:true}}),state=h.store.addTemplate(),root=state.document.sheets[0];h.store.saveRecord({sheetId:root.id,title:'Client',notes:'',tags:[],values:{},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Client').events.click();h.els.get('notes-new-record').events.click();h.els.get('notes-record-title').value='Person';h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();assert.equal(h.els.get('notes-detail').hidden,false);assert.match(h.els.get('notes-detail-body').textContent,/Person/);assert.deepEqual(h.errors,[]);
 });
 test('explicit favorite tag linking is optional and reflects new members without fixed path copies',async t=>{
- const items=[{id:crypto.randomUUID(),path:'/local/a.txt',label:'A',tags:['Docs'],type:'file'}],h=setup(t,{favoriteItems:items,settings:{notesLinkMode:'tags'}});h.store.saveSheet({name:'Notes',fields:[]});h.ui.activate();await flush();h.els.get('notes-new-record').events.click();h.els.get('notes-record-title').value='Tagged';h.els.get('notes-pick-favorites').events.click();await flush();assert.equal(h.els.get('notes-tag-choice').hidden,false);const check=descendants(h.els.get('notes-favorite-tag-picker')).find(node=>node.tagName==='INPUT'&&node.type==='checkbox');check.checked=true;check.events.change();h.els.get('notes-favorites-apply').events.click();h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();const saved=h.store.get().document.records[0];assert.deepEqual(saved.favoriteTagLinks,[{tag:'Docs',authorized:true}]);assert.equal(saved.fileLinks.length,0);h.els.get('notes-inspect-current').events.click();assert.match(h.els.get('notes-detail-body').textContent,/Docs · 1 項/);items.push({id:crypto.randomUUID(),path:'/local/b.txt',label:'B',tags:['Docs'],type:'file'});h.changed();await flush();assert.match(h.els.get('notes-detail-body').textContent,/Docs · 2 項/);findButton(h.els.get('notes-detail-body'),'查看收藏分類').events.click();assert.ok(h.toasts.includes('tag:Docs'));assert.deepEqual(h.errors,[]);
+ const items=[{id:crypto.randomUUID(),path:'/local/a.txt',label:'A',tags:['Docs'],type:'file'}],h=setup(t,{favoriteItems:items,settings:{notesLinkMode:'tags',notesShowFavoriteTagLinks:true}});h.store.saveSheet({name:'Notes',fields:[]});h.ui.activate();await flush();h.els.get('notes-new-record').events.click();h.els.get('notes-record-title').value='Tagged';h.els.get('notes-pick-favorites').events.click();await flush();assert.equal(h.els.get('notes-tag-choice').hidden,false);const check=descendants(h.els.get('notes-favorite-tag-picker')).find(node=>node.tagName==='INPUT'&&node.type==='checkbox');check.checked=true;check.events.change();h.els.get('notes-favorites-apply').events.click();h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();const saved=h.store.get().document.records[0];assert.deepEqual(saved.favoriteTagLinks,[{tag:'Docs',authorized:true}]);assert.equal(saved.fileLinks.length,0);h.els.get('notes-inspect-current').events.click();assert.match(h.els.get('notes-detail-body').textContent,/Docs · 1 項/);items.push({id:crypto.randomUUID(),path:'/local/b.txt',label:'B',tags:['Docs'],type:'file'});h.changed();await flush();assert.match(h.els.get('notes-detail-body').textContent,/Docs · 2 項/);findButton(h.els.get('notes-detail-body'),'查看收藏分類').events.click();assert.ok(h.toasts.includes('tag:Docs'));assert.deepEqual(h.errors,[]);
 });
 test('sidebar context menus support right click, keyboard and group settings actions',async t=>{
  const h=setup(t),state=h.store.addTemplate(),area=state.document.areas[0],sheet=state.document.sheets[0];h.ui.activate();await flush();const node=h.els.get('notes-sheets').children.find(node=>node.tagName==='BUTTON');let prevented=false;node.events.contextmenu({preventDefault(){prevented=true;}});await flush();assert.equal(prevented,true);assert.ok(h.toasts.includes('menu:sheet:'+sheet.id));node.events.keydown({key:'F10',shiftKey:true,preventDefault(){}});await flush();h.contextAction({command:'edit-area',kind:'area',id:area.id});assert.equal(h.els.get('notes-area-dialog').open,true);assert.equal(h.els.get('notes-area-name').value,area.name);assert.deepEqual(h.errors,[]);
@@ -101,7 +101,7 @@ test('card field choices are per table, persist through views and allow an empty
  const phone=contacts.fields.find(field=>field.type==='phone'),email=contacts.fields.find(field=>field.type==='email');
  h.store.saveRecord({sheetId:contacts.id,title:'Alice',notes:'Private note',tags:['VIP'],values:{[contacts.fields[0].id]:[client],[phone.id]:'12345',[email.id]:'alice@example.com'},fileLinks:[]});h.ui.activate();await flush();findButton(h.els.get('notes-table'),'Acme').events.click();
  h.els.get('notes-card-config').events.click();await flush();assert.equal(h.els.get('notes-card-dialog').open,true);
- const labels=h.els.get('notes-card-fields').children;for(const row of labels)row.children[0].children[0].checked=row.children[0].textContent===email.label;
+ const labels=h.els.get('notes-card-fields').children;for(const row of labels)row.children[1].children[0].checked=row.children[1].textContent===email.label;
  const position=h.els.get('notes-card-value-position');
  position.value='below';position.events.change();
  assert.ok(descendants(h.els.get('notes-card-preview')).some(node=>node.dataset.position==='below'));
@@ -110,7 +110,7 @@ test('card field choices are per table, persist through views and allow an empty
  assert.match(h.els.get('notes-table').textContent,/alice@example.com/);assert.doesNotMatch(h.els.get('notes-table').textContent,/12345/);
  assert.ok(descendants(h.els.get('notes-table')).some(node=>node.dataset.position==='below'));
  h.els.get('notes-view-list').events.click();assert.match(h.els.get('notes-table').textContent,/12345/);h.els.get('notes-view-cards').events.click();assert.doesNotMatch(h.els.get('notes-table').textContent,/12345/);
- h.els.get('notes-card-config').events.click();await flush();for(const row of h.els.get('notes-card-fields').children)row.children[0].children[0].checked=false;h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();assert.doesNotMatch(h.els.get('notes-table').textContent,/alice@example.com/);assert.match(h.els.get('notes-table').textContent,/Alice/);
+ h.els.get('notes-card-config').events.click();await flush();for(const row of h.els.get('notes-card-fields').children)row.children[1].children[0].checked=false;h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();assert.doesNotMatch(h.els.get('notes-table').textContent,/alice@example.com/);assert.match(h.els.get('notes-table').textContent,/Alice/);
  h.els.get('notes-card-config').events.click();await flush();h.els.get('notes-card-reset').events.click();h.els.get('notes-card-cancel').events.click();assert.equal(h.preferences.notesCardFields[contacts.id],undefined);assert.equal(h.preferences.notesCardValuePositions[contacts.id],undefined);assert.match(h.els.get('notes-table').textContent,/12345/);assert.deepEqual(h.errors,[]);
 });
 test('card metadata visibility does not affect saved records or list columns',async t=>{
@@ -286,7 +286,9 @@ test('detail tools collapse without clearing filters or selection, persist their
 test('direct shared locations stay editable and offer open/show without a favorite; a failed add preserves the draft',async t=>{
  const h=setup(t);h.api.inspectLinks=async paths=>{if(paths.includes('bad'))throw new Error('位置不存在');return paths.map(path=>({path,type:'folder'}));};const sheet=h.store.saveSheet({name:'Documents',fields:[]}).document.sheets[0];h.ui.activate();await flush();h.els.get('notes-new-record').events.click();h.els.get('notes-record-title').value='Shared';h.els.get('notes-direct-paths').value='bad';h.els.get('notes-direct-add').events.click();await flush();assert.equal(h.els.get('notes-direct-paths').value,'bad');assert.equal(h.els.get('notes-record-title').value,'Shared');
  const share='\\\\Server\\Clients\\Acme';h.els.get('notes-direct-paths').value=share;h.els.get('notes-direct-add').events.click();await flush();assert.match(h.els.get('notes-record-files').textContent,/直接路徑/);h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();const saved=h.store.get().document.records[0];assert.equal(saved.fileLinks[0].path,share);assert.equal(saved.fileLinks[0].favoriteId,null);
- h.els.get('notes-inspect-current').events.click();for(const label of ['開啟','定位','複製路徑'])assert.equal(findButton(h.els.get('notes-detail-body'),label).disabled,false);
+ h.els.get('notes-inspect-current').events.click();const actions=[];h.api.openLink=async(...args)=>actions.push(args);
+ for(const label of ['Acme',share,'複製路徑']){findButton(h.els.get('notes-detail-body'),label).events.click();await flush();}
+ assert.deepEqual(actions,[[saved.id,0,'open'],[saved.id,0,'show'],[saved.id,0,'copy']]);
  findButton(h.els.get('notes-detail-body'),'編輯').events.click();h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();assert.equal(h.store.get().document.records[0].fileLinks[0].path,share);assert.equal(h.errors.length,1);
 });
 
@@ -508,8 +510,10 @@ test('card field ordering survives apply and the color editor leaves names in a 
  h.ui.activate();await flush();
  h.els.get('notes-card-config').events.click();await flush();
  const settings=h.els.get('notes-card-fields');
- const move=descendants(settings).find(node=>node.attrs['aria-label']==='上移 '+status.label);
- move.events.click();
+ const [codeRow,statusRow]=settings.children;
+ const drag={dataTransfer:{setData(){}},preventDefault(){}};
+ statusRow.children[0].events.dragstart(drag);
+ codeRow.events.dragover(drag);codeRow.events.drop(drag);
  assert.match(h.els.get('notes-card-preview').textContent,/狀態合作中客戶代號A-10/);
  h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();
  assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[status.id,code.id]);
@@ -541,4 +545,49 @@ test('a master without detail tables opens its record and keeps collapsed tools 
  assert.equal(more.hidden,true);
  assert.equal(h.els.get('notes-table-actions').parentElement,h.els.get('notes-table-actions-slot'));
  assert.equal(actions.children.length,0);
+});
+
+test('favorite tag links are hidden in overview and new entry by default, and an edit leaves existing links intact',async t=>{
+ const h=setup(t,{settings:{notesLinkMode:'tags'}});
+ const sheet=h.store.saveSheet({name:'Links',fields:[]}).document.sheets[0];
+ const saved=h.store.saveRecord({sheetId:sheet.id,title:'Linked',notes:'',tags:[],values:{},fileLinks:[],
+  favoriteTagLinks:[{tag:'Keep',authorized:false}]}).document.records[0];
+ let submitted;
+ h.api.saveRecord=async input=>{submitted=input;return h.store.saveRecord({...input,fileLinks:[]});};
+ h.ui.activate();await flush();
+ findButton(h.els.get('notes-table'),'Linked').events.click();
+ assert.doesNotMatch(h.els.get('notes-detail-body').textContent,/收藏標籤連結/);
+ findButton(h.els.get('notes-detail-body'),'編輯').events.click();
+ assert.doesNotMatch(h.els.get('notes-record-files').textContent,/Keep/);
+ h.els.get('notes-record-form').events.submit({preventDefault(){}});await flush();
+ assert.equal(Object.hasOwn(submitted,'favoriteTags'),false);
+ assert.deepEqual(h.store.get().document.records.find(record=>record.id===saved.id).favoriteTagLinks,saved.favoriteTagLinks);
+ h.els.get('notes-new-record').events.click();
+ h.els.get('notes-pick-favorites').events.click();await flush();
+ assert.equal(h.els.get('notes-link-tag-tab').hidden,true);
+ assert.equal(h.els.get('notes-tag-choice').hidden,true);
+ assert.equal(h.els.get('notes-path-choice').hidden,false);
+});
+
+test('the right-side overview width saves on drag and resets using the same preference',async()=>{
+ const {documentFromHTML}=require('./helpers/dom');
+ const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));
+ const $=id=>document.getElementById(id),window={addEventListener(){}},widths=[],styles={};
+ document.documentElement.style.setProperty=(key,value)=>styles[key]=value;
+ const handle=$('notes-detail-resizer'),panel=$('notes-detail');
+ panel.getBoundingClientRect=()=>({width:400});
+ handle.setPointerCapture=()=>{};handle.hasPointerCapture=()=>false;
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/sidebar-resize.js'),'utf8'),{window,document});
+ let width=400;
+ window.sidebarResize.initNotesDetail({getWidth:()=>width,save:value=>{width=value;widths.push(value);},isBusy:()=>false});
+ await handle.dispatch('pointerdown',{button:0,pointerId:1,clientX:700});
+ await handle.dispatch('pointermove',{pointerId:1,clientX:630});
+ assert.equal(styles['--notes-detail-width'],'470px');
+ assert.deepEqual(widths,[]);
+ await handle.dispatch('pointerup',{pointerId:1});
+ assert.deepEqual(widths,[470]);
+ await handle.dispatch('keydown',{key:'ArrowRight'});
+ assert.equal(width,460);
+ await handle.dispatch('dblclick');
+ assert.deepEqual(widths,[470,460,400]);
 });

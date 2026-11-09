@@ -306,6 +306,7 @@
               <button id="notes-next" class="btn btn-ghost">下一頁 ›</button>
             </div>
           </main>
+          <div id="notes-detail-resizer" class="notes-panel-resizer notes-detail-resizer" role="separator" aria-label="調整紀錄總覽寬度" aria-controls="notes-detail" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="680" tabindex="0" hidden></div>
           <aside id="notes-detail" class="notes-detail" hidden>
             <div class="notes-detail-head">
               <strong>紀錄總覽</strong>
@@ -678,9 +679,10 @@
                   </label>
                   <p class="rule-hint">亦可拖曳側欄右邊界；雙擊還原 220 px，方向鍵微調，窄視窗會限制顯示寬度。</p>
                   <label class="field">
-                    <span>紀錄總覽寬度 <output id="settings-notes-detail-width-value">400 px</output></span>
+                    <span>紀錄總覽寬度（也可拖曳總覽左緣） <output id="settings-notes-detail-width-value">400 px</output></span>
                     <input id="settings-notes-detail-width" type="range" min="280" max="680" value="400">
                   </label>
+                  <label class="check-row"><input id="settings-notes-favorite-tag-links" type="checkbox"><span>顯示工作區的收藏標籤連結</span></label>
                   <label class="field">
                     <span>最小列高 <output id="settings-notes-row-height-value">36 px</output></span>
                     <input id="settings-notes-row-height" type="range" min="28" max="64" value="36">
@@ -845,7 +847,7 @@
                 </section>
                 <section class="settings-card">
                   <h2>查看紀錄</h2>
-                  <p class="rule-hint">設定主視窗與浮動紀錄的預設表格、顯示方式及排序。指定單一表格的浮動快捷仍直接開啟該表格。</p>
+                  <p class="rule-hint">設定主視窗與浮動紀錄的預設表格、排序、正文預覽及顯示項目。指定單一表格的浮動快捷仍直接開啟該表格。</p>
                   <form id="log-settings-form">
                     <fieldset>
                       <legend class="sr-only">查看紀錄預設</legend>
@@ -853,6 +855,10 @@
                       <div id="log-settings-tables" class="notes-choice-list" hidden></div>
                       <label class="field"><span>查看紀錄預設版面</span><select id="log-settings-layout"><option value="list">精簡清單</option><option value="cards">卡片</option></select></label>
                       <label class="field"><span>查看紀錄預設排序</span><select id="log-settings-sort"><option value="recent">日期：新到舊</option><option value="oldest">日期：舊到新</option><option value="title">標題</option></select></label>
+                      <label class="field"><span>查看紀錄正文預覽行數（0 為隱藏）</span><input id="log-settings-preview-lines" type="number" min="0" max="5" step="1" required></label>
+                      <label class="check-row"><input id="log-settings-show-count" type="checkbox"><span>顯示紀錄筆數</span></label>
+                      <label class="check-row"><input id="log-settings-empty-pins" type="checkbox"><span>沒有釘選時仍顯示釘選區</span></label>
+                      <label class="check-row"><input id="log-settings-window-pin" type="checkbox"><span>顯示釘住視窗按鈕</span></label>
                       <button id="log-settings-save" class="btn btn-secondary" type="submit" disabled>套用查看紀錄設定</button>
                     </fieldset>
                     <p id="log-settings-status" class="notes-hint" role="status"></p>
@@ -2405,6 +2411,7 @@
           <option value="below">欄位名稱下方</option>
         </select>
       </label>
+      <p class="notes-hint">拖曳欄位前方的把手，或按上移／下移調整卡片順序。</p>
       <div id="notes-card-fields" class="notes-choice-list"></div>
       <p class="notes-hint">勾選要顯示的欄位，再用上下箭頭調整順序。全部取消會隱藏資料欄位。</p>
       <section class="notes-card-layout-preview" aria-label="欄位版面預覽">
@@ -2453,14 +2460,14 @@
           </section>
           <section id="notes-form-links" role="tabpanel" aria-labelledby="notes-form-tab-links" hidden>
             <div class="notes-tools">
-              <strong>相關位置／收藏標籤</strong>
+              <strong id="notes-record-links-heading">相關位置</strong>
               <button id="notes-pick-favorites" type="button" class="btn btn-secondary">＋ 連結位置／收藏標籤</button>
             </div>
             <label class="field"><span>直接連結檔案／資料夾（可拖放，每行一個完整路徑）</span><textarea id="notes-direct-paths" rows="2" maxlength="409600" spellcheck="false" placeholder="例如：&#92;&#92;FileServer&#92;Share&#92;Clients"></textarea></label>
             <button id="notes-direct-add" type="button" class="btn btn-ghost">加入路徑連結</button>
             <small class="notes-hint">支援本機、映射磁碟與 UNC 共享路徑，不必加入收藏；接收者須有相同路徑的存取權。</small>
             <div id="notes-record-files"></div>
-            <p class="notes-hint">儲存位置與分類連結，不修改或複製原檔案；共享路徑可直接開啟；收藏標籤需重新選取本機分類。</p>
+            <p class="notes-hint">儲存位置連結，不修改或複製原檔案。<span id="notes-record-tag-link-hint" hidden>收藏標籤需重新選取本機分類。</span></p>
           </section>
         </div>
         <footer class="notes-form-footer">
@@ -2475,7 +2482,7 @@
       <h2 id="notes-favorites-title">連結位置或收藏標籤</h2>
       <div class="notes-tools">
         <button id="notes-link-path-tab" class="btn btn-secondary" aria-pressed="true">位置</button>
-        <button id="notes-link-tag-tab" class="btn btn-secondary" aria-pressed="false">收藏標籤</button>
+        <button id="notes-link-tag-tab" class="btn btn-secondary" hidden aria-pressed="false">收藏標籤</button>
       </div>
       <section id="notes-path-choice">
         <p class="notes-hint">選取現有收藏，或從下方加入本機位置。新增位置會加入「我的收藏」，取消編輯不會移除這些收藏。</p>
@@ -2495,7 +2502,7 @@
         <div id="notes-favorite-tag-picker"></div>
       </section>
       <p id="notes-link-status" class="notes-hint" role="status"></p>
-      <p class="notes-hint">每筆最多 100 個位置及 20 個收藏標籤，不會複製原始檔案。</p>
+      <p class="notes-hint">每筆最多 100 個位置<span id="notes-picker-tag-limit" hidden>及 20 個收藏標籤</span>，不會複製原始檔案。</p>
       <div class="modal-buttons">
         <button id="notes-favorites-cancel" class="btn btn-secondary">取消</button>
         <button id="notes-favorites-apply" class="btn btn-primary">套用連結</button>

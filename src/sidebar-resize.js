@@ -16,6 +16,7 @@
  window.sidebarResize=Object.freeze({
   init:options=>bind(options,{handle:'tag-panel-resizer',panel:'favorite-tags-panel',property:'--tag-panel-width',dragClass:'resizing-tags',min:140,max:480,defaultWidth:220,direction:1}),
   initNotes:options=>bind(options,{handle:'notes-panel-resizer',panel:'notes-sidebar',property:'--notes-panel-width',dragClass:'resizing-notes',min:160,max:480,defaultWidth:220,direction:1}),
+  initNotesDetail:options=>bind(options,{handle:'notes-detail-resizer',panel:'notes-detail',property:'--notes-detail-width',dragClass:'resizing-notes',min:280,max:680,defaultWidth:400,direction:-1}),
   initSource:options=>bind(options,{handle:'source-panel-resizer',panel:'source-panel',property:'--source-panel-width',dragClass:'resizing-source',min:160,max:480,defaultWidth:220,direction:()=>window.settingsUI?.get().filePanelSide==='rules-left'?-1:1}),
   initRules:options=>bind(options,{handle:'rules-panel-resizer',panel:'rules-panel',property:'--rules-width',dragClass:'resizing-rules',min:280,max:720,defaultWidth:420,direction:()=>window.settingsUI?.get().filePanelSide==='rules-left'?1:-1})
  });

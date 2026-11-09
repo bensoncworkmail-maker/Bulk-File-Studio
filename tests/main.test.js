@@ -577,7 +577,7 @@ test('floating calendar and snippets share one window and its size with restrict
 
 test('log preferences persist, validate and belong to the calendar and logs settings reset',t=>{
  const h=harness(t),sheetId=h.handlers.get('notes-template')().document.sheets[0].id;
- const logView={scope:'selected',sheetIds:[sheetId],layout:'cards',sort:'oldest'};
+ const logView={scope:'selected',sheetIds:[sheetId],layout:'cards',sort:'oldest',previewLines:3,showCount:true,showEmptyPins:true,showWindowPin:false};
  const save=h.handlers.get('desktop-settings-set');
  save(null,{logView});
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(h.dir,'desktop-state.json'),'utf8')).settings.logView,logView);
@@ -961,7 +961,11 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  assert.deepEqual(call('data','logs',{}).rows.map(row=>row.id),[id]);
  assert.throws(()=>call('log-record',logContext,'pin',parent,true),/不在選定表格/);
  assert.throws(()=>call('log-record','stale','pin',id,true),/已切換/);
- assert.throws(()=>call('log-record',logContext,'detail',id),/取消釘選/);
+ assert.match(call('log-record',logContext,'detail',id).notes,/星期一確認/);
+ assert.throws(()=>call('log-record',logContext,'edit',id),/取消釘選/);
+ assert.throws(()=>call('action','logs','reminder',parent),/不在選定表格/);
+ call('action','logs','reminder',id);
+ assert.ok(h.messages.some(([channel,value])=>channel==='record-reminders-open'&&value.recordId===id));
  call('log-record',logContext,'pin',id,true);
  call('log-record',logContext,'pin',id,true);
  const data=call('data','logs',{query:'無符合',from:'2027-01-01',to:'2026-12-31'});

@@ -5,7 +5,8 @@
  function init(){
   const form=$('log-settings-form'),scope=$('log-settings-scope'),tables=$('log-settings-tables');
   const layout=$('log-settings-layout'),sort=$('log-settings-sort'),status=$('log-settings-status');
-  const save=$('log-settings-save');
+  const save=$('log-settings-save'),preview=$('log-settings-preview-lines');
+  const display={showCount:$('log-settings-show-count'),showEmptyPins:$('log-settings-empty-pins'),showWindowPin:$('log-settings-window-pin')};
   let saved,available=[],selected=new Set(),dirty=false,saving=false,request=0;
 
   function renderTables(){
@@ -27,6 +28,8 @@
   function sync(value){
    saved=value;
    scope.value=value.scope;layout.value=value.layout;sort.value=value.sort;
+   preview.value=String(value.previewLines);
+   for(const [key,input] of Object.entries(display))input.checked=value[key];
    selected=new Set(value.sheetIds);
    renderTables();
   }
@@ -34,7 +37,7 @@
   form.addEventListener('change',event=>{
    dirty=true;
    if(event.target===scope)renderTables();
-   if(event.target.type==='checkbox'){
+   if(event.target.type==='checkbox'&&tables.contains(event.target)){
     const {checked,value}=event.target;
     if(checked)selected.add(value);else selected.delete(value);
    }
@@ -48,7 +51,8 @@
     status.textContent='請勾選至少一個可用表格。';
     return;
    }
-   const logView={scope:scope.value,sheetIds:[...selected],layout:layout.value,sort:sort.value};
+   const logView={scope:scope.value,sheetIds:[...selected],layout:layout.value,sort:sort.value,previewLines:Number(preview.value),
+    ...Object.fromEntries(Object.entries(display).map(([key,input])=>[key,input.checked]))};
    saving=true;form.querySelector('fieldset').disabled=true;
    try{
     const result=await window.desktopAPI.configure({logView});

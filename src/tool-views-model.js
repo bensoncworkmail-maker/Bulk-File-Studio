@@ -91,7 +91,7 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
   const fields=table.fields.filter(field=>field.type!=='relation').map(field=>M.cell(doc,field,record.values[field.id]));
   const linked=parent?(record.values[parent.id]||[]).map(id=>masterById.get(id)?.title||'').join('、'):'';
   if(query&&![record.title,record.notes,...record.tags,...fields,linked].some(value=>value.toLocaleLowerCase().includes(query)))continue;
-  rows.push({id:record.id,title:record.title,date:day,detail:[day,linked].filter(Boolean).join(' · '),summary:record.notes.slice(0,240),updatedAt:record.updatedAt});
+  rows.push({id:record.id,title:record.title,date:day,context:linked,detail:[day,linked].filter(Boolean).join(' · '),summary:record.notes.slice(0,800),updatedAt:record.updatedAt});
  }
  rows.sort((a,b)=>{
   if(sort==='title')return a.title.localeCompare(b.title,'zh-Hant')||b.date.localeCompare(a.date);
@@ -99,7 +99,8 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
   return (sort==='oldest'?dateOrder:-dateOrder)||a.title.localeCompare(b.title,'zh-Hant');
  });
  const pinned=logPins&&pinnedRows(doc,records,tables,logPins,filters);
- return {...paginate(rows),...(pinned?{pinned,filterError}:{}),sort,layout,restricted:!config.sheetId&&settings.scope==='selected',
+ const {previewLines,showCount,showEmptyPins,showWindowPin}=settings;
+ return {...paginate(rows),...(pinned?{pinned,filterError}:{}),sort,layout,presentation:{previewLines,showCount,showEmptyPins,showWindowPin},restricted:!config.sheetId&&settings.scope==='selected',
   tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
   masters:masters.map(({id,title})=>({id,title})),masterRequired:Boolean(parent&&config.scope==='master'),
   dateFields:dateFields.map(({id,label})=>({id,label})),
@@ -119,7 +120,7 @@ function pinnedRows(doc,records,tables,ids,filters){
   const state=firstField(filters.stateField,['select','checkbox']);
   const markers=[date,state].filter(Boolean).map(field=>({label:field.label,value:logValue(doc,record,field)}))
    .filter(field=>field.value);
-  rows.push({id,title:record.title,sheet:table.name,markers,summary:record.notes.slice(0,140)});
+  rows.push({id,title:record.title,sheet:table.name,markers,date:new Date(record.updatedAt).toLocaleDateString('sv-SE'),summary:record.notes.slice(0,800)});
  }
  return rows;
 }

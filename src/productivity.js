@@ -79,7 +79,8 @@
   logView=window.toolViewsUI?.mount($('logs-page'),{
    data:filters=>api.viewData(config,filters),
    clearScope:config.sheetId?()=>openLogs(true):null,
-   action:(_,id)=>window.notesUI.openSearchTarget('record',id)
+   logDetail:id=>api.logDetail(config,id),
+   action:(action,id)=>action==='reminder'?window.recordRemindersUI.open(id):window.notesUI.openSearchTarget('record',id)
   },config);
  }
  function snippetPicker(target,customer=()=>''){
