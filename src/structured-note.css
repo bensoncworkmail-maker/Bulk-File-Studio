@@ -1,8 +1,55 @@
-.structured-note { min-width:0; }
-.structured-note-rows { display:grid; gap:5px; margin:0 0 6px; padding:0; list-style:none; }
-.structured-note-rows:empty { margin:0; }
-.structured-note-rows li { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
-.structured-note-rows input[type="text"] { flex:1 1 130px; min-width:0; width:auto; }
-.structured-note-rows :is(input[type="date"], select) { flex:0 1 auto; width:auto; }
-.structured-note-rows input[type="checkbox"] { width:auto; margin:0 5px; }
-.structured-note-rows button { padding-inline:7px; }
+.structured-note {
+ --structured-line:var(--line,var(--border,#cbd4e3));
+ --structured-surface:var(--surface,var(--canvas,#fff));
+ --structured-muted:var(--muted,#64748b);
+ --structured-accent:var(--accent,#6541b8);
+ min-width:0;
+}
+.structured-note-rows {
+ display:grid; gap:5px; margin:0; padding:0; list-style:none; counter-reset:structured-step;
+}
+.structured-note-rows li {
+ position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+ min-width:0; padding:5px 7px; border:1px solid var(--structured-line);
+ border-radius:7px; background:var(--structured-surface);
+}
+.structured-note-rows :is(input[type="text"],.structured-note-label) {
+ flex:1 1 110px; min-width:0; width:auto; overflow-wrap:anywhere;
+}
+.structured-note-rows :is(input[type="date"],select) { flex:0 1 auto; width:auto; max-width:100%; }
+.structured-note-rows input[type="checkbox"] { flex:none; width:16px; height:16px; margin:0; accent-color:var(--structured-accent); }
+.structured-note-rows [data-done=true] .structured-note-label { color:var(--structured-muted); text-decoration:line-through; }
+.structured-note-check {
+ display:grid; place-items:center; width:15px; height:15px; border:1px solid var(--structured-line); border-radius:4px;
+}
+[data-done=true] .structured-note-check { color:var(--structured-accent); border-color:currentColor; }
+.structured-note[data-type=workflow] .structured-note-rows li::before {
+ counter-increment:structured-step; content:counter(structured-step);
+ display:grid; place-items:center; flex:none; width:23px; height:23px; border-radius:50%;
+ background:color-mix(in srgb,var(--structured-accent) 14%,transparent);
+ color:var(--structured-accent); font-weight:700;
+}
+.structured-note [data-status] { border:1px solid var(--structured-line); }
+.structured-note [data-status=active] { border-color:var(--structured-accent); }
+.structured-note [data-status=done] { border-color:var(--structured-accent); background:color-mix(in srgb,var(--structured-accent) 10%,var(--structured-surface)); }
+.structured-note[data-type=timeline] .structured-note-rows {
+ margin-inline-start:5px; padding-inline-start:11px; border-inline-start:1px solid var(--structured-line);
+}
+.structured-note[data-type=timeline] .structured-note-rows:empty { border:0; }
+.structured-note[data-type=timeline] li::before {
+ content:''; position:absolute; inset-inline-start:-16px; top:50%; transform:translateY(-50%);
+ width:7px; height:7px; border-radius:50%; background:var(--structured-accent);
+}
+.structured-note-actions,.structured-note-footer { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+.structured-note-actions { margin-inline-start:auto; }
+.structured-note-footer { justify-content:space-between; gap:6px; margin-top:6px; }
+.structured-note-button {
+ min-width:26px; min-height:26px; padding:2px 6px; border:1px solid var(--structured-line); border-radius:5px;
+ background:var(--structured-surface); color:inherit; font:inherit; cursor:pointer;
+}
+.structured-note-button:not(:disabled):not([aria-disabled=true]):hover { border-color:var(--structured-accent); }
+.structured-note-button:is(:disabled,[aria-disabled=true]) { opacity:.45; cursor:default; }
+.structured-note-add { color:var(--structured-accent); font-weight:600; }
+.structured-note-summary,.structured-note-meta { font-size:.88em; color:var(--structured-muted); }
+.structured-note-view .structured-note-summary { margin:0 0 4px; }
+.structured-note-meta { padding:2px 5px; border-radius:5px; overflow-wrap:anywhere; }

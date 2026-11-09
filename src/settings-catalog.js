@@ -362,6 +362,7 @@ const config={
     "floatingStartup": "floating",
     "floatingShortcut": "shortcuts",
     "notesCardFields": "notes",
+    "notesCardValuePositions": "notes",
     "favoriteColumns": "favorites",
     "tagSort": "favorites",
     "tagDirection": "favorites",

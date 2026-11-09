@@ -2390,11 +2390,23 @@
         <span>表格</span>
         <select id="notes-card-sheet"></select>
       </label>
+      <label class="field">
+        <span>欄位值的位置</span>
+        <select id="notes-card-value-position">
+          <option value="right">欄位名稱右側（預設）</option>
+          <option value="left">欄位名稱左側</option>
+          <option value="below">欄位名稱下方</option>
+        </select>
+      </label>
       <div id="notes-card-fields" class="notes-choice-list"></div>
-      <p class="notes-hint">勾選後按「套用」，取消全部可隱藏所有資料欄位；標題仍保留。欄位顯示順序依表格定義。</p>
+      <p class="notes-hint">勾選要顯示的欄位，再用上下箭頭調整順序。全部取消會隱藏資料欄位。</p>
+      <section class="notes-card-layout-preview" aria-label="欄位版面預覽">
+        <strong>欄位版面預覽</strong>
+        <div id="notes-card-preview"></div>
+      </section>
       <div class="modal-buttons">
         <button id="notes-card-cancel" class="btn btn-ghost">關閉</button>
-        <button id="notes-card-reset" class="btn btn-ghost">還原自動欄位</button>
+        <button id="notes-card-reset" class="btn btn-ghost">還原表格版面</button>
         <button id="notes-card-apply" class="btn btn-primary">套用</button>
       </div>
       <p id="notes-card-status" role="status" class="notes-hint"></p>
