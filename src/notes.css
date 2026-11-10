@@ -218,6 +218,14 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
  box-shadow:0 0 0 1px color-mix(in srgb,var(--text) 42%,transparent)
 }
 .notes-field-row>.notes-option-colors { grid-column:1/-1; min-width:0; }
+.notes-card .notes-choice-chip{
+ background:color-mix(in srgb,var(--notes-chip-tone) 7%,var(--panel));
+ border-color:color-mix(in srgb,var(--notes-chip-tone) 20%,var(--line));
+ font-weight:600;
+}
+.notes-card .notes-choice-chip::before{width:6px;height:6px}
+.notes-card-meta{display:flex;align-items:center;flex:1 1 auto;flex-wrap:wrap;gap:3px 6px;min-width:0}
+.notes-card-status{font-size:11px;color:var(--text);overflow-wrap:anywhere;min-width:0}
 .notes-option-colors summary { cursor:pointer; color:var(--muted); }
 .notes-option-color-list { display:grid; gap:4px; margin-top:5px; }
 .notes-option-color-row {

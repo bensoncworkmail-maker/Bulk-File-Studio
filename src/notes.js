@@ -48,12 +48,12 @@
  const openDialogs=()=>['notes-sheet-review-dialog','notes-bulk-dialog','notes-table-dialog','notes-tools-dialog','notes-organize-dialog','notes-card-dialog','notes-sheet-dialog','notes-record-dialog','notes-favorites-dialog','notes-confirm-dialog','notes-transfer-dialog','notes-history-dialog','notes-area-dialog','notes-template-dialog','notes-share-dialog'].some(id=>$(id).open);
  function indexes(){recordMap=new Map(doc().records.map(record=>[record.id,record]));sheetMap=new Map(doc().sheets.map(sheet=>[sheet.id,sheet]));}
  function formOnly(type){return ['relation','multiselect'].includes(type)||M.structured.isType(type);}
- function paintChoices(target,field,value){
-  if(!field.optionColors||!value?.length)return;
+ function paintChoices(target,field,value,showUncolored=false){
+  if((!field.optionColors&&!showUncolored)||!value?.length)return;
   const values=Array.isArray(value)?value:[value];
   target.replaceChildren(...values.map(option=>{
    const chip=el('span',option,'notes-choice-chip');
-   const color=Object.hasOwn(field.optionColors,option)?field.optionColors[option]:null;
+   const color=Object.hasOwn(field.optionColors||{},option)?field.optionColors[option]:null;
    if(color)chip.style.setProperty('--notes-choice-color',color);
    return chip;
   }));
@@ -176,6 +176,19 @@
   }
   return list;
  }
+ function cardStatusField(sheet,options){
+  return T.statusField(sheet,options.notesStatusFilters[sheet?.id])||T.statusField(sheet);
+ }
+ function cardStatusBadge(field,record,preview=false){
+  const stored=record?.values[field.id];
+  const label=field.type==='checkbox'&&typeof stored==='boolean'
+   ?field.label+(stored?' ✓':'（未勾選）'):display(field,stored);
+  if(!label&&!preview)return null;
+  const badge=el('span',label||'—','notes-card-status');
+  badge.title=field.label+'：'+(label||'—');
+  if(['select','multiselect'].includes(field.type))paintChoices(badge,field,stored,true);
+  return badge;
+ }
  function renderCards(records){
   const grid=el('div',undefined,'notes-card-grid'),options=prefs();grid.dataset.widthMode=options.notesCardWidthMode==='title'&&searchScope()==='sheet'?'title':'uniform';grid.dataset.cardSize=options.notesCardSize;grid.setAttribute('style','--notes-card-max-width:'+(options.notesCardMaxWidth||420)+'px');
   for(const record of records){
@@ -184,15 +197,22 @@
    const title=button(record.title,event=>{event?.stopPropagation();if(event?.ctrlKey||event?.metaKey||event?.shiftKey)toggleCard(record,event);else chooseRecord(record.id);},'notes-card-title');title.title=record.title;top.append(check,title);if(options.notesCardShowType)top.append(el('small',context.isMaster?'主檔':'明細'));top.append(chip);card.append(top);
    if(options.notesCardShowContext)body.append(el('small',context.area+' ／ '+context.sheet,'notes-card-context'));
    if(options.notesCardShowParent&&context.masters.length)body.append(el('p','所屬：'+context.masters.join('、'),'notes-card-parent'));
-   const chosen=options.notesCardFields[record.sheetId];
-   const fields=orderedCardFields(sheetMap.get(record.sheetId),chosen,options.notesCardShowRelations);
-   const data=cardFieldList(fields,record,options.notesCardValuePositions[record.sheetId],{limit:Array.isArray(chosen)?50:3,positions:options.notesCardFieldPositions?.[record.sheetId]});
+   const sheet=sheetMap.get(record.sheetId),chosen=options.notesCardFields[record.sheetId];
+   const fields=orderedCardFields(sheet,chosen,options.notesCardShowRelations),statusField=cardStatusField(sheet,options);
+   const data=cardFieldList(fields.filter(field=>field.id!==statusField?.id),record,options.notesCardValuePositions[record.sheetId],{limit:Array.isArray(chosen)?50:3,positions:options.notesCardFieldPositions?.[record.sheetId]});
    if(data.children.length)body.append(data);
    if(options.notesCardShowNotes&&record.notes){const note=el('p',record.notes.slice(0,120),'notes-card-note');note.title=record.notes.slice(0,1000);body.append(note);}
    if(options.notesCardShowTags&&record.tags.length){const tags=el('div',undefined,'notes-card-tags');for(const tag of record.tags.slice(0,3))tags.append(el('span',tag,'notes-chip'));body.append(tags);}
    if(body.children.length)card.append(body);
    const foot=el('div',undefined,'notes-card-footer'),metadata=[options.notesCardShowDate?record.updatedAt.slice(0,10):'',options.notesCardShowLinks&&(record.fileLinks.length||options.notesCardShowEmptyLinks)?record.fileLinks.length+' 個位置':''].filter(Boolean).join(' · ');
-   if(metadata)foot.append(el('small',metadata));foot.append(button('編輯',event=>{event?.stopPropagation();editRecord(record,record.sheetId);}));card.append(foot);
+   const meta=el('div',undefined,'notes-card-meta');
+   if(metadata)meta.append(el('small',metadata));
+   if(fields.includes(statusField)){
+    const badge=cardStatusBadge(statusField,record);
+    if(badge)meta.append(badge);
+   }
+   if(meta.children.length)foot.append(meta);
+   foot.append(button('編輯',event=>{event?.stopPropagation();editRecord(record,record.sheetId);}));card.append(foot);
    card.addEventListener('click',event=>{if(event?.ctrlKey||event?.metaKey||event?.shiftKey)toggleCard(record,event);else chooseRecord(record.id);});card.tabIndex=0;card.addEventListener('keydown',event=>{if(event.target===card){if(event.key==='Enter'){event.preventDefault();chooseRecord(record.id);}else if(event.key===' '){event.preventDefault();toggleCard(record,event);}}});recordRows.set(record.id,{row:card,chip,check});grid.append(card);
   }
   $('notes-table').append(grid);
@@ -248,7 +268,7 @@
   if(owner){areaId=owner.id;masterId=saved.id;sheetId=M.detailSheets(next,owner.id)[0]?.id||saved.sheetId;focusedRecordId=null;recordId=open?saved.id:null;}
   else{const parent=M.parentField(next,sheet),parents=parent?saved.values[parent.id]||[]:[];if(areaId!=='all'&&(sheet.areaId||'ungrouped')!==areaId){areaId=sheet.areaId||'ungrouped';masterId=null;}if(parent&&parents.length===1&&next.records.some(record=>record.id===parents[0]&&M.live(next,record))){areaId=sheet.areaId;masterId=parents[0];}else if(parent&&!parents.includes(masterId))masterId=null;}
  }
- function renderWebsiteField(cell,record,field,value){
+ function renderWebsiteField(cell,record,field,value,showCopy){
   const links=window.webLinkModel?.links(value,{whole:field.type==='url'});
   if(!links?.length)return;
   cell.replaceChildren();
@@ -261,8 +281,8 @@
   if(end<value.length)cell.append(el('span',value.slice(end)));
   if(links.length===1&&links[0].text===value.trim()){
    const actions=el('span',undefined,'notes-website-actions');
-   actions.append(button('開啟網站 ↗',()=>run(()=>api.openWebsite(record.id,field.id))),
-    button('複製網址',()=>run(()=>api.openWebsite(record.id,field.id,'copy'),'已複製網址')));
+   actions.append(button('開啟網站 ↗',()=>run(()=>api.openWebsite(record.id,field.id))));
+   if(showCopy)actions.append(button('複製網址',()=>run(()=>api.openWebsite(record.id,field.id,'copy'),'已複製網址')));
    cell.append(actions);
   }
  }
@@ -279,9 +299,13 @@
  }
  function renderDetail(){
   const record=recordMap.get(recordId),show=!trash&&record&&live(record);$('notes-detail').hidden=$('notes-detail-resizer').hidden=!show;$('notes-layout').dataset.detail=String(Boolean(show));if(!show)return;
+  const options=prefs(),showCopy=options.notesShowDetailCopy;
   const body=$('notes-detail-body'),heading=el('div',undefined,'notes-copy-row notes-copy-heading');
-  heading.append(el('h2',record.title),copyRecordText(record,'title','標題'));
-  body.replaceChildren(heading,el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const tools=el('div',undefined,'notes-tools');tools.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))),button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')),button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(tools);
+  heading.append(el('h2',record.title));
+  if(showCopy&&options.notesShowTitleCopy)heading.append(copyRecordText(record,'title','標題'));
+  body.replaceChildren(heading,el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const tools=el('div',undefined,'notes-tools');tools.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))));
+  if(showCopy)tools.append(button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')));
+  tools.append(button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(tools);
   const tags=el('div');
   for(const tag of record.tags)tags.append(el('span',tag,'notes-chip'));
   body.append(tags);
@@ -293,10 +317,13 @@
     cell.append(window.structuredNoteUI.view(field.type,stored));
    }else{
     if(M.COPY_TEXT_TYPES.includes(field.type)&&stored?.trim()){
-     cell.className='notes-copy-row';
      const value=el('div',stored,'notes-copy-value');
-     if(['url','text','longtext'].includes(field.type))renderWebsiteField(value,record,field,stored);
-     cell.append(value,copyRecordText(record,field.id,field.label));
+     if(['url','text','longtext'].includes(field.type))renderWebsiteField(value,record,field,stored,showCopy);
+     cell.append(value);
+     if(showCopy){
+      cell.className='notes-copy-row';
+      cell.append(copyRecordText(record,field.id,field.label));
+     }
     }else{
      cell.textContent=display(field,stored)||'—';
      paintChoices(cell,field,stored);
@@ -306,7 +333,7 @@
   }
   const notesHeading=el('div',undefined,'notes-copy-row notes-copy-heading');
   notesHeading.append(el('h3','筆記'));
-  if(record.notes.trim())notesHeading.append(copyRecordText(record,'notes','筆記'));
+  if(showCopy&&record.notes.trim())notesHeading.append(copyRecordText(record,'notes','筆記'));
   body.append(data,notesHeading,el('div',record.notes||'尚未加入筆記','notes-note'));
   if(prefs().notesShowFavoriteTagLinks){
   const favoriteTags=record.tags.filter(tag=>favorites.some(item=>item.tags?.some(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase())));if(favoriteTags.length){const links=el('div',undefined,'notes-tools');for(const tag of favoriteTags)links.append(button('查看收藏標籤：'+tag,()=>window.favoritesUI.showTag(tag)));body.append(links);}
@@ -322,8 +349,8 @@
    location.title='在檔案總管定位';
    row.append(name,location);
    const actions=el('div',undefined,'notes-tools');
-   if(prefs().notesShowFileLinkButtons)actions.append(button('開啟',()=>action('open')),button('定位',()=>action('show')));
-   actions.append(button('複製路徑',()=>action('copy')));
+   if(options.notesShowFileLinkButtons)actions.append(button('開啟',()=>action('open')),button('定位',()=>action('show')));
+   if(showCopy)actions.append(button('複製路徑',()=>action('copy')));
    if(link.type==='file')actions.append(button('預覽',()=>window.productivityUI?.previewLink(record.id,index)));
    row.append(actions);body.append(row);
   });
@@ -680,10 +707,15 @@
   const fields=orderedCardFields(sheet,selected,$('notes-card-show-relations').checked);
   const card=el('div',undefined,'notes-card notes-card-preview-card');
   card.append(el('strong',sample?.title||'紀錄標題','notes-card-title'));
-  if(fields.length)card.append(cardFieldList(fields,sample,$('notes-card-value-position').value,{preview:true,positions:cardFieldPositions}));
-  else card.append(el('small','目前未顯示資料欄位。','notes-hint'));
+  const statusField=cardStatusField(sheet,prefs()),bodyFields=fields.filter(field=>field.id!==statusField?.id);
+  if(bodyFields.length)card.append(cardFieldList(bodyFields,sample,$('notes-card-value-position').value,{preview:true,positions:cardFieldPositions}));
+  if(fields.includes(statusField)){
+   const footer=el('div',undefined,'notes-card-footer');
+   footer.append(cardStatusBadge(statusField,sample,true));card.append(footer);
+  }
+  if(!fields.length)card.append(el('small','目前未顯示資料欄位。','notes-hint'));
   preview.append(card);
-  if(fields.length){
+  if(bodyFields.length){
    const targets=el('div',undefined,'notes-card-position-targets');
    targets.setAttribute('aria-hidden','true');
    for(const [position,label] of cardPositions){
@@ -693,25 +725,27 @@
   }
  }
  function drawCardFieldRows(){
-  const parent=$('notes-card-fields');
+  const parent=$('notes-card-fields'),statusId=cardStatusField(sheetMap.get($('notes-card-sheet').value),prefs())?.id;
   parent.replaceChildren();
   if(!cardChecks.length)parent.append(el('p','此表格尚無自訂欄位。','notes-hint'));
   for(const [index,item] of cardChecks.entries()){
    const row=el('div',undefined,'notes-card-field-setting'),label=el('label',undefined,'check-row');
-   label.append(item.check,el('span',item.label));
+   const isStatus=item.id===statusId;
+   label.append(item.check,el('span',item.label+(isStatus?'（卡片底部）':'')));
    const grip=el('span','⠿','notes-card-field-grip');
    grip.title='拖曳調整 '+item.label;grip.setAttribute('aria-hidden','true');
-   bindCardDragSource(grip,item.id,'order');bindCardDrop(row,item.id);
+   if(isStatus)grip.style.visibility='hidden';
+   else{bindCardDragSource(grip,item.id,'order');bindCardDrop(row,item.id);}
    row.append(grip,label);
    for(const [delta,title,mark] of [[-1,'上移','↑'],[1,'下移','↓']]){
-    const next=index+delta;
+    const neighbor=index+delta,next=cardChecks[neighbor]?.id===statusId&&statusId?neighbor+delta:neighbor;
     const move=button(mark,()=>{
      if(next<0||next>=cardChecks.length)return;
      [cardChecks[index],cardChecks[next]]=[cardChecks[next],cardChecks[index]];
      drawCardFieldRows();renderCardPreview();item.check.focus();
     });
     move.setAttribute('aria-label',title+' '+item.label);
-    move.disabled=next<0||next>=cardChecks.length;
+    move.disabled=isStatus||next<0||next>=cardChecks.length;
     row.append(move);
    }
    const placement=el('select');placement.setAttribute('aria-label',item.label+'的值位置');
@@ -719,6 +753,7 @@
     const option=el('option',text);option.value=position;placement.append(option);
    }
    placement.value=cardFieldPositions[item.id]||'';
+   placement.disabled=isStatus;
    placement.addEventListener('change',()=>{
     if(placement.value)cardFieldPositions[item.id]=placement.value;else delete cardFieldPositions[item.id];
     renderCardPreview();
@@ -731,7 +766,9 @@
   const sheet=sheetMap.get($('notes-card-sheet').value),options=prefs(),selected=options.notesCardFields[sheet?.id];
   cardFieldPositions={...options.notesCardFieldPositions?.[sheet?.id]};
   const chosen=orderedCardFields(sheet||{fields:[]},selected,true);
-  const automatic=chosen.slice(0,3).map(field=>field.id);
+  const statusField=cardStatusField(sheet,options);
+  const automatic=chosen.filter(field=>field.id!==statusField?.id).slice(0,3).map(field=>field.id);
+  if(statusField)automatic.push(statusField.id);
   const order=Array.isArray(selected)?[...chosen,...sheet.fields.filter(field=>!selected.includes(field.id))]:sheet?.fields||[];
   cardChecks=order.map(({id,label})=>{
    const check=el('input');
@@ -741,7 +778,7 @@
   });
   $('notes-card-value-position').value=options.notesCardValuePositions[sheet?.id]||'right';
   drawCardFieldRows();renderCardPreview();
-  $('notes-card-status').textContent=Array.isArray(selected)?'此表格使用自訂欄位。':'此表格使用自動欄位（前三個有值的一般欄位）。';
+  $('notes-card-status').textContent=Array.isArray(selected)?'此表格使用自訂欄位。':'此表格自動顯示狀態及前三個有值的一般欄位。';
  }
  async function openCardSettings(){
   if(!loaded)await refresh();

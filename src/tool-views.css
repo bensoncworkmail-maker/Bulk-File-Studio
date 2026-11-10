@@ -196,13 +196,16 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 .tool-view:has(>[data-compact-logs=true]),.tool-view[data-compact-logs=true]{padding:7px 9px}
 [data-compact-logs=true] .tool-view-heading h1{font-size:1.05em}
 [data-compact-logs=true] .tool-view-result.tool-view-log-row{display:grid;grid-template-columns:minmax(0,1fr);justify-items:stretch;gap:2px;padding:4px 6px}
+.tool-view-list:has(>.tool-view-log-row){
+ gap:4px;padding:4px;border-radius:8px;background:var(--surface-2);
+}
 .tool-view-log-row{
  --log-row-background:var(--panel);
  background:var(--log-row-background);color:var(--text);
  border-color:color-mix(in srgb,var(--muted) 24%,var(--line))
 }
 .tool-view-log-row:nth-child(even){
- --log-row-background:color-mix(in srgb,var(--surface-2) 56%,var(--panel))
+ --log-row-background:color-mix(in srgb,var(--surface-2) 20%,var(--panel))
 }
 .tool-view-log-row:focus-within{
  border-color:var(--accent)

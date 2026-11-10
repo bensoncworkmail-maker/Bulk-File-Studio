@@ -505,19 +505,19 @@ test('website field renders open/copy controls and edits as a URL input',async t
 
 test('card field ordering survives apply and the color editor leaves names in a dedicated column',async t=>{
  const h=setup(t,{settings:{notesView:'cards'}}),state=h.store.addTemplate(),root=state.document.sheets[0];
- const [code,status]=root.fields;
- h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{[code.id]:'A-10',[status.id]:'合作中'},fileLinks:[]});
+ const [code,status,address]=root.fields;
+ h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{[code.id]:'A-10',[status.id]:'合作中',[address.id]:'HK'},fileLinks:[]});
  h.ui.activate();await flush();
  h.els.get('notes-card-config').events.click();await flush();
  const settings=h.els.get('notes-card-fields');
- const [codeRow,statusRow]=settings.children;
+ const [codeRow,,addressRow]=settings.children;
  const drag={dataTransfer:{setData(){}},preventDefault(){}};
- statusRow.children[0].events.dragstart(drag);
+ addressRow.children[0].events.dragstart(drag);
  codeRow.events.dragover(drag);codeRow.events.drop(drag);
- assert.match(h.els.get('notes-card-preview').textContent,/狀態合作中客戶代號A-10/);
+ assert.match(h.els.get('notes-card-preview').textContent,/地址HK客戶代號A-10.*合作中/);
  h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();
- assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[status.id,code.id]);
- assert.match(h.els.get('notes-table').textContent,/狀態合作中客戶代號A-10/);
+ assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[address.id,code.id]);
+ assert.match(h.els.get('notes-table').textContent,/地址HK客戶代號A-10.*合作中/);
  h.els.get('notes-edit-sheet').events.click();
  const editor=h.els.get('notes-field-editor');
  const entry=descendants(editor).find(node=>node.className==='notes-option-color-row');
@@ -594,27 +594,27 @@ test('the right-side overview width saves on drag and resets using the same pref
 
 test('card preview supports direct reorder and value placement with per-field settings',async t=>{
  const h=setup(t,{settings:{notesView:'cards'}}),root=h.store.addTemplate().document.sheets[0];
- const [code,status]=root.fields;
- h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{[code.id]:'A-10',[status.id]:'合作中'},fileLinks:[]});
+ const [code,status,address]=root.fields;
+ h.store.saveRecord({sheetId:root.id,title:'Acme',notes:'',tags:[],values:{[code.id]:'A-10',[status.id]:'合作中',[address.id]:'HK'},fileLinks:[]});
  h.ui.activate();await flush();
  h.els.get('notes-card-config').events.click();await flush();
  const preview=h.els.get('notes-card-preview'),rows=()=>descendants(preview).filter(node=>node.className==='notes-card-field');
  const drag={dataTransfer:{setData(){}},preventDefault(){}};
  rows()[1].children[0].events.dragstart(drag);
  rows()[0].events.drop(drag);
- assert.equal(rows()[0].children[0].textContent,status.label);
+ assert.equal(rows()[0].children[0].textContent,address.label);
  rows()[0].children[1].events.dragstart(drag);
  assert.equal(preview.dataset.placingValue,'true');
  descendants(preview).find(node=>node.tagName==='SPAN'&&node.dataset.position==='below').events.drop(drag);
  assert.equal(preview.dataset.placingValue,'false');
  assert.equal(rows()[0].dataset.position,'below');
  h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();
- assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[status.id,code.id]);
- assert.equal(h.preferences.notesCardFieldPositions[root.id][status.id],'below');
+ assert.deepEqual([...h.preferences.notesCardFields[root.id]].slice(0,2),[address.id,code.id]);
+ assert.equal(h.preferences.notesCardFieldPositions[root.id][address.id],'below');
  const rendered=descendants(h.els.get('notes-table')).filter(node=>node.className==='notes-card-field');
  assert.equal(rendered[0].dataset.position,'below');
  assert.equal(rendered[1].dataset.position,'right');
- assert.equal(require('../src/settings-model').normalize(h.preferences).notesCardFieldPositions[root.id][status.id],'below');
+ assert.equal(require('../src/settings-model').normalize(h.preferences).notesCardFieldPositions[root.id][address.id],'below');
 });
 
 test('record file buttons are optional and direct file links stay available',async t=>{
@@ -694,7 +694,10 @@ test('record overview copies only the requested text, preserving whitespace and 
  const {result}=h.store.saveSheet({name:'Copy text',fields}),summary='  first, "quoted"\nhttps://example.test/path\nsecond  ',notes='Line 1\nLine 2';
  const id=h.store.saveRecord({sheetId:result.id,title:'Copy this title',notes,tags:[],values:{[fields[0].id]:summary,[fields[2].id]:12},fileLinks:[]}).result.id;
  h.ui.activate();await flush();await h.ui.openSearchTarget('record',id);
- const buttons=descendants(h.els.get('notes-detail-body')).filter(node=>node.className==='notes-text-copy');
+ const copyButtons=()=>descendants(h.els.get('notes-detail-body')).filter(node=>node.className==='notes-text-copy');
+ assert.deepEqual(copyButtons().map(node=>node.attrs['aria-label']),['複製摘要','複製筆記']);
+ h.preferences.notesShowTitleCopy=true;h.ui.settingsChanged(['notesShowTitleCopy']);
+ const buttons=copyButtons();
  assert.deepEqual(buttons.map(node=>node.attrs['aria-label']),['複製標題','複製摘要','複製筆記']);
  for(const [index,value] of ['Copy this title',summary,notes].entries()){
   buttons[index].events.click();await flush();
@@ -706,4 +709,30 @@ test('record overview copies only the requested text, preserving whitespace and 
   assert.throws(()=>M.clipboardText(doc,{kind:'text',ids:[id],fieldId}),/無效|移除|不可用/);
  }
  assert.deepEqual(h.errors,[]);
+});
+
+test('cards place selected status next to the date and omit it when hidden by the card layout',async t=>{
+ const h=setup(t,{settings:{notesView:'cards'}}),sheet=h.store.addTemplate().document.sheets[0],[code,status]=sheet.fields;
+ h.store.saveRecord({sheetId:sheet.id,title:'Card',notes:'',tags:[],values:{[code.id]:'001',[status.id]:'合作中'},fileLinks:[]});
+ h.ui.activate();await flush();
+ const card=()=>descendants(h.els.get('notes-table')).find(node=>node.tagName==='ARTICLE');
+ const footer=()=>card().children.find(node=>node.className==='notes-card-footer');
+ assert.match(footer().textContent,/\d{4}-\d{2}-\d{2}合作中/);
+ assert.doesNotMatch(card().children.find(node=>node.className==='notes-card-body').textContent,/合作中/);
+ h.preferences.notesCardFields={[sheet.id]:[code.id]};h.ui.settingsChanged(['notesCardFields']);
+ assert.doesNotMatch(card().textContent,/合作中/);
+});
+
+test('clipboard visibility hides copy actions while retaining open links and duplicate record',async t=>{
+ const h=setup(t,{settings:{notesShowTitleCopy:true,notesShowDetailCopy:false}});
+ const {result}=h.store.saveSheet({name:'Clipboard controls',fields:[{id:crypto.randomUUID(),label:'網址',type:'url'}]});
+ const sheet=h.store.get().document.sheets[0],id=h.store.saveRecord({sheetId:result.id,title:'A record',notes:'A note',tags:[],
+  values:{[sheet.fields[0].id]:'https://example.test/'},fileLinks:[{favoriteId:null,path:'/local/folder',label:'Folder',type:'folder'}]}).result.id;
+ h.ui.activate();await flush();await h.ui.openSearchTarget('record',id);
+ const detail=h.els.get('notes-detail-body');
+ findButton(detail,'複製紀錄');findButton(detail,'開啟網站 ↗');findButton(detail,'https://example.test/');
+ assert.equal(descendants(detail).filter(node=>node.className==='notes-text-copy').length,0);
+ for(const label of ['複製總覽','複製 CSV','複製網址','複製路徑']){
+  assert.ok(!descendants(detail).some(node=>node.tagName==='BUTTON'&&node.textContent===label));
+ }
 });
