@@ -266,9 +266,22 @@
    cell.append(actions);
   }
  }
+ function copyRecordText(record,fieldId,label){
+  const name='複製'+label;
+  const copy=button('',()=>run(async()=>{
+   await api.copy({kind:'text',ids:[record.id],fieldId});
+   callbacks.showToast('已複製'+label);
+  },'已複製'+label),'notes-text-copy');
+  copy.title=name;copy.setAttribute('aria-label',name);
+  const icon=el('span',undefined,'notes-copy-icon');icon.setAttribute('aria-hidden','true');
+  copy.append(icon);
+  return copy;
+ }
  function renderDetail(){
   const record=recordMap.get(recordId),show=!trash&&record&&live(record);$('notes-detail').hidden=$('notes-detail-resizer').hidden=!show;$('notes-layout').dataset.detail=String(Boolean(show));if(!show)return;
-  const body=$('notes-detail-body');body.replaceChildren(el('h2',record.title),el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const tools=el('div',undefined,'notes-tools');tools.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))),button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')),button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(tools);
+  const body=$('notes-detail-body'),heading=el('div',undefined,'notes-copy-row notes-copy-heading');
+  heading.append(el('h2',record.title),copyRecordText(record,'title','標題'));
+  body.replaceChildren(heading,el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const tools=el('div',undefined,'notes-tools');tools.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))),button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')),button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(tools);
   const tags=el('div');
   for(const tag of record.tags)tags.append(el('span',tag,'notes-chip'));
   body.append(tags);
@@ -279,13 +292,22 @@
     label.className='notes-structured-detail-label';cell.className='notes-structured-detail';
     cell.append(window.structuredNoteUI.view(field.type,stored));
    }else{
-    cell.textContent=display(field,stored)||'—';
-    paintChoices(cell,field,stored);
-    if(['url','text','longtext'].includes(field.type))renderWebsiteField(cell,record,field,stored);
+    if(M.COPY_TEXT_TYPES.includes(field.type)&&stored?.trim()){
+     cell.className='notes-copy-row';
+     const value=el('div',stored,'notes-copy-value');
+     if(['url','text','longtext'].includes(field.type))renderWebsiteField(value,record,field,stored);
+     cell.append(value,copyRecordText(record,field.id,field.label));
+    }else{
+     cell.textContent=display(field,stored)||'—';
+     paintChoices(cell,field,stored);
+    }
    }
    data.append(label,cell);
   }
-  body.append(data,el('h3','筆記'),el('div',record.notes||'尚未加入筆記','notes-note'));
+  const notesHeading=el('div',undefined,'notes-copy-row notes-copy-heading');
+  notesHeading.append(el('h3','筆記'));
+  if(record.notes.trim())notesHeading.append(copyRecordText(record,'notes','筆記'));
+  body.append(data,notesHeading,el('div',record.notes||'尚未加入筆記','notes-note'));
   if(prefs().notesShowFavoriteTagLinks){
   const favoriteTags=record.tags.filter(tag=>favorites.some(item=>item.tags?.some(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase())));if(favoriteTags.length){const links=el('div',undefined,'notes-tools');for(const tag of favoriteTags)links.append(button('查看收藏標籤：'+tag,()=>window.favoritesUI.showTag(tag)));body.append(links);}
   body.append(el('h3','收藏標籤連結'));for(const link of record.favoriteTagLinks||[]){const count=favorites.filter(item=>item.tags?.some(tag=>tag.toLocaleLowerCase()===link.tag.toLocaleLowerCase())).length,row=el('div',undefined,'notes-file');row.append(el('strong',link.tag+' · '+count+' 項'),el('small',link.authorized?'隨此收藏分類動態更新，不複製檔案。':'分享標籤尚未確認，請編輯並重新連結本機收藏標籤。'));if(link.authorized){const open=button('查看收藏分類',()=>window.favoritesUI.showTag(link.tag));open.disabled=!count;row.append(open);}body.append(row);}

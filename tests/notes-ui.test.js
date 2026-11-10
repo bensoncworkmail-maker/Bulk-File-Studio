@@ -688,3 +688,22 @@ test('long text height is restored per field for other records and ignores layou
  findButton(h.els.get('notes-detail-body'),'編輯').events.click();
  assert.equal(input('摘要').style.height,'120px');assert.equal(input('備考').style.height,undefined);
 });
+
+test('record overview copies only the requested text, preserving whitespace and omitting empty fields',async t=>{
+ const h=setup(t),fields=[['摘要','longtext'],['空欄','text'],['數量','number']].map(([label,type])=>({id:crypto.randomUUID(),label,type}));
+ const {result}=h.store.saveSheet({name:'Copy text',fields}),summary='  first, "quoted"\nhttps://example.test/path\nsecond  ',notes='Line 1\nLine 2';
+ const id=h.store.saveRecord({sheetId:result.id,title:'Copy this title',notes,tags:[],values:{[fields[0].id]:summary,[fields[2].id]:12},fileLinks:[]}).result.id;
+ h.ui.activate();await flush();await h.ui.openSearchTarget('record',id);
+ const buttons=descendants(h.els.get('notes-detail-body')).filter(node=>node.className==='notes-text-copy');
+ assert.deepEqual(buttons.map(node=>node.attrs['aria-label']),['複製標題','複製摘要','複製筆記']);
+ for(const [index,value] of ['Copy this title',summary,notes].entries()){
+  buttons[index].events.click();await flush();
+  assert.equal(h.toasts.at(-2),value);
+  assert.equal(h.toasts.at(-1),'已'+buttons[index].title);
+ }
+ const doc=h.store.get().document;
+ for(const fieldId of [fields[1].id,fields[2].id,crypto.randomUUID()]){
+  assert.throws(()=>M.clipboardText(doc,{kind:'text',ids:[id],fieldId}),/無效|移除|不可用/);
+ }
+ assert.deepEqual(h.errors,[]);
+});
