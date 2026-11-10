@@ -45,7 +45,7 @@
  function returnToMaster(){const prior=masterListReturn,root=masterSheet()?.id;masterListReturn=null;masterId=null;recordId=null;sheetId=root||sheetId;trash=false;if(prior&&prior.state.sheetId===root){applyView({name:'主檔清單',state:prior.state},{restoreMode:false});columnSort=prior.columnSort;page=prior.page;renderTable();$('notes-table').scrollTop=prior.scrollTop;$('notes-table').scrollLeft=prior.scrollLeft;}else{clearSearch();render();}}
  const area=()=>doc().areas.find(value=>value.id===areaId),sheetsInArea=()=>doc().sheets.filter(sheet=>!sheet.deletedAt&&(areaId==='all'||(sheet.areaId||'ungrouped')===areaId));
  const doc=()=>state.document,currentSheet=()=>sheetMap.get(sheetId),live=record=>M.live(doc(),record),status=(message,error=false)=>{$('notes-status').textContent=message;$('notes-status').classList.toggle('error',error);};
- const openDialogs=()=>['notes-sheet-review-dialog','notes-bulk-dialog','notes-table-dialog','notes-tools-dialog','notes-organize-dialog','notes-card-dialog','notes-sheet-dialog','notes-record-dialog','notes-favorites-dialog','notes-confirm-dialog','notes-transfer-dialog','notes-history-dialog','notes-area-dialog','notes-template-dialog','notes-share-dialog'].some(id=>$(id).open);
+ const openDialogs=()=>['notes-sheet-review-dialog','notes-bulk-dialog','notes-table-dialog','notes-tools-dialog','notes-organize-dialog','notes-card-dialog','notes-card-footer-dialog','notes-sheet-dialog','notes-record-dialog','notes-favorites-dialog','notes-confirm-dialog','notes-transfer-dialog','notes-history-dialog','notes-area-dialog','notes-template-dialog','notes-share-dialog'].some(id=>$(id).open);
  function indexes(){recordMap=new Map(doc().records.map(record=>[record.id,record]));sheetMap=new Map(doc().sheets.map(sheet=>[sheet.id,sheet]));}
  function formOnly(type){return ['relation','multiselect'].includes(type)||M.structured.isType(type);}
  function paintChoices(target,field,value,showUncolored=false){
@@ -179,15 +179,45 @@
  function cardStatusField(sheet,options){
   return T.statusField(sheet,options.notesStatusFilters[sheet?.id])||T.statusField(sheet);
  }
- function cardStatusBadge(field,record,preview=false){
+ function cardFooterFields(fields,sheet,positions,options){
+  const statusId=cardStatusField(sheet,options)?.id;
+  return fields.filter(field=>positions[field.id]==='footer'||!positions[field.id]&&field.id===statusId);
+ }
+ function cardFooterValue(field,record){
   const stored=record?.values[field.id];
-  const label=field.type==='checkbox'&&typeof stored==='boolean'
-   ?field.label+(stored?' ✓':'（未勾選）'):display(field,stored);
-  if(!label&&!preview)return null;
-  const badge=el('span',label||'—','notes-card-status');
-  badge.title=field.label+'：'+(label||'—');
-  if(['select','multiselect'].includes(field.type))paintChoices(badge,field,stored,true);
-  return badge;
+  if(field.type==='checkbox')return typeof stored==='boolean'?(stored?'已勾選':'未勾選'):'';
+  return display(field,stored);
+ }
+ function appendCardFooterFields(parent,fields,record,statusId,preview=false){
+  const entries=fields.map(field=>({field,value:cardFooterValue(field,record)})).filter(entry=>preview||entry.value);
+  if(!entries.length)return;
+  const rail=el('div',undefined,'notes-card-footer-fields'),visible=el('div',undefined,'notes-card-footer-visible');
+  for(const {field,value} of entries.slice(0,2)){
+   const item=el('span',undefined,'notes-card-footer-value'),stored=record?.values[field.id];
+   item.title=field.label+'：'+(value||'—');
+   if(field.id!==statusId||field.type==='checkbox')item.append(el('span',field.label+'：','notes-card-footer-label'));
+   const displayValue=el('span',value||'—','notes-card-footer-text');
+   if(field.type==='select')paintChoices(displayValue,field,stored,true);
+   item.append(displayValue);visible.append(item);
+  }
+  rail.append(visible);
+  if(entries.length>2){
+   const more=button('+'+(entries.length-2),event=>{
+    event?.stopPropagation();
+    const dialog=$('notes-card-footer-dialog');
+    if(dialog.open)return;
+    $('notes-card-footer-record').textContent=record?.title||'紀錄標題';
+    const list=$('notes-card-footer-list');
+    list.replaceChildren();
+    for(const {field,value} of entries)list.append(el('dt',field.label),el('dd',value||'—'));
+    dialog.showModal();
+   });
+   more.setAttribute('aria-label','查看全部 '+entries.length+' 個卡片底部欄位');
+   more.setAttribute('aria-haspopup','dialog');
+   more.title='查看全部卡片底部欄位';
+   rail.append(more);
+  }
+  parent.append(rail);
  }
  function renderCards(records){
   const grid=el('div',undefined,'notes-card-grid'),options=prefs();grid.dataset.widthMode=options.notesCardWidthMode==='title'&&searchScope()==='sheet'?'title':'uniform';grid.dataset.cardSize=options.notesCardSize;grid.setAttribute('style','--notes-card-max-width:'+(options.notesCardMaxWidth||420)+'px');
@@ -198,8 +228,9 @@
    if(options.notesCardShowContext)body.append(el('small',context.area+' ／ '+context.sheet,'notes-card-context'));
    if(options.notesCardShowParent&&context.masters.length)body.append(el('p','所屬：'+context.masters.join('、'),'notes-card-parent'));
    const sheet=sheetMap.get(record.sheetId),chosen=options.notesCardFields[record.sheetId];
-   const fields=orderedCardFields(sheet,chosen,options.notesCardShowRelations),statusField=cardStatusField(sheet,options);
-   const data=cardFieldList(fields.filter(field=>field.id!==statusField?.id),record,options.notesCardValuePositions[record.sheetId],{limit:Array.isArray(chosen)?50:3,positions:options.notesCardFieldPositions?.[record.sheetId]});
+   const positions=options.notesCardFieldPositions[record.sheetId]||{};
+   const fields=orderedCardFields(sheet,chosen,options.notesCardShowRelations),footerFields=cardFooterFields(fields,sheet,positions,options);
+   const data=cardFieldList(fields.filter(field=>!footerFields.includes(field)),record,options.notesCardValuePositions[record.sheetId],{limit:Array.isArray(chosen)?50:3,positions});
    if(data.children.length)body.append(data);
    if(options.notesCardShowNotes&&record.notes){const note=el('p',record.notes.slice(0,120),'notes-card-note');note.title=record.notes.slice(0,1000);body.append(note);}
    if(options.notesCardShowTags&&record.tags.length){const tags=el('div',undefined,'notes-card-tags');for(const tag of record.tags.slice(0,3))tags.append(el('span',tag,'notes-chip'));body.append(tags);}
@@ -207,10 +238,7 @@
    const foot=el('div',undefined,'notes-card-footer'),metadata=[options.notesCardShowDate?record.updatedAt.slice(0,10):'',options.notesCardShowLinks&&(record.fileLinks.length||options.notesCardShowEmptyLinks)?record.fileLinks.length+' 個位置':''].filter(Boolean).join(' · ');
    const meta=el('div',undefined,'notes-card-meta');
    if(metadata)meta.append(el('small',metadata));
-   if(fields.includes(statusField)){
-    const badge=cardStatusBadge(statusField,record);
-    if(badge)meta.append(badge);
-   }
+   appendCardFooterFields(meta,footerFields,record,cardStatusField(sheet,options)?.id);
    if(meta.children.length)foot.append(meta);
    foot.append(button('編輯',event=>{event?.stopPropagation();editRecord(record,record.sheetId);}));card.append(foot);
    card.addEventListener('click',event=>{if(event?.ctrlKey||event?.metaKey||event?.shiftKey)toggleCard(record,event);else chooseRecord(record.id);});card.tabIndex=0;card.addEventListener('keydown',event=>{if(event.target===card){if(event.key==='Enter'){event.preventDefault();chooseRecord(record.id);}else if(event.key===' '){event.preventDefault();toggleCard(record,event);}}});recordRows.set(record.id,{row:card,chip,check});grid.append(card);
@@ -666,7 +694,7 @@
  }
 
  const cardDisplayControls={notesCardShowType:'type',notesCardShowContext:'context',notesCardShowParent:'parent',notesCardShowRelations:'relations',notesCardShowNotes:'notes',notesCardShowTags:'tags',notesCardShowDate:'date',notesCardShowLinks:'links',notesCardShowEmptyLinks:'empty-links'};
- const cardPositions=[['left','名稱左側'],['right','名稱右側'],['below','名稱下方']];
+ const cardPositions=[['left','名稱左側'],['right','名稱右側'],['below','名稱下方'],['footer','卡片底部']];
  let cardFieldPositions={},cardDrag;
  function finishCardDrag(){
   cardDrag=null;
@@ -707,12 +735,13 @@
   const fields=orderedCardFields(sheet,selected,$('notes-card-show-relations').checked);
   const card=el('div',undefined,'notes-card notes-card-preview-card');
   card.append(el('strong',sample?.title||'紀錄標題','notes-card-title'));
-  const statusField=cardStatusField(sheet,prefs()),bodyFields=fields.filter(field=>field.id!==statusField?.id);
+  const options=prefs(),footerFields=cardFooterFields(fields,sheet,cardFieldPositions,options);
+  const bodyFields=fields.filter(field=>!footerFields.includes(field));
   if(bodyFields.length)card.append(cardFieldList(bodyFields,sample,$('notes-card-value-position').value,{preview:true,positions:cardFieldPositions}));
-  if(fields.includes(statusField)){
-   const footer=el('div',undefined,'notes-card-footer');
-   footer.append(cardStatusBadge(statusField,sample,true));card.append(footer);
-  }
+  const footer=el('div',undefined,'notes-card-footer'),meta=el('div',undefined,'notes-card-meta');
+  if($('notes-card-show-date').checked)meta.append(el('small',sample?.updatedAt.slice(0,10)||'修改日期'));
+  appendCardFooterFields(meta,footerFields,sample,cardStatusField(sheet,options)?.id,true);
+  if(meta.children.length){footer.append(meta);card.append(footer);}
   if(!fields.length)card.append(el('small','目前未顯示資料欄位。','notes-hint'));
   preview.append(card);
   if(bodyFields.length){
@@ -730,30 +759,27 @@
   if(!cardChecks.length)parent.append(el('p','此表格尚無自訂欄位。','notes-hint'));
   for(const [index,item] of cardChecks.entries()){
    const row=el('div',undefined,'notes-card-field-setting'),label=el('label',undefined,'check-row');
-   const isStatus=item.id===statusId;
-   label.append(item.check,el('span',item.label+(isStatus?'（卡片底部）':'')));
+   label.append(item.check,el('span',item.label));
    const grip=el('span','⠿','notes-card-field-grip');
    grip.title='拖曳調整 '+item.label;grip.setAttribute('aria-hidden','true');
-   if(isStatus)grip.style.visibility='hidden';
-   else{bindCardDragSource(grip,item.id,'order');bindCardDrop(row,item.id);}
+   bindCardDragSource(grip,item.id,'order');bindCardDrop(row,item.id);
    row.append(grip,label);
    for(const [delta,title,mark] of [[-1,'上移','↑'],[1,'下移','↓']]){
-    const neighbor=index+delta,next=cardChecks[neighbor]?.id===statusId&&statusId?neighbor+delta:neighbor;
+    const next=index+delta;
     const move=button(mark,()=>{
      if(next<0||next>=cardChecks.length)return;
      [cardChecks[index],cardChecks[next]]=[cardChecks[next],cardChecks[index]];
      drawCardFieldRows();renderCardPreview();item.check.focus();
     });
     move.setAttribute('aria-label',title+' '+item.label);
-    move.disabled=isStatus||next<0||next>=cardChecks.length;
+    move.disabled=next<0||next>=cardChecks.length;
     row.append(move);
    }
    const placement=el('select');placement.setAttribute('aria-label',item.label+'的值位置');
-   for(const [position,text] of [['','依表格'],...cardPositions]){
+   for(const [position,text] of [['',item.id===statusId?'預設（卡片底部）':'依表格'],...cardPositions]){
     const option=el('option',text);option.value=position;placement.append(option);
    }
    placement.value=cardFieldPositions[item.id]||'';
-   placement.disabled=isStatus;
    placement.addEventListener('change',()=>{
     if(placement.value)cardFieldPositions[item.id]=placement.value;else delete cardFieldPositions[item.id];
     renderCardPreview();
@@ -806,6 +832,8 @@
    $('notes-card-status').textContent='精簡預設：140 px，只保留標題、自訂欄位與標籤；按套用保存。';
   });
   $('notes-card-config').addEventListener('click',openCardSettings);
+  $('notes-card-footer-close').addEventListener('click',()=>$('notes-card-footer-dialog').close());
+  $('notes-card-show-date').addEventListener('change',renderCardPreview);
   $('notes-card-sheet').addEventListener('change',renderCardFields);
   $('notes-card-value-position').addEventListener('change',renderCardPreview);
   $('notes-card-show-relations').addEventListener('change',renderCardPreview);

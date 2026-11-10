@@ -736,3 +736,36 @@ test('clipboard visibility hides copy actions while retaining open links and dup
   assert.ok(!descendants(detail).some(node=>node.tagName==='BUTTON'&&node.textContent===label));
  }
 });
+
+test('card settings persist custom footer positions and expose overflow without opening the record',async t=>{
+ const h=setup(t,{settings:{notesView:'cards'}});
+ const root=h.store.saveSheet({name:'Footer layout',fields:[['代號','text'],['狀態','select'],['地址','text'],['負責人','text']]
+  .map(([label,type])=>({id:crypto.randomUUID(),label,type,options:type==='select'?['合作中']:[]}))}).document.sheets[0];
+ const [code,status,address,owner]=root.fields;
+ h.store.saveRecord({sheetId:root.id,title:'Footer card',notes:'',tags:[],
+  values:{[code.id]:'A001',[status.id]:'合作中',[address.id]:'Full street address',[owner.id]:'Owner name'},fileLinks:[]});
+ h.ui.activate();await flush();
+ h.els.get('notes-card-config').events.click();await flush();
+ const config=h.els.get('notes-card-fields'),rows=config.children;
+ for(const [index,position] of [[0,'footer'],[1,'right'],[2,'footer'],[3,'footer']]){
+  const row=rows[index],check=descendants(row).find(node=>node.tagName==='INPUT'),select=descendants(row).find(node=>node.tagName==='SELECT');
+  check.checked=true;select.value=position;select.events.change();
+ }
+ h.els.get('notes-card-apply').events.click();h.els.get('notes-card-cancel').events.click();
+ const normalized=require('../src/settings-model').normalize(h.preferences);
+ assert.deepEqual(normalized.notesCardFieldPositions[root.id],{[code.id]:'footer',[status.id]:'right',[address.id]:'footer',[owner.id]:'footer'});
+ const table=h.els.get('notes-table'),card=descendants(table).find(node=>node.tagName==='ARTICLE');
+ assert.match(card.children.find(node=>node.className==='notes-card-body').textContent,/合作中/);
+ const footer=card.children.find(node=>node.className==='notes-card-footer');
+ assert.match(footer.textContent,/A001.*Full street address/);
+ assert.doesNotMatch(footer.textContent,/Owner name|合作中/);
+ let stopped=false;
+ findButton(footer,'+1').events.click({stopPropagation(){stopped=true;}});
+ assert.equal(stopped,true);
+ assert.equal(h.els.get('notes-card-footer-dialog').open,true);
+ assert.equal(h.els.get('notes-detail').hidden,true);
+ assert.match(h.els.get('notes-card-footer-list').textContent,/A001.*Full street address.*Owner name/);
+ h.els.get('notes-card-footer-close').events.click();
+ assert.equal(h.els.get('notes-card-footer-dialog').open,false);
+ assert.deepEqual(h.errors,[]);
+});
