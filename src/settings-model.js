@@ -36,7 +36,7 @@
         const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         const entries=value=>value&&typeof value==='object'&&!Array.isArray(value)?Object.entries(value):[];
         out[key]=Object.fromEntries(entries(input[key]).filter(([id])=>uuid.test(id)).slice(0,100)
-          .map(([sheet,fields])=>[sheet,Object.fromEntries(entries(fields).filter(([id,position])=>uuid.test(id)&&['right','left','below'].includes(position)).slice(0,50))]));
+          .map(([sheet,fields])=>[sheet,Object.fromEntries(entries(fields).filter(([id,position])=>uuid.test(id)&&['right','left','below','footer'].includes(position)).slice(0,50))]));
       }
       else if(key==='notesCardValuePositions'){
         out[key]={};

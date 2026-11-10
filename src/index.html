@@ -189,7 +189,6 @@
               <div class="notes-master-title-row">
                 <button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button>
                 <small id="notes-master-badge">目前主檔</small><strong id="notes-master-heading"></strong>
-                <p id="notes-master-info" class="notes-hint"></p>
                 <div class="notes-tools notes-master-actions">
                   <button id="notes-master-edit" class="btn btn-ghost" title="編輯目前主紀錄">編輯</button>
                   <button id="notes-pin-master" class="btn btn-ghost" aria-pressed="false" title="釘選至浮動工具">☆ 釘選</button>
@@ -198,6 +197,7 @@
                   <button id="notes-complete-client" class="btn btn-ghost" hidden>補齊客戶明細表</button>
                 </div>
               </div>
+              <p id="notes-master-info" class="notes-hint"></p>
             </div>
             <div id="notes-detail-tabs" class="notes-detail-tabs" role="tablist" aria-label="目前主紀錄的明細表" hidden></div>
             <div id="notes-panel-controls" class="notes-panel-controls">
@@ -2420,7 +2420,7 @@
       <p class="notes-hint">勾選要顯示的欄位，再用上下箭頭調整順序。全部取消會隱藏資料欄位。</p>
       <section class="notes-card-layout-preview" aria-label="欄位版面預覽">
         <strong>欄位版面預覽</strong>
-        <p class="notes-hint">一般欄位可直接拖曳名稱或欄位值調整版面。勾選的狀態欄位會顯示在卡片底部。</p>
+        <p class="notes-hint">可將欄位值拖到「卡片底部」，或在欄位的下拉選單指定。底部先顯示兩個有值的欄位，其餘可按「+N」查看。</p>
         <div id="notes-card-preview"></div>
       </section>
       <div class="modal-buttons">
@@ -2429,6 +2429,12 @@
         <button id="notes-card-apply" class="btn btn-primary">套用</button>
       </div>
       <p id="notes-card-status" role="status" class="notes-hint"></p>
+    </dialog>
+    <dialog id="notes-card-footer-dialog" class="modal notes-modal" aria-labelledby="notes-card-footer-title">
+      <h2 id="notes-card-footer-title">卡片底部欄位</h2>
+      <p id="notes-card-footer-record" class="notes-hint"></p>
+      <dl id="notes-card-footer-list" class="notes-card-footer-list"></dl>
+      <div class="modal-buttons"><button id="notes-card-footer-close" type="button" class="btn btn-ghost">關閉</button></div>
     </dialog>
     <dialog id="notes-bulk-dialog" class="modal notes-modal notes-bulk-dialog" aria-labelledby="notes-bulk-title"><h2 id="notes-bulk-title">批次編輯紀錄</h2><p id="notes-bulk-summary"></p><details id="notes-bulk-targets" hidden><summary>跨主紀錄選取同表明細</summary><p class="notes-hint">可選不同主紀錄下的明細。未修改主從關聯欄位時，各筆原有關聯會保留。</p><div id="notes-bulk-records"></div></details><label class="field"><span>要統一變更的欄位</span><select id="notes-bulk-field"></select></label><div id="notes-bulk-value" class="field"></div><p class="notes-hint">只變更所選欄位；留空會清除該欄位。先預覽，確認後一次寫入並備份。</p><div id="notes-bulk-preview"></div><p id="notes-bulk-status" role="status"></p><div class="notes-dialog-actions"><button id="notes-bulk-cancel" class="btn btn-ghost">取消</button><button id="notes-bulk-prepare" class="btn btn-secondary">預覽變更</button><button id="notes-bulk-apply" class="btn btn-primary" disabled>確認批次更新</button></div></dialog><dialog id="notes-record-dialog" class="modal notes-modal notes-record-dialog" aria-labelledby="notes-record-dialog-title">
       <form id="notes-record-form" novalidate>
