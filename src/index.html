@@ -187,8 +187,14 @@
             <div id="notes-search-context" class="notes-search-context" hidden><strong id="notes-search-heading">全域搜尋</strong><small id="notes-search-context-help"></small></div>
             <div id="notes-master-context" class="notes-master-context" hidden>
               <div class="notes-master-title-row">
-                <button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button>
-                <small id="notes-master-badge">目前主檔</small><strong id="notes-master-heading"></strong>
+                <div class="notes-master-leading">
+                  <button id="notes-master-back" class="btn btn-ghost" title="返回主檔清單">← 主檔清單</button>
+                  <small id="notes-master-badge">目前主檔</small>
+                  <div class="notes-master-identity">
+                    <strong id="notes-master-heading"></strong>
+                    <p id="notes-master-info" class="notes-hint"></p>
+                  </div>
+                </div>
                 <div class="notes-tools notes-master-actions">
                   <button id="notes-master-edit" class="btn btn-ghost" title="編輯目前主紀錄">編輯</button>
                   <button id="notes-pin-master" class="btn btn-ghost" aria-pressed="false" title="釘選至浮動工具">☆ 釘選</button>
@@ -197,7 +203,6 @@
                   <button id="notes-complete-client" class="btn btn-ghost" hidden>補齊客戶明細表</button>
                 </div>
               </div>
-              <p id="notes-master-info" class="notes-hint"></p>
             </div>
             <div id="notes-detail-tabs" class="notes-detail-tabs" role="tablist" aria-label="目前主紀錄的明細表" hidden></div>
             <div id="notes-panel-controls" class="notes-panel-controls">
