@@ -46,8 +46,8 @@
 /* Compact workspace retains the same actions, with metadata and selection inline. */
 :root[data-notes-compact=true] .notes-content{gap:5px;}
 :root[data-notes-compact=true] #notes-master-badge{display:none;}
-:root[data-notes-compact=true] #notes-master-heading{font-size:16px;min-width:100px;}
-:root[data-notes-compact=true] #notes-master-info{flex:0 1 260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;margin:0;}
+:root[data-notes-compact=true] #notes-master-heading{font-size:16px;}
+:root[data-notes-compact=true] #notes-master-info{font-size:11px;}
 :root[data-notes-compact=true] .notes-master-title-row{gap:6px;}
 :root[data-notes-compact=true] .notes-master-context{padding:5px 8px;gap:3px;}
 :root[data-notes-compact=true] .notes-content-top>div:first-child{display:flex;align-items:center;flex-wrap:wrap;gap:5px 10px;min-width:0;}
@@ -59,7 +59,6 @@
 :root[data-notes-compact=true] .notes-selection-top{padding:0;}
 :root[data-notes-compact=true] .notes-selection-bar{width:100%;}
 :root[data-notes-compact=true] #notes-selected-count{margin-right:auto;}
-:root:not([data-notes-compact=true]) #notes-master-info{flex-basis:100%;order:4;}
 @media(max-width:800px){.notes-dialog-header,.notes-dialog-footer,.notes-dialog-body{padding:12px;}.notes-share-package-head{align-items:flex-start;flex-direction:column;}.notes-share-list-heading{flex-wrap:wrap;}.notes-share-toolbar{top:-12px;}.notes-content-top{flex-wrap:wrap;}#notes-share-quick{flex-wrap:wrap;}.notes-dialog-footer .btn{min-width:0;}}
 .notes-top{flex-wrap:wrap;}
 .notes-dialog-body .notes-disclosure .field{min-width:0;}
