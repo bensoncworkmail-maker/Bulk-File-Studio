@@ -126,8 +126,13 @@
   return scoped.filter(record=>{if(!live(doc,record)||tag&&!record.tags.includes(tag))return false;const sheet=sheets.get(record.sheetId),parent=parentField(doc,sheet),parents=parent?(record.values[parent.id]||[]).map(id=>records.get(id)).filter(Boolean):[],value=searchable(record)+' '+fold(areaNames.get(sheet.areaId)||'未分組')+' '+fold(sheet.name);const matches=token=>value.includes(token)||searchParent&&parents.some(parent=>searchable(parent).includes(token));return !tokens.length||(match==='any'?tokens.some(matches):tokens.every(matches));});
  }
  function clipboardText(doc,{kind,ids,sheetId}={}){
-  if(!['table','overview'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.records||new Set(ids).size!==ids.length)fail('複製範圍無效');
+  if(!['table','overview','csv'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.records||new Set(ids).size!==ids.length)fail('複製範圍無效');
   const records=ids.map(value=>{id(value);const record=doc.records.find(record=>record.id===value&&live(doc,record));if(!record)fail('紀錄已變更或刪除');return record;});
+  if(kind==='csv'){
+   if(records.length!==1)fail('請選擇一筆紀錄');
+   const rows=tabularExport(doc,records[0].sheetId,ids);
+   return rows.map(row=>row.map(value=>/[",\r\n]/.test(value)?'"'+value.replace(/"/g,'""')+'"':value).join(',')).join('\r\n');
+  }
   if(kind==='overview'){
    if(records.length!==1)fail('請選擇一筆紀錄');const record=records[0],sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId);
    return [record.title,'表格：'+sheet.name,...sheet.fields.map(field=>field.label+'：'+cell(doc,field,record.values[field.id])),'標籤：'+record.tags.join('、'),'筆記：',record.notes,'相關位置：',...record.fileLinks.map(link=>link.path),'收藏標籤連結：',...(record.favoriteTagLinks||[]).map(link=>link.tag),'相關資料：',...linked(doc,record.id).map(item=>item.title)].join('\n');
@@ -187,11 +192,13 @@
   if(!period||period==='all')return records;const day=new Date(now.getFullYear(),now.getMonth(),now.getDate()),today=day.getTime(),end=new Date(day);end.setDate(end.getDate()+Number(period||0));const upper=end.getTime();
   return records.filter(record=>{const sheet=doc.sheets.find(sheet=>sheet.id===record.sheetId),values=fieldId==='updatedAt'?[record.updatedAt.slice(0,10)]:fieldId?[record.values[fieldId]]:sheet.fields.filter(field=>field.type==='date').map(field=>record.values[field.id]);return values.some(value=>{if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [y,m,d]=value.split('-').map(Number),date=new Date(y,m-1,d).getTime();return period==='overdue'?date<today:date>=today&&date<=upper;});});
  }
- function parseTSV(text,{limit=500}={}){
+ function parseTSV(text,options){return parseDelimited(text,'\t',options);}
+ function parseCSV(text,options){return parseDelimited(typeof text==='string'?text.replace(/^\uFEFF/,''):text,',',options);}
+ function parseDelimited(text,delimiter,{limit=500}={}){
   if(!Number.isSafeInteger(limit)||limit<1||limit>50000)fail('貼上數量上限無效');
   if(typeof text!=='string'||text.length>2*1024*1024)fail('貼上內容超過 2 MB');const rows=[[]];let cell='',quoted=false,closed=false,count=0;
   const push=()=>{if(++count>limit)fail('每次最多貼上 '+limit+' 格');rows[rows.length-1].push(cell);cell='';closed=false;};
-  for(let i=0;i<text.length;i++){const ch=text[i];if(quoted){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++;}else{quoted=false;closed=true;}}else cell+=ch;continue;}if(ch==='"'&&!cell&&!closed){quoted=true;continue;}if(ch==='\t'){push();continue;}if(ch==='\r'||ch==='\n'){if(ch==='\r'&&text[i+1]==='\n')i++;push();rows.push([]);continue;}if(closed)fail('貼上格式無效');cell+=ch;}
+  for(let i=0;i<text.length;i++){const ch=text[i];if(quoted){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++;}else{quoted=false;closed=true;}}else cell+=ch;continue;}if(ch==='"'&&!cell&&!closed){quoted=true;continue;}if(ch===delimiter){push();continue;}if(ch==='\r'||ch==='\n'){if(ch==='\r'&&text[i+1]==='\n')i++;push();rows.push([]);continue;}if(closed||delimiter===','&&ch==='"')fail('貼上格式無效');cell+=ch;}
   if(quoted)fail('貼上內容的引號未結束');if(cell||rows[rows.length-1].length||!rows[rows.length-1].length&&rows.length===1)push();else rows.pop();return rows;
  }
  function gridValue(field,value){
@@ -202,7 +209,7 @@
   }if(field.type==='url')return value.trim()?web.normalize(value):'';if(field.type==='number'){if(!value.trim())return null;const number=Number(value);if(!Number.isFinite(number))fail('請輸入有效數字');return number;}if(field.type==='checkbox'){if(['true','1','✓','是'].includes(value.toLowerCase()))return true;if(['false','0','','—','否'].includes(value.toLowerCase()))return false;fail('勾選欄位請輸入 true／false');}return value;
  }
  function tabularRows(input){
-  if(!Array.isArray(input)||input.length>1001)fail('每次最多 1000 筆資料（另加一列標題）');let total=0,cells=0;return input.map(row=>{if(!Array.isArray(row)||row.length>100)fail('每列最多 100 欄');return Array.from(row,value=>{if(++cells>50000)fail('每次最多 50,000 格');const textValue=value===null||value===undefined?'':value;if(typeof textValue!=='string'||textValue.length>20000||textValue.includes('\0'))fail('儲存格文字無效或超過 20,000 字');total+=textValue.length;if(total>2*1024*1024)fail('資料文字超過 2 MB');return textValue;});});
+  if(!Array.isArray(input)||input.length>1001)fail('每次最多 1000 筆資料（另加一列標題）');let total=0,cells=0;return input.map(row=>{if(!Array.isArray(row)||row.length>100)fail('每列最多 100 欄');return Array.from(row,value=>{if(++cells>50000)fail('每次最多 50,000 格');const textValue=value===null||value===undefined?'':value;if(typeof textValue!=='string'||textValue.length>100000||textValue.includes('\0'))fail('儲存格文字無效或超過 100,000 字');total+=textValue.length;if(total>2*1024*1024)fail('資料文字超過 2 MB');return textValue;});});
  }
  const tabularHeading=value=>value.trim().toLowerCase().replace(/[ _／/()-]/g,'');
  function suggestMapping(sheet,rows,header){
@@ -300,6 +307,6 @@
   const groups=[...doc.areas.map(area=>({id:area.id,title:area.name,masterSheetId:area.masterSheetId,category:areaCategory(doc,area)})),{id:'ungrouped',title:'未分組',masterSheetId:null,category:'未分組'}];
   return groups.filter(group=>(!category||group.category===category)&&(tokens.length||areaId==='all'||areaId===group.id)).map(group=>{const all=sheets.filter(sheet=>(sheet.areaId||'ungrouped')===group.id),groupMatch=tokens.length&&matches(group.title+' '+group.category),masterSheet=all.find(sheet=>sheet.id===group.masterSheetId),masters=tokens.length&&masterSheet?records.filter(record=>record.sheetId===masterSheet.id&&matches(record.title+' '+masterSheet.fields.map(field=>cell(doc,field,record.values[field.id])).join(' '))):[];const visible=all.filter(sheet=>!tokens.length||groupMatch||matches(sheet.name)).sort((a,b)=>Number(b.id===group.masterSheetId)-Number(a.id===group.masterSheetId));return {...group,sheets:visible.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields.length,role:sheet.id===group.masterSheetId?'master':parentField(doc,sheet)?'detail':'other',count:counts.get(sheet.id)||0})),masters:masters.slice(0,30).map(record=>({id:record.id,title:record.title})),masterTotal:masters.length,tableTotal:all.length,match:Boolean(groupMatch)};}).filter(group=>tokens.length?group.sheets.length||group.masterTotal||group.match:group.tableTotal||areaId===group.id||group.id!=='ungrouped');
  }
- const api={structured,masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={structured,masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,parseCSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();

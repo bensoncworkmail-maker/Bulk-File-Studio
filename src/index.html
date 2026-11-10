@@ -275,7 +275,7 @@
               <div id="notes-table-actions-slot"><div id="notes-table-actions" class="notes-tools">
             <details id="notes-quickbar" class="notes-overflow"><summary class="btn btn-ghost">資料操作 ▾</summary><div class="notes-overflow-menu">
               <button id="notes-copy-table" class="btn btn-ghost">複製篩選表格</button>
-              <button id="notes-export-excel" class="btn btn-ghost" disabled title="匯出目前表格的篩選結果，可用貼上／Excel 建立紀錄重新匯入">匯出篩選表格（Excel）</button>
+              <button id="notes-export-excel" class="btn btn-ghost" disabled title="匯出目前表格的篩選結果，可用貼上／Excel／CSV 建立紀錄重新匯入">匯出篩選表格（Excel）</button>
               <button id="notes-export-area" class="btn btn-ghost">匯出主表與明細</button>
               <button id="notes-clear-filters" class="btn btn-ghost">清除篩選</button>
               <span class="notes-hint">可複製表格或匯出目前表格的 Excel 檔案。</span>
@@ -284,7 +284,7 @@
                 <button id="notes-delete-sheet" class="btn btn-ghost">移至回收筒</button>
                 <label id="notes-grid-paste-label" hidden>儲存格貼上：<select id="notes-grid-paste-mode"><option value="create">建立新紀錄</option><option value="update">更新既有儲存格</option></select></label>
                 <button id="notes-open-drafts" type="button" class="btn btn-ghost">草稿筆記</button>
-                <button id="notes-tabular-open" class="btn btn-ghost" title="貼上 Excel 清單或選擇 .xlsx，對應欄位後建立新紀錄">貼上／Excel 建立</button>
+                <button id="notes-tabular-open" class="btn btn-ghost" title="貼上 CSV 或 Excel 儲存格，也可選擇 .xlsx 檔案">貼上／Excel／CSV 建立</button>
                 <button id="notes-new-record" class="btn btn-primary">＋ 紀錄</button>
               </div></div>
             </div>
@@ -2279,7 +2279,7 @@
     <dialog id="notes-table-dialog" class="modal notes-modal notes-table-dialog" aria-labelledby="notes-table-title">
       <header class="notes-form-header">
         <div>
-          <h2 id="notes-table-title">貼上／Excel 建立紀錄</h2>
+          <h2 id="notes-table-title">貼上／Excel／CSV 建立紀錄</h2>
           <p id="notes-table-context" class="notes-hint"></p>
         </div>
         <button id="notes-table-close" type="button" class="btn btn-ghost" aria-label="關閉匯入">✕</button>
@@ -2292,10 +2292,11 @@
           <span id="notes-table-source" class="notes-hint"></span>
         </div>
         <label class="field">
-          <span>或在此貼上 Excel 複製的儲存格</span>
+          <span>或在此貼上 CSV 文字或 Excel 儲存格</span>
           <textarea id="notes-table-text" rows="4" maxlength="2097152" placeholder="Name&#9;Phone&#9;Email"></textarea>
         </label>
         <div class="notes-tools">
+          <label>貼上格式 <select id="notes-table-format"><option value="tsv">Excel／TSV（Tab 分隔）</option><option value="csv">CSV（逗號分隔）</option></select></label>
           <button id="notes-table-read" class="btn btn-secondary">讀取貼上內容</button>
           <label class="check-row"><input id="notes-table-header" type="checkbox" checked>第一列是欄名</label><label class="check-row"><input id="notes-table-intranet" type="checkbox">允許驗證內網 UNC 附件</label>
           <label>文字日期順序 <select id="notes-table-date-format"><option value="ymd">年／月／日</option><option value="dmy">日／月／年</option><option value="mdy">月／日／年</option></select></label>

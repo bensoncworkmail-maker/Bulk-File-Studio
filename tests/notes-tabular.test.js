@@ -55,3 +55,12 @@ test('approved UNC links are validated and committed without rewriting the netwo
  assert.deepEqual(preview.records[0].paths,[file,folder]);
  assert.deepEqual(store.tabularCommit(preview.token).document.records[0].fileLinks.map(link=>link.type),['file','folder']);
 });
+
+test('workspace CSV handles quoted commas, quotes, multiline text and a UTF-8 BOM',()=>{
+ const csv='\uFEFF標題,摘要,筆記\r\n"Name, Inc.","He said ""yes"".\nNext line","'+ 'x'.repeat(25000)+'"\r\n';
+ const rows=M.tabularRows(M.parseCSV(csv));
+ assert.deepEqual(rows[1],['Name, Inc.','He said "yes".\nNext line','x'.repeat(25000)]);
+ assert.throws(()=>M.parseCSV('A,"unclosed'),/引號未結束/);
+ assert.throws(()=>M.parseCSV('A,un"quoted'),/格式無效/);
+ assert.deepEqual(M.parseTSV('Name\tTel\nName, Inc.\t001'),[['Name','Tel'],['Name, Inc.','001']]);
+});

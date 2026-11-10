@@ -4,10 +4,10 @@ const {NotesToolsStore}=require('../src/notes-tools-store');
 const {NotesStore}=require('../src/notes-store'),M=require('../src/notes-model');
 function setToolbarOpen(h,open){if(h.els.get('notes-panel-tools').hidden===open)h.els.get('notes-panel-toggle').events.click();}
 const flush=async()=>{for(let i=0;i<4;i++)await new Promise(setImmediate);};
-function setup(t,{favoriteItems=[],settings={}}={}){
+function setup(t,{favoriteItems=[],settings={},ResizeObserver}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-notes-ui-')),store=new NotesStore(path.join(dir,'workspace.sqlite'));t.after(()=>{store.close();fs.rmSync(dir,{recursive:true,force:true});});
  class El{
-  constructor(tag='div'){this.tagName=tag.toUpperCase();this.children=[];this.attrs={};this.events={};this.dataset={};this.value='';this.checked=false;this.disabled=false;this.open=false;this.hidden=false;this._text='';this.className='';this.classList={toggle:(name,on)=>{const values=new Set(this.className.split(' ').filter(Boolean));if(on===undefined)on=!values.has(name);on?values.add(name):values.delete(name);this.className=[...values].join(' ');},contains:name=>this.className.split(' ').includes(name)};}
+  constructor(tag='div'){this.tagName=tag.toUpperCase();this.children=[];this.attrs={};this.events={};this.dataset={};this.style={};this.value='';this.checked=false;this.disabled=false;this.open=false;this.hidden=false;this._text='';this.className='';this.classList={toggle:(name,on)=>{const values=new Set(this.className.split(' ').filter(Boolean));if(on===undefined)on=!values.has(name);on?values.add(name):values.delete(name);this.className=[...values].join(' ');},contains:name=>this.className.split(' ').includes(name)};}
   set textContent(value){this._text=String(value);this.children=[];}get textContent(){return this._text+this.children.map(child=>child.textContent).join('');}
   set innerHTML(value){throw new Error('Unsafe HTML rendering: '+value);}
   append(...nodes){for(const node of nodes){if(node.parentElement)node.parentElement.children=node.parentElement.children.filter(child=>child!==node);node.parentElement=this;this.children.push(node);}}replaceChildren(...nodes){for(const node of this.children)node.parentElement=null;this.children=[];this._text='';this.append(...nodes);}setAttribute(key,value){this.attrs[key]=value;}addEventListener(event,callback){this.events[event]=callback;}focus(){testDocument.activeElement=this;}requestSubmit(){this.events.submit({preventDefault(){}});}showModal(){this.open=true;}close(){this.open=false;}
@@ -18,7 +18,7 @@ function setup(t,{favoriteItems=[],settings={}}={}){
  const errors=[],toasts=[],drops=new Map(),preferences=require('../src/settings-model').normalize(settings);let changed,contextAction;
  const share={enabled:false,folder:null,autoPublish:false,intervalMinutes:5,files:[],total:0,busy:false};const api={sheetPreview:async input=>store.sheetPreview(input),sheetCommit:async(token,confirmed)=>store.sheetCommit(token,confirmed),chooseTableFile:async()=>({canceled:true}),tablePreview:async input=>store.tabularPreview(input),tableCommit:async token=>store.tabularCommit(token),tools:async()=>toolStore.get(),saveView:async(name,state)=>toolStore.saveView(name,state),removeTool:async(kind,id)=>toolStore.remove(kind,id),saveTemplate:async(name,areaId)=>toolStore.saveTemplate(name,store.get().document,areaId),applyTemplate:async(id,revision)=>store.applyCustomTemplate(toolStore.get().templates.find(item=>item.id===id).document,revision),pin:async id=>toolStore.pin(store.get().document,id),saveCells:async(entries,revision)=>store.updateCells(entries,revision),batchSheets:async(entries,revision)=>store.batchSheets(entries,revision),batchAreas:async(ids,revision)=>store.batchAreas(ids,revision),navigation:async()=>null,shareStatus:async()=>share,onShareChanged(){},contextMenu:async(kind,id)=>toasts.push('menu:'+kind+':'+id),onContextAction:callback=>contextAction=callback,get:async()=>store.get(),favorites:async()=>({items:favoriteItems}),template:async kind=>store.addTemplate(kind),saveArea:async input=>store.saveArea(input),removeArea:async(...args)=>store.removeArea(...args),duplicateRecord:async(...args)=>store.duplicateRecord(...args),copy:async input=>toasts.push(M.clipboardText(store.get().document,input)),saveSheet:async input=>store.saveSheet(input),saveRecord:async input=>store.saveRecord({...input,fileLinks:[...(input.favoriteIds||[]).map(id=>{const item=favoriteItems.find(item=>item.id===id);return {favoriteId:id,path:item.path,label:item.label||'',type:item.type};}),...(input.directPaths||[]).map(path=>({favoriteId:null,path,label:'',type:'folder'})),...(store.get().document.records.find(record=>record.id===input.id)?.fileLinks||[]).filter(link=>input.keepUnlinked?.includes(link.path))],favoriteTagLinks:[...(input.favoriteTags||[]).map(tag=>({tag,authorized:true})),...(input.keepPendingTags||[]).map(tag=>({tag,authorized:false}))]}),completeClientDetails:async(...args)=>store.completeClientDetails(...args),batchTrash:async(...args)=>store.batchTrash(...args),trash:async(...args)=>store.trash(...args),history:async id=>store.history(id),restoreHistory:async(...args)=>store.restoreHistory(...args),exportPreview:async options=>store.exportPreview(options),exportSave:async()=>({canceled:false,path:'share.json'}),onChanged:callback=>changed=callback};
  const window={webLinkModel:require('../src/web-link-model'),studioFileDrop:{bind:(id,apply)=>drops.set(id,apply),append:(input,paths)=>{input.value=[...new Set([...input.value.split('\n').filter(Boolean),...paths])].join('\n');}},notesTableState:require('../src/notes-table-state'),shareViewModel:require('../src/share-view-model'),studioSettingsModel:require('../src/settings-model'),settingsUI:{get:()=>preferences,update:patch=>{Object.assign(preferences,patch);window.notesUI.settingsChanged(Object.keys(patch));}},notesModel:M,workspaceAPI:api,favoritesAPI:{onChanged(){}},favoritesModel:require('../src/favorites-model'),favoritesUI:{show(){},showTag:tag=>toasts.push('tag:'+tag)}};
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/notes.js'),'utf8'),{window,document:testDocument,crypto},{filename:'notes.js'});
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/notes.js'),'utf8'),{window,document:testDocument,crypto,ResizeObserver,setTimeout,clearTimeout},{filename:'notes.js'});
  window.notesUI.init({showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(String(error.message||error))});return {document:testDocument,docEvents,drops,api,preferences,contextAction:value=>contextAction(value),store,els,ui:window.notesUI,errors,toasts,changed:()=>changed({})};
 }
 for(const [id,key,value] of [['notes-share-enabled','checked',true],['notes-share-interval','value','15']])test('rejected '+id+' changes restore the persisted shared state',async t=>{
@@ -633,4 +633,58 @@ test('record file buttons are optional and direct file links stay available',asy
  findButton(detail,'Folder').events.click();await flush();
  findButton(detail,'/local/folder').events.click();await flush();
  assert.deepEqual(calls,['open','show','open','show'].map(action=>[saved.id,0,action]));
+});
+
+test('record overview opens each summary URL and copies importable CSV into another table',async t=>{
+ const h=setup(t),makeSheet=name=>{
+  const saved=h.store.saveSheet({name,fields:[{id:crypto.randomUUID(),label:'摘要',type:'longtext'}]});
+  return saved.document.sheets.find(item=>item.id===saved.result.id);
+ };
+ const source=makeSheet('CSV source'),target=makeSheet('CSV target');
+ const first='https://example.com/path?q=one&v=2',second='https://other.test/help';
+ const summary='參考：'+first+'，其次 ('+second+').\n"保留原文", 001';
+ const id=h.store.saveRecord({sheetId:source.id,title:'Record, one',notes:'first\nsecond',tags:[],values:{[source.fields[0].id]:summary},fileLinks:[]}).result.id;
+ const calls=[];h.api.openWebsite=async(...args)=>calls.push(args);
+ h.ui.activate();await flush();await h.ui.openSearchTarget('record',id);
+ const overview=h.els.get('notes-detail-body');
+ assert.ok(descendants(overview).some(node=>node.tagName==='DD'&&node.textContent===summary));
+ for(const url of [first,second]){findButton(overview,url).events.click();await flush();}
+ assert.deepEqual(calls,[[id,source.fields[0].id,'open',first],[id,source.fields[0].id,'open',second]]);
+ findButton(overview,'複製 CSV').events.click();await flush();
+ const csv=h.toasts.find(value=>value.startsWith('標題,'));
+ assert.ok(csv);
+ await h.ui.openSearchTarget('sheet',target.id);
+ h.els.get('notes-tabular-open').events.click();
+ h.els.get('notes-table-format').value='csv';
+ h.els.get('notes-table-text').value=csv;
+ h.els.get('notes-table-read').events.click();
+ h.els.get('notes-table-preview-button').events.click();await flush();
+ assert.equal(h.els.get('notes-table-apply').disabled,false);
+ h.els.get('notes-table-apply').events.click();await flush();
+ const imported=h.store.get().document.records.find(record=>record.sheetId===target.id);
+ assert.equal(imported.title,'Record, one');assert.equal(imported.notes,'first\nsecond');
+ assert.equal(imported.values[target.fields[0].id],summary);
+ assert.deepEqual(h.errors,[]);
+});
+
+test('long text height is restored per field for other records and ignores layout changes',async t=>{
+ let onResize;
+ class Observer{constructor(callback){onResize=callback;}observe(){}disconnect(){}}
+ const h=setup(t,{ResizeObserver:Observer}),fields=['摘要','備考'].map(label=>({id:crypto.randomUUID(),label,type:'longtext'}));
+ const {result}=h.store.saveSheet({name:'Text areas',fields});
+ const ids=['First note','Second note'].map(title=>h.store.saveRecord({sheetId:result.id,title,notes:'',tags:[],values:{},fileLinks:[]}).result.id);
+ const input=label=>descendants(h.els.get('notes-record-fields')).find(node=>node.attrs['aria-label']===label);
+ h.ui.activate();await flush();await h.ui.openSearchTarget('record',ids[0]);
+ findButton(h.els.get('notes-detail-body'),'編輯').events.click();
+ onResize();
+ assert.deepEqual(Object.keys(h.preferences.notesLongTextHeights),[]);
+ input('摘要').style.height='250px';onResize();
+ await new Promise(resolve=>setTimeout(resolve,180));
+ assert.equal(h.preferences.notesLongTextHeights[fields[0].id],250);
+ input('摘要').style.height='120px';onResize();
+ h.els.get('notes-record-close').events.click();h.els.get('notes-record-dialog').events.close();
+ assert.equal(h.preferences.notesLongTextHeights[fields[0].id],120);
+ await h.ui.openSearchTarget('record',ids[1]);
+ findButton(h.els.get('notes-detail-body'),'編輯').events.click();
+ assert.equal(input('摘要').style.height,'120px');assert.equal(input('備考').style.height,undefined);
 });
