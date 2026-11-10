@@ -3,6 +3,7 @@
  const web=typeof module!=='undefined'&&module.exports?require('./web-link-model'):window.webLinkModel;
  const structured=typeof module!=='undefined'&&module.exports?require('./structured-note-model'):window.structuredNoteModel;
  const TYPES={...structured.TYPES,text:'文字',longtext:'長文字',number:'數字',date:'日期',checkbox:'勾選',select:'單選',multiselect:'多選',phone:'電話',email:'Email',url:'網址',relation:'關聯紀錄'};
+ const COPY_TEXT_TYPES=Object.freeze(['text','longtext','phone','email','url']);
  const TEMPLATES={clients:{name:'客戶管理',description:'客戶主檔；聯絡人、文件／位置、紀錄及合約明細'},projects:{name:'專案管理',description:'專案、任務、會議紀錄'},assets:{name:'設備管理',description:'設備、維修紀錄、供應商'},knowledge:{name:'知識筆記',description:'主題、筆記、參考資料'},inventory:{name:'物品管理',description:'物品、出入紀錄、存放位置'}};
  const LIMITS={areas:50,sheets:100,fields:50,records:5000,bytes:20*1024*1024};
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,9 +126,18 @@
   const scoped=scope==='details'?doc.records.filter(record=>parentField(doc,sheets.get(record.sheetId))):scope==='masters'?doc.records.filter(record=>doc.areas.some(area=>area.masterSheetId===record.sheetId)):scope==='all'?doc.records:scope==='sheet'?(masterId?scopedRecords(doc,{areaId,masterId}):doc.records).filter(record=>record.sheetId===sheetId):scope==='master'?(masterId?scopedRecords(doc,{areaId,masterId}):[]):scopedRecords(doc,{areaId});
   return scoped.filter(record=>{if(!live(doc,record)||tag&&!record.tags.includes(tag))return false;const sheet=sheets.get(record.sheetId),parent=parentField(doc,sheet),parents=parent?(record.values[parent.id]||[]).map(id=>records.get(id)).filter(Boolean):[],value=searchable(record)+' '+fold(areaNames.get(sheet.areaId)||'未分組')+' '+fold(sheet.name);const matches=token=>value.includes(token)||searchParent&&parents.some(parent=>searchable(parent).includes(token));return !tokens.length||(match==='any'?tokens.some(matches):tokens.every(matches));});
  }
- function clipboardText(doc,{kind,ids,sheetId}={}){
-  if(!['table','overview','csv'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.records||new Set(ids).size!==ids.length)fail('複製範圍無效');
+ function clipboardText(doc,{kind,ids,sheetId,fieldId}={}){
+  if(!['table','overview','csv','text'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>LIMITS.records||new Set(ids).size!==ids.length)fail('複製範圍無效');
   const records=ids.map(value=>{id(value);const record=doc.records.find(record=>record.id===value&&live(doc,record));if(!record)fail('紀錄已變更或刪除');return record;});
+  if(kind==='text'){
+   if(records.length!==1)fail('請選擇一筆紀錄');
+   const record=records[0],sheet=activeSheet(doc,record.sheetId);
+   if(fieldId==='title')return record.title;
+   if(fieldId==='notes')return text(record.notes,100000,'筆記',true);
+   const field=sheet.fields.find(item=>item.id===fieldId&&COPY_TEXT_TYPES.includes(item.type));
+   if(!field)fail('文字欄位已移除或不可用');
+   return text(record.values[field.id],field.type==='longtext'?20000:2000,field.label,true);
+  }
   if(kind==='csv'){
    if(records.length!==1)fail('請選擇一筆紀錄');
    const rows=tabularExport(doc,records[0].sheetId,ids);
@@ -307,6 +317,6 @@
   const groups=[...doc.areas.map(area=>({id:area.id,title:area.name,masterSheetId:area.masterSheetId,category:areaCategory(doc,area)})),{id:'ungrouped',title:'未分組',masterSheetId:null,category:'未分組'}];
   return groups.filter(group=>(!category||group.category===category)&&(tokens.length||areaId==='all'||areaId===group.id)).map(group=>{const all=sheets.filter(sheet=>(sheet.areaId||'ungrouped')===group.id),groupMatch=tokens.length&&matches(group.title+' '+group.category),masterSheet=all.find(sheet=>sheet.id===group.masterSheetId),masters=tokens.length&&masterSheet?records.filter(record=>record.sheetId===masterSheet.id&&matches(record.title+' '+masterSheet.fields.map(field=>cell(doc,field,record.values[field.id])).join(' '))):[];const visible=all.filter(sheet=>!tokens.length||groupMatch||matches(sheet.name)).sort((a,b)=>Number(b.id===group.masterSheetId)-Number(a.id===group.masterSheetId));return {...group,sheets:visible.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields.length,role:sheet.id===group.masterSheetId?'master':parentField(doc,sheet)?'detail':'other',count:counts.get(sheet.id)||0})),masters:masters.slice(0,30).map(record=>({id:record.id,title:record.title})),masterTotal:masters.length,tableTotal:all.length,match:Boolean(groupMatch)};}).filter(group=>tokens.length?group.sheets.length||group.masterTotal||group.match:group.tableTotal||areaId===group.id||group.id!=='ungrouped');
  }
- const api={structured,masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,parseCSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
+ const api={structured,masterTableTree,sheetDeletionPlan,areaCategory,sidebarGroups,sortRecords,tabularRows,tabularExport,suggestMapping,createTabular,filterDue,parseTSV,parseCSV,gridValue,recordContext,searchRecords,missingClientDetails,parentField,detailSheets,deletionPlan,TEMPLATES,scopedRecords,clipboardText,COPY_TEXT_TYPES,TYPES,LIMITS,ID,clone,text,id,normalizeDocument,live,linked,cell,template,exportPackage,readPackage,mergeDocument};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.notesModel=Object.freeze(api);
 })();

@@ -196,15 +196,29 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 .tool-view:has(>[data-compact-logs=true]),.tool-view[data-compact-logs=true]{padding:7px 9px}
 [data-compact-logs=true] .tool-view-heading h1{font-size:1.05em}
 [data-compact-logs=true] .tool-view-result.tool-view-log-row{display:grid;grid-template-columns:minmax(0,1fr);justify-items:stretch;gap:2px;padding:4px 6px}
-.tool-view-log-row[data-expanded=true]{grid-column:1/-1}
+.tool-view-log-row{
+ --log-row-background:var(--panel);
+ background:var(--log-row-background);color:var(--text);
+ border-color:color-mix(in srgb,var(--muted) 24%,var(--line))
+}
+.tool-view-log-row:nth-child(even){
+ --log-row-background:color-mix(in srgb,var(--surface-2) 56%,var(--panel))
+}
+.tool-view-log-row:focus-within{
+ border-color:var(--accent)
+}
+.tool-view-log-row.tool-view-pin,.tool-view-log-row[data-expanded=true]{
+ border-inline-start-color:var(--accent)
+}
+.tool-view-log-row[data-expanded=true]{grid-column:1/-1;background:var(--panel)}
 .tool-view-log-top{display:flex;align-items:center;gap:6px;min-width:0}
 .tool-view-log-identity{display:flex;flex:1;align-items:baseline;gap:6px;min-width:0}
 .tool-view-log-top .tool-view-log-link{flex:0 1 auto;width:auto;min-width:0;font-size:.95em;font-weight:650}
-.tool-view-log-master{display:block;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:.78em}
+.tool-view-log-master{display:block;max-width:42%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:.82em}
 .tool-view-log-top time{color:var(--text);background:var(--surface-2);border-radius:4px;padding:2px 4px;font-size:.84em;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}
 .tool-view-log-actions{display:flex;gap:3px;flex:none}
 [data-compact-logs=true] .tool-view-log-actions .btn{min-height:23px;min-width:23px;padding:1px 4px;font-size:.78em}
-[data-compact-logs=true] .tool-view-list .tool-view-log-row p.tool-view-log-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--log-preview-lines,1);overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.85em;line-height:1.35}
+[data-compact-logs=true] .tool-view-list .tool-view-log-row p.tool-view-log-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--log-preview-lines,1);overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text);font-size:.92em;line-height:1.45;margin-top:3px}
 .tool-view-log-context{color:var(--muted);font-size:.78em}
 .tool-view-pins[hidden],.tool-view-log-status:has(.tool-view-status:empty):not(:has(button:not([hidden]))){display:none}
 
