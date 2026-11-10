@@ -288,6 +288,7 @@ const config={
     "notesCardSize": "notes",
     "notesPanelWidth": "notes",
     "notesDetailWidth": "notes",
+    "notesLongTextHeights": "notes",
     "notesShowFavoriteTagLinks":"notes",
     "notesShowFileLinkButtons":"notes",
     "notesPageSize": "notes",

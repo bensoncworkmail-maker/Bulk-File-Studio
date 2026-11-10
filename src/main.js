@@ -470,7 +470,7 @@ app.whenReady().then(() => {
   handle('notes-history-restore',(_,id,historyId,version)=>notesChanged(notesStore().restoreHistory(id,historyId,version)));
   handle('notes-favorites',()=>({items:favorites.list()}));
   handle('notes-inspect-links',(_,paths)=>require('./intranet-path').withIntranetPaths(validatedLinkPaths(paths),()=>require('./notes-location-links').inspectLinks(paths).map(({path,type})=>({path,type}))));
-  handle('notes-open-website',(_,recordId,fieldId,action)=>require('./notes-web-links').openRecordWebsite({document:notesStore().get().document,recordId,fieldId,action,shell,clipboard}));
+  handle('notes-open-website',(_,recordId,fieldId,action,selected)=>require('./notes-web-links').openRecordWebsite({document:notesStore().get().document,recordId,fieldId,action,selected,shell,clipboard}));
   handle('notes-open-link',(_,recordId,index,action)=>require('./notes-location-links').openRecordLink({document:notesStore().get().document,favorites,recordId,index,action,shell,clipboard}));
   handle('notes-export-preview',(_,options)=>notesStore().exportPreview(options));
   handle('notes-export-save',async(_,token)=>{

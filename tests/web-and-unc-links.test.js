@@ -70,3 +70,18 @@ test('UNC repair includes detail-table paths and leaves recycled records and mas
  const repair=new PathRepair(h.profile),preview=await repair.preview('R:\\',h.base);assert.equal(preview.rows.length,5);assert.equal(preview.rows.some(row=>row.id===extra.id),false);await repair.apply(preview.token,preview.rows.map(row=>row.key),{});
  const after=h.notes.get().document.records.find(record=>record.id===detail.id);assert.equal(after.values[field.id],h.destination);assert.equal(after.fileLinks[0].path,h.destination);assert.deepEqual(after.values[parent.id],[h.record.id]);assert.equal(h.notes.get().document.records.find(record=>record.id===extra.id).values[h.field.id],h.source);
 });
+
+test('mixed summary links preserve queries and balanced punctuation and only open saved matches',async()=>{
+ const {doc,record,field}=website(),opened=[],saved=doc.records[0];
+ doc.sheets[0].fields.find(item=>item.id===field.id).type='longtext';
+ saved.values[field.id]='參考：https://one.test/a_(b)?x=1&y=2，另見 (https://two.test/docs). https://a.test,https://b.test\njavascript:https://ignored.test https://u:p@ignored.test';
+ const links=web.links(saved.values[field.id]);
+ assert.deepEqual(links.map(link=>link.text),['https://one.test/a_(b)?x=1&y=2','https://two.test/docs','https://a.test','https://b.test']);
+ for(const link of links)assert.equal(saved.values[field.id].slice(link.start,link.start+link.text.length),link.text);
+ const options={document:doc,recordId:record.id,fieldId:field.id,shell:{openExternal:async url=>opened.push(url)}};
+ await openRecordWebsite({...options,selected:links[1].text});
+ await assert.rejects(openRecordWebsite({...options,selected:'https://unrelated.test'}),/已變更/);
+ saved.values[field.id]='Updated';
+ await assert.rejects(openRecordWebsite({...options,selected:links[1].text}),/已變更/);
+ assert.deepEqual(opened,['https://two.test/docs']);
+});
