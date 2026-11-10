@@ -13,8 +13,10 @@
   handle.addEventListener('keydown',event=>{if(options.isBusy())return;let width=options.getWidth(),step=event.shiftKey?50:10;if(event.key==='ArrowLeft')width-=direction()*step;else if(event.key==='ArrowRight')width+=direction()*step;else if(event.key==='Home')width=config.min;else if(event.key==='End')width=config.max;else return;event.preventDefault();event.stopPropagation();options.save(clamp(width));show(options.getWidth());});
   show(options.getWidth());
  }
+ const favorites={property:'--tag-panel-width',dragClass:'resizing-tags',min:140,max:480,defaultWidth:220,direction:1};
  window.sidebarResize=Object.freeze({
-  init:options=>bind(options,{handle:'tag-panel-resizer',panel:'favorite-tags-panel',property:'--tag-panel-width',dragClass:'resizing-tags',min:140,max:480,defaultWidth:220,direction:1}),
+  init:options=>bind(options,{...favorites,handle:'tag-panel-resizer',panel:'favorite-tags-panel'}),
+  initFavoritesWorkspace:options=>bind(options,{...favorites,handle:'workspace-favorite-tag-resizer',panel:'workspace-favorite-tags-panel'}),
   initNotes:options=>bind(options,{handle:'notes-panel-resizer',panel:'notes-sidebar',property:'--notes-panel-width',dragClass:'resizing-notes',min:160,max:480,defaultWidth:220,direction:1}),
   initNotesDetail:options=>bind(options,{handle:'notes-detail-resizer',panel:'notes-detail',property:'--notes-detail-width',dragClass:'resizing-notes',min:280,max:680,defaultWidth:400,direction:-1}),
   initSource:options=>bind(options,{handle:'source-panel-resizer',panel:'source-panel',property:'--source-panel-width',dragClass:'resizing-source',min:160,max:480,defaultWidth:220,direction:()=>window.settingsUI?.get().filePanelSide==='rules-left'?-1:1}),
