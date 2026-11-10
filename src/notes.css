@@ -58,6 +58,7 @@ dialog.notes-record-dialog .notes-form-footer .btn{height:auto;min-height:34px;w
 @media(max-height:520px){dialog.notes-record-dialog .notes-form-header{padding:7px 12px;}dialog.notes-record-dialog .notes-form-tabs{padding:4px 12px;}dialog.notes-record-dialog .notes-form-footer{padding:6px 12px;}dialog.notes-record-dialog .notes-form-footer small{display:none;}}
 
 /* Master actions share the name row; detail tabs are a separate sibling. */
+#notes-bookmark-sheet{min-height:26px;padding:3px 7px;font-size:11px;white-space:nowrap}
 .notes-master-title-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0;}
 .notes-master-leading{display:flex;align-items:center;gap:8px;flex:1 1 min(100%,290px);min-width:0;}
 .notes-master-identity{min-width:0;flex:1;}
@@ -194,6 +195,8 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 #notes-copy-targets{border:1px solid var(--line);border-radius:7px;padding:8px}#notes-copy-masters .notes-choice-list,#notes-bulk-records .notes-choice-list{max-height:200px;overflow:auto}#notes-bulk-targets{border:1px solid var(--line);padding:8px;border-radius:7px;margin-bottom:10px}#notes-bulk-targets summary{cursor:pointer;font-weight:650}#notes-sheet-review-dialog{width:min(680px,calc(100vw - 32px));max-height:88dvh;overflow:auto}#notes-sheet-review-list p{white-space:pre-wrap;overflow-wrap:anywhere}
 .notes-layout[data-scope=details] .notes-master-context,.notes-layout[data-scope=details] .notes-content>.notes-detail-tabs{display:none}
 
+.notes-note[data-collapsed=true]{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--notes-preview-lines);overflow:hidden}
+.notes-note+.btn:not([hidden]){margin-top:5px}
 .notes-website-link{max-inline-size:100%;padding:0;border:0;border-radius:2px;background:none;color:var(--accent);font:inherit;text-align:start;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere;white-space:normal;vertical-align:baseline;cursor:pointer}
 .notes-website-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}.notes-detail dd{overflow-wrap:anywhere}
 

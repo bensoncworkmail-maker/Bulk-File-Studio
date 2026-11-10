@@ -128,3 +128,18 @@ test('small calendar counts dated timeline items separately and searches their l
  doc.records[0].deletedAt=now;
  assert.equal(viewData(doc,[],[],calendar,filters).total,0);
 });
+
+test('log dates use follow-up first and modified dates for missing values in both lists',()=>{
+ const modified='2026-11-09T12:00:00.000Z',doc=notes.template(randomUUID,modified,'clients');
+ const sheet=doc.sheets.find(item=>item.name==='紀錄'),date=sheet.fields.find(field=>field.label==='跟進日期');
+ const a={id:randomUUID(),sheetId:sheet.id,title:'Follow-up',notes:'',values:{[date.id]:'2026-11-03'},tags:[],updatedAt:modified};
+ const b={...a,id:randomUUID(),title:'Blank date',values:{}};
+ doc.records=[a,b];
+ const config=configuration({kind:'logs',sheetId:sheet.id});
+ const data=viewData(doc,[],[],config,{},undefined,[a.id]);
+ assert.equal(data.rows[0].date,'2026-11-09');
+ assert.equal(data.pinned[0].date,'2026-11-03');
+ assert.deepEqual(viewData(doc,[],[],config,{to:'2026-11-05'}).rows.map(row=>row.id),[a.id]);
+ const lastModified=viewData(doc,[],[],config,{},{dateSource:'modified'},[a.id]);
+ assert.equal(lastModified.pinned[0].date,'2026-11-09');
+});

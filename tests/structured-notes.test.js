@@ -167,7 +167,7 @@ test('draft transfer maps chosen columns and validates duplicates before creatin
  const {id}=await send({title:subject.id,body:body.id,items:milestones.id,extraField:done.id,extraValue:'false'});
  const record=store.get().document.records.find(item=>item.id===id);
  assert.equal(record.title,'專案 A');
- assert.equal(record.notes,'原始筆記');
+ assert.equal(record.notes,'');
  assert.deepEqual(record.values,{[subject.id]:'專案 A',[body.id]:'原始筆記',[milestones.id]:items,[done.id]:false});
 });
 

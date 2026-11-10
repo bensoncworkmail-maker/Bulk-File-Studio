@@ -209,6 +209,7 @@
               <div class="notes-panel-header">
                 <button id="notes-panel-toggle" class="notes-panel-toggle" type="button" aria-expanded="true" aria-controls="notes-panel-tools"><span id="notes-panel-arrow" aria-hidden="true">▾</span><span class="notes-panel-toggle-label">搜尋與操作</span><span id="notes-panel-tools-summary"></span></button>
                 <div id="notes-status-filter-wrap" class="notes-status-filter" role="group" aria-label="目前表格狀態篩選" hidden><label for="notes-status-filter" id="notes-status-filter-label">狀態</label><select id="notes-status-filter" aria-label="依目前表格狀態篩選"></select><button id="notes-status-clear" type="button" aria-label="清除此表狀態篩選" title="清除此表狀態篩選" hidden>×</button></div>
+                <button id="notes-bookmark-sheet" class="btn btn-ghost" type="button" hidden>☆ 收藏表格</button>
                 <div id="notes-header-more-slot"><details id="notes-compact-more" class="notes-overflow" hidden>
                   <summary class="btn btn-ghost" aria-label="更多表格與批次操作">更多 ▾</summary>
                   <div id="notes-compact-actions" class="notes-overflow-menu"></div>
@@ -580,6 +581,10 @@
                 </section>
               </div>
               <div id="settings-panel-favorites" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-favorites" hidden>
+                <section class="settings-card"><h2>收藏類型與工作區</h2>
+                  <label class="field"><span>我的收藏預設分頁</span><select id="settings-favorite-start-kind"><option value="files">檔案與資料夾</option><option value="workspace">工作區</option></select></label>
+                  <label class="check-row"><input id="settings-favorite-include-log-pins" type="checkbox"><span>在工作區收藏顯示「查看紀錄」的釘選項目</span></label>
+                </section>
                 <section class="settings-card">
                   <h2>收藏清單</h2>
                   <label class="field">
@@ -691,6 +696,7 @@
                   <label class="check-row"><input id="settings-notes-file-link-buttons" type="checkbox"><span>在紀錄總覽顯示檔案「開啟」與「定位」按鈕</span></label>
                   <label class="check-row"><input id="settings-notes-detail-copy" type="checkbox"><span>顯示紀錄總覽的剪貼簿操作（欄位、筆記、總覽、CSV、網址與路徑）</span></label>
                   <label class="check-row"><input id="settings-notes-title-copy" type="checkbox"><span>另外顯示標題旁的複製圖示</span></label>
+                  <label class="field"><span>紀錄總覽筆記預覽行數（0 為完整顯示）</span><input id="settings-notes-preview-lines" type="number" min="0" max="20" step="1"></label>
                   <label class="field">
                     <span>最小列高 <output id="settings-notes-row-height-value">36 px</output></span>
                     <input id="settings-notes-row-height" type="range" min="28" max="64" value="36">
@@ -862,6 +868,7 @@
                       <label class="field"><span>查看紀錄表格範圍</span><select id="log-settings-scope"><option value="all">所有表格</option><option value="selected">只顯示勾選的表格</option></select></label>
                       <div id="log-settings-tables" class="notes-choice-list" hidden></div>
                       <label class="field"><span>查看紀錄預設版面</span><select id="log-settings-layout"><option value="list">精簡清單</option><option value="cards">卡片</option></select></label>
+                      <label class="field"><span>查看紀錄預設日期來源</span><select id="log-settings-date-source"><option value="followUp">跟進日期優先，空白用修改日期</option><option value="modified">最後修改日期</option></select></label>
                       <label class="field"><span>查看紀錄預設排序</span><select id="log-settings-sort"><option value="recent">日期：新到舊</option><option value="oldest">日期：舊到新</option><option value="title">標題</option></select></label>
                       <label class="field"><span>查看紀錄正文預覽行數（0 為隱藏）</span><input id="log-settings-preview-lines" type="number" min="0" max="5" step="1" required></label>
                       <label class="check-row"><input id="log-settings-show-count" type="checkbox"><span>顯示紀錄筆數</span></label>
@@ -1442,7 +1449,11 @@
       </section>
       <section id="favorites-page" class="favorites-page hidden" aria-labelledby="favorites-title">
         <h1 id="favorites-title" class="sr-only">我的收藏</h1>
-        <div class="favorites-layout">
+        <div class="workspace-favorite-switch" role="group" aria-label="收藏來源">
+          <button id="favorite-kind-files" class="btn btn-ghost" type="button" aria-pressed="true">檔案與資料夾</button>
+          <button id="favorite-kind-workspace" class="btn btn-ghost" type="button" aria-pressed="false">工作區</button>
+        </div>
+        <div id="favorite-files-layout" class="favorites-layout">
           <aside id="favorite-tags-panel" class="panel favorites-sidebar">
             <h2>標籤分類</h2>
             <div class="tag-sort-tools">
@@ -1545,6 +1556,16 @@
             </div>
           </section>
         </div>
+        <section id="workspace-favorites-panel" class="panel workspace-favorites-panel" aria-label="工作區收藏" hidden>
+          <div class="workspace-favorite-filters">
+            <input id="workspace-favorite-search" type="search" placeholder="搜尋紀錄、表格或標籤" aria-label="搜尋工作區收藏">
+            <select id="workspace-favorite-type" aria-label="工作區收藏類型"><option value="all">全部類型</option><option value="record">紀錄</option><option value="master">主表</option><option value="detail">明細表</option><option value="table">一般表格</option></select>
+            <select id="workspace-favorite-tag" aria-label="工作區收藏標籤"></select>
+          </div>
+          <p class="notes-hint">可在紀錄總覽或工作區的「搜尋與操作」列加入收藏。工作區標籤可用於此分頁篩選。</p>
+          <p id="workspace-favorite-count" class="notes-hint" role="status"></p>
+          <div id="workspace-favorite-list" class="workspace-favorite-list"></div>
+        </section>
       </section>
       <div id="rename-intro" class="intro-row">
         <div class="workspace-actions">
@@ -2435,6 +2456,14 @@
       </div>
       <p id="notes-card-status" role="status" class="notes-hint"></p>
     </dialog>
+    <dialog id="workspace-favorite-tag-dialog" class="modal notes-modal" aria-labelledby="workspace-favorite-tag-title">
+      <form id="workspace-favorite-tag-form">
+        <h2 id="workspace-favorite-tag-title">編輯收藏標籤</h2>
+        <label class="field"><span>標籤（以逗號分隔）</span><input id="workspace-favorite-tag-input" type="text" maxlength="700" autofocus></label>
+        <p id="workspace-favorite-tag-error" role="status"></p>
+        <div class="modal-buttons"><button id="workspace-favorite-tag-close" type="button" class="btn btn-ghost">取消</button><button type="submit" class="btn btn-primary">儲存標籤</button></div>
+      </form>
+    </dialog>
     <dialog id="notes-card-footer-dialog" class="modal notes-modal" aria-labelledby="notes-card-footer-title">
       <h2 id="notes-card-footer-title">卡片底部欄位</h2>
       <p id="notes-card-footer-record" class="notes-hint"></p>
@@ -2616,6 +2645,7 @@
     <script src="path-import.js" defer></script>
     <script src="sidebar-resize.js" defer></script>
     <script src="app-navigation.js" defer></script>
+    <script src="workspace-favorites.js" defer></script>
     <script src="favorites.js" defer></script>
     <script src="everything.js" defer></script>
     <script src="structured-note-model.js" defer></script><script src="structured-note-ui.js" defer></script>

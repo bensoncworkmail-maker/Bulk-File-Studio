@@ -62,7 +62,7 @@
 
   function render() {
     if(!callbacks)return;
-    renderTags();
+    renderTags();window.workspaceFavoritesUI?.render();
     const filtered=visibleItems(),page=paginate(filtered,pageIndex,window.settingsUI.get().pageSize),visible=page.rows,visibleIds=new Set(visible.map(item=>item.id));
     pageIndex=page.page;$('favorite-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
     $('favorite-page-prev').disabled=busy||!page.hasPrevious;$('favorite-page-next').disabled=busy||!page.hasNext;
@@ -113,11 +113,11 @@
     const request=++revision;
     try {
       const result=await api.list();
-      if(result.activate)setView('favorites');
+      if(result.activate&&setView('favorites'))window.workspaceFavoritesUI?.showFiles();
       if(request!==revision)return;
       items=result.items;loaded=true;
       if(result.importRequest)window.pathImportUI.queue(result.importRequest);
-      if(result.filterTag){activeTag=result.filterTag.tag;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;}
+      if(result.filterTag){window.workspaceFavoritesUI?.showFiles();activeTag=result.filterTag.tag;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;}
       for(const id of result.promptIds||[])pendingPromptIds.add(id);queuePrompt();
       selected=new Set([...selected].filter(id=>items.some(item=>item.id===id)));render();
       if(result.notice){callbacks.showToast(result.notice.message);if(result.notice.issues.length)callbacks.showFailure('部分右鍵收藏未完成',result.notice.issues.join('\n'));}
@@ -228,7 +228,8 @@
   }
   async function init(options) {
     callbacks=options;
-    navigation=window.studioNavigation.create({document,canNavigate:()=>!callbacks.isBusy()&&window.productivityUI?.canLeave?.()!==false&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),onShow:view=>{active=view==='favorites';settingsActive=!['rename','favorites'].includes(view);closeMenu();if(view==='home')window.homeUI?.activate();if(view==='notes')window.notesUI?.activate();if(view==='search')window.appSearchUI?.activate();if(view==='productivity'||view==='planning')window.productivityUI?.activate();if(view==='logs')window.productivityUI?.openLogs();if(['settings','info'].includes(view))window.settingsUI.refreshInfo();$('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';}});
+    window.workspaceFavoritesUI?.init(options);
+    navigation=window.studioNavigation.create({document,canNavigate:()=>!callbacks.isBusy()&&window.productivityUI?.canLeave?.()!==false&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),onShow:view=>{active=view==='favorites';if(active)window.workspaceFavoritesUI?.activate();settingsActive=!['rename','favorites'].includes(view);closeMenu();if(view==='home')window.homeUI?.activate();if(view==='notes')window.notesUI?.activate();if(view==='search')window.appSearchUI?.activate();if(view==='productivity'||view==='planning')window.productivityUI?.activate();if(view==='logs')window.productivityUI?.openLogs();if(['settings','info'].includes(view))window.settingsUI.refreshInfo();$('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';}});
     window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
     window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
     $('btn-tag-manage-cancel').addEventListener('click',()=>$('tag-manage-dialog').close());
@@ -259,7 +260,7 @@
     $('btn-fav-open-cancel').addEventListener('click',()=>$('favorite-open-dialog').close());
     $('btn-fav-open-confirm').addEventListener('click',()=>{const ids=[...openingIds];$('favorite-open-dialog').close();run(async()=>{const result=await api.bulkOpen(ids);callbacks.showToast(`已開啟 ${result.opened} 項`);if(result.failures.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));});});
     document.addEventListener('keydown',event=>{
-      if(!active||busy||callbacks.isBusy()||window.movingUI.hasOpenDialog()||document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+      if(!active||window.workspaceFavoritesUI?.isWorkspace()||busy||callbacks.isBusy()||window.movingUI.hasOpenDialog()||document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
       const action=window.studioShortcuts.match(event);if(!action)return;event.preventDefault();
       const actions={selectAll:()=>{for(const item of visibleItems())selected.add(item.id);render();},clear:()=>{selected.clear();render();},search:()=>$('favorite-search').focus(),open:requestBulkOpen,copy:()=>$('btn-fav-copy').click(),edit:()=>edit(),remove:()=>requestRemove(),refresh,add:()=>$('btn-fav-add-files').click(),rename:importSelected,move:moveSelected,undo:()=>$('btn-undo').click(),quickTag:()=>quickTag(),importPaths:()=>window.pathImportUI.open()};actions[action]?.();
     });
@@ -316,12 +317,12 @@
       }
     });
     window.addEventListener('focus',()=>{if(active)refresh();});
-    api.onChanged(payload=>{if(payload.trashedPaths?.length)callbacks.onTrashed?.(payload.trashedPaths);if(payload.activate)setView('favorites');refresh();});
+    api.onChanged(payload=>{if(payload.trashedPaths?.length)callbacks.onTrashed?.(payload.trashedPaths);if(payload.activate&&setView('favorites'))window.workspaceFavoritesUI?.showFiles();refresh();});
     setView(window.settingsUI.get().startPage);await refresh();await updateContextStatus();
   }
   window.favoritesUI=Object.freeze({init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
     hasOpenDialog:()=>$('everything-dialog').open||$('tag-manage-dialog').open||$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),
-    openColumns,showItem:async id=>{if(busy)return false;if(!loaded)await refresh();if(!items.some(item=>item.id===id))throw new Error('收藏已移除');if(!setView('favorites'))return false;activeTag=null;$('favorite-search').value=items.find(item=>item.id===id).path;$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set([id]);pageIndex=0;render();return true;},show:view=>setView(view),showTag:tag=>{if(typeof tag!=='string'||!tag.trim()||busy)return false;if(!setView('favorites'))return false;activeTag=tag.trim().toLocaleLowerCase();$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;selected.clear();render();return true;},
+    openColumns,showItem:async id=>{if(busy)return false;if(!loaded)await refresh();if(!items.some(item=>item.id===id))throw new Error('收藏已移除');if(!setView('favorites'))return false;window.workspaceFavoritesUI?.showFiles();activeTag=null;$('favorite-search').value=items.find(item=>item.id===id).path;$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set([id]);pageIndex=0;render();return true;},show:view=>setView(view),showTag:tag=>{if(typeof tag!=='string'||!tag.trim()||busy)return false;if(!setView('favorites'))return false;window.workspaceFavoritesUI?.showFiles();activeTag=tag.trim().toLocaleLowerCase();$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';pageIndex=0;selected.clear();render();return true;},
     showSourceMenu:(event,filepath)=>{
       if(busy||!callbacks)return;
       const paths=callbacks.getSelectedPaths(),actions=[{label:'☆ 收藏此檔案',run:()=>addPaths([filepath])}];

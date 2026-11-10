@@ -402,7 +402,7 @@
      choices('sort',sorts,data.sort);
      choices('masterId',[['',data.masterRequired?'選擇主紀錄':'全部主紀錄'],...data.masters.map(item=>[item.id,item.title])]);
      inputs.masterId.parentElement.hidden=!data.masters.length&&!data.masterRequired;
-     choices('dateField',[['','最後修改日期'],...data.dateFields.map(item=>[item.id,item.label])]);
+     choices('dateField',[['','依查看紀錄設定'],...data.dateFields.map(item=>[item.id,item.label])]);
      choices('stateField',[['','不限欄位'],...data.stateFields.map(item=>[item.id,item.label])]);
      choices('value',[['','全部值'],...data.states.map(value=>[value,data.checkbox?(value==='true'?'已勾選':'未勾選'):value])]);
      inputs.value.parentElement.hidden=!data.states.length;

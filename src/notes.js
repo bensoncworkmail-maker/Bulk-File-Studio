@@ -85,6 +85,9 @@
   indexes();for(const [id,version] of checkedRecords)if(!recordMap.has(id)||!live(recordMap.get(id))||recordMap.get(id).version!==version)checkedRecords.delete(id);if(areaId!=='all'&&areaId!=='ungrouped'&&!area()){areaId='all';masterId=null;}ensureCurrentSheet();if(masterId&&(!recordMap.has(masterId)||!live(recordMap.get(masterId))||recordMap.get(masterId).sheetId!==area()?.masterSheetId))masterId=null;$('notes-scope-master').disabled=!masterId;if(!masterId&&$('notes-search-scope').value==='master'){$('notes-search-scope').value='area';$('notes-global-search').checked=true;}renderArea();
   $('notes-panel-view').setAttribute('aria-pressed',String(prefs().notesPanelView==='cards'));$('notes-card-config').disabled=!doc().sheets.some(sheet=>!sheet.deletedAt);renderSidebar();
   $('notes-card-select-hint').hidden=trash||viewMode()!=='cards';$('notes-grid-paste-label').hidden=viewMode()!=='grid';$('notes-tabular-open').disabled=!currentSheet()||trash||searchScope()!=='sheet'||needsParent();$('notes-back-search').hidden=!searchReturn;$('notes-layout').dataset.scope=searchScope();$('notes-sheet-title').textContent=trash?'回收筒':searchScope()==='details'?'明細搜尋':searchScope()==='masters'?'主檔搜尋':searchScope()==='all'?'全域搜尋':currentSheet()?.name||'建立你的資料工作區';
+  const bookmark=$('notes-bookmark-sheet'),sheet=currentSheet();
+  bookmark.hidden=!api.setBookmark||!sheet||Boolean(sheet.deletedAt)||trash||searchScope()!=='sheet';
+  if(!bookmark.hidden)renderBookmark(bookmark,'sheet',sheet.id,'目前表格');
   for(const id of ['notes-edit-sheet','notes-delete-sheet','notes-new-record'])$(id).disabled=!currentSheet()||trash;
   $('notes-new-record').disabled=['all','masters','details'].includes(searchScope())||!currentSheet()||trash||Boolean(M.parentField(doc(),currentSheet())&&!masterId);$('notes-new-record').textContent='＋ '+(currentSheet()?.name||'紀錄');$('notes-add-detail-sheet').disabled=!masterSheet()||Boolean(masterSheet()?.deletedAt);
   const blocked=needsParent();$('notes-layout').dataset.blocked=String(blocked);$('notes-filters').hidden=blocked;$('notes-quickbar').hidden=blocked||!prefs().notesShowQuickBar;$('notes-share-quick').hidden=!prefs().notesShareQuickActions;$('notes-pagination').hidden=blocked;$('notes-edit-sheet').hidden=blocked;$('notes-delete-sheet').hidden=blocked;
@@ -314,6 +317,18 @@
    cell.append(actions);
   }
  }
+ function renderBookmark(control,kind,id,label){
+  const saved=Boolean(tools.bookmarks?.some(item=>item.kind===kind&&item.id===id));
+  control.textContent=saved?'★ 已收藏':kind==='sheet'?'☆ 收藏表格':'☆ 收藏';
+  control.title=saved?'取消收藏'+label:'收藏'+label;
+  control.setAttribute('aria-label',control.title);
+  control.setAttribute('aria-pressed',String(saved));
+ }
+ function changeBookmark(kind,id){
+  if(!id||!api.setBookmark)return;
+  const saved=Boolean(tools.bookmarks?.some(item=>item.kind===kind&&item.id===id));
+  return run(async()=>{tools=await api.setBookmark(kind,id,!saved);render();},saved?'已取消收藏':'已加入我的收藏');
+ }
  function copyRecordText(record,fieldId,label){
   const name='複製'+label;
   const copy=button('',()=>run(async()=>{
@@ -325,13 +340,42 @@
   copy.append(icon);
   return copy;
  }
+ let notePreviewObserver,expandedNoteId;
+ function renderNotePreview(parent,record,lines){
+  const note=el('div',record.notes||'尚未加入筆記','notes-note');
+  parent.append(note);
+  if(!record.notes||!lines||typeof ResizeObserver==='undefined')return;
+  note.style.setProperty('--notes-preview-lines',lines);
+  const toggle=button('',()=>{
+   expandedNoteId=expandedNoteId===record.id?null:record.id;
+   update();
+  });
+  toggle.setAttribute('aria-controls','notes-note-content');
+  note.id='notes-note-content';
+  function update(){
+   const expanded=expandedNoteId===record.id;
+   note.dataset.collapsed=String(!expanded);
+   toggle.textContent=expanded?'收合筆記':'展開筆記';
+   toggle.setAttribute('aria-expanded',String(expanded));
+   toggle.hidden=!expanded&&note.scrollHeight<=note.clientHeight+1;
+  }
+  parent.append(toggle);update();
+  notePreviewObserver=new ResizeObserver(update);
+  notePreviewObserver.observe(note);
+ }
  function renderDetail(){
+  notePreviewObserver?.disconnect();
+  if(expandedNoteId!==recordId)expandedNoteId=null;
   const record=recordMap.get(recordId),show=!trash&&record&&live(record);$('notes-detail').hidden=$('notes-detail-resizer').hidden=!show;$('notes-layout').dataset.detail=String(Boolean(show));if(!show)return;
   const options=prefs(),showCopy=options.notesShowDetailCopy;
   const body=$('notes-detail-body'),heading=el('div',undefined,'notes-copy-row notes-copy-heading');
   heading.append(el('h2',record.title));
   if(showCopy&&options.notesShowTitleCopy)heading.append(copyRecordText(record,'title','標題'));
   body.replaceChildren(heading,el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const tools=el('div',undefined,'notes-tools');tools.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))));
+  if(api.setBookmark){
+   const bookmark=button('',()=>changeBookmark('record',record.id));
+   renderBookmark(bookmark,'record',record.id,'此紀錄');tools.append(bookmark);
+  }
   if(showCopy)tools.append(button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')));
   tools.append(button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(tools);
   const tags=el('div');
@@ -362,7 +406,8 @@
   const notesHeading=el('div',undefined,'notes-copy-row notes-copy-heading');
   notesHeading.append(el('h3','筆記'));
   if(showCopy&&record.notes.trim())notesHeading.append(copyRecordText(record,'notes','筆記'));
-  body.append(data,notesHeading,el('div',record.notes||'尚未加入筆記','notes-note'));
+  body.append(data,notesHeading);
+  renderNotePreview(body,record,options.notesDetailPreviewLines);
   if(prefs().notesShowFavoriteTagLinks){
   const favoriteTags=record.tags.filter(tag=>favorites.some(item=>item.tags?.some(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase())));if(favoriteTags.length){const links=el('div',undefined,'notes-tools');for(const tag of favoriteTags)links.append(button('查看收藏標籤：'+tag,()=>window.favoritesUI.showTag(tag)));body.append(links);}
   body.append(el('h3','收藏標籤連結'));for(const link of record.favoriteTagLinks||[]){const count=favorites.filter(item=>item.tags?.some(tag=>tag.toLocaleLowerCase()===link.tag.toLocaleLowerCase())).length,row=el('div',undefined,'notes-file');row.append(el('strong',link.tag+' · '+count+' 項'),el('small',link.authorized?'隨此收藏分類動態更新，不複製檔案。':'分享標籤尚未確認，請編輯並重新連結本機收藏標籤。'));if(link.authorized){const open=button('查看收藏分類',()=>window.favoritesUI.showTag(link.tag));open.disabled=!count;row.append(open);}body.append(row);}
@@ -927,6 +972,7 @@
   $('notes-quickbar').addEventListener('click',event=>{if(event.target?.closest?.('button'))$('notes-quickbar').open=false;});$('notes-tools-menu').addEventListener('click',event=>{if(event.target?.closest?.('button'))$('notes-tools-menu').open=false;});$('notes-view-list').addEventListener('click',()=>setViewMode('list'));$('notes-view-cards').addEventListener('click',()=>setViewMode('cards'));$('notes-search-scope').addEventListener('change',()=>{searchUsesDefault=false;$('notes-global-search').checked=$('notes-search-scope').value!=='sheet';page=0;recordId=null;clearChecks();render();});$('notes-back-search').addEventListener('click',()=>{if(!searchReturn)return;const prior=searchReturn;searchReturn=null;recordId=null;applyView({name:'搜尋結果',state:prior});});api.onContextAction(contextAction);$('notes-group-menu').addEventListener('click',()=>openContext(null,'area',area()?.id||null));for(const id of ['notes-area-select','notes-group-menu']){$(id).addEventListener('contextmenu',event=>openContext(event,'area',area()?.id||null));$(id).addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')openContext(event,'area',area()?.id||null);});}
   $('notes-inspect-current').addEventListener('click',()=>{const record=recordMap.get(focusedRecordId);if(record&&live(record)){recordId=record.id;renderDetail();}});$('notes-link-path-tab').addEventListener('click',()=>setLinkMode('paths'));$('notes-link-tag-tab').addEventListener('click',()=>setLinkMode('tags'));$('notes-choose-files').addEventListener('click',()=>addLocations('file'));$('notes-choose-folder').addEventListener('click',()=>addLocations('folder'));$('notes-add-paths').addEventListener('click',()=>addLocations('text'));
   $('notes-complete-client').addEventListener('click',()=>{const target=masterSheet()?.id,revision=state.revision,names=M.missingClientDetails(doc(),target);confirm('補齊客戶明細表？','只新增缺少的表格：'+names.join('、')+'。既有表格、紀錄與欄位不會被取代；回收筒中的同名表格請先還原。',()=>run(()=>api.completeClientDetails(target,revision),result=>'已新增 '+result.result.added.length+' 張客戶明細表。'));});
+  $('notes-bookmark-sheet').addEventListener('click',()=>changeBookmark('sheet',sheetId));
   $('notes-master-back').addEventListener('click',returnToMaster);$('notes-master-edit').addEventListener('click',()=>editRecord(recordMap.get(masterId),masterSheet().id));$('notes-master-overview').addEventListener('click',()=>{recordId=masterId;renderDetail();});$('notes-add-detail-sheet').addEventListener('click',()=>editSheet(null,true));
   document.addEventListener?.('keydown',event=>{if(event.defaultPrevented||event.key!=='Delete'||event.isComposing||event.keyCode===229||!prefs().notesDeleteKey||busy||gridEditing||openDialogs()||trash||$('notes-page').classList.contains('hidden')||event.target?.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(event.target?.tagName))return;const entries=checkedRecords.size?[...checkedRecords].map(([id,version])=>({id,version})):list().filter(record=>record.id===focusedRecordId).map(({id,version})=>({id,version}));if(entries.length){event.preventDefault();confirmDeleteEntries(entries);}});
   $('notes-select-filtered').addEventListener('click',()=>{for(const record of list())checkedRecords.set(record.id,record.version);renderTable();});$('notes-unselect').addEventListener('click',()=>{clearChecks();renderTable();});$('notes-batch-delete').addEventListener('click',batchDelete);$('notes-delete-details').addEventListener('change',updateBatchPreview);
