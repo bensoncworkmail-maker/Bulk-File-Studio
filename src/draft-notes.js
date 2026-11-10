@@ -13,9 +13,9 @@ const html=path.join(__dirname,'draft-notes.html');
 const textField=field=>['text','longtext'].includes(field.type);
 const extraField=field=>!['relation','multiselect'].includes(field.type)&&!M.structured.isType(field.type);
 
-function draftText(draft){
- const rows=M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
- return [draft.body,rows].filter(Boolean).join('\n\n');
+function draftText(draft,{includeBody=true,includeItems=true}={}){
+ const rows=includeItems&&M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
+ return [includeBody?draft.body:'',rows].filter(Boolean).join('\n\n');
 }
 
 function pngBytes(input){
@@ -184,7 +184,7 @@ class DraftNotes{
     if(Object.hasOwn(values,field.id))throw new Error('另填值請選擇尚未對應的欄位');
     if(mapping.extraValue!==undefined&&mapping.extraValue!=='')values[field.id]=M.gridValue(field,mapping.extraValue);
    }
-   const result=store.saveRecord({sheetId,title,notes:structured?draft.body:draftText(draft),tags:[],values,fileLinks},
+   const result=store.saveRecord({sheetId,title,notes:draftText(draft,{includeBody:!mapping.body,includeItems:!structured}),tags:[],values,fileLinks},
     {operation:'草稿轉入工作區'},afterTransfer==='delete'?{id,version}:undefined);
    try{this.onSent(result);}catch(error){this.onError(error);}
    return {id:result.result.id,sheet:sheet.name};

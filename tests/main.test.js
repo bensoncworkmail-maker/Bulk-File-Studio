@@ -577,11 +577,12 @@ test('floating calendar and snippets share one window and its size with restrict
 
 test('log preferences persist, validate and belong to the calendar and logs settings reset',t=>{
  const h=harness(t),sheetId=h.handlers.get('notes-template')().document.sheets[0].id;
- const logView={scope:'selected',sheetIds:[sheetId],layout:'cards',sort:'oldest',previewLines:3,showCount:true,showEmptyPins:true,showWindowPin:false};
+ const logView={scope:'selected',sheetIds:[sheetId],layout:'cards',sort:'oldest',dateSource:'modified',previewLines:3,showCount:true,showEmptyPins:true,showWindowPin:false};
  const save=h.handlers.get('desktop-settings-set');
  save(null,{logView});
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(h.dir,'desktop-state.json'),'utf8')).settings.logView,logView);
  assert.throws(()=>save(null,{logView:{...logView,sheetIds:['wrong']}}),/設定無效/);
+ assert.throws(()=>save(null,{logView:{...logView,dateSource:'other'}}),/設定無效/);
  assert.deepEqual(h.handlers.get('desktop-settings-get')().logView,logView);
  const {resetPatch}=require('../src/settings-catalog');
  const {DEFAULTS}=require('../src/desktop-state');
@@ -1045,4 +1046,27 @@ test('focus mode unregisters excluded global shortcuts and restores them when tu
  assert.equal(h.registered.size,0);
  configure({focusMode:false});
  assert.deepEqual([...h.registered.keys()].sort(),normal);
+});
+
+test('workspace favorites persist tagged records and master/detail tables separately from log pins',async t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),[master,detail]=state.document.sheets;
+ const save=h.handlers.get('notes-record-save');
+ const record=(await save(null,{sheetId:master.id,title:'Workspace bookmark',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]})).result.id;
+ const set=h.handlers.get('notes-bookmark-set'),tags=h.handlers.get('notes-bookmark-tags'),list=h.handlers.get('notes-bookmarks');
+ set(null,'sheet',master.id,true);set(null,'sheet',detail.id,true);
+ set(null,'record',record,true);set(null,'record',record,true);
+ tags(null,'record',record,['Follow','follow','Urgent']);
+ assert.deepEqual(list().map(item=>item.type),['record','detail','master']);
+ assert.deepEqual(list()[0].tags,['follow','Urgent']);
+ const {NotesToolsStore,workspaceBookmarks}=require('../src/notes-tools-store');
+ const store=new NotesToolsStore(path.join(h.dir,'workspace-tools.json'));
+ assert.equal(store.get().bookmarks.length,3);
+ const document=h.handlers.get('notes-get')().document;
+ store.setLogPin(document,record,true);
+ assert.equal(workspaceBookmarks(document,store.get()).filter(item=>item.id===record).length,1);
+ store.setBookmark(document,'record',record,false);
+ const onlyPinned=workspaceBookmarks(document,store.get()).find(item=>item.id===record);
+ assert.equal(onlyPinned.logPinned,true);
+ assert.equal(onlyPinned.saved,false);
+ assert.throws(()=>set(null,'file',record,true),/類型無效/);
 });

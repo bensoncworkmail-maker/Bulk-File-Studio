@@ -303,6 +303,9 @@ app.whenReady().then(() => {
   handle('studio-search',(_,query,options,transient)=>searchLocalData(query,options,transient));
   handle('studio-search-copy',(_,value)=>{clipboard.writeText(require('./notes-model').text(value,4096,'位置文字',true));});
   handle('notes-tools-get',()=>toolsStore().get());
+  handle('notes-bookmarks',()=>require('./notes-tools-store').workspaceBookmarks(notesStore().get().document,toolsStore().get()));
+  handle('notes-bookmark-set',(_,kind,id,enabled)=>{toolsStore().setBookmark(notesStore().get().document,kind,id,enabled);return toolsChanged();});
+  handle('notes-bookmark-tags',(_,kind,id,tags)=>{toolsStore().setBookmarkTags(kind,id,tags);return toolsChanged();});
   handle('notes-view-save',(_,name,state)=>{toolsStore().saveView(name,state);return toolsChanged();});
   handle('notes-tool-remove',(_,kind,id)=>{toolsStore().remove(kind,id);return toolsChanged();});
   handle('notes-template-save',(_,name,areaId)=>{toolsStore().saveTemplate(name,notesStore().get().document,areaId);return toolsChanged();});
@@ -985,7 +988,7 @@ app.whenReady().then(() => {
     const record=model.logRecord(doc,config,desktop.settings.logView,id);
     if(action==='pin'){
       toolsStore().setLogPin(doc,id,pinned);
-      return;
+      toolsChanged();return;
     }
     if(action==='detail')return model.logDetail(doc,record);
     if(action==='edit'){

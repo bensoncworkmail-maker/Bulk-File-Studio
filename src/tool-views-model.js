@@ -73,6 +73,7 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
  const master=masterById.get(filters.masterId);
  const dateFields=table?.fields.filter(field=>field.type==='date')||[];
  const dateField=dateFields.find(field=>field.id===filters.dateField);
+ const followUp=followUpField(dateFields,settings);
  const stateField=table?.fields.find(field=>field.id===filters.stateField&&['checkbox','select'].includes(field.type));
  const stateFields=(table?.fields||[]).filter(field=>['checkbox','select'].includes(field.type));
  const states=stateField?.type==='checkbox'?['true','false']:stateField?.options||[];
@@ -85,7 +86,7 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
  for(const record of records){
   if(filterError||record.sheetId!==table?.id||pins.has(record.id))continue;
   if(parent&&(master||config.scope==='master')&&(!master||!record.values[parent.id]?.includes(master.id)))continue;
-  const day=dateField?(record.values[dateField.id]||''):new Date(record.updatedAt).toLocaleDateString('sv-SE');
+  const day=logDay(record,dateField,followUp);
   if((from&&(!day||day<from))||(to&&(!day||day>to)))continue;
   if(stateField&&states.includes(filters.value)&&String(record.values[stateField.id])!==filters.value)continue;
   const fields=table.fields.filter(field=>field.type!=='relation').map(field=>M.cell(doc,field,record.values[field.id]));
@@ -98,7 +99,7 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
   const dateOrder=a.date.localeCompare(b.date)||a.updatedAt.localeCompare(b.updatedAt);
   return (sort==='oldest'?dateOrder:-dateOrder)||a.title.localeCompare(b.title,'zh-Hant');
  });
- const pinned=logPins&&pinnedRows(doc,records,tables,logPins,filters);
+ const pinned=logPins&&pinnedRows(doc,records,tables,logPins,filters,settings);
  const {previewLines,showCount,showEmptyPins,showWindowPin}=settings;
  return {...paginate(rows),...(pinned?{pinned,filterError}:{}),sort,layout,presentation:{previewLines,showCount,showEmptyPins,showWindowPin},restricted:!config.sheetId&&settings.scope==='selected',
   tables:tables.map(({id,name})=>({id,name})),sheetId:table?.id,
@@ -107,7 +108,14 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
   stateFields:stateFields.map(({id,label})=>({id,label})),states,checkbox:stateField?.type==='checkbox'};
 }
 
-function pinnedRows(doc,records,tables,ids,filters){
+function followUpField(fields,settings){
+ return settings.dateSource==='followUp'?fields.find(field=>field.type==='date'&&/^(?:跟[進进]日期|跟[進进]日|follow[ -]?up(?: date)?)$/i.test(field.label.trim())):null;
+}
+function logDay(record,explicit,followUp){
+ if(explicit)return record.values[explicit.id]||'';
+ return (followUp&&record.values[followUp.id])||new Date(record.updatedAt).toLocaleDateString('sv-SE');
+}
+function pinnedRows(doc,records,tables,ids,filters,settings){
  const byId=new Map(records.map(record=>[record.id,record]));
  const bySheet=new Map(tables.map(sheet=>[sheet.id,sheet]));
  const rows=[];
@@ -116,13 +124,15 @@ function pinnedRows(doc,records,tables,ids,filters){
   if(!table)continue;
   const firstField=(id,types)=>table.fields.find(field=>field.id===id&&types.includes(field.type))||
    table.fields.find(field=>types.includes(field.type)&&Object.hasOwn(record.values,field.id));
-  const date=firstField(filters.dateField,['date']);
+  const explicit=table.fields.find(field=>field.id===filters.dateField&&field.type==='date');
+  const followUp=followUpField(table.fields,settings);
+  const date=explicit||followUp||firstField(null,['date']);
   const state=firstField(filters.stateField,['select','checkbox']);
   const markers=[date,state].filter(Boolean).map(field=>({label:field.label,value:logValue(doc,record,field)}))
    .filter(field=>field.value);
   const parent=M.parentField(doc,table);
   const context=parent?(record.values[parent.id]||[]).map(id=>byId.get(id)?.title).filter(Boolean).join('、'):'';
-  rows.push({id,title:record.title,sheet:table.name,markers,context,date:new Date(record.updatedAt).toLocaleDateString('sv-SE'),summary:record.notes.slice(0,800)});
+  rows.push({id,title:record.title,sheet:table.name,markers,context,date:logDay(record,explicit,followUp),summary:record.notes.slice(0,800)});
  }
  return rows;
 }

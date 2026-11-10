@@ -13,6 +13,7 @@ function normalize(input,strict=false){
  if(strict&&(value!==input||!['all','selected'].includes(value.scope)||
   !Array.isArray(value.sheetIds)||ids.length>MAX_SAVED_TABLES||validIds.length!==ids.length||
   !['list','cards'].includes(value.layout)||!SORTS.includes(value.sort)||
+  value.dateSource!==undefined&&!['followUp','modified'].includes(value.dateSource)||
   Object.keys(DISPLAY).some(key=>value[key]!==undefined&&typeof value[key]!=='boolean')||
   value.previewLines!==undefined&&(!Number.isSafeInteger(value.previewLines)||value.previewLines<0||value.previewLines>5))){
   throw new Error('查看紀錄設定無效');
@@ -22,6 +23,7 @@ function normalize(input,strict=false){
   sheetIds:[...new Set(validIds)].slice(0,MAX_SAVED_TABLES),
   layout:value.layout==='cards'?'cards':'list',
   sort:SORTS.includes(value.sort)?value.sort:'recent',
+  dateSource:value.dateSource==='modified'?'modified':'followUp',
   previewLines:Number.isSafeInteger(value.previewLines)&&value.previewLines>=0&&value.previewLines<=5?value.previewLines:1,
   ...Object.fromEntries(Object.entries(DISPLAY).map(([key,fallback])=>[key,typeof value[key]==='boolean'?value[key]:fallback]))
  };

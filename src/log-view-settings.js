@@ -5,7 +5,7 @@
  function init(){
   const form=$('log-settings-form'),scope=$('log-settings-scope'),tables=$('log-settings-tables');
   const layout=$('log-settings-layout'),sort=$('log-settings-sort'),status=$('log-settings-status');
-  const save=$('log-settings-save'),preview=$('log-settings-preview-lines');
+  const save=$('log-settings-save'),preview=$('log-settings-preview-lines'),dateSource=$('log-settings-date-source');
   const display={showCount:$('log-settings-show-count'),showEmptyPins:$('log-settings-empty-pins'),showWindowPin:$('log-settings-window-pin')};
   let saved,available=[],selected=new Set(),dirty=false,saving=false,request=0;
 
@@ -28,7 +28,7 @@
   function sync(value){
    saved=value;
    scope.value=value.scope;layout.value=value.layout;sort.value=value.sort;
-   preview.value=String(value.previewLines);
+   preview.value=String(value.previewLines);dateSource.value=value.dateSource||'followUp';
    for(const [key,input] of Object.entries(display))input.checked=value[key];
    selected=new Set(value.sheetIds);
    renderTables();
@@ -51,7 +51,7 @@
     status.textContent='請勾選至少一個可用表格。';
     return;
    }
-   const logView={scope:scope.value,sheetIds:[...selected],layout:layout.value,sort:sort.value,previewLines:Number(preview.value),
+   const logView={scope:scope.value,sheetIds:[...selected],layout:layout.value,sort:sort.value,dateSource:dateSource.value||'followUp',previewLines:Number(preview.value),
     ...Object.fromEntries(Object.entries(display).map(([key,input])=>[key,input.checked]))};
    saving=true;form.querySelector('fieldset').disabled=true;
    try{
