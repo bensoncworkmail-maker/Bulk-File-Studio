@@ -684,6 +684,8 @@
                   </label>
                   <label class="check-row"><input id="settings-notes-favorite-tag-links" type="checkbox"><span>顯示工作區的收藏標籤連結</span></label>
                   <label class="check-row"><input id="settings-notes-file-link-buttons" type="checkbox"><span>在紀錄總覽顯示檔案「開啟」與「定位」按鈕</span></label>
+                  <label class="check-row"><input id="settings-notes-detail-copy" type="checkbox"><span>顯示紀錄總覽的剪貼簿操作（欄位、筆記、總覽、CSV、網址與路徑）</span></label>
+                  <label class="check-row"><input id="settings-notes-title-copy" type="checkbox"><span>另外顯示標題旁的複製圖示</span></label>
                   <label class="field">
                     <span>最小列高 <output id="settings-notes-row-height-value">36 px</output></span>
                     <input id="settings-notes-row-height" type="range" min="28" max="64" value="36">
@@ -2418,7 +2420,7 @@
       <p class="notes-hint">勾選要顯示的欄位，再用上下箭頭調整順序。全部取消會隱藏資料欄位。</p>
       <section class="notes-card-layout-preview" aria-label="欄位版面預覽">
         <strong>欄位版面預覽</strong>
-        <p class="notes-hint">可直接拖曳預覽中的欄位名稱調整順序，或拖曳欄位值到左側、右側、下方。</p>
+        <p class="notes-hint">一般欄位可直接拖曳名稱或欄位值調整版面。勾選的狀態欄位會顯示在卡片底部。</p>
         <div id="notes-card-preview"></div>
       </section>
       <div class="modal-buttons">
