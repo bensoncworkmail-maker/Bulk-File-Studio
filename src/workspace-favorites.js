@@ -179,10 +179,10 @@
    const title=action(item.title,()=>void detail()?.show(item),'workspace-favorite-link');title.disabled=!item.available||saving;title.dataset.target=key(item);title.title='查看詳情：'+item.title;title.setAttribute('aria-controls','workspace-favorite-detail');title.setAttribute('aria-expanded',String(detail()?.isCurrent(item)===true));
    heading.append(node('span',types[item.type],'workspace-favorite-type'),title);
    body.append(heading,node('small',item.context||'未分組'));
-   for(const master of item.masters||[]){
+   for(const master of (item.masters||[]).slice(0,5)){
     const parent=node('div',undefined,'workspace-favorite-master');
     parent.append(node('span','所屬主紀錄'),action(master.title,()=>open({kind:'record',id:master.id}),'workspace-favorite-parent-link'));
-    if(master.values.length){const summary=node('span',master.values.join(' · '),'workspace-favorite-master-values');summary.title=summary.textContent;parent.append(summary);}
+    if(master.values.length){const summary=node('span',master.values.slice(0,3).map(value=>value.length>200?value.slice(0,199)+'…':value).join(' · '),'workspace-favorite-master-values');summary.title=master.values.join(' · ');parent.append(summary);}
     body.append(parent);
    }
    const chips=node('div',undefined,'workspace-favorite-tags');

@@ -109,3 +109,24 @@ test('large automatic collections initially render 200 rows and reveal more on d
  assert.equal(h.$('workspace-favorite-list').querySelectorAll('article').length,200);
  const more=h.$('workspace-favorite-list').querySelectorAll('button').find(button=>button.textContent.startsWith('顯示更多'));assert.ok(more);await more.dispatch('click');assert.equal(h.$('workspace-favorite-list').querySelectorAll('article').length,212);
 });
+
+
+test('favorite search retains all parent fields, long values and additional parents while summaries stay bounded',async t=>{
+ const h=fixture(t);await flush();
+ h.store.change(doc=>{
+  const master=doc.sheets.find(sheet=>sheet.id===h.master.id),parent=doc.records.find(item=>item.id===h.parent),child=doc.records.find(item=>item.id===h.child);
+  const code=master.fields.find(field=>field.type==='text');parent.values[code.id]='x'.repeat(220)+'long-value-match';
+  for(let i=0;i<3;i++){const id=require('node:crypto').randomUUID();master.fields.push({id,label:'Extra '+i,type:'text'});parent.values[id]=i===2?'fourth-field-match':'Short '+i;}
+  for(let i=1;i<=5;i++){const id=require('node:crypto').randomUUID();doc.records.push({...parent,id,title:i===5?'SixthParentMatch':'Parent '+i});child.values[h.detail.fields[0].id].push(id);}
+ });
+ h.changes[0]();await flush();
+ const row=h.$('workspace-favorite-list').children.find(row=>row.textContent.includes('Man'));
+ assert.equal(row.querySelectorAll('.workspace-favorite-master').length,5);
+ assert.ok(row.querySelectorAll('.workspace-favorite-master-values').every(node=>node.textContent.length<=606));
+ assert.ok(!row.textContent.includes('fourth-field-match'));assert.ok(!row.textContent.includes('long-value-match'));assert.ok(!row.textContent.includes('SixthParentMatch'));
+ for(const query of ['fourth-field-match','long-value-match','SixthParentMatch']){
+  h.$('workspace-favorite-search').value=query;await h.$('workspace-favorite-search').dispatch('input');
+  assert.equal(h.$('workspace-favorite-list').querySelectorAll('article').length,1,query);assert.match(h.$('workspace-favorite-list').textContent,/Man/);
+ }
+ assert.deepEqual(h.errors,[]);
+});

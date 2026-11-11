@@ -7,12 +7,12 @@
   if(kind==='record'&&(!record||!M.live(doc,record)))return null;
   const sheet=maps.sheets.get(record?.sheetId||id);if(!sheet||sheet.deletedAt)return null;
   const area=maps.areas.get(sheet.areaId),type=record?'record':area?.masterSheetId===id?'master':M.parentField(doc,sheet)?'detail':'table',parent=M.parentField(doc,sheet);
-  const masters=record&&parent?(record.values[parent.id]||[]).slice(0,5).map(id=>maps.records.get(id)).filter(item=>item&&M.live(doc,item)).map(item=>{
+  const masters=record&&parent?(record.values[parent.id]||[]).map(id=>maps.records.get(id)).filter(item=>item&&M.live(doc,item)).map(item=>{
    if(!maps.masterSummaries.has(item.id)){
     const values=[];
     for(const field of maps.sheets.get(item.sheetId).fields){
      if(field.type==='relation')continue;const value=M.cell(doc,field,item.values[field.id]);
-     if(value){const text=field.label+'：'+value;values.push(text.length>200?text.slice(0,199)+'…':text);if(values.length===3)break;}
+     if(value)values.push(field.label+'：'+value);
     }
     maps.masterSummaries.set(item.id,{id:item.id,title:item.title,values});
    }
