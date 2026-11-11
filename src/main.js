@@ -305,6 +305,7 @@ app.whenReady().then(() => {
   handle('notes-tools-get',()=>toolsStore().get());
   handle('notes-bookmarks',()=>require('./notes-tools-store').workspaceBookmarks(notesStore().get().document,toolsStore().get()));
   handle('notes-bookmark-set',(_,kind,id,enabled)=>{toolsStore().setBookmark(notesStore().get().document,kind,id,enabled);return toolsChanged();});
+  handle('notes-bookmark-batch',(_,targets,action,tags)=>{toolsStore().batchBookmarks(notesStore().get().document,targets,action,tags);return toolsChanged();});
   handle('notes-bookmark-tags',(_,kind,id,tags)=>{toolsStore().setBookmarkTags(kind,id,tags);return toolsChanged();});
   handle('notes-view-save',(_,name,state)=>{toolsStore().saveView(name,state);return toolsChanged();});
   handle('notes-tool-remove',(_,kind,id)=>{toolsStore().remove(kind,id);return toolsChanged();});

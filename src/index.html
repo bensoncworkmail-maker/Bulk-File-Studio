@@ -316,6 +316,7 @@
           <aside id="notes-detail" class="notes-detail" hidden>
             <div class="notes-detail-head">
               <strong>紀錄總覽</strong>
+              <button id="notes-bookmark-record" type="button" class="btn btn-ghost" aria-haspopup="dialog">☆ 收藏</button>
               <button id="notes-detail-close" class="btn btn-ghost" aria-label="關閉紀錄總覽">✕</button>
             </div>
             <div id="notes-detail-body"></div>
@@ -1451,7 +1452,7 @@
         <h1 id="favorites-title" class="sr-only">我的收藏</h1>
         <div class="favorite-kind-tabs" role="tablist" aria-label="收藏來源">
           <button id="favorite-kind-files" class="btn btn-ghost" type="button" role="tab" aria-controls="favorite-files-layout" aria-selected="true">檔案與資料夾</button>
-          <button id="favorite-kind-workspace" class="btn btn-ghost" type="button" role="tab" aria-controls="workspace-favorites-panel" aria-selected="false" tabindex="-1">工作區</button>
+          <button id="favorite-kind-workspace" class="btn btn-ghost" type="button" role="tab" aria-controls="workspace-favorites-panel" aria-selected="false" tabindex="-1">工作區紀錄與表格</button>
         </div>
         <div id="favorite-files-layout" class="favorites-layout" role="tabpanel" aria-labelledby="favorite-kind-files">
           <aside id="favorite-tags-panel" class="panel favorites-sidebar">
@@ -1565,9 +1566,17 @@
           <section class="panel favorites-content workspace-favorites-content" aria-labelledby="workspace-favorite-title">
             <header class="favorites-filters workspace-favorite-filters">
               <h2 id="workspace-favorite-title">工作區收藏</h2>
-              <input id="workspace-favorite-search" type="search" placeholder="搜尋紀錄、表格或標籤" aria-label="搜尋工作區收藏">
+              <input id="workspace-favorite-search" type="search" placeholder="搜尋紀錄、主紀錄、表格或標籤" aria-label="搜尋工作區收藏">
               <select id="workspace-favorite-type" aria-label="工作區收藏類型"><option value="all">全部類型</option><option value="record">紀錄</option><option value="master">主表</option><option value="detail">明細表</option><option value="table">一般表格</option></select>
             </header>
+            <div class="workspace-favorite-bulk" aria-label="批次收藏操作">
+              <label class="check-row"><input id="workspace-favorite-select-all" type="checkbox">選取篩選結果</label>
+              <span id="workspace-favorite-selected" role="status">已選 0 項</span>
+              <button id="workspace-favorite-bulk-tags" type="button" class="btn btn-ghost" disabled>加入標籤</button>
+              <button id="workspace-favorite-bulk-clear" type="button" class="btn btn-ghost" disabled>清除標籤</button>
+              <button id="workspace-favorite-bulk-remove" type="button" class="btn btn-ghost" disabled>移除收藏</button>
+              <button id="workspace-favorite-clear-selection" type="button" class="btn btn-ghost" disabled>取消選取</button>
+            </div>
             <div id="workspace-favorite-list" class="workspace-favorite-list"></div>
             <footer class="table-footer"><span id="workspace-favorite-count" role="status"></span></footer>
           </section>
@@ -2462,12 +2471,14 @@
       </div>
       <p id="notes-card-status" role="status" class="notes-hint"></p>
     </dialog>
-    <dialog id="workspace-favorite-tag-dialog" class="modal notes-modal" aria-labelledby="workspace-favorite-tag-title">
+    <dialog id="workspace-favorite-tag-dialog" class="modal notes-modal bookmark-tag-dialog" aria-labelledby="workspace-favorite-tag-title">
       <form id="workspace-favorite-tag-form">
         <h2 id="workspace-favorite-tag-title">編輯收藏標籤</h2>
-        <label class="field"><span>標籤（以逗號分隔）</span><input id="workspace-favorite-tag-input" type="text" maxlength="700" autofocus></label>
+        <p id="workspace-favorite-tag-help" class="notes-hint"></p>
+        <div id="workspace-favorite-tag-choices" class="bookmark-tag-choices" aria-label="現有標籤"></div>
+        <label class="field"><span>新增標籤（以逗號分隔）</span><input id="workspace-favorite-tag-input" type="text" maxlength="700" autofocus></label>
         <p id="workspace-favorite-tag-error" role="status"></p>
-        <div class="modal-buttons"><button id="workspace-favorite-tag-close" type="button" class="btn btn-ghost">取消</button><button type="submit" class="btn btn-primary">儲存標籤</button></div>
+        <div class="modal-buttons"><button id="workspace-favorite-tag-remove" type="button" class="btn btn-ghost">移除收藏</button><button id="workspace-favorite-tag-without" type="button" class="btn btn-ghost">不加標籤收藏</button><button id="workspace-favorite-tag-close" type="button" class="btn btn-ghost">取消</button><button id="workspace-favorite-tag-save" type="submit" class="btn btn-primary">儲存</button></div>
       </form>
     </dialog>
     <dialog id="notes-card-footer-dialog" class="modal notes-modal" aria-labelledby="notes-card-footer-title">

@@ -291,3 +291,6 @@ dialog.modal.notes-table-dialog[open]{display:flex;flex-direction:column;}
 #notes-card-preview[data-placing-value=true] .notes-card-position-targets{display:flex;flex-wrap:wrap;}
 .notes-card-position-targets span{padding:5px 8px;border:1px dashed var(--accent);border-radius:5px;color:var(--accent);}
 .notes-card-field-setting select{min-width:0;max-width:110px;font-size:.85em;}
+
+.notes-detail-head>strong{margin-right:auto}
+#notes-bookmark-record{white-space:nowrap;min-height:28px;height:auto;padding:5px 8px}

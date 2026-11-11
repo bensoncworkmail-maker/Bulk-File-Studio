@@ -25,3 +25,27 @@ test('saved criteria independently exclude notes, tags and file paths from match
 test('modified date bounds include the whole local day and apply before relation expansion',t=>{
  const h=fixture(t);h.store.change(doc=>{for(const record of doc.records)record.updatedAt='2026-11-01T12:00:00';doc.records.find(record=>record.id===h.alice).updatedAt='2026-11-03T23:59:59';});const r=h.run('Alice',{criteria:{modifiedFrom:'2026-11-03',modifiedTo:'2026-11-03',sources:['records']},includeRelated:true});assert.deepEqual(r.sections[0].items.map(item=>item.id),[h.alice]);assert.equal(h.run('Alice',{criteria:{modifiedTo:'2026-11-02',sources:['records']}}).total,0);const C=require('../src/search-criteria');assert.throws(()=>C.normalize({modifiedFrom:'2026-11-04',modifiedTo:'2026-11-03'},true),/起日/);assert.throws(()=>C.normalize({modifiedFrom:'2026-02-30'},true),/格式/);assert.equal(C.normalize({sources:['records','run-command']}).sources.length,1);
 });
+
+test('detail-only search can match extra master fields without returning out-of-scope masters or siblings',t=>{
+ const h=fixture(t),code=h.root.fields.find(field=>field.type==='text');
+ h.store.change(document=>{const master=document.records.find(record=>record.id===h.acme);master.title='St John';master.values[code.id]='stjohn';master.updatedAt='2026-10-01T12:00:00';document.records.find(record=>record.id===h.alice).title='Man';});
+ const criteria={tableMode:'selected',sheetIds:[h.contacts.id],sources:['records'],modifiedFrom:'2026-11-01'};
+ // Use an old master and a current detail: date/table bounds constrain the results, not the parent lookup.
+ h.store.change(document=>{document.records.find(record=>record.id===h.alice).updatedAt='2026-11-11T12:00:00';});
+ const result=h.run('stjohn',{criteria,includeRelated:true});
+ assert.deepEqual(section(result,'records').items.map(item=>item.id),[h.alice]);
+ assert.equal(result.relatedRecords,1);assert.equal(section(result,'records').items[0].match,'主紀錄欄位符合');
+ assert.equal(h.run('stjohn',{criteria,includeRelated:false}).total,0);
+ assert.equal(h.run('stjohn Man',{criteria,includeRelated:true}).total,1);
+ assert.equal(h.run('STJOHN',{criteria,includeRelated:true,caseSensitive:true}).total,0);
+});
+test('parent lookups honor excluded content and ignore recycled masters',t=>{
+ const h=fixture(t),criteria={tableMode:'selected',sheetIds:[h.contacts.id],sources:['records']};
+ h.store.change(document=>{const master=document.records.find(record=>record.id===h.acme);master.notes='ParentPrivateNote';master.tags=['ParentPrivateTag'];});
+ for(const [query,flag] of [['ParentPrivateNote','includeNotes'],['ParentPrivateTag','includeTags']]){
+  assert.equal(h.run(query,{criteria,includeRelated:true}).total,1);
+  assert.equal(h.run(query,{criteria:{...criteria,[flag]:false},includeRelated:true}).total,0);
+ }
+ const parent=h.store.get().document.records.find(record=>record.id===h.acme);h.store.trash('record',parent.id,parent.version);
+ assert.equal(h.run('ParentPrivateNote',{criteria,includeRelated:true}).total,0);
+});
