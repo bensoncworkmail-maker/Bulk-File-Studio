@@ -14,7 +14,7 @@ async function copyFile(item){
  const input=await p.open(item.source,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));let output;
  try{
   if(!equal(signature(await input.stat({bigint:true})),item.expectedFingerprint))throw Error('來源已變更：'+item.source);
-  output=await p.open(item.destination,'wx',0o600);
+  output=await p.open(item.destination,'wx',0o600);item.created=true;item.destinationIdentity=signature(await output.stat({bigint:true}));
   const buffer=Buffer.alloc(256*1024),hash=crypto.createHash('sha256');let read;
   while((read=await input.read(buffer,0,buffer.length,null)).bytesRead){hash.update(buffer.subarray(0,read.bytesRead));let offset=0;while(offset<read.bytesRead){const result=await output.write(buffer,offset,read.bytesRead-offset,null);if(!result.bytesWritten)throw Error('附件寫入未完成');offset+=result.bytesWritten;}}
   const original=await input.stat();await output.utimes(original.atime,original.mtime);
@@ -25,9 +25,9 @@ async function copyFile(item){
 }
 async function transfer({sources,folder,mode,commit}){
  const rows=[],roots=[];let saved;
- async function scan(source,destination){
+ async function scan(source,destination,root=false){
   if(rows.length>=5000)throw Error('每次最多處理 5000 個檔案／資料夾（含子項目）');
-  const info=await stat(source),kind=info.isDirectory()?'folder':'file',item={source,destination,kind,expectedFingerprint:signature(info)};rows.push(item);
+  const info=await stat(source),kind=info.isDirectory()?'folder':'file',item={source,destination,kind,root,expectedFingerprint:signature(info)};rows.push(item);
   if(kind==='folder'){item.names=(await p.readdir(source)).sort();for(const name of item.names)await scan(path.join(source,name),path.join(destination,name));}
  }
  // Collapse duplicates and children already included by a dragged folder.
@@ -35,24 +35,34 @@ async function transfer({sources,folder,mode,commit}){
  const selected=unique.filter(source=>!directories.some(parent=>parent!==source&&inside(parent,source)));
  assertLocalPath(folder);await p.mkdir(folder,{recursive:true,mode:0o700});
  try{
-  const groups=new Map(),names=new Set(),key=value=>process.platform==='win32'?value.toLocaleLowerCase():value;
+  if(!(await stat(folder)).isDirectory())throw Error('草稿附件位置不是資料夾');
+  const key=value=>value.toLocaleLowerCase(),names=new Set((await p.readdir(folder)).map(key));
   for(const source of selected){
-   const parent=path.dirname(source),parentKey=key(parent);
-   let group=groups.get(parentKey);
-   if(!group){
-    const label=path.basename(parent)||path.parse(parent).root.replace(/[^a-z0-9_-]/gi,'')||'來源';let name=label,suffix=1;
-    while(names.has(key(name)))name=label+' ('+(++suffix)+')';
-    names.add(key(name));group=path.join(folder,name);await p.mkdir(group,{mode:0o700});groups.set(parentKey,group);
-   }
-   const destination=path.join(group,path.basename(source));roots.push({path:destination,type:inspectLocation(source).type,managed:true,originalPath:source});await scan(source,destination);
+   const type=inspectLocation(source).type,base=path.basename(source),extension=type==='file'?path.extname(base):'',stem=extension?base.slice(0,-extension.length):base;
+   let name=base,suffix=1;while(names.has(key(name)))name=stem+' ('+(++suffix)+')'+extension;
+   names.add(key(name));
+   const destination=path.join(folder,name);roots.push({path:destination,type,managed:true,originalPath:source});await scan(source,destination,true);
   }
-  for(const item of rows){if(item.kind==='folder'){await p.mkdir(item.destination,{mode:0o700});item.destinationFingerprint=signature(await stat(item.destination));}else await copyFile(item);}
+  for(const item of rows){
+   if(item.kind==='folder'){
+    await p.mkdir(item.destination,{mode:0o700});item.created=true;
+    item.destinationFingerprint=signature(await stat(item.destination));item.destinationIdentity=item.destinationFingerprint;
+   }else await copyFile(item);
+  }
   for(const item of rows){
    if(!equal(signature(await stat(item.source)),item.expectedFingerprint)||item.kind==='folder'&&JSON.stringify((await p.readdir(item.source)).sort())!==JSON.stringify(item.names))throw Error('來源內容已變更，請重試：'+item.source);
   }
   // Every destination is complete and verified before metadata is committed or any source is removed.
   saved=await commit(roots);
- }catch(error){if(!saved)try{await p.rm(folder,{recursive:true,force:true});}catch(cleanup){error.message+='；草稿暫存需核對：'+folder+'（'+cleanup.message+'）';}throw error;}
+ }catch(error){
+  // The shared folder can already contain attachments from earlier drops. Remove only roots created by this attempt.
+  if(!saved)for(const item of rows.filter(item=>item.root&&item.created).reverse())try{
+   const actual=signature(await stat(item.destination));
+   if(!item.destinationIdentity||!['dev','ino','birthtimeNs'].every(key=>actual[key]===item.destinationIdentity[key]))throw Error('附件位置已變更');
+   await p.rm(item.destination,{recursive:item.kind==='folder',force:true});
+  }catch(cleanup){if(cleanup.code!=='ENOENT')error.message+='；草稿暫存需核對：'+item.destination+'（'+cleanup.message+'）';}
+  throw error;
+ }
  const moved=[],failures=[];
  if(mode==='move'){
   const files=rows.filter(item=>item.kind==='file'),directories=rows.filter(item=>item.kind==='folder').reverse();

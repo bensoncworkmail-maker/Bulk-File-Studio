@@ -126,7 +126,7 @@ class DraftNotes{
    if(draft.attachments.length+sources.length>MAX_ATTACHMENTS)throw new Error('每份草稿最多 48 個附件');
    const dataRoot=path.dirname(this.imageDir);
    for(const item of additions)if(item.path===path.parse(item.path).root||inside(dataRoot,item.path)||inside(item.path,dataRoot))throw new Error('請選擇程式資料目錄以外的檔案／資料夾，不能搬移磁碟根目錄');
-   const folder=assertLocalPath(path.join(this.imageDir,draft.id,'files',randomUUID()));
+   const folder=assertLocalPath(path.join(this.imageDir,draft.id,'files'));
    if(mode==='move'){
     const result=await this.dialog.showMessageBox(this.window,{type:'question',title:'移動附件到草稿',message:'移動 '+sources.length+' 個檔案／資料夾到草稿儲存區？',detail:'完整複製校驗並儲存附件後，會移除原位置的檔案。\n\n來源：\n'+sources.slice(0,8).join('\n')+(sources.length>8?'\n另有 '+(sources.length-8)+' 個來源':'')+'\n\n目的位置：\n'+folder,buttons:['取消','移動到草稿'],defaultId:0,cancelId:0,noLink:true});
     if(result.response!==1)return {...draft,attachmentCanceled:true};
