@@ -1089,3 +1089,10 @@ test('draft attachment IPC forwards managed copy mode and calendar scope is conf
  invoke('data');const draft=invoke('new'),external=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-draft-source-'));t.after(()=>fs.rmSync(external,{recursive:true,force:true}));const source=path.join(external,'copy.txt');fs.writeFileSync(source,'managed copy');
  const result=await invoke('attach',draft.id,draft.version,[source],'copy');assert.equal(result.attachments[0].managed,true);assert.notEqual(result.attachments[0].path,source);assert.equal(fs.readFileSync(result.attachments[0].path,'utf8'),'managed copy');assert.equal(fs.readFileSync(source,'utf8'),'managed copy');
 });
+
+test('workspace bookmark IPC follows whole tables and carries exclusions and tag inheritance',async t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),master=state.document.sheets[0],batch=h.handlers.get('notes-bookmark-batch'),list=h.handlers.get('notes-bookmarks');
+ const id=h.handlers.get('notes-record-save')(null,{sheetId:master.id,title:'Auto favorite',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id;
+ batch(null,[{kind:'sheet',id:master.id}],'save',['Auto'],{followRecords:true});const row=list().find(item=>item.id===id);assert.equal(row.tracked,true);assert.equal(row.manual,false);assert.deepEqual(row.tags,['Auto']);assert.deepEqual(list(null,{inheritTags:false}).find(item=>item.id===id).tags,[]);
+ batch(null,[{kind:'record',id}],'remove');assert.ok(!list().some(item=>item.id===id));batch(null,[{kind:'sheet',id:master.id}],'save',['Auto'],{followRecords:true,resetExclusions:true});assert.equal(list().filter(item=>item.id===id).length,1);
+});

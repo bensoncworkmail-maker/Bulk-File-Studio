@@ -106,6 +106,8 @@
   actions.append(button(current.saved?'編輯標籤':'加入收藏',()=>callbacks.edit(current)));
   if(current.saved)actions.append(button('移除收藏',()=>callbacks.remove(current)));
   body.append(actions);tags(body,'收藏標籤',current.tags);
+  if(current.tracked)body.append(node('p','由「'+current.trackedBy.title+'」整表同步'+(current.manual?'；亦有單筆收藏':''),'notes-hint'));
+  if(current.followRecords)body.append(node('p','整表同步 '+(current.followedCount||0)+' 筆紀錄；已排除 '+(current.excludedRecordIds?.length||0)+' 筆。','notes-hint'));
   if(current.logPinned)body.append(node('p',current.saved?'查看紀錄已釘選':'僅釘選・尚未加入收藏','notes-hint'));
   if(loading){body.append(node('p','讀取詳情…','notes-hint'));return;}
   if(error){body.append(node('p',error,'notes-status error'),button('重新讀取',refresh));return;}

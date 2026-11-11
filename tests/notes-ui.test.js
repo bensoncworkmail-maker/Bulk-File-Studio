@@ -786,3 +786,12 @@ test('record favorite action lives in the overview header and opens the shared t
  assert.equal(picked.kind,'record');assert.equal(picked.id,record.id);assert.equal(picked.anchor,h.els.get('notes-bookmark-record'));
  assert.equal(h.els.get('notes-bookmark-record').textContent,'★ 已收藏');assert.deepEqual(h.errors,[]);
 });
+
+
+test('record overview identifies a record included by whole-table tracking',async t=>{
+ const h=setup(t),state=h.store.addTemplate(),sheet=state.document.sheets[0];
+ const record=h.store.saveRecord({sheetId:sheet.id,title:'Tracked master',notes:'',tags:[],values:{},fileLinks:[]}).result;
+ h.window.workspaceBookmarkModel=require('../src/workspace-bookmark-model');h.api.batchBookmarks=async()=>({});h.api.tools=async()=>({views:[],templates:[],pins:[],bookmarks:[{kind:'sheet',id:sheet.id,followRecords:true,tags:[]}]});
+ h.ui.activate();await flush();h.els.get('notes-master-select').value=record.id;h.els.get('notes-master-select').events.change();h.els.get('notes-master-overview').events.click();
+ assert.equal(h.els.get('notes-bookmark-record').textContent,'★ 整表收藏');assert.deepEqual(h.errors,[]);
+});

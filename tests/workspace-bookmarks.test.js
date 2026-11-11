@@ -8,7 +8,7 @@ function fixture(t){
  const add=(sheet,title,values={})=>store.saveRecord({sheetId:sheet.id,title,values,notes:'',tags:[],fileLinks:[]}).result.id;
  const code=master.fields.find(field=>field.type==='text'),parent=add(master,'St John',{[code.id]:'stjohn'}),child=add(detail,'Man',{[detail.fields[0].id]:[parent]});
  const tools=new NotesToolsStore(path.join(dir,'workspace-tools.json')),targets=[{kind:'record',id:child},{kind:'sheet',id:master.id}];
- return {store,tools,targets,parent,child,code,master,detail,doc:()=>store.get().document};
+ return {add,store,tools,targets,parent,child,code,master,detail,doc:()=>store.get().document};
 }
 test('tagged favorite creation is atomic and master values resolve from current workspace data',t=>{
  const h=fixture(t);h.tools.batchBookmarks(h.doc(),h.targets,'save',['Work']);
@@ -44,4 +44,48 @@ test('invalid targets, tag limits and failed writes never partially update a bat
  const mock=t.mock.method(fs,'renameSync',()=>{throw new Error('disk unavailable');});
  assert.throws(()=>h.tools.batchBookmarks(h.doc(),h.targets,'clearTags'),/disk unavailable/);mock.mock.restore();
  assert.deepEqual(h.tools.get(),before);assert.equal(fs.readFileSync(h.tools.filename,'utf8'),disk);
+});
+
+
+test('following a table derives current records, merges manual favorites and pins, and preserves no duplicate storage',t=>{
+ const h=fixture(t),table={kind:'sheet',id:h.detail.id};
+ h.tools.batchBookmarks(h.doc(),[table],'save',['Table'],{followRecords:true});h.tools.batchBookmarks(h.doc(),[h.targets[0]],'save',['Manual']);h.tools.setLogPin(h.doc(),h.child,true);
+ const next=h.add(h.detail,'New contact',{[h.detail.fields[0].id]:[h.parent]});
+ h.store.change(doc=>{doc.records.find(record=>record.id===h.child).title='Renamed contact';});
+ const rows=workspaceBookmarks(h.doc(),h.tools.get()),child=rows.find(item=>item.id===h.child);
+ assert.equal(rows.filter(item=>item.id===h.child).length,1);assert.equal(child.title,'Renamed contact');assert.equal(child.tracked,true);assert.equal(child.manual,true);assert.equal(child.logPinned,true);assert.deepEqual(child.tags,['Manual','Table']);assert.ok(rows.some(item=>item.id===next&&!item.manual));
+ assert.equal(h.tools.get().bookmarks.length,2);assert.equal(rows.find(item=>item.id===h.detail.id).followedCount,2);
+ const plain=workspaceBookmarks(h.doc(),h.tools.get(),{inheritTags:false});assert.deepEqual(plain.find(item=>item.id===next).tags,[]);assert.deepEqual(plain.find(item=>item.id===h.child).tags,['Manual']);
+ assert.deepEqual(new NotesToolsStore(h.tools.filename).get(),h.tools.get());
+});
+test('table-followed rows disappear on recycle or reassignment and return on restore',t=>{
+ const h=fixture(t);h.tools.batchBookmarks(h.doc(),[{kind:'sheet',id:h.detail.id}],'save',[],{followRecords:true});
+ let child=h.doc().records.find(item=>item.id===h.child);h.store.trash('record',child.id,child.version);assert.ok(!workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===child.id));
+ child=h.doc().records.find(item=>item.id===h.child);h.store.trash('record',child.id,child.version,true);assert.ok(workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===child.id));
+ const doc=h.doc(),record=doc.records.find(item=>item.id===h.child);record.sheetId=h.master.id;record.values={};assert.ok(!workspaceBookmarks(doc,h.tools.get()).some(item=>item.id===child.id));
+ const sheet=h.doc().sheets.find(item=>item.id===h.detail.id);h.store.trash('sheet',sheet.id,sheet.version);assert.ok(!workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===child.id));
+});
+test('removing a followed record excludes it until explicitly restored to the table collection',t=>{
+ const h=fixture(t),table={kind:'sheet',id:h.detail.id};h.tools.batchBookmarks(h.doc(),[table],'save',['Table'],{followRecords:true});
+ h.tools.batchBookmarks(h.doc(),[h.targets[0]],'remove');assert.ok(!workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===h.child));assert.deepEqual(h.tools.get().bookmarks[0].excludedRecordIds,[h.child]);
+ const next=h.add(h.detail,'Added later',{[h.detail.fields[0].id]:[h.parent]});assert.ok(workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===next));
+ h.tools.batchBookmarks(h.doc(),[table],'save',['Table'],{followRecords:true,resetExclusions:true});assert.ok(workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===h.child));
+ h.tools.batchBookmarks(h.doc(),[h.targets[0]],'save',['Manual']);h.tools.batchBookmarks(h.doc(),[table],'save',['Table'],{followRecords:false});
+ const rows=workspaceBookmarks(h.doc(),h.tools.get());assert.ok(rows.some(item=>item.id===h.child&&item.manual));assert.ok(!rows.some(item=>item.id===next));
+ h.tools.batchBookmarks(h.doc(),[table],'remove');assert.ok(workspaceBookmarks(h.doc(),h.tools.get()).some(item=>item.id===h.child));
+});
+test('large table collections do not consume the manual favorite limit and support bulk exclusions atomically',t=>{
+ const h=fixture(t),table={kind:'sheet',id:h.detail.id};h.tools.batchBookmarks(h.doc(),[table],'save',[],{followRecords:true});
+ const doc=h.doc(),base=doc.records.find(item=>item.id===h.child),crypto=require('node:crypto');for(let i=0;i<510;i++)doc.records.push({...base,id:crypto.randomUUID(),title:'Contact '+i});
+ const rows=workspaceBookmarks(doc,h.tools.get()).filter(item=>item.kind==='record');assert.equal(rows.length,511);assert.equal(h.tools.get().bookmarks.length,1);
+ const before=h.tools.get(),mock=t.mock.method(fs,'renameSync',()=>{throw Error('disk unavailable');});assert.throws(()=>h.tools.batchBookmarks(doc,rows.map(({kind,id})=>({kind,id})),'remove'),/disk unavailable/);mock.mock.restore();assert.deepEqual(h.tools.get(),before);
+ h.tools.batchBookmarks(doc,rows.map(({kind,id})=>({kind,id})),'remove');assert.equal(workspaceBookmarks(doc,h.tools.get()).filter(item=>item.kind==='record').length,0);assert.equal(h.tools.get().bookmarks[0].excludedRecordIds.length,511);
+ assert.throws(()=>h.tools.batchBookmarks(doc,[h.targets[0]],'save',[],{followRecords:true}),/只適用表格/);
+});
+
+
+test('recycling a record covered by whole-table tracking hides its combined manual row and restore brings it back once',t=>{
+ const h=fixture(t);h.tools.batchBookmarks(h.doc(),[h.targets[0]],'save',['Manual']);h.tools.batchBookmarks(h.doc(),[{kind:'sheet',id:h.detail.id}],'save',[],{followRecords:true});
+ let record=h.doc().records.find(item=>item.id===h.child);h.store.trash('record',record.id,record.version);assert.equal(workspaceBookmarks(h.doc(),h.tools.get()).filter(item=>item.id===h.child).length,0);
+ record=h.doc().records.find(item=>item.id===h.child);h.store.trash('record',record.id,record.version,true);assert.equal(workspaceBookmarks(h.doc(),h.tools.get()).filter(item=>item.id===h.child).length,1);assert.ok(h.tools.get().bookmarks.some(item=>item.id===h.child));
 });
