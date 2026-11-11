@@ -153,7 +153,7 @@ function captureController(){
 function openDrafts(){
  if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
  drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,dialog,secureWindow,desktop,store:notesStore,settings:()=>desktop.settings,
-  imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
+  onMoved:syncFavoriteMoves,imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
   onPreview:(filepath,mode,parent)=>productivity.previewFile(filepath,mode,parent),onStandaloneReminder:input=>{const value=recordReminders.save(input);send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');return value;},onSent:notesChanged,onRemind:recordId=>{
    focusMain();
    const target=win,show=()=>send(target,'record-reminders-open',{recordId});
@@ -263,7 +263,7 @@ app.whenReady().then(() => {
   const draftHandlers={
    data:()=>drafts.data(),read:id=>notesStore().draft(id),new:()=>notesStore().createDraft(),
    save:(...args)=>drafts.save(...args),configure:patch=>drafts.configure(patch),export:(...args)=>drafts.export(...args),preview:(...args)=>drafts.preview(...args),remind:(...args)=>drafts.remind(...args),
-   attach:(...args)=>drafts.attach(...args),paste:(...args)=>drafts.paste(...args),image:(...args)=>drafts.image(...args),
+   attach:(...args)=>fileOperation(()=>drafts.attach(...args)),paste:(...args)=>drafts.paste(...args),image:(...args)=>drafts.image(...args),
    remove:(...args)=>drafts.removeAttachment(...args),delete:(...args)=>notesStore().deleteDraft(...args),
    masters:id=>drafts.masters(id),send:(...args)=>drafts.send(...args),
    close:event=>{const owner=drafts.window;setImmediate(()=>{if(drafts.window===owner&&drafts.owns(event))drafts.close();});},
@@ -562,6 +562,7 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingSearchDatePresets'))require('./search-date-presets').normalize(patch.floatingSearchDatePresets,true);
     if(Object.hasOwn(patch,'snippetPicker'))require('./snippet-picker-model').normalize(patch.snippetPicker,true);
     if(Object.hasOwn(patch,'floatingPanels'))panelModel.normalize(patch.floatingPanels,true);
+    if(Object.hasOwn(patch,'calendarScope'))require('./calendar-scope').normalize(patch.calendarScope,true);
     if(Object.hasOwn(patch,'logView'))require('./log-view-settings-model').normalize(patch.logView,true);
     if(Object.hasOwn(patch,'globalSearchCriteria'))require('./search-criteria').normalize(patch.globalSearchCriteria,true);
     if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');

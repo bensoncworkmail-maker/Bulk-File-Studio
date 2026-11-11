@@ -142,3 +142,5 @@
 }
 @container(max-width:600px){.workspace-favorite-row{flex-wrap:wrap}.workspace-favorite-description{flex-basis:calc(100% - 34px)}.workspace-favorite-actions{margin-left:24px}.workspace-favorite-detail .workspace-favorite-actions{margin-left:0}}
 @media(max-width:560px){.favorite-kind-tabs .btn{padding:8px;gap:6px;min-height:64px}.favorite-kind-tabs strong{font-size:calc(var(--font-scale)*12px)}.favorite-kind-tabs small{font-size:calc(var(--font-scale)*10px)}.favorite-source-icon{display:none}}
+
+.workspace-favorite-row{cursor:pointer}.workspace-favorite-row button,.workspace-favorite-row input{cursor:pointer}

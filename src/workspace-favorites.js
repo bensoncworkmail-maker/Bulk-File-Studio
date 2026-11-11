@@ -154,6 +154,10 @@
   if(!visible.length&&!loading)list.append(node('p',data.length?'沒有符合條件的收藏。':'尚未收藏工作區項目。可在紀錄總覽或「搜尋與操作」列加入收藏。','list-empty'));
   for(const item of visible){
    const row=node('article',undefined,'workspace-favorite-row');row.dataset.selected=String(selected.has(key(item)));row.dataset.current=String(detail()?.isCurrent(item)===true);
+   row.addEventListener('click',event=>{
+    if(event.defaultPrevented||event.button>0||event.target.closest?.('button,input,select,textarea,a,label')||window.getSelection?.()?.toString())return;
+    if(item.available&&!saving&&!loading)void detail()?.show(item);
+   });
    const check=node('input');check.type='checkbox';check.checked=selected.has(key(item));check.disabled=saving||loading;check.setAttribute('aria-label','選取 '+item.title);
    check.addEventListener('change',()=>{check.checked?selected.add(key(item)):selected.delete(key(item));render();list.querySelectorAll('input')[visible.indexOf(item)]?.focus();});
    const body=node('div',undefined,'workspace-favorite-description'),heading=node('div',undefined,'workspace-favorite-heading');

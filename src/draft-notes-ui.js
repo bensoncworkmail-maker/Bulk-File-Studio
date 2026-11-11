@@ -70,7 +70,7 @@
     continue;
    }
    const row=el('li'),label=el('span',name),previewButton=el('button','預覽'),inline=el('img');
-   label.title=name;inline.hidden=true;inline.alt=name;
+   label.title=item.originalPath?'草稿內附件；原位置：'+item.originalPath:name;if(item.managed)label.textContent='草稿附件 · '+item.path.split(/[\\/]/).pop();inline.hidden=true;inline.alt=name;
    previewButton.type='button';previewButton.title='預覽 '+name;previewButton.setAttribute('aria-expanded','false');
    previewButton.addEventListener('click',()=>run(async()=>{
     if(!inline.hidden){
@@ -206,7 +206,7 @@
  }
  function changeAttachments(task){
   return run(async()=>{
-   current=await task();remember(current);renderAttachments();report('附件已自動儲存');
+   report('正在處理附件…');current=await task();remember(current);renderAttachments();report(current.attachmentCanceled?'已取消加入附件':current.attachmentWarning||'附件已自動儲存',Boolean(current.attachmentWarning));
   });
  }
  function inputChanged(){
@@ -237,10 +237,15 @@
   if(!image||image.size>5*1024*1024){report('請貼上 5 MB 以下的 PNG 圖片。',true);return;}
   void changeAttachments(async()=>api.paste(current.id,current.version,new Uint8Array(await image.arrayBuffer())));
  });
+ function updateDropHint(){
+  const mode=$('draft-drop-mode').value;
+  $('draft-drop-hint').textContent=mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。';
+ }
+ $('draft-drop-mode').addEventListener('change',updateDropHint);
  document.addEventListener('dragover',event=>{
   if(!event.dataTransfer.types.includes('Files'))return;
   event.preventDefault();
-  event.dataTransfer.dropEffect=current&&!busy&&!closing?'link':'none';
+  event.dataTransfer.dropEffect=current&&!busy&&!closing?$('draft-drop-mode').value:'none';
   document.body.classList.toggle('dragging',Boolean(current&&!busy&&!closing));
  });
  document.addEventListener('dragleave',event=>{
@@ -253,7 +258,8 @@
   try{
    const paths=[...event.dataTransfer.files].map(file=>api.pathForFile(file)).filter(Boolean);
    if(!paths.length)throw new Error('找不到檔案路徑，請從檔案總管拖入');
-   void changeAttachments(()=>api.attach(current.id,current.version,paths));
+   const mode=$('draft-drop-mode').value;
+   void changeAttachments(()=>api.attach(current.id,current.version,paths,mode));
   }catch(error){report(message(error),true);}
  });
  $('new-draft').addEventListener('click',()=>run(async()=>{
@@ -283,6 +289,7 @@
   if(settings.fontSize)document.documentElement.style.fontSize=settings.fontSize+'px';
   if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);else body.removeAttribute('maxlength');
   if(previous.draftBodyHeight!==preferences.draftBodyHeight)body.style.height=(preferences.draftBodyHeight||280)+'px';
+  if(previous.draftDropMode!==preferences.draftDropMode)$('draft-drop-mode').value=preferences.draftDropMode||'link';updateDropHint();
   $('draft-images').style.setProperty('--draft-image-height',preferences.draftImageHeight+'px');
   if(previous.draftListWidth!==preferences.draftListWidth)draftSplit?.set(preferences.draftListWidth||170);
   $('draft-reminder').hidden=preferences.draftReminders===false;updateCount();

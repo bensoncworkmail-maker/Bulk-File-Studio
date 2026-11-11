@@ -38,8 +38,8 @@
   function setSheets(){
    const board=mode==='board';
    const tables=state.workspace.document.sheets.filter(table=>!table.deletedAt&&
-    (!board||table.fields.some(column=>column.type==='select')));
-   setOptions(sheet,tables.map(table=>({id:table.id,label:table.name})),board?'':'全部表格',selectedSheets[mode]);
+    (board?table.fields.some(column=>column.type==='select'):window.calendarScope.allows(state.preferences?.calendarScope,table.id)));
+   setOptions(sheet,tables.map(table=>({id:table.id,label:table.name})),board?'':state.preferences?.calendarScope?.scope==='selected'?'設定範圍內的全部表格':'全部表格',selectedSheets[mode]);
    setFields();
   }
 
@@ -59,6 +59,7 @@
    const calendar=node('div',undefined,'productivity-month');calendar.style.setProperty('--calendar-day-height',(prefs.calendarDayHeight||88)+'px');calendar.style.fontSize=(prefs.calendarFontSize||13)+'px';
    const records=new Map(doc.records.map(record=>[record.id,record]));
    const events=model.agenda(doc,state.reminders.items,month.value).filter(event=>
+    window.calendarScope.allows(prefs.calendarScope,records.get(event.recordId)?.sheetId,event.standalone)&&
     (!sheet.value||records.get(event.recordId)?.sheetId===sheet.value)&&
     [event.title,event.sheet,event.label,event.master,event.itemLabel,records.get(event.recordId)?.notes].join(' ').toLocaleLowerCase().includes(text));
    const byDate=new Map();
@@ -135,6 +136,7 @@
    }
    select(selectedDate);
    if(prefs.calendarShowAgenda===false){region.classList.add('planning-agenda-hidden');agenda.hidden=true;}region.append(calendar,agenda);
+   if(prefs.calendarScope?.scope==='selected')summary.append(node('span','已套用指定表格範圍','notes-hint'));
    root.append(summary,region);
   }
 
@@ -232,6 +234,7 @@
   if(state)setFields();
   render();
  });
+ $('planning-settings').addEventListener('click',()=>window.settingsUI.openCategory('planning'));
  month.addEventListener('change',render);
  field.addEventListener('change',render);
  query.addEventListener('input',render);

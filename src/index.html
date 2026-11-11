@@ -120,6 +120,7 @@
             <select id="planning-sheet" aria-label="表格"></select>
             <label id="planning-field-wrap" hidden><span class="sr-only">狀態欄位</span><select id="planning-field" aria-label="狀態欄位"></select></label>
             <input id="planning-query" aria-label="搜尋行程或紀錄" type="search" maxlength="200" placeholder="搜尋行程或紀錄…">
+            <button id="planning-settings" type="button" class="btn btn-ghost">日曆範圍設定</button>
             <button id="planning-overlay" type="button" class="btn btn-secondary">浮動工具</button>
           </header>
           <p id="planning-status" role="status"></p>
@@ -857,6 +858,13 @@
               <div id="settings-panel-planning" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-planning" hidden>
                 <section class="settings-card">
                   <h2>日曆／看板</h2>
+                  <form id="calendar-scope-form"><fieldset><legend>日曆頁顯示範圍</legend>
+                    <label class="field"><span>表格範圍</span><select id="calendar-scope-mode"><option value="all">所有表格</option><option value="selected">只顯示勾選的表格</option></select></label>
+                    <div id="calendar-scope-tables" class="notes-choice-list" hidden></div>
+                    <label class="check-row"><input id="calendar-scope-standalone" type="checkbox"><span>另顯示草稿／獨立提醒</span></label>
+                    <p class="rule-hint">套用到日曆頁的日期、時間軸與紀錄提醒；看板及浮動日曆維持各自的表格範圍。</p>
+                    <button id="calendar-scope-save" type="submit" class="btn btn-primary" disabled>儲存日曆範圍</button><p id="calendar-scope-status" role="status"></p>
+                  </fieldset></form>
                   <label class="check-row"><input id="settings-planning-day-show-master" type="checkbox"><span>在月曆日期格顯示主紀錄名稱</span></label><label class="check-row"><input id="settings-calendarShowCount" type="checkbox" ><span>顯示日期格行程數量</span></label><label class="field"><span>每週起始日</span><select id="settings-calendarWeekStart"><option value="0">星期日</option><option value="1">星期一</option></select></label><label class="field"><span>日期格最小高度（px）</span><input id="settings-calendarDayHeight" type="number" min="56" max="240"></label><label class="field"><span>每格預覽行程數（0 僅顯示日期及數量）</span><input id="settings-calendarEventLimit" type="number" min="0" max="10"></label><label class="field"><span>日期格字級（px）</span><input id="settings-calendarFontSize" type="number" min="11" max="22"></label><label class="check-row"><input id="settings-calendarShowAgenda" type="checkbox" ><span>顯示所選日期明細面板</span></label>
                   <p class="rule-hint">日期格先顯示行程的紀錄名稱。開啟後，所屬主紀錄會另列在下方。點選日期可查看完整行程。</p>
                 </section>
@@ -1323,7 +1331,7 @@
                   <p class="rule-hint">首次開啟或取消記憶時使用預設尺寸。若原螢幕已移除，視窗會移回可見範圍。</p>
                 </section>
 <section class="settings-card"><h2>草稿編輯與附件</h2><button type="button" class="btn btn-ghost" data-open-shortcuts>設定草稿全域快捷鍵</button>
-<label class="check-row"><input id="settings-draftReminders" type="checkbox" ><span>允許草稿直接建立提醒</span></label><label class="check-row"><input id="settings-draftLocalShortcuts" type="checkbox" ><span>啟用面板快捷鍵（Ctrl+N 新增、Ctrl+Shift+S 另存、Alt+R 提醒、Delete 刪除）</span></label><label class="field"><span>草稿字數上限（0 為不設字數上限）</span><input id="settings-draftBodyLimit" type="number" min="0" max="10000000" step="1"></label><label class="field"><span>建立工作區紀錄後的草稿處理</span><select id="settings-draftAfterTransfer"><option value="ask">每次詢問（預設）</option><option value="keep">保留草稿</option><option value="delete">刪除草稿</option></select></label><label class="field"><span>貼上圖片預覽高度上限（px）</span><input id="settings-draftImageHeight" type="number" min="48" max="360" step="1"></label><label class="field"><span>拖放附件開啟方式</span><select id="settings-draftPreviewMode"><option value="inline">視窗內預覽（PDF 另開視窗）</option><option value="window">獨立預覽視窗</option><option value="system">使用系統預設程式開啟</option></select></label><p class="rule-hint">不設字數上限仍受裝置記憶體與 SQLite 單欄位限制；工作區筆記上限為 100,000 字，較長草稿請另存檔案。Delete 僅在草稿清單取得焦點時刪除。</p></section></div><div id="settings-panel-system" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-system" hidden>
+<label class="check-row"><input id="settings-draftReminders" type="checkbox" ><span>允許草稿直接建立提醒</span></label><label class="check-row"><input id="settings-draftLocalShortcuts" type="checkbox" ><span>啟用面板快捷鍵（Ctrl+N 新增、Ctrl+Shift+S 另存、Alt+R 提醒、Delete 刪除）</span></label><label class="field"><span>草稿字數上限（0 為不設字數上限）</span><input id="settings-draftBodyLimit" type="number" min="0" max="10000000" step="1"></label><label class="field"><span>建立工作區紀錄後的草稿處理</span><select id="settings-draftAfterTransfer"><option value="ask">每次詢問（預設）</option><option value="keep">保留草稿</option><option value="delete">刪除草稿</option></select></label><label class="field"><span>貼上圖片預覽高度上限（px）</span><input id="settings-draftImageHeight" type="number" min="48" max="360" step="1"></label><label class="field"><span>拖入草稿的預設加入方式</span><select id="settings-draftDropMode"><option value="link">保留原位置路徑（預設）</option><option value="copy">複製到草稿儲存區</option><option value="move">移動到草稿儲存區（執行前確認）</option></select></label><label class="field"><span>拖放附件開啟方式</span><select id="settings-draftPreviewMode"><option value="inline">視窗內預覽（PDF 另開視窗）</option><option value="window">獨立預覽視窗</option><option value="system">使用系統預設程式開啟</option></select></label><p class="rule-hint">不設字數上限仍受裝置記憶體與 SQLite 單欄位限制；工作區筆記上限為 100,000 字，較長草稿請另存檔案。Delete 僅在草稿清單取得焦點時刪除。</p></section></div><div id="settings-panel-system" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-system" hidden>
                 <section class="settings-card">
                   <h2>啟動與系統匣</h2>
                   <label class="check-row">
@@ -2685,7 +2693,7 @@
     <script src="share-receive-ui.js" defer></script>
     <script src="menu-dismiss.js" defer></script><script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
-    <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="snippet-picker-model.js" defer></script><script src="snippet-picker-settings.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
+    <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="snippet-picker-model.js" defer></script><script src="snippet-picker-settings.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="calendar-scope.js" defer></script><script src="calendar-scope-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
     <script src="layout-editor.js" defer></script><script src="home.js" defer></script>
     <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>

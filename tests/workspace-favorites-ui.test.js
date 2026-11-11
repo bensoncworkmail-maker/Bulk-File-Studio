@@ -76,3 +76,12 @@ test('returning to workspace favorites reloads fields changed while away',async 
  await h.$('favorite-kind-workspace').dispatch('click');await flush();
  assert.match(h.$('workspace-favorite-detail-body').textContent,/Updated while away/);
 });
+
+test('clicking a favorite row opens details while checkboxes, action buttons and text selection remain independent',async t=>{
+ const h=fixture(t);await flush();let row=h.$('workspace-favorite-list').children.find(row=>row.textContent.includes('Man'));
+ await row.dispatch('click',{target:row.querySelector('small'),button:0});await flush();assert.equal(h.$('workspace-favorite-detail').hidden,false);
+ await h.$('workspace-favorite-detail-close').dispatch('click');row=h.$('workspace-favorite-list').children.find(row=>row.textContent.includes('Man'));
+ for(const target of [row.querySelector('input'),find(row,'編輯標籤')]){await row.dispatch('click',{target});await flush();assert.equal(h.$('workspace-favorite-detail').hidden,true);}
+ h.window.getSelection=()=>({toString:()=> 'selected text'});await row.dispatch('click',{target:row.querySelector('small')});await flush();assert.equal(h.$('workspace-favorite-detail').hidden,true);
+ assert.equal(h.visits.length,0);
+});
