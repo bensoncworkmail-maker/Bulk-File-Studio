@@ -1,6 +1,7 @@
 'use strict';
 (() => {
  const $=id=>document.getElementById(id),api=window.workspaceAPI;
+ const detail=()=>window.workspaceFavoriteDetailUI;
  const types={record:'紀錄',master:'主表',detail:'明細表',table:'一般表格'};
  const key=item=>item.kind+':'+item.id;
  let kind='files',defaultKind,items=[],visible=[],callbacks,request=0,loading=false,saving=false,editing=null,activeTag=null;
@@ -22,7 +23,7 @@
    const tab=$('favorite-kind-'+value),active=value===kind;
    tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;
   }
-  if(kind==='workspace')void refresh();
+  if(kind==='workspace'){void refresh();void detail()?.refresh();}
  }
  async function refresh(){
   if(kind!=='workspace')return;
@@ -31,7 +32,7 @@
   try{
    const rows=await api.bookmarks();
    if(id!==request)return;
-   items=rows;loading=false;render();
+   items=rows;loading=false;detail()?.update(items);render();
   }catch(error){
    if(id!==request)return;
    loading=false;render();
@@ -43,6 +44,17 @@
   if(saving)return;
   try{await window.notesUI.openSearchTarget(item.kind,item.id);}
   catch(error){callbacks.showFailure('無法開啟工作區收藏',error);}
+ }
+ async function remove(item){
+  if(saving||editing)return;
+  saving=true;render();
+  try{
+   await api.batchBookmarks([{kind:item.kind,id:item.id}],'remove',[]);
+   selected.delete(key(item));detail()?.removed(item);
+   await refresh();
+   callbacks.showToast(item.logPinned?'已移除收藏；查看紀錄釘選仍保留':'已移除收藏');
+  }catch(error){callbacks.showFailure('無法移除收藏',error);}
+  finally{saving=false;render();}
  }
  function selectedItems(){return visible.filter(item=>selected.has(key(item)));}
  function setDialogBusy(busy){
@@ -126,8 +138,8 @@
   const settings=window.settingsUI.get(),data=items.filter(item=>item.saved||settings.favoriteIncludeLogPins);
   renderTags(data);
   $('workspace-favorite-tag-resizer').setAttribute('aria-valuenow',String(settings.tagPanelWidth));
-  const type=$('workspace-favorite-type').value,query=$('workspace-favorite-search').value.trim().toLocaleLowerCase();
-  visible=data.filter(item=>(type==='all'||item.type===type)&&
+  const state=$('workspace-favorite-state').value,type=$('workspace-favorite-type').value,query=$('workspace-favorite-search').value.trim().toLocaleLowerCase();
+  visible=data.filter(item=>(state==='all'||(state==='saved'?item.saved:!item.saved&&item.logPinned))&&(type==='all'||item.type===type)&&
    (activeTag===null||(activeTag===''?!item.tags.length:item.tags.some(tag=>tag.toLocaleLowerCase()===activeTag)))&&
    (!query||[item.title,item.context||'',...(item.masters||[]).flatMap(master=>[master.title,...master.values]),...item.tags].some(value=>value.toLocaleLowerCase().includes(query))));
   const shown=new Set(visible.map(key));for(const id of selected)if(!shown.has(id))selected.delete(id);
@@ -141,11 +153,11 @@
   const list=$('workspace-favorite-list');list.replaceChildren();
   if(!visible.length&&!loading)list.append(node('p',data.length?'沒有符合條件的收藏。':'尚未收藏工作區項目。可在紀錄總覽或「搜尋與操作」列加入收藏。','list-empty'));
   for(const item of visible){
-   const row=node('article',undefined,'workspace-favorite-row');row.dataset.selected=String(selected.has(key(item)));
+   const row=node('article',undefined,'workspace-favorite-row');row.dataset.selected=String(selected.has(key(item)));row.dataset.current=String(detail()?.isCurrent(item)===true);
    const check=node('input');check.type='checkbox';check.checked=selected.has(key(item));check.disabled=saving||loading;check.setAttribute('aria-label','選取 '+item.title);
    check.addEventListener('change',()=>{check.checked?selected.add(key(item)):selected.delete(key(item));render();list.querySelectorAll('input')[visible.indexOf(item)]?.focus();});
    const body=node('div',undefined,'workspace-favorite-description'),heading=node('div',undefined,'workspace-favorite-heading');
-   const title=action(item.title,()=>open(item),'workspace-favorite-link');title.disabled=!item.available||saving;title.title=item.title;
+   const title=action(item.title,()=>void detail()?.show(item),'workspace-favorite-link');title.disabled=!item.available||saving;title.dataset.target=key(item);title.title='查看詳情：'+item.title;title.setAttribute('aria-controls','workspace-favorite-detail');title.setAttribute('aria-expanded',String(detail()?.isCurrent(item)===true));
    heading.append(node('span',types[item.type],'workspace-favorite-type'),title);
    body.append(heading,node('small',item.context||'未分組'));
    for(const master of item.masters||[]){
@@ -155,17 +167,25 @@
     body.append(parent);
    }
    const chips=node('div',undefined,'workspace-favorite-tags');
-   if(item.logPinned)chips.append(node('span','查看紀錄已釘選','workspace-favorite-pin'));
+   if(item.logPinned)chips.append(node('span',item.saved?'查看紀錄已釘選':'僅釘選・尚未加入收藏','workspace-favorite-pin'));
    if(!item.available)chips.append(node('span','項目已移除或在回收筒','workspace-favorite-pin'));
    for(const tag of item.tags)chips.append(action(tag,()=>{activeTag=tag.toLocaleLowerCase();render();},'favorite-badge'));
    if(chips.children.length)body.append(chips);
    const tools=node('div',undefined,'workspace-favorite-actions');
-   const editButton=action(item.saved?'標籤與操作':'加入收藏',()=>void edit([item],'save',editButton));editButton.disabled=saving||!item.available&& !item.saved;
-   tools.append(editButton);row.append(check,body,tools);list.append(row);
+   const editButton=action(item.saved?'編輯標籤':'加入收藏',()=>void edit([item],'save',editButton));editButton.disabled=saving||!item.available&& !item.saved;
+   tools.append(editButton);
+   if(item.saved){const removeButton=action('移除收藏',()=>void remove(item));removeButton.title='移除「'+item.title+'」的收藏';removeButton.disabled=saving||loading;tools.append(removeButton);}
+   row.append(check,body,tools);list.append(row);
   }
+  detail()?.render();
  }
  function init(options){
   callbacks=options;
+  detail()?.init({
+   open,edit:item=>edit([item]),remove,isBusy:()=>saving||loading||Boolean(editing),
+   onSelect:render,onTag:tag=>{activeTag=tag.toLocaleLowerCase();render();},
+   showFailure:callbacks.showFailure,showToast:callbacks.showToast
+  });
   for(const value of ['files','workspace']){
    const tab=$('favorite-kind-'+value);tab.addEventListener('click',()=>show(value));
    tab.addEventListener('keydown',event=>{
@@ -174,6 +194,7 @@
    });
   }
   window.sidebarResize.initFavoritesWorkspace({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>saving||callbacks.isBusy()});
+  $('workspace-favorite-state').addEventListener('change',render);
   $('workspace-favorite-type').addEventListener('change',render);$('workspace-favorite-search').addEventListener('input',render);
   $('workspace-favorite-select-all').addEventListener('change',event=>{for(const item of visible)event.target.checked?selected.add(key(item)):selected.delete(key(item));render();});
   $('workspace-favorite-clear-selection').addEventListener('click',()=>{selected.clear();render();});
@@ -197,12 +218,12 @@
   });
   dialog.addEventListener('close',()=>{const session=editing;editing=null;session?.resolve(session.result);session?.anchor?.focus();});
   window.addEventListener('resize',()=>{if(editing?.anchor)positionDialog(editing.anchor);});
-  api.onChanged(()=>{if(!$('favorites-page').classList.contains('hidden'))void refresh();});
+  api.onChanged(()=>{if(!$('favorites-page').classList.contains('hidden')){void refresh();void detail()?.refresh();}});
   api.onToolsChanged(()=>{if(!$('favorites-page').classList.contains('hidden'))void refresh();});
  }
  function activate(){
   const preferred=window.settingsUI.get().favoriteStartKind||'files';
-  if(defaultKind!==preferred){defaultKind=preferred;show(preferred);}else if(kind==='workspace')void refresh();
+  if(defaultKind!==preferred){defaultKind=preferred;show(preferred);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}
  }
  window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),isWorkspace:()=>kind==='workspace'};
 })();

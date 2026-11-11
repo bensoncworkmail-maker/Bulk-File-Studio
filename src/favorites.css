@@ -46,9 +46,16 @@
 @media(max-width:990px) { .studio-tabs { padding-left:17px; padding-right:17px; } .favorites-page { padding:20px 17px; min-height:700px; } .favorites-layout { grid-template-columns:180px minmax(0,1fr); } .favorite-list { max-height:65vh; } }
 
 #favorite-files-layout[hidden],#workspace-favorites-panel[hidden]{display:none}
-.favorite-kind-tabs{display:flex;flex-wrap:wrap;gap:4px;align-self:flex-start;padding:3px;background:var(--surface);border:1px solid var(--line);border-radius:9px}
-.favorite-kind-tabs .btn{min-height:30px;padding:4px 10px;border-color:transparent}
-.favorite-kind-tabs [aria-selected=true]{background:var(--panel);border-color:var(--line);color:var(--accent);box-shadow:inset 0 -2px var(--accent)}
+/* Source tabs form a full-width rail above their corresponding panel. */
+.favorites-page .favorite-kind-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;padding:0 0 10px;margin-bottom:10px;border-bottom:1px solid var(--line);flex:none}
+.favorite-kind-tabs .btn{display:flex;justify-content:flex-start;align-items:center;gap:10px;height:auto;min-height:58px;padding:10px 14px;white-space:normal;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:9px;color:var(--muted)}
+.favorite-kind-tabs .btn>span:last-child{display:grid;gap:4px;min-width:0}
+.favorite-kind-tabs strong{font-size:calc(var(--font-scale)*13px);font-weight:650}
+.favorite-kind-tabs small{font-size:calc(var(--font-scale)*11px);font-weight:400;color:var(--muted)}
+.favorite-kind-tabs .btn[aria-selected=true]{background:var(--panel);color:var(--text);border-color:var(--accent);box-shadow:inset 0 -3px var(--accent)}
+.favorite-source-icon{font-size:22px;line-height:1;flex:none;color:var(--muted)}
+.favorite-kind-tabs [aria-selected=true] .favorite-source-icon{color:var(--accent)}
+.favorite-content-title{font-size:calc(var(--font-scale)*13px);margin:0 6px 0 0}
 .workspace-favorites-content{display:flex;flex-direction:column;min-height:0}
 .workspace-favorite-filters{flex:none}
 .workspace-favorite-filters h2{margin:0;font-size:calc(var(--font-scale)*13px)}
@@ -100,3 +107,38 @@
 @media(max-width:700px){.workspace-favorite-row{flex-wrap:wrap}.workspace-favorite-description{flex-basis:calc(100% - 34px)}.workspace-favorite-actions{margin-left:24px}.workspace-favorite-bulk .check-row{flex-basis:auto}}
 
 .bookmark-tag-dialog [hidden],#notes-bookmark-record[hidden]{display:none!important}
+
+/* Browse and inspect without leaving the favorites source. */
+.workspace-favorites-content{container-type:inline-size}
+.workspace-favorite-content-layout{display:grid;grid-template-columns:minmax(0,1fr);min-height:0;flex:1;overflow:hidden}
+.workspace-favorite-content-layout[data-detail=true]{grid-template-columns:minmax(230px,1fr) minmax(280px,.9fr)}
+.workspace-favorite-results{display:flex;flex-direction:column;min-height:0;min-width:0}
+.workspace-favorite-results>.table-footer{flex:none}
+.workspace-favorite-detail{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--panel);border-left:1px solid var(--line)}
+.workspace-favorite-detail[hidden]{display:none!important}
+.workspace-favorite-detail-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--surface);flex:none;font-size:calc(var(--font-scale)*12px)}
+.workspace-favorite-detail-head .btn{height:auto;min-height:28px;padding:4px 8px}
+#workspace-favorite-detail-body{overflow:auto;min-height:0;padding:14px;font-size:calc(var(--font-scale)*12px);line-height:1.65;user-select:text}
+#workspace-favorite-detail-body h2{margin:0 0 5px;font-size:calc(var(--font-scale)*17px);line-height:1.4;overflow-wrap:anywhere}
+#workspace-favorite-detail-body h3{margin:18px 0 7px;font-size:calc(var(--font-scale)*13px)}
+#workspace-favorite-detail-body .notes-hint{margin:6px 0;overflow-wrap:anywhere}
+.workspace-favorite-detail-actions{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.workspace-favorite-detail-actions .btn{min-height:28px;height:auto;padding:5px 8px;font-size:calc(var(--font-scale)*11px)}
+.workspace-favorite-detail-tags{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px;margin:8px 0}
+.workspace-favorite-detail-tags small{color:var(--muted);margin-right:3px}
+.workspace-favorite-detail-fields{display:grid;grid-template-columns:minmax(65px,30%) minmax(0,1fr);gap:9px 12px;margin:16px 0}
+.workspace-favorite-detail-fields dt{color:var(--muted);overflow-wrap:anywhere}
+.workspace-favorite-detail-fields dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.workspace-favorite-detail-notes{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}
+.workspace-favorite-detail-notes[data-collapsed=true]{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:var(--favorite-note-lines);overflow:hidden}
+.workspace-favorite-detail-file{display:grid;gap:7px;padding:10px 0;border-bottom:1px solid var(--line)}
+.workspace-favorite-detail-file>.notes-file-link{text-align:left;white-space:normal;overflow-wrap:anywhere}
+.workspace-favorite-row[data-current=true]{background:var(--surface-2)}
+.workspace-favorite-link[aria-expanded=true]{text-decoration:underline;text-underline-offset:4px}
+@container(max-width:760px){
+ .workspace-favorite-content-layout[data-detail=true]{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,45%) minmax(0,1fr)}
+ .workspace-favorite-content-layout[data-detail=true] .workspace-favorite-detail{grid-row:1;border-left:0;border-bottom:1px solid var(--line)}
+ .workspace-favorite-content-layout[data-detail=true] .workspace-favorite-results{grid-row:2}
+}
+@container(max-width:600px){.workspace-favorite-row{flex-wrap:wrap}.workspace-favorite-description{flex-basis:calc(100% - 34px)}.workspace-favorite-actions{margin-left:24px}.workspace-favorite-detail .workspace-favorite-actions{margin-left:0}}
+@media(max-width:560px){.favorite-kind-tabs .btn{padding:8px;gap:6px;min-height:64px}.favorite-kind-tabs strong{font-size:calc(var(--font-scale)*12px)}.favorite-kind-tabs small{font-size:calc(var(--font-scale)*10px)}.favorite-source-icon{display:none}}
