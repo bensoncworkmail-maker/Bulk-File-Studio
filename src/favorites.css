@@ -147,3 +147,8 @@
 
 .workspace-favorite-link,.workspace-favorite-parent-link{border-radius:3px;transition:color .12s,background-color .12s}
 .workspace-favorite-link:not(:disabled):hover,.workspace-favorite-parent-link:hover,.workspace-favorite-link:focus-visible,.workspace-favorite-parent-link:focus-visible{color:var(--accent);background:var(--surface-2);text-decoration:underline;text-decoration-color:currentColor;text-underline-offset:3px}
+
+.workspace-favorite-sidebar-header{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.favorites-sidebar .workspace-favorite-sidebar-header h2{padding:0;flex:1;white-space:nowrap}
+#workspace-favorite-table-rules{white-space:normal;overflow-wrap:anywhere;height:auto;min-height:30px;padding:5px 7px}
+.favorite-context-menu button{overflow-wrap:anywhere}

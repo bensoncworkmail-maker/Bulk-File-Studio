@@ -89,3 +89,14 @@ test('recycling a record covered by whole-table tracking hides its combined manu
  let record=h.doc().records.find(item=>item.id===h.child);h.store.trash('record',record.id,record.version);assert.equal(workspaceBookmarks(h.doc(),h.tools.get()).filter(item=>item.id===h.child).length,0);
  record=h.doc().records.find(item=>item.id===h.child);h.store.trash('record',record.id,record.version,true);assert.equal(workspaceBookmarks(h.doc(),h.tools.get()).filter(item=>item.id===h.child).length,1);assert.ok(h.tools.get().bookmarks.some(item=>item.id===h.child));
 });
+
+
+test('workspace tag management merges owners atomically and preserves inherited records and sync exclusions',t=>{
+ const h=fixture(t);h.tools.batchBookmarks(h.doc(),h.targets,'save',['Old','Existing']);h.tools.batchBookmarks(h.doc(),[h.targets[1]],'save',['Old','Existing'],{followRecords:true});
+ h.tools.change(data=>{data.bookmarks.find(item=>item.kind==='sheet').excludedRecordIds=[h.parent];});h.tools.setLogPin(h.doc(),h.child,true);const beforeDoc=h.doc(),rules=h.tools.get().bookmarks.find(item=>item.kind==='sheet');
+ assert.deepEqual(h.tools.manageBookmarkTag('old','EXISTING',2),{updated:2});assert.ok(h.tools.get().bookmarks.every(item=>item.tags.length===1&&item.tags[0].toLowerCase()==='existing'));
+ assert.equal(h.tools.get().bookmarks.find(item=>item.kind==='sheet').followRecords,true);assert.deepEqual(h.tools.get().bookmarks.find(item=>item.kind==='sheet').excludedRecordIds,rules.excludedRecordIds);assert.deepEqual(h.doc(),beforeDoc);assert.deepEqual(h.tools.get().logPins,[h.child]);
+ const before=h.tools.get(),disk=fs.readFileSync(h.tools.filename,'utf8');assert.throws(()=>h.tools.manageBookmarkTag('existing',null,1),/已變更/);assert.throws(()=>h.tools.manageBookmarkTag('existing',' ',2),/無效/);assert.throws(()=>h.tools.manageBookmarkTag('existing',null,0),/數量/);
+ const mock=t.mock.method(fs,'renameSync',()=>{throw Error('disk full');});assert.throws(()=>h.tools.manageBookmarkTag('existing',null,2),/disk full/);mock.mock.restore();assert.deepEqual(h.tools.get(),before);assert.equal(fs.readFileSync(h.tools.filename,'utf8'),disk);
+ h.tools.manageBookmarkTag('existing',null,2);assert.equal(h.tools.get().bookmarks.length,2);assert.ok(h.tools.get().bookmarks.every(item=>!item.tags.length));assert.deepEqual(new NotesToolsStore(h.tools.filename).get(),h.tools.get());
+});

@@ -1096,3 +1096,11 @@ test('workspace bookmark IPC follows whole tables and carries exclusions and tag
  batch(null,[{kind:'sheet',id:master.id}],'save',['Auto'],{followRecords:true});const row=list().find(item=>item.id===id);assert.equal(row.tracked,true);assert.equal(row.manual,false);assert.deepEqual(row.tags,['Auto']);assert.deepEqual(list(null,{inheritTags:false}).find(item=>item.id===id).tags,[]);
  batch(null,[{kind:'record',id}],'remove');assert.ok(!list().some(item=>item.id===id));batch(null,[{kind:'sheet',id:master.id}],'save',['Auto'],{followRecords:true,resetExclusions:true});assert.equal(list().filter(item=>item.id===id).length,1);
 });
+
+
+test('workspace bookmark tag management IPC updates table tags and derived rows without deleting favorites',t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),master=state.document.sheets[0],batch=h.handlers.get('notes-bookmark-batch'),list=h.handlers.get('notes-bookmarks'),manage=h.handlers.get('notes-bookmark-manage-tag');
+ const id=h.handlers.get('notes-record-save')(null,{sheetId:master.id,title:'Inherited row',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id;
+ batch(null,[{kind:'sheet',id:master.id}],'save',['Old'],{followRecords:true});assert.deepEqual(manage(null,'Old','New',1),{updated:1});assert.deepEqual(list().find(item=>item.id===id).tags,['New']);
+ manage(null,'New',null,1);assert.deepEqual(list().find(item=>item.id===id).tags,[]);assert.equal(list().find(item=>item.id===master.id).followRecords,true);
+});

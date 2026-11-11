@@ -4,7 +4,7 @@
  const detail=()=>window.workspaceFavoriteDetailUI;
  const types={record:'紀錄',master:'主表',detail:'明細表',table:'一般表格'};
  const key=item=>item.kind+':'+item.id;
- let kind='files',defaultKind,items=[],visible=[],callbacks,request=0,loading=false,saving=false,editing=null,activeTag=null;
+ let kind='files',defaultKind,items=[],visible=[],callbacks,request=0,loading=false,saving=false,editing=null,managing=null,activeTag=null;
  const selected=new Set();let shownLimit=200;
  function node(tag,text,className){
   const item=document.createElement(tag);
@@ -46,7 +46,7 @@
   catch(error){callbacks.showFailure('無法開啟工作區收藏',error);}
  }
  async function remove(item){
-  if(saving||editing)return;
+  if(saving||editing||managing)return;
   saving=true;render();
   try{
    await api.batchBookmarks([{kind:item.kind,id:item.id}],'remove',[]);
@@ -69,7 +69,7 @@
   dialog.style.top=Math.max(12,Math.min(rect.bottom+6,window.innerHeight-box.height-12))+'px';
  }
  function edit(targets,operation='save',anchor=null){
-  if(saving||editing)return Promise.resolve(null);
+  if(saving||editing||managing)return Promise.resolve(null);
   const dialog=$('workspace-favorite-tag-dialog'),single=targets.length===1?targets[0]:null;
   const current=single?.ownTags||single?.tags||[],isSave=operation==='save',isTags=isSave||operation==='addTags';
   const labels={save:single?.saved?'編輯收藏與標籤':'加入收藏',addTags:'批次加入標籤',clearTags:'清除收藏標籤',remove:'移除收藏'};
@@ -105,7 +105,7 @@
   });
  }
  async function editBookmark(target){
-  if(saving||editing)return null;
+  if(saving||editing||managing)return null;
   // Fetch the latest tags even when opening the picker directly from the working area.
   items=await api.bookmarks({inheritTags:window.settingsUI.get().favoriteTableInheritTags});
   const item=items.find(item=>key(item)===key(target))||{...target,tags:[],saved:false};
@@ -129,6 +129,54 @@
   const targets=selectedItems().filter(item=>operation==='addTags'?item.available:operation==='clearTags'?item.manual!==false:item.saved);
   if(targets.length)void edit(targets,operation);
  }
+ function filterCategory(tag,selectAll=false,data=[]){
+  activeTag=tag.key;shownLimit=200;$('workspace-favorite-list').scrollTop=0;
+  $('workspace-favorite-search').value='';$('workspace-favorite-type').value='all';$('workspace-favorite-state').value='all';
+  selected.clear();if(selectAll)for(const item of data)selected.add(key(item));render();
+ }
+ function tagMenu(event,tag,data){
+  event.preventDefault();if(saving||loading||editing||managing||callbacks.isBusy())return;
+  const found=data.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));
+  const actions=[{label:'顯示此分類',run:()=>filterCategory(tag)},
+   {label:'選取此分類全部項目（'+found.length+' 項）',disabled:!found.length,run:()=>filterCategory(tag,true,found)}];
+  if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},
+   {label:'刪除標籤…',run:()=>manageTag(tag,true)});
+  window.favoritesUI.showMenu(event,actions);
+ }
+ async function manageTag(tag,deleting){
+  if(saving||editing||managing)return;
+  const session={...tag,deleting,count:0};managing=session;
+  $('workspace-favorite-manage-field').hidden=deleting;$('workspace-favorite-manage-name').value=tag.name;
+  $('workspace-favorite-manage-error').textContent='';$('workspace-favorite-manage-save').disabled=true;
+  $('workspace-favorite-manage-description').textContent='讀取收藏標籤…';
+  $('workspace-favorite-manage-title').textContent=deleting?'刪除收藏標籤？':'重新命名／合併標籤';
+  $('workspace-favorite-manage-save').textContent=deleting?'刪除標籤':'儲存';
+  $('workspace-favorite-manage-dialog').showModal();
+  try{
+   const tools=await api.tools();if(managing!==session||!$('workspace-favorite-manage-dialog').open)return;
+   const count=(tools.bookmarks||[]).filter(item=>item.tags.some(value=>value.toLocaleLowerCase()===tag.key)).length;
+   if(!count)throw Error('收藏標籤已變更，請重新開啟分類選單');
+   session.count=count;
+   $('workspace-favorite-manage-description').textContent='「'+tag.name+'」由 '+count+' 項單筆／表格收藏使用，包含隱藏或已回收項目的收藏。'+(deleting?'只移除此收藏標籤，保留收藏、同步規則、紀錄與檔案。':'輸入既有名稱可合併，不會產生重複標籤。')+' 同步紀錄繼承的標籤會一併更新；不影響紀錄本身或檔案收藏的標籤。';
+   $('workspace-favorite-manage-save').disabled=false;$(deleting?'workspace-favorite-manage-cancel':'workspace-favorite-manage-name').focus();
+  }catch(error){if(managing===session)$('workspace-favorite-manage-error').textContent=String(error.message||error);}
+ }
+ async function applyManagedTag(){
+  if(!managing?.count||saving)return;
+  const session=managing,replacement=session.deleting?null:$('workspace-favorite-manage-name').value.trim();
+  if(replacement===''){$('workspace-favorite-manage-error').textContent='請輸入標籤名稱。';$('workspace-favorite-manage-name').focus();return;}
+  saving=true;for(const control of $('workspace-favorite-manage-dialog').querySelectorAll('button,input'))control.disabled=true;render();
+  try{
+   const result=await api.manageBookmarkTag(session.name,replacement,session.count);
+   if(activeTag===session.key)activeTag=replacement===null?null:replacement.toLocaleLowerCase();
+   $('workspace-favorite-manage-dialog').close();await refresh();callbacks.showToast('已更新 '+result.updated+' 項收藏的標籤');
+  }catch(error){$('workspace-favorite-manage-error').textContent=String(error.message||error);}
+  finally{saving=false;for(const control of $('workspace-favorite-manage-dialog').querySelectorAll('button,input'))control.disabled=false;render();}
+ }
+ function tableRules(event){
+  if(saving||loading||editing||managing||callbacks.isBusy())return;
+  window.favoritesUI.showMenu(event,items.filter(item=>item.kind==='sheet'&&item.followRecords).map(item=>({label:item.title+'（'+(item.followedCount||0)+' 筆）— 編輯收藏與同步',run:()=>void edit([item])})));
+ }
  function renderTags(data){
   const tags=new Map();let untagged=0;
   for(const item of data){
@@ -140,15 +188,20 @@
   $('workspace-favorite-tag-list').replaceChildren(...ordered.map(({key,name,count})=>{
    const active=activeTag===key;
    const filter=action('',()=>{activeTag=key;render();$('workspace-favorite-tag-list').querySelector('[aria-pressed=true]')?.focus();},'favorite-tag-filter'+(active?' active':''));
-   filter.append(node('span',name),node('span',String(count),'count-pill'));filter.setAttribute('aria-pressed',String(active));return filter;
+   filter.append(node('span',name),node('span',String(count),'count-pill'));filter.setAttribute('aria-pressed',String(active));filter.setAttribute('aria-haspopup','menu');filter.title=name+' · '+count+' 項 · 右鍵開啟分類管理';
+   filter.addEventListener('contextmenu',event=>tagMenu(event,{key,name,count},data));
+   filter.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey)tagMenu(event,{key,name,count},data);});return filter;
   }));
  }
  function render(){
   if(!callbacks||kind!=='workspace')return;
   const settings=window.settingsUI.get(),tables=new Map(items.filter(item=>item.kind==='sheet').map(item=>[item.id,item]));
   const resolved=items.map(item=>item.tracked?{...item,tags:[...new Map([...(item.ownTags||[]),...(settings.favoriteTableInheritTags!==false?tables.get(item.trackedBy.id)?.tags||[]:[])].map(tag=>[tag.toLocaleLowerCase(),tag])).values()]}:item);
-  detail()?.update(resolved);
-  const data=resolved.filter(item=>(item.saved||settings.favoriteIncludeLogPins)&&(!item.tracked||item.manual!==false||settings.favoriteShowTableRecords!==false||item.logPinned&&settings.favoriteIncludeLogPins));
+  const displayed=resolved.filter(item=>settings.favoriteShowFollowedTables!==false||item.kind!=='sheet'||!item.followRecords);
+  detail()?.update(displayed);
+  const data=displayed.filter(item=>(item.saved||settings.favoriteIncludeLogPins)&&(!item.tracked||item.manual!==false||settings.favoriteShowTableRecords!==false||item.logPinned&&settings.favoriteIncludeLogPins));
+  const ruleCount=items.filter(item=>item.kind==='sheet'&&item.followRecords).length,rules=$('workspace-favorite-table-rules');
+  rules.textContent='管理同步表格（'+ruleCount+'）';rules.disabled=saving||loading||!ruleCount;
   renderTags(data);
   $('workspace-favorite-tag-resizer').setAttribute('aria-valuenow',String(settings.tagPanelWidth));
   const state=$('workspace-favorite-state').value,type=$('workspace-favorite-type').value,query=$('workspace-favorite-search').value.trim().toLocaleLowerCase();
@@ -166,7 +219,7 @@
   $('workspace-favorite-clear-selection').disabled=saving||!chosen.length;
   $('workspace-favorite-count').textContent=loading?'讀取收藏…':visible.length+' 項／共 '+data.length+' 項'+(visible.length>shownLimit?' · 已顯示 '+shownLimit+' 項':'');
   const list=$('workspace-favorite-list'),scroll=list.scrollTop||0;list.replaceChildren();
-  if(!visible.length&&!loading)list.append(node('p',data.length?'沒有符合條件的收藏。':'尚未收藏工作區項目。可在紀錄總覽或「搜尋與操作」列加入收藏。','list-empty'));
+  if(!visible.length&&!loading)list.append(node('p',data.length?'沒有符合條件的收藏。':ruleCount?'目前沒有顯示的收藏。可從「管理同步表格」調整設定。':'尚未收藏工作區項目。可在紀錄總覽或「搜尋與操作」列加入收藏。','list-empty'));
   for(const item of visible.slice(0,shownLimit)){
    const row=node('article',undefined,'workspace-favorite-row');row.dataset.selected=String(selected.has(key(item)));row.dataset.current=String(detail()?.isCurrent(item)===true);
    row.addEventListener('click',event=>{
@@ -204,7 +257,7 @@
  function init(options){
   callbacks=options;
   detail()?.init({
-   open,edit:item=>edit([item]),remove,isBusy:()=>saving||loading||Boolean(editing),
+   open,edit:item=>edit([item]),remove,isBusy:()=>saving||loading||Boolean(editing)||Boolean(managing),
    onSelect:render,onTag:tag=>{activeTag=tag.toLocaleLowerCase();render();},
    showFailure:callbacks.showFailure,showToast:callbacks.showToast
   });
@@ -222,6 +275,12 @@
   $('workspace-favorite-select-all').addEventListener('change',event=>{for(const item of visible)event.target.checked?selected.add(key(item)):selected.delete(key(item));render();});
   $('workspace-favorite-clear-selection').addEventListener('click',()=>{selected.clear();render();});
   for(const [id,operation] of [['tags','addTags'],['clear','clearTags'],['remove','remove']])$('workspace-favorite-bulk-'+id).addEventListener('click',()=>bulk(operation));
+  $('workspace-favorite-table-rules').addEventListener('click',tableRules);
+  const manager=$('workspace-favorite-manage-dialog');
+  $('workspace-favorite-manage-form').addEventListener('submit',event=>{event.preventDefault();void applyManagedTag();});
+  $('workspace-favorite-manage-cancel').addEventListener('click',()=>{if(!saving)manager.close();});
+  manager.addEventListener('cancel',event=>{if(saving)event.preventDefault();});
+  manager.addEventListener('close',()=>{managing=null;$('workspace-favorite-tag-list').querySelector('[aria-pressed=true]')?.focus();});
   const dialog=$('workspace-favorite-tag-dialog');
   $('workspace-favorite-tag-close').addEventListener('click',()=>{if(!saving)dialog.close();});
   $('workspace-favorite-tag-remove').addEventListener('click',()=>void apply('remove',[]));

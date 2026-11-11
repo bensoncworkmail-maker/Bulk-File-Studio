@@ -13,11 +13,12 @@ function fixture(t){
  document.getElementById('favorites-page').classList.remove('hidden');
  const proto=Object.getPrototypeOf(document.createElement('input'));if(!proto.favoriteChecked){const match=proto.matches;proto.matches=function(selector){return (!selector.includes(':checked')||this.checked)&&match.call(this,selector.replace(/:checked/g,''));};proto.favoriteChecked=true;}
  const settings=require('../src/settings-model').normalize({favoriteStartKind:'workspace'});
- const api={bookmarks:async()=>workspaceBookmarks(store.get().document,tools.get()),get:async()=>store.get(),favorites:async()=>({items:[]}),onChanged:fn=>changes.push(fn),onToolsChanged(){},batchBookmarks:async(...args)=>{calls.push(args);tools.batchBookmarks(store.get().document,...args);return tools.get();},copy:async input=>calls.push(input)};
- const window={workspaceAPI:api,notesModel:M,webLinkModel:require('../src/web-link-model'),settingsUI:{get:()=>settings},notesUI:{openSearchTarget:async(...args)=>visits.push(args)},sidebarResize:{initFavoritesWorkspace(){}},addEventListener(){},innerWidth:1200,innerHeight:900};
+ const api={tools:async()=>tools.get(),bookmarks:async()=>workspaceBookmarks(store.get().document,tools.get()),get:async()=>store.get(),favorites:async()=>({items:[]}),onChanged:fn=>changes.push(fn),onToolsChanged(){},batchBookmarks:async(...args)=>{calls.push(args);tools.batchBookmarks(store.get().document,...args);return tools.get();},copy:async input=>calls.push(input)};
+ const menus=[];api.manageBookmarkTag=async(...args)=>{calls.push(args);return tools.manageBookmarkTag(...args);};
+ const window={favoritesUI:{showMenu:(event,actions)=>menus.push(actions)},workspaceAPI:api,notesModel:M,webLinkModel:require('../src/web-link-model'),settingsUI:{get:()=>settings},notesUI:{openSearchTarget:async(...args)=>visits.push(args)},sidebarResize:{initFavoritesWorkspace(){}},addEventListener(){},innerWidth:1200,innerHeight:900};
  for(const name of ['workspace-favorite-detail.js','workspace-favorites.js'])vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src',name),'utf8'),{window,document},{filename:name});
  window.workspaceFavoritesUI.init({isBusy:()=>false,showFailure:(title,error)=>errors.push(error.message),showToast:text=>toasts.push(text)});window.workspaceFavoritesUI.activate();
- return {settings,window,document,api,store,tools,master,detail,parent,child,targets,errors,visits,calls,changes,toasts,$:id=>document.getElementById(id)};
+ return {menus,settings,window,document,api,store,tools,master,detail,parent,child,targets,errors,visits,calls,changes,toasts,$:id=>document.getElementById(id)};
 }
 const find=(parent,label)=>{const control=parent.querySelectorAll('button').find(node=>node.textContent===label);assert.ok(control,'Missing button '+label);return control;};
 test('favorite titles preview values locally, with a separate workspace action and close control',async t=>{
@@ -129,4 +130,44 @@ test('favorite search retains all parent fields, long values and additional pare
   assert.equal(h.$('workspace-favorite-list').querySelectorAll('article').length,1,query);assert.match(h.$('workspace-favorite-list').textContent,/Man/);
  }
  assert.deepEqual(h.errors,[]);
+});
+
+
+test('workspace tag context menus select a whole category independently of search and support keyboard access',async t=>{
+ const h=fixture(t);await flush();h.$('workspace-favorite-search').value='no match';await h.$('workspace-favorite-search').dispatch('input');
+ let tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Work'));
+ await tag.dispatch('contextmenu');assert.deepEqual(Array.from(h.menus.at(-1),item=>item.label),['顯示此分類','選取此分類全部項目（2 項）','重新命名／合併標籤','刪除標籤…']);
+ h.menus.at(-1)[1].run();assert.equal(h.$('workspace-favorite-search').value,'');assert.equal(h.$('workspace-favorite-selected').textContent,'已選 2 項');
+ tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Work'));await tag.dispatch('keydown',{key:'F10',shiftKey:true});assert.equal(h.menus.length,2);
+ await h.$('workspace-favorite-tag-list').children[0].dispatch('contextmenu');assert.equal(h.menus.at(-1).length,2);assert.deepEqual(h.errors,[]);
+});
+test('tag rename and deletion update inherited tags from hidden tables without removing bookmarks or rules',async t=>{
+ const h=fixture(t);await flush();h.tools.batchBookmarks(h.store.get().document,[{kind:'sheet',id:h.detail.id}],'save',['Work'],{followRecords:true});h.settings.favoriteShowFollowedTables=false;h.changes[0]();await flush();
+ let tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Work'));await tag.dispatch('contextmenu');await h.menus.at(-1)[2].run();
+ assert.equal(h.$('workspace-favorite-manage-dialog').open,true);assert.match(h.$('workspace-favorite-manage-description').textContent,/2 項/);h.$('workspace-favorite-manage-name').value='Renamed';await h.$('workspace-favorite-manage-form').dispatch('submit');await flush();
+ assert.equal(h.$('workspace-favorite-manage-dialog').open,false);assert.ok(h.tools.get().bookmarks.every(item=>item.tags.join()==='Renamed'));assert.ok(h.$('workspace-favorite-list').textContent.includes('Renamed'));
+ tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Renamed'));await tag.dispatch('contextmenu');await h.menus.at(-1)[3].run();assert.equal(h.$('workspace-favorite-manage-field').hidden,true);await h.$('workspace-favorite-manage-form').dispatch('submit');await flush();
+ assert.equal(h.tools.get().bookmarks.length,2);assert.ok(h.tools.get().bookmarks.every(item=>!item.tags.length));assert.equal(h.tools.get().bookmarks.find(item=>item.kind==='sheet').followRecords,true);assert.match(h.$('workspace-favorite-list').textContent,/Man/);assert.deepEqual(h.errors,[]);
+});
+test('failed workspace tag management keeps its dialog, current tags and table rules intact',async t=>{
+ const h=fixture(t);await flush();const tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Work'));await tag.dispatch('contextmenu');await h.menus.at(-1)[2].run();
+ h.$('workspace-favorite-manage-name').value='Other';h.api.manageBookmarkTag=async()=>{throw Error('disk full');};await h.$('workspace-favorite-manage-form').dispatch('submit');await flush();
+ assert.equal(h.$('workspace-favorite-manage-dialog').open,true);assert.equal(h.$('workspace-favorite-manage-error').textContent,'disk full');assert.ok(h.tools.get().bookmarks.every(item=>item.tags.join()==='Work'));assert.equal(h.$('workspace-favorite-manage-save').disabled,false);
+ await h.$('workspace-favorite-manage-cancel').dispatch('click');assert.equal(h.$('workspace-favorite-manage-dialog').open,false);
+});
+test('followed table rows can be hidden independently and remain manageable from the sidebar',async t=>{
+ const h=fixture(t);await flush();h.tools.batchBookmarks(h.store.get().document,[{kind:'sheet',id:h.detail.id}],'save',['Inherited'],{followRecords:true});h.changes[0]();await flush();
+ await find(h.$('workspace-favorite-list'),h.detail.name).dispatch('click');await flush();assert.equal(h.$('workspace-favorite-detail').hidden,false);
+ h.settings.favoriteShowFollowedTables=false;h.window.workspaceFavoritesUI.render();assert.equal(h.$('workspace-favorite-list').querySelectorAll('article').length,1);assert.equal(h.$('workspace-favorite-detail').hidden,true);assert.match(h.$('workspace-favorite-list').textContent,/Inherited/);
+ assert.equal(h.$('workspace-favorite-table-rules').disabled,false);await h.$('workspace-favorite-table-rules').dispatch('click');assert.match(h.menus.at(-1)[0].label,/編輯收藏與同步/);h.menus.at(-1)[0].run();await flush();
+ assert.equal(h.$('workspace-favorite-tag-dialog').open,true);assert.equal(h.$('workspace-favorite-follow-records').checked,true);h.$('workspace-favorite-follow-records').checked=false;
+ await h.$('workspace-favorite-tag-form').dispatch('submit');await flush();assert.equal(h.$('workspace-favorite-list').querySelectorAll('article').length,2);assert.equal(h.$('workspace-favorite-table-rules').disabled,true);assert.deepEqual(h.errors,[]);
+});
+
+
+test('tag management includes manual bookmarks hidden by table-tracked recycling',async t=>{
+ const h=fixture(t);await flush();h.tools.batchBookmarks(h.store.get().document,[{kind:'sheet',id:h.detail.id}],'save',['Work'],{followRecords:true});
+ h.store.change(doc=>{doc.records.find(item=>item.id===h.child).deletedAt=new Date().toISOString();});h.changes[0]();await flush();
+ const tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Work'));await tag.dispatch('contextmenu');await h.menus.at(-1)[2].run();assert.match(h.$('workspace-favorite-manage-description').textContent,/2 項/);
+ h.$('workspace-favorite-manage-name').value='Renamed';await h.$('workspace-favorite-manage-form').dispatch('submit');await flush();assert.equal(h.$('workspace-favorite-manage-dialog').open,false);assert.ok(h.tools.get().bookmarks.every(item=>item.tags.join()==='Renamed'));assert.deepEqual(h.errors,[]);
 });
