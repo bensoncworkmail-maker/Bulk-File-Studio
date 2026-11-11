@@ -239,7 +239,7 @@
  });
  function updateDropHint(){
   const mode=$('draft-drop-mode').value;
-  $('draft-drop-hint').textContent=(mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。')+(mode==='link'?' 此選項只影響之後拖入的附件。':' 同次拖放共用一個批次目錄，再按來源上層資料夾分組；不會每個檔案各建一個目錄。既有附件不會重新搬移。');
+  $('draft-drop-hint').textContent=(mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。')+(mode==='link'?' 此選項只影響之後拖入的附件。':' 同一份草稿共用一個附件資料夾，不分來源位置或拖放批次；同名項目自動加編號，資料夾保留內部結構。既有附件不會重新搬移。');
  }
  $('draft-drop-mode').addEventListener('change',updateDropHint);
  document.addEventListener('dragover',event=>{

@@ -12,7 +12,7 @@ function fixture(){
 }
 test('draft drop selector defaults to links and forwards the explicit copy or move choice',async()=>{
  const h=fixture();await tick();assert.equal(h.$('draft-drop-mode').value,'link');
- h.$('draft-drop-mode').value='copy';await h.$('draft-drop-mode').dispatch('change');assert.match(h.$('draft-drop-hint').textContent,/保留原位置/);assert.match(h.$('draft-drop-hint').textContent,/同次拖放共用一個批次目錄/);assert.match(h.$('draft-drop-hint').textContent,/既有附件不會重新搬移/);
+ h.$('draft-drop-mode').value='copy';await h.$('draft-drop-mode').dispatch('change');assert.match(h.$('draft-drop-hint').textContent,/保留原位置/);assert.match(h.$('draft-drop-hint').textContent,/同一份草稿共用一個附件資料夾/);assert.match(h.$('draft-drop-hint').textContent,/既有附件不會重新搬移/);
  const transfer={types:['Files'],files:[{path:'/source/a.txt'}]};h.events.get('dragover')({dataTransfer:transfer,preventDefault(){}});assert.equal(transfer.dropEffect,'copy');
  h.events.get('drop')({dataTransfer:transfer,preventDefault(){}});await tick();assert.equal(h.calls[0][3],'copy');assert.deepEqual(Array.from(h.calls[0][2]),['/source/a.txt']);assert.match(h.$('attachments').textContent,/草稿附件/);assert.match(h.$('attachments').querySelector('span').title,/草稿儲存位置：.*\n原位置：/);
  h.settings({draftDropMode:'move'});assert.equal(h.$('draft-drop-mode').value,'move');assert.match(h.$('draft-drop-hint').textContent,/確認/);
