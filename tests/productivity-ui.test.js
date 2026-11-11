@@ -11,7 +11,7 @@ function harness(){
  for(const el of $('productivity-nav').querySelectorAll('button'))el.dataset.productivity=el.getAttribute('data-productivity');
  const localStorage={getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
  const context=vm.createContext({window,document,localStorage,console,setTimeout,clearTimeout,setInterval:()=>({unref(){}})});
- for(const file of ['resizable-split.js','shortcut-controls.js','planning-view.js','productivity.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'),context);window.productivityUI.init({configuration:()=>({rules:{},presets:[]}),isBusy:()=>false,showFailure:(_,error)=>failure=error,rename:async(...args)=>calls.push(['rename-ui',...args])});
+ for(const file of ['resizable-split.js','shortcut-controls.js','calendar-scope.js','planning-view.js','productivity.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'),context);window.productivityUI.init({configuration:()=>({rules:{},presets:[]}),isBusy:()=>false,showFailure:(_,error)=>failure=error,rename:async(...args)=>calls.push(['rename-ui',...args])});
  return {document,$,state,api,window,calls,listeners,storage,localStorage,record,sheet,load:()=>window.productivityUI.activate(),failure:()=>failure,reloaded:()=>reloaded,setRestore:value=>restoreUI=value,click:async id=>{$(id).dispatch('click');await tick();},submit:async id=>{$(id).dispatch('submit');await tick();}};
 }
 test('hub tools remain visible after opening the dedicated calendar page and user text stays literal',async()=>{const h=harness();await h.load();for(const name of ['repair','backup','rules','preview','worksets','snippets']){const tab=h.$('productivity-nav').querySelector('[data-productivity='+name+']');await h.$('productivity-nav').dispatch('click',{target:tab});assert.equal(h.$('productivity-'+name).hidden,false);assert.equal(tab.getAttribute('aria-pressed'),'true');}await h.$('productivity-nav').dispatch('click',{target:h.$('productivity-nav').querySelector('[data-productivity=calendar]')});assert.ok(h.calls.some(([kind,value])=>kind==='page'&&value==='planning'));assert.equal(h.$('productivity-snippets').hidden,false);assert.equal(h.failure(),null);assert.equal(h.$('workset-records').querySelectorAll('script').length,0);assert.match(h.$('workset-records').textContent,/<script>客戶 A<\/script>/);});
@@ -77,4 +77,16 @@ test('calendar displays and searches timeline item names and opens the original 
  assert.match(event.textContent,/交付文件.*客戶 A.*專案階段/);
  await event.dispatch('click');
  assert.ok(h.calls.some(call=>call.includes(h.record.id)));
+});
+
+test('calendar table settings constrain selector, dates and reminders without widening missing selections or the board',async()=>{
+ const h=harness(),id=crypto.randomUUID(),field=crypto.randomUUID(),day=new Date().toLocaleDateString('sv-SE');
+ const other={...structuredClone(h.sheet),id,name:'Other',fields:[{id:field,label:'Date',type:'date'}]};
+ h.state.workspace.document.sheets.push(other);h.state.workspace.document.records.push({...structuredClone(h.record),id:crypto.randomUUID(),sheetId:id,title:'Excluded event',values:{[field]:day}});
+ h.state.preferences={calendarScope:{scope:'selected',sheetIds:[h.sheet.id],includeStandalone:false}};
+ h.state.reminders.items=[{id:crypto.randomUUID(),recordId:null,standalone:{title:'Draft event'},at:new Date().toISOString(),status:'pending'}];
+ await h.load();assert.match(h.$('planning-content').textContent,/指定表格範圍/);assert.doesNotMatch(h.$('planning-content').textContent,/Excluded event|Draft event/);
+ assert.ok(!h.$('planning-sheet').children.some(option=>option.value===id));
+ h.state.preferences.calendarScope.sheetIds=[crypto.randomUUID()];h.listeners.desktop({settings:h.state.preferences});await tick();assert.equal(h.$('planning-content').querySelectorAll('.planning-day-preview').length,0);
+ await h.click('planning-board-mode');assert.ok(h.$('planning-sheet').children.some(option=>option.value===h.sheet.id));
 });

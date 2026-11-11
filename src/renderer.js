@@ -658,7 +658,7 @@ async function init() {
   window.appSearchUI.init({showFailure,isBusy:()=>busy,transient:()=>({sources:files,presets:[...savedPresets.map(item=>({id:item.id,name:item.name,rules:item.rules})),...BUILTIN_PRESETS.map(item=>({id:'builtin:'+item.id,name:item.name,description:item.description}))]}),showPreset:id=>{window.favoritesUI.show('rename');setRuleTab('presets');if(id.startsWith('builtin:')){$('preset-select').value=id.slice(8);$('preset-select').dispatchEvent(new Event('change'));}else renderSavedPresets(id);},showSources:()=>window.favoritesUI.show('rename')});
   window.homeUI.init({showFailure,isBusy:()=>busy});
   window.dialogSizesUI?.init();
-  window.logViewSettingsUI?.init();
+  window.logViewSettingsUI?.init();window.calendarScopeSettingsUI?.init();
   window.floatingPanelsSettings?.init();window.snippetPickerSettings?.init();
   window.productivityUI?.init({showFailure,isBusy:()=>busy,configuration:()=>({rules:getRules(),presets:savedPresets}),rename:async(paths,prefix)=>{const result=await api.addPaths(paths,false);selected.clear();addFromResult(result);applyRules({...defaults,prefix});enqueuePreview();window.favoritesUI.show('rename');}});
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,onTrashed:paths=>{files=files.filter(file=>!paths.some(p=>norm(file)===norm(p)||norm(file).startsWith(norm(p).replace(/[\\/]$/,'')+(p.includes('\\')?'\\':'/'))));selected=new Set([...selected].filter(p=>files.some(file=>norm(file)===p)));enqueuePreview();},getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});

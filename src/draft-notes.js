@@ -105,16 +105,37 @@ class DraftNotes{
   return parent?doc.records.filter(record=>record.sheetId===parent.targetSheetId&&M.live(doc,record))
    .map(({id,title})=>({id,title})).sort((a,b)=>a.title.localeCompare(b.title,'zh-Hant')):null;
  }
- async attach(id,version,paths){
+ async attach(id,version,paths,mode){
+  if(mode===undefined)mode=toolPreferences.value('draftDropMode',this.settings().draftDropMode);
+  if(!['link','copy','move'].includes(mode))throw new Error('附件加入方式無效');
   if(!Array.isArray(paths)||!paths.length||paths.length>MAX_ATTACHMENTS)throw new Error('請拖放 1–48 個檔案或資料夾');
-  const normalized=paths.map(locationPath);
-  return withIntranetPaths(normalized,()=>{
+  const normalized=[...new Map(paths.map(locationPath).map(value=>[fileKey(value),value])).values()];
+  return withIntranetPaths(normalized,async()=>{
    const store=this.store(),draft=store.draft(id);
+   if(draft.version!==version)throw new Error('草稿已變更，請重新開啟');
    const additions=inspectLinks(normalized).map(({path,type})=>({path,type}));
-   const existing=new Map(draft.attachments.map(item=>[fileKey(item.path),item]));
-   for(const item of additions)if(!existing.has(fileKey(item.path)))existing.set(fileKey(item.path),item);
-   if(existing.size>MAX_ATTACHMENTS)throw new Error('每份草稿最多 48 個附件');
-   return store.saveDraft(id,version,{attachments:[...existing.values()]});
+   if(mode==='link'){
+    const existing=new Map(draft.attachments.map(item=>[fileKey(item.path),item]));
+    for(const item of additions)if(!existing.has(fileKey(item.path)))existing.set(fileKey(item.path),item);
+    if(existing.size>MAX_ATTACHMENTS)throw new Error('每份草稿最多 48 個附件');
+    return store.saveDraft(id,version,{attachments:[...existing.values()]});
+   }
+   const {inside,transfer}=require('./draft-file-transfer');
+   const directories=additions.filter(item=>item.type==='folder').map(item=>item.path);
+   const sources=normalized.filter(source=>!directories.some(parent=>parent!==source&&inside(parent,source)));
+   if(draft.attachments.length+sources.length>MAX_ATTACHMENTS)throw new Error('每份草稿最多 48 個附件');
+   const dataRoot=path.dirname(this.imageDir);
+   for(const item of additions)if(item.path===path.parse(item.path).root||inside(dataRoot,item.path)||inside(item.path,dataRoot))throw new Error('請選擇程式資料目錄以外的檔案／資料夾，不能搬移磁碟根目錄');
+   const folder=assertLocalPath(path.join(this.imageDir,draft.id,'files',randomUUID()));
+   if(mode==='move'){
+    const result=await this.dialog.showMessageBox(this.window,{type:'question',title:'移動附件到草稿',message:'移動 '+sources.length+' 個檔案／資料夾到草稿儲存區？',detail:'完整複製校驗並儲存附件後，會移除原位置的檔案。\n\n來源：\n'+sources.slice(0,8).join('\n')+(sources.length>8?'\n另有 '+(sources.length-8)+' 個來源':'')+'\n\n目的位置：\n'+folder,buttons:['取消','移動到草稿'],defaultId:0,cancelId:0,noLink:true});
+    if(result.response!==1)return {...draft,attachmentCanceled:true};
+    if(store.draft(id).version!==version)throw new Error('草稿已變更，請重試');
+   }
+   const result=await transfer({sources,folder,mode,commit:items=>store.saveDraft(id,version,{attachments:[...draft.attachments,...items]})});
+   let warning=result.warning;
+   if(result.moved.length&&this.onMoved)try{warning=[warning,this.onMoved(result.moved)].filter(Boolean).join('；');}catch(error){warning+='；收藏路徑未能同步：'+error.message;}
+   return {...result.saved,attachmentWarning:warning};
   });
  }
  paste(id,version,input){

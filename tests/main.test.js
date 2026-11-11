@@ -1081,3 +1081,11 @@ test('workspace bookmark batch IPC saves targets and tags together and broadcast
  assert.deepEqual(batch(null,targets,'clearTags').bookmarks[0].tags,[]);
  assert.deepEqual(batch(null,targets,'remove').bookmarks,[]);
 });
+
+test('draft attachment IPC forwards managed copy mode and calendar scope is configurable',async t=>{
+ const h=harness(t),scope={scope:'selected',sheetIds:[],includeStandalone:false};
+ h.handlers.get('desktop-settings-set')(null,{calendarScope:scope,draftDropMode:'link'});assert.deepEqual(h.handlers.get('desktop-settings-get')().calendarScope,scope);
+ await h.registered.get('CommandOrControl+Alt+D')();const owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}},invoke=(name,...args)=>h.rawHandlers.get('draft-'+name)(event,...args);
+ invoke('data');const draft=invoke('new'),external=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-draft-source-'));t.after(()=>fs.rmSync(external,{recursive:true,force:true}));const source=path.join(external,'copy.txt');fs.writeFileSync(source,'managed copy');
+ const result=await invoke('attach',draft.id,draft.version,[source],'copy');assert.equal(result.attachments[0].managed,true);assert.notEqual(result.attachments[0].path,source);assert.equal(fs.readFileSync(result.attachments[0].path,'utf8'),'managed copy');assert.equal(fs.readFileSync(source,'utf8'),'managed copy');
+});

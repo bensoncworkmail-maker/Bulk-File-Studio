@@ -84,3 +84,5 @@ footer{flex-wrap:wrap}
 #draft-map-extra { flex:1 1 120px;min-width:0; }
 #draft-map-extra textarea { min-height:65px;resize:vertical; }
 .draft-transfer-hint { margin:5px 0 0; }
+
+.draft-drop-choice{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.draft-drop-choice select{width:auto;flex:1;min-width:160px}#draft-drop-hint{font-size:12px;line-height:1.6}

@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('draftAPI',{
  read:id=>invoke('read',id),
  newDraft:()=>invoke('new'),
  save:(id,version,text)=>invoke('save',id,version,text),
- attach:(id,version,paths)=>invoke('attach',id,version,paths),
+ attach:(id,version,paths,mode)=>invoke('attach',id,version,paths,mode),
  paste:(id,version,bytes)=>invoke('paste',id,version,bytes),
  image:(id,index)=>invoke('image',id,index),
  remove:(id,version,index)=>invoke('remove',id,version,index),
