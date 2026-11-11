@@ -17,7 +17,15 @@ function bookmarkTarget(doc,kind,id){
  if(!sheet)return null;
  const area=doc.areas.find(item=>item.id===sheet.areaId);
  const type=record?'record':area?.masterSheetId===id?'master':M.parentField(doc,sheet)?'detail':'table';
- return {title:record?.title||sheet.name,type,context:[area?.name,record?sheet.name:null].filter(Boolean).join(' ／ ')};
+ const parent=M.parentField(doc,sheet);
+ const masters=record&&parent?(record.values[parent.id]||[]).map(id=>doc.records.find(item=>item.id===id&&M.live(doc,item))).filter(Boolean).map(item=>{
+  const masterSheet=doc.sheets.find(sheet=>sheet.id===item.sheetId);
+  const values=masterSheet.fields.filter(field=>field.type!=='relation').map(field=>{
+   const value=M.cell(doc,field,item.values[field.id]);return value?field.label+'：'+value:'';
+  }).filter(Boolean);
+  return {id:item.id,title:item.title,values};
+ }):[];
+ return {title:record?.title||sheet.name,type,masters,context:[area?.name,record?sheet.name:null].filter(Boolean).join(' ／ ')};
 }
 function workspaceBookmarks(doc,tools){
  const pins=new Set(tools.logPins||[]),bookmarks=tools.bookmarks||[];
@@ -76,6 +84,33 @@ class NotesToolsStore{
    const item=data.bookmarks?.find(item=>bookmarkKey(item.kind,item.id)===key);
    if(!item)throw new Error('收藏已移除');
    item.tags=next;
+  });
+ }
+ batchBookmarks(doc,targets,action,tags=[]){
+  if(!Array.isArray(targets)||!targets.length||targets.length>BOOKMARK_LIMIT)throw new Error('請選擇 1 至 '+BOOKMARK_LIMIT+' 個收藏項目');
+  if(!['save','addTags','clearTags','remove'].includes(action))throw new Error('收藏操作無效');
+  const keys=targets.map(item=>bookmarkKey(item?.kind,item?.id));
+  if(new Set(keys).size!==keys.length)throw new Error('收藏項目重複');
+  const nextTags=bookmarkTags(tags),selected=new Set(keys);
+  this.change(data=>{
+   let items=data.bookmarks||[];
+   if(action==='remove')items=items.filter(item=>!selected.has(bookmarkKey(item.kind,item.id)));
+   else for(const target of targets){
+    const key=bookmarkKey(target.kind,target.id);
+    let item=items.find(item=>bookmarkKey(item.kind,item.id)===key);
+    if(action==='clearTags'){
+     if(item)item.tags=[];
+     continue;
+    }
+    const live=bookmarkTarget(doc,target.kind,target.id);
+    if(!live)throw new Error('工作區項目已移除，請重新整理收藏');
+    if(!item){
+     if(items.length>=BOOKMARK_LIMIT)throw new Error('最多收藏 '+BOOKMARK_LIMIT+' 個工作區項目');
+     item={kind:target.kind,id:target.id,title:live.title,tags:[],addedAt:new Date().toISOString()};items.unshift(item);
+    }
+    item.tags=action==='save'?nextTags:bookmarkTags([...item.tags,...nextTags].filter((tag,index,list)=>list.findIndex(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase())===index));
+   }
+   data.bookmarks=items;
   });
  }
  setLogPin(doc,id,pinned){

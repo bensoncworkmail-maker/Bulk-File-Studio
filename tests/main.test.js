@@ -1070,3 +1070,14 @@ test('workspace favorites persist tagged records and master/detail tables separa
  assert.equal(onlyPinned.saved,false);
  assert.throws(()=>set(null,'file',record,true),/類型無效/);
 });
+
+
+test('workspace bookmark batch IPC saves targets and tags together and broadcasts updates',t=>{
+ const h=harness(t),state=h.handlers.get('notes-template')(),sheet=state.document.sheets[0];
+ const targets=[{kind:'sheet',id:sheet.id}],batch=h.handlers.get('notes-bookmark-batch');
+ const result=batch(null,targets,'save',['Batch']);
+ assert.equal(result.bookmarks.length,1);assert.deepEqual(result.bookmarks[0].tags,['Batch']);
+ assert.equal(h.handlers.get('notes-bookmarks')()[0].id,sheet.id);
+ assert.deepEqual(batch(null,targets,'clearTags').bookmarks[0].tags,[]);
+ assert.deepEqual(batch(null,targets,'remove').bookmarks,[]);
+});
