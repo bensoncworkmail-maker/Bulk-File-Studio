@@ -48,6 +48,18 @@ class NotesToolsStore{
    item.tags=next;
   });
  }
+ manageBookmarkTag(name,replacement,expectedCount){
+  name=M.text(name,32,'標籤',true).trim();
+  if(replacement!==null)replacement=M.text(replacement,32,'新標籤',true).trim();
+  if(!Number.isSafeInteger(expectedCount)||expectedCount<1||expectedCount>BOOKMARK_LIMIT)throw new Error('標籤分類數量無效');
+  const key=name.toLocaleLowerCase();
+  return this.change(data=>{
+   const owners=(data.bookmarks||[]).filter(item=>item.tags.some(tag=>tag.toLocaleLowerCase()===key));
+   if(owners.length!==expectedCount)throw new Error('收藏標籤已變更，請重新開啟分類選單');
+   for(const item of owners)item.tags=bookmarkTags(item.tags.flatMap(tag=>tag.toLocaleLowerCase()===key?(replacement===null?[]:[replacement]):[tag]));
+   return {updated:owners.length};
+  });
+ }
  batchBookmarks(doc,targets,action,tags=[],options={}){
   if(!Array.isArray(targets)||!targets.length||targets.length>M.LIMITS.records+BOOKMARK_LIMIT)throw new Error('請選擇 1 至 '+(M.LIMITS.records+BOOKMARK_LIMIT)+' 個收藏項目');
   if(!['save','addTags','clearTags','remove'].includes(action))throw new Error('收藏操作無效');

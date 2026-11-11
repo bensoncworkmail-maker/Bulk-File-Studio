@@ -306,6 +306,7 @@ app.whenReady().then(() => {
   handle('notes-bookmarks',(_,options)=>require('./notes-tools-store').workspaceBookmarks(notesStore().get().document,toolsStore().get(),{inheritTags:options?.inheritTags!==false}));
   handle('notes-bookmark-set',(_,kind,id,enabled)=>{toolsStore().setBookmark(notesStore().get().document,kind,id,enabled);return toolsChanged();});
   handle('notes-bookmark-batch',(_,targets,action,tags,options)=>{toolsStore().batchBookmarks(notesStore().get().document,targets,action,tags,options);return toolsChanged();});
+  handle('notes-bookmark-manage-tag',(_,name,replacement,expectedCount)=>{const result=toolsStore().manageBookmarkTag(name,replacement,expectedCount);toolsChanged();return result;});
   handle('notes-bookmark-tags',(_,kind,id,tags)=>{toolsStore().setBookmarkTags(kind,id,tags);return toolsChanged();});
   handle('notes-view-save',(_,name,state)=>{toolsStore().saveView(name,state);return toolsChanged();});
   handle('notes-tool-remove',(_,kind,id)=>{toolsStore().remove(kind,id);return toolsChanged();});

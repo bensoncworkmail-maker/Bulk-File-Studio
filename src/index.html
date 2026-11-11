@@ -586,6 +586,8 @@
                 <section class="settings-card"><h2>收藏類型與工作區</h2>
                   <label class="field"><span>我的收藏預設分頁</span><select id="settings-favorite-start-kind"><option value="files">檔案與資料夾</option><option value="workspace">工作區</option></select></label>
                   <label class="check-row"><input id="settings-favorite-table-default-follow" type="checkbox"><span>新增表格收藏時，預設同步收藏整表紀錄</span></label>
+                  <label class="check-row"><input id="settings-favorite-show-followed-tables" type="checkbox"><span>在工作區收藏清單顯示同步表格本身</span></label>
+                  <p class="rule-hint">取消上項可只顯示同步紀錄；仍可從標籤面板的「管理同步表格」修改標籤、同步與排除設定。</p>
                   <label class="check-row"><input id="settings-favorite-show-table-records" type="checkbox"><span>在工作區收藏顯示整表同步的紀錄</span></label>
                   <label class="check-row"><input id="settings-favorite-table-inherit-tags" type="checkbox"><span>整表同步的紀錄繼承表格收藏標籤</span></label>
                   <p class="rule-hint">每張表可個別開關同步。新增及還原的紀錄自動納入；回收的紀錄自動隱藏。單筆收藏與整表同步會合併顯示；可個別排除紀錄，或在表格收藏選單重新納入。</p>
@@ -1572,7 +1574,7 @@
         </div>
         <div id="workspace-favorites-panel" class="favorites-layout" role="tabpanel" aria-labelledby="favorite-kind-workspace" hidden>
           <aside id="workspace-favorite-tags-panel" class="panel favorites-sidebar" aria-labelledby="workspace-favorite-tags-title">
-            <h2 id="workspace-favorite-tags-title">標籤分類</h2>
+            <div class="workspace-favorite-sidebar-header"><h2 id="workspace-favorite-tags-title">標籤分類</h2><button id="workspace-favorite-table-rules" type="button" class="btn btn-ghost" aria-haspopup="menu">管理同步表格</button></div>
             <div id="workspace-favorite-tag-list" class="favorite-tags"></div>
           </aside>
           <div id="workspace-favorite-tag-resizer" class="tag-panel-resizer" role="separator" aria-label="調整工作區標籤面板寬度" aria-controls="workspace-favorite-tags-panel" aria-orientation="vertical" aria-valuemin="140" aria-valuemax="480" aria-valuenow="220" tabindex="0" title="拖曳調整標籤寬度；雙擊還原；方向鍵微調"></div>
@@ -2492,6 +2494,15 @@
         <button id="notes-card-apply" class="btn btn-primary">套用</button>
       </div>
       <p id="notes-card-status" role="status" class="notes-hint"></p>
+    </dialog>
+    <dialog id="workspace-favorite-manage-dialog" class="modal notes-modal bookmark-tag-dialog" aria-labelledby="workspace-favorite-manage-title">
+      <form id="workspace-favorite-manage-form">
+        <h2 id="workspace-favorite-manage-title">管理收藏標籤</h2>
+        <p id="workspace-favorite-manage-description" class="notes-hint"></p>
+        <label id="workspace-favorite-manage-field" class="field"><span>標籤名稱（輸入既有名稱可合併）</span><input id="workspace-favorite-manage-name" maxlength="32" required autocomplete="off"></label>
+        <p id="workspace-favorite-manage-error" role="status"></p>
+        <div class="modal-buttons"><button id="workspace-favorite-manage-cancel" type="button" class="btn btn-ghost">取消</button><button id="workspace-favorite-manage-save" type="submit" class="btn btn-primary">儲存</button></div>
+      </form>
     </dialog>
     <dialog id="workspace-favorite-tag-dialog" class="modal notes-modal bookmark-tag-dialog" aria-labelledby="workspace-favorite-tag-title">
       <form id="workspace-favorite-tag-form">

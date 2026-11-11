@@ -70,7 +70,7 @@
     continue;
    }
    const row=el('li'),label=el('span',name),previewButton=el('button','預覽'),inline=el('img');
-   label.title=item.originalPath?'草稿內附件；原位置：'+item.originalPath:name;if(item.managed)label.textContent='草稿附件 · '+item.path.split(/[\\/]/).pop();inline.hidden=true;inline.alt=name;
+   label.title=item.originalPath?'草稿儲存位置：'+item.path+'\n原位置：'+item.originalPath:name;if(item.managed)label.textContent='草稿附件 · '+item.path.split(/[\\/]/).pop();inline.hidden=true;inline.alt=name;
    previewButton.type='button';previewButton.title='預覽 '+name;previewButton.setAttribute('aria-expanded','false');
    previewButton.addEventListener('click',()=>run(async()=>{
     if(!inline.hidden){
@@ -239,7 +239,7 @@
  });
  function updateDropHint(){
   const mode=$('draft-drop-mode').value;
-  $('draft-drop-hint').textContent=mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。';
+  $('draft-drop-hint').textContent=(mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。')+(mode==='link'?' 此選項只影響之後拖入的附件。':' 同次拖放共用一個批次目錄，再按來源上層資料夾分組；不會每個檔案各建一個目錄。既有附件不會重新搬移。');
  }
  $('draft-drop-mode').addEventListener('change',updateDropHint);
  document.addEventListener('dragover',event=>{

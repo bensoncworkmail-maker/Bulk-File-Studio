@@ -53,3 +53,13 @@ test('different source parents with the same name use separate numbered groups w
  const h=fixture(t),one=path.join(h.source,'one','test'),two=path.join(h.source,'two','test');fs.mkdirSync(one,{recursive:true});fs.mkdirSync(two,{recursive:true});const a=path.join(one,'file.txt'),b=path.join(two,'file.txt');fs.writeFileSync(a,'one');fs.writeFileSync(b,'two');const draft=h.store.createDraft();
  const result=await h.drafts.attach(draft.id,draft.version,[a,b],'move');assert.deepEqual(result.attachments.map(item=>path.basename(path.dirname(item.path))),['test','test (2)']);assert.deepEqual(result.attachments.map(item=>fs.readFileSync(item.path,'utf8')),['one','two']);assert.ok(!fs.existsSync(a)&&!fs.existsSync(b));
 });
+
+
+test('three PNGs in one drop share one source group while legacy managed paths stay valid',async t=>{
+ const h=fixture(t),draft=h.store.createDraft(),legacy=path.join(h.data,'draft-images',draft.id,'files',require('node:crypto').randomUUID(),require('node:crypto').randomUUID(),'legacy.png');fs.mkdirSync(path.dirname(legacy),{recursive:true});fs.writeFileSync(legacy,'legacy bytes');
+ const previous=h.store.saveDraft(draft.id,draft.version,{attachments:[{path:legacy,type:'file',managed:true,originalPath:path.join(h.source,'legacy.png')}]});
+ const files=['one.png','two.png','three.png'].map(name=>{const file=path.join(h.source,name);fs.writeFileSync(file,Buffer.from('89504e470d0a1a0a','hex'));return file;});
+ const result=await h.drafts.attach(draft.id,previous.version,files,'copy'),added=result.attachments.slice(1),group=path.dirname(added[0].path),batch=path.dirname(group);
+ assert.equal(new Set(added.map(item=>path.dirname(item.path))).size,1);assert.deepEqual(fs.readdirSync(batch),[path.basename(h.source)]);assert.deepEqual(fs.readdirSync(group).sort(),['one.png','three.png','two.png']);assert.equal(result.attachments[0].path,legacy);assert.equal(fs.readFileSync(legacy,'utf8'),'legacy bytes');
+ const moved=await h.drafts.attach(draft.id,result.version,files,'move'),movedGroup=path.dirname(moved.attachments.at(-1).path);assert.ok(moved.attachments.slice(-3).every(item=>path.dirname(item.path)===movedGroup));assert.ok(files.every(file=>!fs.existsSync(file)));assert.ok(fs.existsSync(legacy));assert.ok(added.every(item=>fs.existsSync(item.path)));
+});
