@@ -318,8 +318,9 @@
   }
  }
  function renderBookmark(control,kind,id,label){
-  const saved=Boolean(tools.bookmarks?.some(item=>item.kind===kind&&item.id===id));
-  control.textContent=saved?'★ 已收藏':kind==='sheet'?'☆ 收藏表格':'☆ 收藏';
+  const tracked=kind==='record'?window.workspaceBookmarkModel?.trackingBookmark(doc(),tools,id):tools.bookmarks?.some(item=>item.kind==='sheet'&&item.id===id&&item.followRecords);
+  const saved=Boolean(tools.bookmarks?.some(item=>item.kind===kind&&item.id===id)||tracked);
+  control.textContent=tracked?'★ 整表收藏':saved?'★ 已收藏':kind==='sheet'?'☆ 收藏表格':'☆ 收藏';
   control.title=(saved?'編輯收藏與標籤：':'收藏與標籤：')+label;
   control.setAttribute('aria-haspopup','dialog');
   control.setAttribute('aria-label',control.title);

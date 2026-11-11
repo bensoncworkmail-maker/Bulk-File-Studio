@@ -11,37 +11,7 @@ function bookmarkTags(tags){
  if(!Array.isArray(tags)||tags.length>20)throw new Error('每項最多 20 個標籤');
  return [...new Map(tags.map(value=>M.text(value,32,'標籤',true).trim()).map(value=>[value.toLocaleLowerCase(),value])).values()];
 }
-function bookmarkTarget(doc,kind,id){
- const record=kind==='record'?doc.records.find(item=>item.id===id&&M.live(doc,item)):null;
- const sheet=doc.sheets.find(item=>!item.deletedAt&&item.id===(kind==='record'?record?.sheetId:id));
- if(!sheet)return null;
- const area=doc.areas.find(item=>item.id===sheet.areaId);
- const type=record?'record':area?.masterSheetId===id?'master':M.parentField(doc,sheet)?'detail':'table';
- const parent=M.parentField(doc,sheet);
- const masters=record&&parent?(record.values[parent.id]||[]).map(id=>doc.records.find(item=>item.id===id&&M.live(doc,item))).filter(Boolean).map(item=>{
-  const masterSheet=doc.sheets.find(sheet=>sheet.id===item.sheetId);
-  const values=masterSheet.fields.filter(field=>field.type!=='relation').map(field=>{
-   const value=M.cell(doc,field,item.values[field.id]);return value?field.label+'：'+value:'';
-  }).filter(Boolean);
-  return {id:item.id,title:item.title,values};
- }):[];
- return {title:record?.title||sheet.name,type,masters,context:[area?.name,record?sheet.name:null].filter(Boolean).join(' ／ ')};
-}
-function workspaceBookmarks(doc,tools){
- const pins=new Set(tools.logPins||[]),bookmarks=tools.bookmarks||[];
- const rows=bookmarks.map(item=>{
-  const target=bookmarkTarget(doc,item.kind,item.id);
-  return {...item,...target,type:target?.type||(item.kind==='sheet'?'table':'record'),available:Boolean(target),
-   saved:true,logPinned:item.kind==='record'&&pins.has(item.id)};
- });
- const saved=new Set(bookmarks.filter(item=>item.kind==='record').map(item=>item.id));
- for(const id of pins){
-  if(saved.has(id))continue;
-  const target=bookmarkTarget(doc,'record',id);
-  if(target)rows.push({...target,id,kind:'record',tags:[],available:true,saved:false,logPinned:true});
- }
- return rows;
-}
+const {bookmarkTarget,workspaceBookmarks,trackingBookmark}=require('./workspace-bookmark-model');
 function view(input){
  if(!input||typeof input!=='object')throw new Error('檢視設定無效');const scopes=['sheet','master','area','all','masters','details'];if(!scopes.includes(input.scope))throw new Error('搜尋範圍無效');
  const out={scope:input.scope,query:M.text(input.query||'',256,'搜尋文字'),tag:M.text(input.tag||'',32,'標籤'),sort:input.sort==='title'?'title':'updated',mode:['list','cards','grid'].includes(input.mode)?input.mode:'list',due:['all','overdue','7','30','90'].includes(input.due)?input.due:'all',dateField:input.dateField==='updatedAt'?'updatedAt':input.dateField?M.id(input.dateField):''};
@@ -65,18 +35,10 @@ class NotesToolsStore{
  remove(kind,id){if(!['views','templates'].includes(kind))throw new Error('工具類型無效');M.id(id);return this.change(data=>{data[kind]=data[kind].filter(item=>item.id!==id);});}
  pin(doc,id){const record=doc.records.find(record=>record.id===id&&M.live(doc,record)&&doc.areas.some(area=>area.masterSheetId===record.sheetId));if(!record)throw new Error('請選擇可用的主紀錄');return this.change(data=>{if(data.pins.includes(id))data.pins=data.pins.filter(value=>value!==id);else{if(data.pins.length>=100)throw new Error('最多釘選 100 筆');data.pins.push(id);}});}
  setBookmark(doc,kind,id,enabled){
-  const key=bookmarkKey(kind,id);
-  if(typeof enabled!=='boolean')throw new Error('收藏狀態無效');
-  const items=this.data.bookmarks||[],index=items.findIndex(item=>bookmarkKey(item.kind,item.id)===key);
-  if(enabled===(index!==-1))return;
-  const target=enabled&&bookmarkTarget(doc,kind,id);
-  if(enabled&&!target)throw new Error('工作區項目已移除');
-  this.change(data=>{
-   if(enabled){
-    if(items.length>=BOOKMARK_LIMIT)throw new Error('最多收藏 '+BOOKMARK_LIMIT+' 個工作區項目');
-    data.bookmarks=[{kind,id,title:target.title,tags:[],addedAt:new Date().toISOString()},...items];
-   }else data.bookmarks=items.filter((_,position)=>position!==index);
-  });
+  bookmarkKey(kind,id);if(typeof enabled!=='boolean')throw new Error('收藏狀態無效');
+  const existing=this.data.bookmarks?.find(item=>item.kind===kind&&item.id===id);
+  if(enabled&&existing||!enabled&&!existing&&(kind!=='record'||!trackingBookmark(doc,this.data,id)))return;
+  return this.batchBookmarks(doc,[{kind,id}],enabled?'save':'remove');
  }
  setBookmarkTags(kind,id,tags){
   const key=bookmarkKey(kind,id),next=bookmarkTags(tags);
@@ -86,15 +48,26 @@ class NotesToolsStore{
    item.tags=next;
   });
  }
- batchBookmarks(doc,targets,action,tags=[]){
-  if(!Array.isArray(targets)||!targets.length||targets.length>BOOKMARK_LIMIT)throw new Error('請選擇 1 至 '+BOOKMARK_LIMIT+' 個收藏項目');
+ batchBookmarks(doc,targets,action,tags=[],options={}){
+  if(!Array.isArray(targets)||!targets.length||targets.length>M.LIMITS.records+BOOKMARK_LIMIT)throw new Error('請選擇 1 至 '+(M.LIMITS.records+BOOKMARK_LIMIT)+' 個收藏項目');
   if(!['save','addTags','clearTags','remove'].includes(action))throw new Error('收藏操作無效');
   const keys=targets.map(item=>bookmarkKey(item?.kind,item?.id));
   if(new Set(keys).size!==keys.length)throw new Error('收藏項目重複');
+  if(!options||typeof options!=='object'||Array.isArray(options)||Object.keys(options).some(key=>!['followRecords','resetExclusions'].includes(key)||typeof options[key]!=='boolean'))throw new Error('整表收藏選項無效');
+  if(Object.keys(options).length&&(action!=='save'||targets.some(item=>item.kind!=='sheet')))throw new Error('整表收藏選項只適用表格');
   const nextTags=bookmarkTags(tags),selected=new Set(keys);
   this.change(data=>{
    let items=data.bookmarks||[];
-   if(action==='remove')items=items.filter(item=>!selected.has(bookmarkKey(item.kind,item.id)));
+   if(action==='remove'){
+    items=items.filter(item=>!selected.has(bookmarkKey(item.kind,item.id)));
+    const records=new Map(doc.records.map(item=>[item.id,item]));
+    for(const table of items.filter(item=>item.kind==='sheet'&&item.followRecords)){
+     const excluded=new Set(table.excludedRecordIds||[]);
+     for(const target of targets)if(target.kind==='record'&&records.get(target.id)?.sheetId===table.id)excluded.add(target.id);
+     if(excluded.size>M.LIMITS.records)throw new Error('表格排除紀錄過多，請重新納入後再排除');
+     table.excludedRecordIds=[...excluded];
+    }
+   }
    else for(const target of targets){
     const key=bookmarkKey(target.kind,target.id);
     let item=items.find(item=>bookmarkKey(item.kind,item.id)===key);
@@ -108,6 +81,9 @@ class NotesToolsStore{
      if(items.length>=BOOKMARK_LIMIT)throw new Error('最多收藏 '+BOOKMARK_LIMIT+' 個工作區項目');
      item={kind:target.kind,id:target.id,title:live.title,tags:[],addedAt:new Date().toISOString()};items.unshift(item);
     }
+    if(target.kind==='record')for(const table of items.filter(item=>item.kind==='sheet'&&item.followRecords&&item.id===doc.records.find(record=>record.id===target.id)?.sheetId))table.excludedRecordIds=(table.excludedRecordIds||[]).filter(id=>id!==target.id);
+    if(target.kind==='sheet'&&Object.hasOwn(options,'followRecords'))item.followRecords=options.followRecords;
+    if(target.kind==='sheet'&&options.resetExclusions)item.excludedRecordIds=[];
     item.tags=action==='save'?nextTags:bookmarkTags([...item.tags,...nextTags].filter((tag,index,list)=>list.findIndex(value=>value.toLocaleLowerCase()===tag.toLocaleLowerCase())===index));
    }
    data.bookmarks=items;
@@ -148,7 +124,10 @@ if(data.bookmarks!==undefined){
   if(keys.has(key))throw new Error('工作區收藏重複');
   keys.add(key);
   if(typeof item.addedAt!=='string'||!Number.isFinite(Date.parse(item.addedAt)))throw new Error('收藏時間無效');
-  return {kind:item.kind,id:item.id,title:M.text(item.title,200,'收藏名稱',true),tags:bookmarkTags(item.tags),addedAt:item.addedAt};
+  const result={kind:item.kind,id:item.id,title:M.text(item.title,200,'收藏名稱',true),tags:bookmarkTags(item.tags),addedAt:item.addedAt};
+  if(item.followRecords!==undefined){if(item.kind!=='sheet'||typeof item.followRecords!=='boolean')throw new Error('整表收藏選項無效');result.followRecords=item.followRecords;}
+  if(item.excludedRecordIds!==undefined){if(item.kind!=='sheet'||!Array.isArray(item.excludedRecordIds)||item.excludedRecordIds.length>M.LIMITS.records)throw new Error('表格排除紀錄無效');result.excludedRecordIds=[...new Set(item.excludedRecordIds.map(M.id))];}
+  return result;
  });
 }
 if(Buffer.byteLength(JSON.stringify(result))>LIMIT)throw new Error('工作區工具設定過大');return result;}

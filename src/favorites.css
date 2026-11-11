@@ -144,3 +144,6 @@
 @media(max-width:560px){.favorite-kind-tabs .btn{padding:8px;gap:6px;min-height:64px}.favorite-kind-tabs strong{font-size:calc(var(--font-scale)*12px)}.favorite-kind-tabs small{font-size:calc(var(--font-scale)*10px)}.favorite-source-icon{display:none}}
 
 .workspace-favorite-row{cursor:pointer}.workspace-favorite-row button,.workspace-favorite-row input{cursor:pointer}
+
+.workspace-favorite-link,.workspace-favorite-parent-link{border-radius:3px;transition:color .12s,background-color .12s}
+.workspace-favorite-link:not(:disabled):hover,.workspace-favorite-parent-link:hover,.workspace-favorite-link:focus-visible,.workspace-favorite-parent-link:focus-visible{color:var(--accent);background:var(--surface-2);text-decoration:underline;text-decoration-color:currentColor;text-underline-offset:3px}

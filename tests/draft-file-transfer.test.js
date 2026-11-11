@@ -42,3 +42,14 @@ test('same-named files from different directories keep distinct copies',async t=
  const draft=h.store.createDraft(),result=await h.drafts.attach(draft.id,draft.version,[h.file,file],'copy');
  assert.equal(path.basename(result.attachments[0].path),'note.txt');assert.equal(path.basename(result.attachments[1].path),'note.txt');assert.notEqual(result.attachments[0].path,result.attachments[1].path);assert.deepEqual(result.attachments.map(item=>fs.readFileSync(item.path,'utf8')),['original','second']);
 });
+
+
+test('files and folders with the same source parent share one named destination group',async t=>{
+ const h=fixture(t),second=path.join(h.source,'second.txt');fs.writeFileSync(second,'second');const draft=h.store.createDraft();
+ const result=await h.drafts.attach(draft.id,draft.version,[h.file,second,h.folder],'copy'),parents=result.attachments.map(item=>path.dirname(item.path));
+ assert.equal(new Set(parents).size,1);assert.equal(path.basename(parents[0]),path.basename(h.source));assert.equal(fs.readFileSync(path.join(parents[0],'documents','nested.txt'),'utf8'),'nested');assert.equal(fs.readFileSync(path.join(parents[0],'second.txt'),'utf8'),'second');
+});
+test('different source parents with the same name use separate numbered groups without overwriting',async t=>{
+ const h=fixture(t),one=path.join(h.source,'one','test'),two=path.join(h.source,'two','test');fs.mkdirSync(one,{recursive:true});fs.mkdirSync(two,{recursive:true});const a=path.join(one,'file.txt'),b=path.join(two,'file.txt');fs.writeFileSync(a,'one');fs.writeFileSync(b,'two');const draft=h.store.createDraft();
+ const result=await h.drafts.attach(draft.id,draft.version,[a,b],'move');assert.deepEqual(result.attachments.map(item=>path.basename(path.dirname(item.path))),['test','test (2)']);assert.deepEqual(result.attachments.map(item=>fs.readFileSync(item.path,'utf8')),['one','two']);assert.ok(!fs.existsSync(a)&&!fs.existsSync(b));
+});

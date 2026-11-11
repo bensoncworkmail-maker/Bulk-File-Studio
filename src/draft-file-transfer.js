@@ -35,7 +35,17 @@ async function transfer({sources,folder,mode,commit}){
  const selected=unique.filter(source=>!directories.some(parent=>parent!==source&&inside(parent,source)));
  assertLocalPath(folder);await p.mkdir(folder,{recursive:true,mode:0o700});
  try{
-  for(const source of selected){const destination=path.join(folder,crypto.randomUUID(),path.basename(source));await p.mkdir(path.dirname(destination),{mode:0o700});roots.push({path:destination,type:inspectLocation(source).type,managed:true,originalPath:source});await scan(source,destination);}
+  const groups=new Map(),names=new Set(),key=value=>process.platform==='win32'?value.toLocaleLowerCase():value;
+  for(const source of selected){
+   const parent=path.dirname(source),parentKey=key(parent);
+   let group=groups.get(parentKey);
+   if(!group){
+    const label=path.basename(parent)||path.parse(parent).root.replace(/[^a-z0-9_-]/gi,'')||'來源';let name=label,suffix=1;
+    while(names.has(key(name)))name=label+' ('+(++suffix)+')';
+    names.add(key(name));group=path.join(folder,name);await p.mkdir(group,{mode:0o700});groups.set(parentKey,group);
+   }
+   const destination=path.join(group,path.basename(source));roots.push({path:destination,type:inspectLocation(source).type,managed:true,originalPath:source});await scan(source,destination);
+  }
   for(const item of rows){if(item.kind==='folder'){await p.mkdir(item.destination,{mode:0o700});item.destinationFingerprint=signature(await stat(item.destination));}else await copyFile(item);}
   for(const item of rows){
    if(!equal(signature(await stat(item.source)),item.expectedFingerprint)||item.kind==='folder'&&JSON.stringify((await p.readdir(item.source)).sort())!==JSON.stringify(item.names))throw Error('來源內容已變更，請重試：'+item.source);
