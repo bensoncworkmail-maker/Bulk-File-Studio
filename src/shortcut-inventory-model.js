@@ -2,6 +2,8 @@
 (() => {
  const GLOBALS={mainShortcut:'叫回主視窗',floatingShortcut:'顯示／隱藏浮動工具',collapseShortcut:'收合／展開浮動工具',searchShortcut:'浮動搜尋面板',draftShortcut:'草稿筆記',snippetsShortcut:'分類文字面板',calendarShortcut:'小月曆'};
  const FIXED=[
+  ['tracking-all','追蹤結果全選','Ctrl+A','tracking'],['tracking-invert','追蹤結果反向選取','Ctrl+Shift+A','tracking'],['tracking-clear','追蹤結果取消選取','Escape','tracking'],
+  ['tracking-copy','複製追蹤結果路徑','Ctrl+C','tracking'],['tracking-copy-names','複製追蹤結果檔名','Ctrl+Shift+C','tracking'],['tracking-rename','追蹤結果批次改名預覽','F2','tracking'],['tracking-move','追蹤結果搬移預覽','Ctrl+Shift+M','tracking'],['tracking-refresh','更新追蹤結果','F5','tracking'],
   ['app-search','全域搜尋頁','Ctrl+Shift+F','main'],
   ['record-save','儲存紀錄表單','Ctrl+Enter','record'],
   ['draft-new','新草稿','Ctrl+N','draft'],['draft-save','儲存草稿','Ctrl+S','draft'],
@@ -15,7 +17,7 @@
   ['grid-edit','編輯／移至下一格','Enter','grid'],['grid-next','移至下一格','Tab','grid'],
   ['grid-delete','清除儲存格（依設定）','Delete','grid'],['grid-cancel','取消編輯','Escape','grid']
  ];
- const SCOPES={global:'全域（程式執行期間）',favorites:'收藏頁',main:'主視窗',draft:'草稿面板',record:'紀錄表單',grid:'工作區儲存格',rename:'檔案工具',workspace:'工作區導覽',cards:'工作區卡片',split:'版面分隔線',auxiliary:'獨立浮動視窗'};
+ const SCOPES={global:'全域（程式執行期間）',favorites:'收藏頁',tracking:'Everything 追蹤結果',main:'主視窗',draft:'草稿面板',record:'紀錄表單',grid:'工作區儲存格',rename:'檔案工具',workspace:'工作區導覽',cards:'工作區卡片',split:'版面分隔線',auxiliary:'獨立浮動視窗'};
  function canonical(value){
   if(!value)return '';const parts=value.replace(/CommandOrControl|CmdOrCtrl|Control/g,'Ctrl').split('+'),key=parts.pop();
   return ['Ctrl','Alt','Shift'].filter(mod=>parts.includes(mod)).concat(key==='Esc'?'Escape':key).join('+');
@@ -28,7 +30,7 @@
   for(const [id,label,shortcut,scope] of FIXED)list.push({id,label,shortcut,scope,source:'內建情境快捷鍵',kind:'fixed',enabled:scope!=='draft'||settings.draftLocalShortcuts!==false||['draft-save','draft-close'].includes(id)});
   return list;
  }
- function overlap(a,b){return a.scope==='global'||b.scope==='global'||a.scope===b.scope||a.scope==='main'&&['favorites','grid','record','rename','workspace','cards'].includes(b.scope)||b.scope==='main'&&['favorites','grid','record','rename','workspace','cards'].includes(a.scope);}
+ function overlap(a,b){return a.scope==='global'||b.scope==='global'||a.scope===b.scope||a.scope==='main'&&['favorites','tracking','grid','record','rename','workspace','cards'].includes(b.scope)||b.scope==='main'&&['favorites','tracking','grid','record','rename','workspace','cards'].includes(a.scope);}
  function conflicts(list){const out=[];for(let i=0;i<list.length;i++){const a=list[i];if(!a.enabled||!a.shortcut)continue;for(const b of list.slice(i+1))if(b.enabled&&canonical(a.shortcut)===canonical(b.shortcut)&&overlap(a,b))out.push([a,b]);}return out;}
  function assertGlobal(settings,snippets,favorites,labels){const conflict=conflicts(rows(settings,snippets,favorites,labels))[0];if(conflict)throw new Error('相同快捷鍵衝突：'+conflict.map(item=>item.label+'（'+SCOPES[item.scope]+'）').join('／'));}
  const api={GLOBALS,FIXED,SCOPES,canonical,rows,conflicts,assertGlobal};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.shortcutInventoryModel=Object.freeze(api);

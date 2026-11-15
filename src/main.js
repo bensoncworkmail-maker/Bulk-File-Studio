@@ -498,13 +498,7 @@ app.whenReady().then(() => {
   handle('everything-tracking-configure',(_,seconds)=>{const value=everythingTracking.configure(seconds);send(win,'everything-tracking-changed');return value;});
   handle('everything-tracking-refresh',(_,id)=>everythingTracking.refresh(id));
   handle('everything-tracking-action',(_,id,token,indices,action)=>fileOperation(async()=>{
-    if(!['open','show','copy','favorite'].includes(action))throw Error('追蹤搜尋操作無效');
-    const {paths,tags}=everythingTracking.selection(id,token,indices);
-    if(action==='favorite'){const result=favorites.addPaths(paths,tags);notifyFavorites();return result;}
-    if(action==='copy'){clipboard.writeText(paths.join('\n'));return {copied:paths.length};}
-    if(paths.length!==1)throw Error('請逐項開啟或定位');
-    if(action==='show'){shell.showItemInFolder(paths[0]);return {shown:true};}
-    await require('./notes-location-links').safeLocationOpen(paths[0]);const error=await shell.openPath(paths[0]);if(error)throw Error(error);return {opened:true};
+    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,favorites,notifyFavorites,clipboard,shell,listPaths});
   }));
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());

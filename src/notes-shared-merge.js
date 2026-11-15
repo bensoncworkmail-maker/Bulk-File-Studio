@@ -159,10 +159,12 @@ function merge(current,incoming,prior,now,managed,review,{tombstones=[],versione
    }
    let value;
    if(versioned&&kind==='sheets'&&local&&(prior?.sheetFields?.[id]||common===digest(old))){
-    const {fields:localFields,...localHeader}=old,{fields:remoteFields,...remoteHeader}=structure(item);
+    // Baselines hash header settings without the immutable sheet ID.
+    const {id:localId,fields:localFields,...localHeader}=old,{id:remoteId,fields:remoteFields,...remoteHeader}=structure(item);
     const schemaBase=prior.sheetFields?.[id]||{header:digest(localHeader),fields:fieldHashes(localFields)};
-    const header=patch(localHeader,remoteHeader,schemaBase.header,item.name+'（表格設定）');
-    value={...header,fields:mergeFields(local,item,schemaBase)};
+    const headerReview=review?{id:valueKey(id,'sheet','header'),title:item.name,sheet:item.name,name:'表格設定／名稱',editable:false,maxLength:0}:null;
+    const header=patch(localHeader,remoteHeader,schemaBase.header,item.name+'（表格設定）',headerReview);
+    value={...header,id,fields:mergeFields(local,item,schemaBase)};
    }else value=patch(old,structure(item),common,item.name+'（'+(kind==='areas'?'群組':'表格結構')+'）');
    if(digest(value)===digest(old))continue;
    if(!local){next[kind].push(M.clone(item));continue;}
