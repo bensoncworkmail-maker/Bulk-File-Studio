@@ -57,7 +57,7 @@
   rows.forEach((item,index)=>{
    const row=node('article',undefined,'everything-tracking-row'),check=node('input');check.type='checkbox';check.checked=selected.has(index);check.disabled=busy;row.classList.toggle('selected',check.checked);check.setAttribute('aria-label','選取 '+item.name);check.addEventListener('change',()=>{if(blocked())return;check.checked?selected.add(index):selected.delete(index);anchor=index;row.classList.toggle('selected',check.checked);renderControls();});
    row.addEventListener('click',event=>{
-    if(blocked()||event.button!==undefined&&event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]')||window.getSelection?.()?.toString())return;
+    if(blocked()||event.button!==undefined&&event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]')||!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&window.getSelection?.()?.toString())return;
     if(event.shiftKey&&anchor!==null){if(!event.ctrlKey&&!event.metaKey)selected.clear();for(let i=Math.min(anchor,index);i<=Math.max(anchor,index);i++)selected.add(i);}
     else if(event.ctrlKey||event.metaKey){selected.has(index)?selected.delete(index):selected.add(index);anchor=index;}
     else {selected=new Set([index]);anchor=index;}
