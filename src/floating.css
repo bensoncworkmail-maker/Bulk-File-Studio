@@ -140,3 +140,5 @@ footer{display:flex;flex-shrink:0;align-items:center;gap:6px;padding:4px 6px;bor
 
 .tool-view-snippet-copy small{display:block}
 .tool-view-snippet-preview{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3px}
+
+#mini-header #mini-focus{white-space:nowrap;min-width:52px;font-size:11px}#mini-header #mini-focus[aria-pressed="true"]{background:var(--accent,#7054ca);color:var(--bg,#0c1221);border-color:var(--accent,#7054ca)}

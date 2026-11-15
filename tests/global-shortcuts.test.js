@@ -6,3 +6,11 @@ test('recording uses physical letter codes and handles modifiers and repeat',()=
 test('native preferences migrate old shortcuts and accept custom shortcuts and pager policy',()=>{assert.equal(normalize({mainShortcut:'Ctrl+Shift+Q',floatingPager:'hidden'}).mainShortcut,'CommandOrControl+Shift+Q');assert.equal(normalize({floatingPager:'hidden'}).floatingPager,'hidden');assert.equal(normalize({}).floatingPager,'auto');assert.equal(normalize({floatingPager:'unsafe'}).floatingPager,'auto');assert.throws(()=>model.validatePair({mainShortcut:'Alt+K',floatingShortcut:'Alt+K'}),/相同/);model.validatePair({mainShortcut:'',floatingShortcut:''});});
 
 test('collapse shortcut participates in duplicate checks and native persistence',()=>{assert.equal(normalize({}).collapseShortcut,'');assert.equal(normalize({collapseShortcut:'Ctrl+Alt+Space'}).collapseShortcut,'CommandOrControl+Alt+Space');assert.throws(()=>model.validatePair({mainShortcut:'Alt+K',floatingShortcut:'Alt+J',collapseShortcut:'Alt+K'}),/相同/);assert.throws(()=>model.validatePair({floatingShortcut:'Alt+K',collapseShortcut:'Alt+K'}),/相同/);});
+
+test('focus shortcut has an editable default, can be disabled and participates in all global conflict checks',()=>{
+ assert.equal(normalize({}).focusShortcut,'CommandOrControl+Alt+Shift+F');assert.equal(normalize({focusShortcut:''}).focusShortcut,'');
+ assert.equal(normalize({focusShortcut:'Ctrl+Alt+Q'}).focusShortcut,'CommandOrControl+Alt+Q');assert.ok(model.KEYS.includes('focusShortcut'));
+ assert.throws(()=>model.validatePair({focusShortcut:'Alt+K',mainShortcut:'Alt+K'}),/相同/);
+ assert.throws(()=>model.validatePair({focusShortcut:'Ctrl+A'}),/相同/);
+ assert.ok(normalize({floatingCollapsedItems:['focus','close']}).floatingCollapsedItems.includes('focus'));
+});

@@ -82,6 +82,7 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({captureShortcuts:ena
  toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),bulkPreview:(input,revision)=>invoke('notes-bulk-preview',input,revision),bulkCommit:token=>invoke('notes-bulk-commit',token),openDrafts:()=>invoke('draft-open'),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:(id,anchor)=>invoke('floating-quick-action',id,anchor),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:()=>invoke('floating-header-menu'),
+ toggleFocusMode:()=>invoke('focus-mode-toggle'),
  headerDoubleClick:()=>invoke('floating-header-double-click'),
  beginFloatingDrag:mode=>invoke('floating-drag-start',mode),moveFloatingDrag:(token,dx,dy)=>invoke('floating-drag-move',token,dx,dy),endFloatingDrag:token=>invoke('floating-drag-end',token),
  openFloatingTagMenu:(tag,query)=>invoke('floating-tag-menu',tag,query),

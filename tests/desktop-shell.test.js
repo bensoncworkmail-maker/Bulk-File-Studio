@@ -18,3 +18,9 @@ test('login checkbox uses the fixed registry fallback when Electron misses a quo
 test('legacy named registration is shown and an explicit disable removes the verified old name too',()=>{const names=new Set(['app.bulkrenamestudio.desktop']),writes=[];const h=setup({app:{getLoginItemSettings:()=>({launchItems:[]}),setLoginItemSettings:value=>{writes.push(value);value.openAtLogin?names.add(value.name):names.delete(value.name);}},readLoginRegistration:()=>({registered:names.size>0,disabledBySystem:false,entryNames:[...names]})});assert.equal(h.shell.loginStatus().enabled,true);assert.equal(h.shell.setLogin(false).enabled,false);assert.deepEqual(writes.map(value=>value.name),['app.bulkrenamestudio.desktop','BulkFileStudio']);});
 
 test('custom global search shortcut runs its search callback and reports an occupied key without hiding the app',()=>{let opened=0;const h=setup({getSettings:()=>({searchShortcut:'Ctrl+Alt+F'}),showSearch:()=>opened++});assert.equal(h.shell.registerShortcuts(),'');h.keys.get('Ctrl+Alt+F')();assert.equal(opened,1);const failed=setup({getSettings:()=>({searchShortcut:'Ctrl+Alt+F'}),globalShortcut:{unregisterAll(){},register:()=>false}});assert.match(failed.shell.registerShortcuts(),/搜尋.*其他程式/);});
+
+test('focus toggle stays registered while every other shortcut is excluded and can be explicitly disabled',()=>{
+ let toggled=0;const settings={focusMode:true,focusShortcutIds:[],focusShortcut:'Ctrl+Alt+Shift+F',mainShortcut:'Ctrl+Alt+S'};
+ const h=setup({getSettings:()=>settings,toggleFocusMode:()=>toggled++});h.shell.registerShortcuts();assert.deepEqual([...h.keys.keys()],['Ctrl+Alt+Shift+F']);
+ h.keys.get('Ctrl+Alt+Shift+F')();assert.equal(toggled,1);settings.focusShortcut='';h.shell.registerShortcuts();assert.equal(h.keys.size,0);
+});

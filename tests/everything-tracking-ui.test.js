@@ -8,7 +8,7 @@ function fixture(t){
  const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true});
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;
  const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged(){},trackingAction:async(id,token,indices,action)=>{const result=service.selection(id,token,indices);actions.push({action,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
- const renamed=[],moved=[],window={everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
+ const renamed=[],moved=[],window={everythingTrackingView:require('../src/everything-tracking-view'),everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
  const callbacks={showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error),onRename:result=>renamed.push(result),isBusy:()=>false};window.everythingTrackingUI.init(callbacks);
  return {window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
@@ -56,19 +56,19 @@ test('new bulk buttons and shortcuts use the validated selection and stage renam
 test('blank row clicks select with Ctrl and Shift without stealing button actions or selected text',async t=>{
  const h=fixture(t);await flush();const files=[h.file,...['two.txt','three.txt'].map(name=>{const file=path.join(path.dirname(h.file),name);fs.writeFileSync(file,'data');return file;})];
  h.bridge.search=async()=>({rows:files.map(file=>({path:file,name:path.basename(file)})),skipped:0,truncated:false});h.window.everythingTrackingUI.activate(true);await flush();
- const row=i=>h.$('everything-tracking-results').querySelectorAll('article')[i];
+ const row=i=>h.$('everything-tracking-results').querySelectorAll('tr[data-index]')[i];
  await row(0).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(h.$('everything-tracking-rename-item').disabled,false);
  await row(2).dispatch('click',{ctrlKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(h.$('everything-tracking-rename-item').disabled,true);
  h.window.getSelection=()=>({toString:()=> 'browser shift-selection'});await row(0).dispatch('click',{shiftKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 3 項');h.window.getSelection=()=>null;
  await row(1).dispatch('click',{ctrlKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
- await row(1).dispatch('click',{target:row(1).querySelector('button')});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
+ const before=row(1);await row(1).dispatch('click',{target:row(1).querySelector('input')});assert.equal(row(1),before,'selection keeps cells alive for dblclick');
  await row(1).dispatch('click',{target:row(1).querySelector('input')});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
  h.window.getSelection=()=>({toString:()=> 'copied text'});await row(1).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
  h.window.getSelection=()=>null;await row(1).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(h.actions.length,0);
 });
 
 test('F2 opens a single-item rename dialog, confirms the captured token and retains errors for correction',async t=>{
- const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-results').querySelector('article').dispatch('click');
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-results').querySelector('tr[data-index]').dispatch('click');
  const captured=h.service.list().queries[0].snapshot.token,requests=[];let failure=true;
  h.api.trackingAction=async(id,token,indices,action,input)=>{requests.push({id,token,indices,action,input});if(failure)throw Error('目標已存在');return {changed:1};};
  await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});
@@ -89,12 +89,35 @@ test('bulk open buttons and Enter shortcuts forward the selection; Enter on a bu
  await panel.dispatch('keydown',{target,key:'Enter',ctrlKey:true});await flush();assert.equal(h.actions.at(-1).action,'bulk-locations');
  const before=h.actions.length;await panel.dispatch('keydown',{target:h.$('everything-tracking-rename-item'),key:'Enter'});await flush();assert.equal(h.actions.length,before);
 });
+
+test('table cells single-click select without replacement and double-click uses the clicked column',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const row=h.$('everything-tracking-body').querySelector('tr[data-index]'),name=row.children[1],location=row.children[2];
+ await row.dispatch('click',{target:name,detail:1});assert.equal(h.actions.length,0);assert.equal(h.$('everything-tracking-body').querySelector('tr[data-index]'),row);
+ assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');
+ await row.dispatch('click',{target:name,detail:2});await name.dispatch('dblclick');await flush();assert.equal(h.actions.at(-1).action,'open');
+ const next=h.$('everything-tracking-body').querySelector('tr[data-index]');await next.dispatch('click',{target:next.children[2],detail:1});assert.equal(h.actions.length,1);
+ await next.children[2].dispatch('dblclick');await flush();assert.equal(h.actions.at(-1).action,'show');assert.deepEqual(h.actions.at(-1).paths,[h.file]);
+});
+
+test('table sorting retains selected snapshot IDs for copy, double-click and F2; Shift follows visible order',async t=>{
+ const h=fixture(t);await flush();const names=['z10.txt','a2.txt','b3.txt'],files=names.map(name=>{const file=path.join(path.dirname(h.file),name);fs.writeFileSync(file,name);return file;});
+ h.bridge.search=async()=>({rows:files.map((file,i)=>({path:file,name:names[i]})),truncated:false,skipped:0});h.window.everythingTrackingUI.activate(true);await flush();
+ const rows=()=>h.$('everything-tracking-body').querySelectorAll('tr[data-index]'),ids=()=>rows().map(row=>row.getAttribute('data-index'));
+ assert.deepEqual(ids(),['1','2','0']);await rows()[0].dispatch('click');
+ const sort=h.$('everything-tracking-sort-name');sort.focus();await sort.dispatch('click');assert.deepEqual(ids(),['0','2','1']);assert.equal(h.document.activeElement,sort);assert.equal(sort.parentElement.getAttribute('aria-sort'),'descending');
+ await h.$('everything-tracking-copy').dispatch('click');await flush();assert.deepEqual(h.actions.at(-1).paths,[files[1]]);
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});assert.equal(h.$('everything-item-rename-name').value,names[1]);await h.$('everything-item-rename-cancel').dispatch('click');
+ await rows()[0].children[2].dispatch('dblclick');await flush();assert.deepEqual(h.actions.at(-1).paths,[files[0]]);
+ await rows()[0].dispatch('click');await rows()[2].dispatch('click',{shiftKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 3 項');
+ for(const key of ['location','size','modified']){await h.$('everything-tracking-sort-'+key).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 3 項');assert.equal(h.$('everything-tracking-sort-'+key).parentElement.getAttribute('aria-sort'),'ascending');}
+});
 test('tracked searches refresh on entry, filter tags and provide validated file actions and manual favorites',async t=>{
- const h=fixture(t);await flush();assert.equal(h.calls.length,0);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-command').textContent,/dm:last7days/);
+ const h=fixture(t);await flush();assert.equal(h.calls.length,0);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,1);assert.match(h.$('everything-tracking-command').textContent,/dm:last7days/);
  const check=h.$('everything-tracking-results').querySelector('input');assert.equal(check.disabled,false);check.checked=true;await check.dispatch('change');assert.equal(h.$('everything-tracking-copy').disabled,false);await h.$('everything-tracking-copy').dispatch('click');await flush();assert.equal(h.actions[0].action,'copy');
  await h.$('everything-tracking-favorite').dispatch('click');await flush();assert.equal(h.favorites.read().items.length,1);assert.deepEqual(h.favorites.read().items[0].tags,['工作']);
- await h.$('everything-tracking-tags').children.find(item=>item.textContent.startsWith('未加標籤')).dispatch('click');await flush();assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,0);
- await h.$('everything-tracking-tags').children[0].dispatch('click');await flush();assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.deepEqual(h.errors,[]);
+ await h.$('everything-tracking-tags').children.find(item=>item.textContent.startsWith('未加標籤')).dispatch('click');await flush();assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,0);
+ await h.$('everything-tracking-tags').children[0].dispatch('click');await flush();assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,1);assert.deepEqual(h.errors,[]);
 });
 test('periodic tracking runs only for the active visible view and skips open dialogs',async t=>{
  const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const first=h.calls.length;
@@ -103,7 +126,7 @@ test('periodic tracking runs only for the active visible view and skips open dia
  h.window.everythingTrackingUI.activate(false);assert.equal(h.intervals.size,0);
 });
 test('failed updates visibly retain old results and editing can pause, tag, and remove a rule',async t=>{
- const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();h.fail('offline');await h.$('everything-tracking-refresh').dispatch('click');await flush();assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-status').textContent,/更新失敗.*offline.*上次結果/);
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();h.fail('offline');await h.$('everything-tracking-refresh').dispatch('click');await flush();assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,1);assert.match(h.$('everything-tracking-status').textContent,/更新失敗.*offline.*上次結果/);
  await h.$('everything-tracking-edit').dispatch('click');h.$('everything-rule-tags').value='追蹤, 大檔案';h.$('everything-rule-enabled').checked=false;await h.$('everything-rule-form').dispatch('submit');await flush();assert.equal(h.service.list().queries[0].enabled,false);assert.deepEqual(h.service.list().queries[0].tags,['追蹤','大檔案']);assert.equal(h.$('everything-tracking-refresh').disabled,true);
  await h.$('everything-tracking-delete').dispatch('click');await flush();assert.equal(h.service.list().queries.length,0);assert.ok(fs.existsSync(h.file));assert.deepEqual(h.errors,[]);
 });
@@ -123,10 +146,10 @@ for(const failure of ['', 'offline'])test('re-entering during an outstanding que
  h.api.trackingRefresh=async id=>{await pending;return refresh(id);};
  h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-refresh').disabled,true);
  h.window.everythingTrackingUI.activate(false);h.window.everythingTrackingUI.activate(true);await flush();
- assert.equal(h.intervals.size,0);assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,0);
+ assert.equal(h.intervals.size,0);assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,0);
  release();await flush();
  assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-refresh').disabled,false);
  if(failure)assert.match(h.$('everything-tracking-status').textContent,/更新失敗.*offline/);
- else {assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-status').textContent,/已更新/);}
+ else {assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,1);assert.match(h.$('everything-tracking-status').textContent,/已更新/);}
  assert.deepEqual(h.errors,[]);
 });

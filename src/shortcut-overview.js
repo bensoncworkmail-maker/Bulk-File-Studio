@@ -43,7 +43,8 @@
      input.addEventListener('keydown',()=>drafts.set(row.id,window.shortcutControls.get(input)));
      const button=node('button','儲存');button.type='button';button.className='btn btn-ghost';button.addEventListener('click',()=>save(row,input));binding.append(input);actions.append(button);
     }else{binding.append(node('kbd',row.shortcut?row.shortcut.replace('CommandOrControl','Ctrl'):'未設定'));if(row.kind!=='fixed'){const edit=node('button','設定');edit.type='button';edit.className='btn btn-ghost';edit.addEventListener('click',()=>focusEntry(row));actions.append(edit);}else actions.append(node('small','依操作情境啟用'));}
-    if(row.scope==='global'&&row.enabled&&row.shortcut){
+    if(row.key==='focusShortcut'&&row.shortcut)actions.append(node('small','專注模式中始終保留，可在設定停用此鍵'));
+    else if(row.scope==='global'&&row.enabled&&row.shortcut){
      const label=node('label'),check=node('input');check.type='checkbox';check.checked=settings.focusShortcutIds?.includes(row.id)===true;
      check.setAttribute('aria-label','專注時保留 '+row.label);
      check.addEventListener('change',()=>saveFocus(row,check.checked));
