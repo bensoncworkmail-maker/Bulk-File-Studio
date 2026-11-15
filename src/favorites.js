@@ -260,7 +260,7 @@
     $('btn-fav-open-cancel').addEventListener('click',()=>$('favorite-open-dialog').close());
     $('btn-fav-open-confirm').addEventListener('click',()=>{const ids=[...openingIds];$('favorite-open-dialog').close();run(async()=>{const result=await api.bulkOpen(ids);callbacks.showToast(`已開啟 ${result.opened} 項`);if(result.failures.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));});});
     document.addEventListener('keydown',event=>{
-      if(!active||window.workspaceFavoritesUI?.isWorkspace()||busy||callbacks.isBusy()||window.movingUI.hasOpenDialog()||document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+      if(!active||(window.workspaceFavoritesUI?.isFiles?.()===false||window.workspaceFavoritesUI?.isWorkspace())||busy||callbacks.isBusy()||window.movingUI.hasOpenDialog()||document.querySelector('dialog[open]')||event.target.closest('input,textarea,select,[contenteditable="true"]'))return;
       const action=window.studioShortcuts.match(event);if(!action)return;event.preventDefault();
       const actions={selectAll:()=>{for(const item of visibleItems())selected.add(item.id);render();},clear:()=>{selected.clear();render();},search:()=>$('favorite-search').focus(),open:requestBulkOpen,copy:()=>$('btn-fav-copy').click(),edit:()=>edit(),remove:()=>requestRemove(),refresh,add:()=>$('btn-fav-add-files').click(),rename:importSelected,move:moveSelected,undo:()=>$('btn-undo').click(),quickTag:()=>quickTag(),importPaths:()=>window.pathImportUI.open()};actions[action]?.();
     });

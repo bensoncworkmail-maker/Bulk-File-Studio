@@ -584,7 +584,7 @@
               </div>
               <div id="settings-panel-favorites" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-favorites" hidden>
                 <section class="settings-card"><h2>收藏類型與工作區</h2>
-                  <label class="field"><span>我的收藏預設分頁</span><select id="settings-favorite-start-kind"><option value="files">檔案與資料夾</option><option value="workspace">工作區</option></select></label>
+                  <label class="field"><span>我的收藏預設分頁</span><select id="settings-favorite-start-kind"><option value="files">檔案與資料夾</option><option value="workspace">工作區</option><option value="everything">Everything 追蹤</option></select></label>
                   <label class="check-row"><input id="settings-favorite-table-default-follow" type="checkbox"><span>新增表格收藏時，預設同步收藏整表紀錄</span></label>
                   <label class="check-row"><input id="settings-favorite-show-followed-tables" type="checkbox"><span>在工作區收藏清單顯示同步表格本身</span></label>
                   <p class="rule-hint">取消上項可只顯示同步紀錄；仍可從標籤面板的「管理同步表格」修改標籤、同步與排除設定。</p>
@@ -1403,6 +1403,7 @@
                   <button id="btn-everything-save" class="btn btn-secondary">儲存整合設定</button>
                   <button id="btn-everything-test" class="btn btn-ghost" disabled>測試本機查詢</button>
                   <p class="rule-hint">第一次先從 voidtools 官方下載 Everything 及 ES 工具，啟動 Everything，再選取 es.exe 並開啟上方開關。Studio 不會下載或啟動外部工具；選取 ES 後需手動啟用。每次查詢核對所選工具的 SHA-256，檔案變更需重新選取。</p>
+                  <label class="field"><span>Everything 追蹤更新間隔（只更新目前顯示的追蹤搜尋）</span><select id="settings-everything-tracking-refresh"><option value="0">關閉定時更新</option><option value="60">每分鐘</option><option value="300">每 5 分鐘</option><option value="900">每 15 分鐘</option></select></label>
                   <p class="rule-hint">僅 Windows。使用 ES 的本機 IPC，不使用 HTTP／ETP；停用會取消查詢並清除結果，不影響原有收藏與檔案。Everything 自己的更新檢查、網路索引與伺服器需另外關閉；其連線不受 Studio 控制。只接受本機磁碟結果；映射磁碟仍請自行確認為本機。</p>
                 </section>
               </div>
@@ -1467,6 +1468,7 @@
         <div class="favorite-kind-tabs" role="tablist" aria-label="收藏來源">
           <button id="favorite-kind-files" class="btn btn-ghost" type="button" role="tab" aria-controls="favorite-files-layout" aria-selected="true"><span class="favorite-source-icon" aria-hidden="true">▱</span><span><strong>檔案與資料夾</strong><small>位置收藏・開啟與檔案操作</small></span></button>
           <button id="favorite-kind-workspace" class="btn btn-ghost" type="button" role="tab" aria-controls="workspace-favorites-panel" aria-selected="false" tabindex="-1"><span class="favorite-source-icon" aria-hidden="true">▤</span><span><strong>工作區紀錄與表格</strong><small>內容收藏・欄位與紀錄詳情</small></span></button>
+          <button id="favorite-kind-everything" class="btn btn-ghost" type="button" role="tab" aria-controls="everything-tracking-panel" aria-selected="false" tabindex="-1"><span class="favorite-source-icon" aria-hidden="true">⌕</span><span><strong>Everything 追蹤</strong><small>儲存搜尋・依條件更新檔案清單</small></span></button>
         </div>
         <div id="favorite-files-layout" class="favorites-layout" role="tabpanel" aria-labelledby="favorite-kind-files">
           <aside id="favorite-tags-panel" class="panel favorites-sidebar">
@@ -1570,6 +1572,22 @@
                 <button id="favorite-page-next" class="btn btn-ghost" aria-label="收藏下一頁">›</button>
               </div>
             </div>
+          </section>
+        </div>
+        <div id="everything-tracking-panel" class="everything-tracking-layout" role="tabpanel" aria-labelledby="favorite-kind-everything" hidden>
+          <aside class="panel favorites-sidebar everything-tracking-sidebar">
+            <h2>追蹤搜尋標籤</h2><div id="everything-tracking-tags" class="favorite-tags"></div>
+            <button id="everything-tracking-new" type="button" class="btn btn-secondary">＋ 追蹤搜尋</button>
+            <div id="everything-tracking-rules" aria-label="儲存的 Everything 搜尋"></div>
+          </aside>
+          <section class="panel everything-tracking-content">
+            <header class="everything-tracking-header"><h2 id="everything-tracking-title">選擇追蹤搜尋</h2><div class="everything-tracking-actions"><button id="everything-tracking-refresh" class="btn btn-secondary">立即更新</button><button id="everything-tracking-edit" class="btn btn-ghost">編輯搜尋／標籤</button><button id="everything-tracking-delete" class="btn btn-ghost">移除追蹤</button></div></header>
+            <p id="everything-tracking-command" class="everything-tracking-command"></p>
+            <div class="everything-tracking-options"><label>定時更新<select id="everything-tracking-interval" aria-label="Everything 追蹤更新間隔"><option value="0">關閉</option><option value="60">每分鐘</option><option value="300">每 5 分鐘</option><option value="900">每 15 分鐘</option></select></label><span>只更新目前顯示的搜尋；勾選結果時暫停定時更新。</span></div>
+            <p id="everything-tracking-status" role="status" aria-live="polite"></p>
+            <div class="everything-tracking-actions everything-tracking-selection"><button id="everything-tracking-select-all" class="btn btn-ghost">全選結果</button><button id="everything-tracking-select-none" class="btn btn-ghost">取消選取</button><span id="everything-tracking-selected">已選 0 項</span><button id="everything-tracking-copy" class="btn btn-ghost">複製路徑</button><button id="everything-tracking-favorite" class="btn btn-secondary">保留為一般收藏</button></div>
+            <div id="everything-tracking-results" class="everything-tracking-results"></div>
+            <p class="rule-hint everything-tracking-footnote">清單反映上次成功查詢的結果，每個搜尋最多顯示 500 項。相對日期每次重新計算；移除追蹤或結果不再符合條件時，不會刪除實際檔案或一般收藏。</p>
           </section>
         </div>
         <div id="workspace-favorites-panel" class="favorites-layout" role="tabpanel" aria-labelledby="favorite-kind-workspace" hidden>
@@ -2220,11 +2238,24 @@
         </div>
       </form>
     </dialog>
+    <dialog id="everything-tracking-dialog" class="modal everything-rule-dialog" aria-labelledby="everything-rule-title">
+      <form id="everything-rule-form"><h2 id="everything-rule-title">追蹤 Everything 搜尋</h2>
+        <label class="field"><span>名稱</span><input id="everything-rule-name" maxlength="100" required></label>
+        <label class="field"><span>搜尋條件（單行）</span><textarea id="everything-rule-text" maxlength="4096" rows="3" required spellcheck="false" placeholder="dm:last7days !C:\Temp\ size:>200mb"></textarea></label>
+        <div class="everything-rule-options"><label class="field"><span>語法模式</span><select id="everything-rule-mode"><option value="syntax">Everything 語法（含 regex:）</option><option value="simple">檔名關鍵字</option></select></label><label class="field"><span>類型</span><select id="everything-rule-type"><option value="all">檔案及資料夾</option><option value="file">只有檔案</option><option value="folder">只有資料夾</option></select></label></div>
+        <label class="field"><span>標籤（逗號分隔）</span><input id="everything-rule-tags" maxlength="700" placeholder="工作, 大型檔案"></label>
+        <label class="check-row"><input id="everything-rule-enabled" type="checkbox" checked>啟用追蹤</label>
+        <p class="rule-hint">regex: 可與日期、大小及其他條件混用。搜尋式依本機 Everything 版本與 IPC 權限執行；相對日期會隨每次查詢更新。1.4 的 video: 等篩選宏請改用實際 ext: 條件。</p>
+        <p id="everything-rule-error" role="status"></p><div class="modal-buttons"><button id="everything-rule-cancel" type="button" class="btn btn-ghost">取消</button><button id="everything-rule-save" type="submit" class="btn btn-primary">儲存追蹤</button></div>
+      </form>
+    </dialog>
     <dialog id="everything-dialog" class="modal everything-dialog" aria-labelledby="everything-title">
       <h2 id="everything-title">Everything 本機搜尋</h2>
-      <p class="rule-hint">輸入檔名關鍵字或 *.pdf 等萬用字元；空格代表多個關鍵字。不接受 ext:、content: 等進階語法。只查詢，不會自動改名。</p>
+      <p class="rule-hint">Everything 語法可直接輸入 dm:、size:、! 路徑排除、ext:、分組及 regex:。語法由已安裝的 Everything 版本解讀；這裡輸入搜尋式，不是 es.exe 指令列參數。</p>
+      <details class="everything-syntax-help"><summary>語法例子與版本差異</summary><p><code>dm:last7days !C:\Users\Benson\AppData\Local\Temp size:&gt;200mb</code></p><p><code>ext:pdf;docx regex:"^Report [0-9]+"</code></p><p>GUI 的影片篩選與搜尋選項不會自動套用；請把條件寫入搜尋式。Everything 1.4 的 IPC 不支援 video: 等篩選宏，可貼上該篩選器實際的 ext: 條件；1.5 的功能依安裝版本、索引與 IPC 權限而定。</p></details>
       <form id="everything-search-form" class="everything-search-tools">
-        <input id="everything-query" type="search" maxlength="256" placeholder="例如 *.pdf 或 report 2026" aria-label="Everything 檔名搜尋">
+        <input id="everything-query" type="search" maxlength="4096" placeholder="例如 dm:last7days !C:\Temp\ size:>200mb" aria-label="Everything 搜尋條件">
+        <select id="everything-mode" aria-label="Everything 語法模式"><option value="syntax">Everything 語法（含 regex:）</option><option value="simple">檔名關鍵字</option></select>
         <select id="everything-type" aria-label="Everything 類型">
           <option value="all">檔案及資料夾</option>
           <option value="file">只有檔案</option>
@@ -2243,8 +2274,10 @@
         <span>收藏時加入標籤（選填，逗號分隔）</span>
         <input type="text" id="everything-tags" maxlength="1000" placeholder="工作, 常用">
       </label>
+      <label class="field"><span>追蹤搜尋名稱（選填）</span><input id="everything-track-name" maxlength="100" placeholder="例如 最近 7 天的大型檔案"></label>
       <div class="modal-buttons">
         <button id="btn-everything-close" class="btn btn-secondary">關閉／取消查詢</button>
+        <button id="btn-everything-track" type="button" class="btn btn-secondary">追蹤此搜尋</button>
         <button id="btn-everything-add-favorite" class="btn btn-secondary" disabled>加入收藏</button>
         <button id="btn-everything-add-rename" class="btn btn-primary" disabled>檔案加入改名 →</button>
       </div>
@@ -2697,7 +2730,7 @@
     <script src="path-import.js" defer></script>
     <script src="sidebar-resize.js" defer></script>
     <script src="app-navigation.js" defer></script>
-    <script src="workspace-favorites.js" defer></script>
+    <script src="everything-tracking-ui.js" defer></script><script src="workspace-favorites.js" defer></script>
     <script src="favorites.js" defer></script>
     <script src="everything.js" defer></script>
     <script src="structured-note-model.js" defer></script><script src="structured-note-ui.js" defer></script>

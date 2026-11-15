@@ -33,7 +33,7 @@ function cleanTags(tags) {
 function validateFavorites(data){
  if(!data||data.version!==1||!Array.isArray(data.items)||data.items.length>MAX_FAVORITES)throw new Error('收藏資料格式無效');const ids=new Set(),paths=new Set();
  for(const item of data.items){if(!item||typeof item.id!=='string'||ids.has(item.id)||typeof item.path!=='string'||!absolute(item.path)||!['file','folder'].includes(item.type)||typeof item.label!=='string'||item.label.length>100||!item.identity||!identityKeys.every(key=>typeof item.identity[key]==='string')||typeof item.createdAt!=='string'||typeof item.updatedAt!=='string')throw new Error('收藏紀錄不完整');favoriteReference(item.path);cleanTags(item.tags);if(paths.has(pathKey(item.path)))throw new Error('收藏位置重複');ids.add(item.id);paths.add(pathKey(item.path));}
- return structuredClone(data);
+ require('./everything-tracking').normalizeRules(data);return structuredClone(data);
 }
 class FavoritesStore {
   constructor(filename) { this.filename=filename; }
@@ -51,7 +51,7 @@ class FavoritesStore {
           !item.identity || !identityKeys.every(key=>typeof item.identity[key]==='string') || typeof item.createdAt!=='string' || typeof item.updatedAt!=='string')throw new Error('收藏紀錄不完整');
         cleanTags(item.tags);ids.add(item.id);
       }
-      return data;
+      require('./everything-tracking').normalizeRules(data);return data;
     } catch(e) { throw new Error(`收藏資料無法讀取，已停止寫入以保留原資料。\n${this.filename}\n${e.message}`); }
   }
   write(data) {
