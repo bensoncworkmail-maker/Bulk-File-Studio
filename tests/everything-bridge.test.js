@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {EverythingBridge,buildQuery,parseResults}=require('../src/everything-bridge');
+const {FILE_TYPES,normalizeQuery}=require('../src/everything-query');
 function setup(t,options={}){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-es-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'es.exe');fs.writeFileSync(file,Buffer.from('MZ test executable fixture'));const config=path.join(dir,'config.json'),calls=[];const run=(exe,args,settings,callback)=>{calls.push({exe,args,settings});const output=args[args.indexOf('-export-txt')+1];setImmediate(()=>{fs.writeFileSync(output,'\uFEFFC:\\文件\\report.pdf\r\nC:\\Projects\r\n\\\\server\\share\\bad.txt\r\n');callback(null);});return {kill(){}};};const bridge=new EverythingBridge(config,{platform:'win32',tempRoot:dir,run,...options});return {bridge,dir,file,config,calls};}
 test('Everything remains disabled without any helper process and persists an explicit opt-in',async t=>{const h=setup(t);assert.equal(h.bridge.status().enabled,false);await assert.rejects(h.bridge.search({text:'report',type:'all'}),/未啟用/);assert.equal(h.calls.length,0);h.bridge.choose(h.file);assert.equal(h.bridge.status().enabled,false);h.bridge.configure(true,'');const restored=new EverythingBridge(h.config,{platform:'win32'});assert.equal(restored.status().enabled,true);h.bridge.configure(false,'');assert.equal(new EverythingBridge(h.config,{platform:'win32'}).status().enabled,false);});
 test('fixed IPC query keeps switches as data, filters network results and supports selection tokens',async t=>{const h=setup(t);h.bridge.choose(h.file);h.bridge.configure(true,'1.5a');const result=await h.bridge.search({text:'-exit $(calc) *.pdf',type:'file'});assert.equal(result.rows.length,2);assert.equal(result.skipped,1);assert.equal(h.calls[0].settings.shell,false);assert.equal(h.calls[0].settings.windowsHide,true);assert.equal(h.calls[0].settings.timeout,10000);assert.ok(h.calls[0].args.includes('-ipc2'));assert.equal(h.calls[0].args.at(-2),'--');assert.equal(h.calls[0].args.at(-1),'file: "-exit" "$(calc)" "*.pdf"');assert.deepEqual(h.bridge.selection(result.token,[0,0]),['C:\\文件\\report.pdf']);assert.throws(()=>h.bridge.selection('old',[0]));assert.throws(()=>h.bridge.selection(result.token,[-1]));assert.equal(fs.readdirSync(h.dir).some(n=>n.startsWith('bfs-everything-')),false);h.bridge.configure(false,'');assert.throws(()=>h.bridge.selection(result.token,[0]));});
@@ -20,4 +21,22 @@ test('native Everything syntax, quoted paths, OR and PCRE expressions are forwar
 });
 test('background tracked queries never replace interactive selection tokens',async t=>{
  const h=setup(t);h.bridge.choose(h.file);h.bridge.configure(true,'');const interactive=await h.bridge.search({text:'report',type:'all'});await h.bridge.search({text:'size:>200mb',mode:'syntax',type:'file'},{publish:false});assert.deepEqual(h.bridge.selection(interactive.token,[0]),['C:\\文件\\report.pdf']);
+});
+
+test('every file category applies an extension filter to the whole native query and stays file-only',async t=>{
+ const h=setup(t);h.bridge.choose(h.file);h.bridge.configure(true,'');
+ const text=String.raw`dm:last7days !C:\Users\Benson\AppData\Local\Temp size:>200mb | regex:"^Report [0-9]+"`;
+ const representative={audio:'mp3',compressed:'7z',document:'pdf',executable:'exe',picture:'heic',video:'mkv'};
+ for(const [type,ext] of Object.entries(representative)){
+  assert.ok(FILE_TYPES[type].split(';').includes(ext));
+  await h.bridge.search({text,type,mode:'syntax'});const call=h.calls.at(-1);
+  assert.equal(call.args.at(-1),'file: ext:'+FILE_TYPES[type]+' <'+text+'>');
+  assert.equal(call.args.at(-2),'--');assert.ok(call.args.includes('/a-d'));assert.ok(!call.args.includes('/ad'));assert.equal(call.settings.shell,false);
+  assert.equal(normalizeQuery({text,type,mode:'syntax'}).text,text);
+ }
+});
+
+test('file categories also work with quoted filename keywords and reject unknown or inherited types',()=>{
+ for(const [type,extensions] of Object.entries(FILE_TYPES))assert.equal(buildQuery({text:'Annual Report *.MP4',type}),'file: ext:'+extensions+' <"Annual" "Report" "*.MP4">');
+ for(const type of ['unknown','__proto__','constructor','toString',null,{}])assert.throws(()=>buildQuery({text:'*',type,mode:'syntax'}),/搜尋條件無效/);
 });

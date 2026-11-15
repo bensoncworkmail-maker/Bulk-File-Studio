@@ -2242,17 +2242,17 @@
       <form id="everything-rule-form"><h2 id="everything-rule-title">追蹤 Everything 搜尋</h2>
         <label class="field"><span>名稱</span><input id="everything-rule-name" maxlength="100" required></label>
         <label class="field"><span>搜尋條件（單行）</span><textarea id="everything-rule-text" maxlength="4096" rows="3" required spellcheck="false" placeholder="dm:last7days !C:\Temp\ size:>200mb"></textarea></label>
-        <div class="everything-rule-options"><label class="field"><span>語法模式</span><select id="everything-rule-mode"><option value="syntax">Everything 語法（含 regex:）</option><option value="simple">檔名關鍵字</option></select></label><label class="field"><span>類型</span><select id="everything-rule-type"><option value="all">檔案及資料夾</option><option value="file">只有檔案</option><option value="folder">只有資料夾</option></select></label></div>
+        <div class="everything-rule-options"><label class="field"><span>語法模式</span><select id="everything-rule-mode"><option value="syntax">Everything 語法（含 regex:）</option><option value="simple">檔名關鍵字</option></select></label><label class="field"><span>類型</span><select id="everything-rule-type"><option value="all">檔案及資料夾</option><option value="file">只有檔案</option><option value="folder">只有資料夾</option><option value="audio">音訊（MP3、FLAC、WAV…）</option><option value="compressed">壓縮檔（ZIP、RAR、7Z…）</option><option value="document">文件（PDF、Word、Excel…）</option><option value="executable">執行檔（EXE、MSI、BAT…）</option><option value="picture">圖片（JPG、PNG、HEIC…）</option><option value="video">影片（MP4、MKV、AVI…）</option></select></label></div>
         <label class="field"><span>標籤（逗號分隔）</span><input id="everything-rule-tags" maxlength="700" placeholder="工作, 大型檔案"></label>
         <label class="check-row"><input id="everything-rule-enabled" type="checkbox" checked>啟用追蹤</label>
-        <p class="rule-hint">regex: 可與日期、大小及其他條件混用。搜尋式依本機 Everything 版本與 IPC 權限執行；相對日期會隨每次查詢更新。1.4 的 video: 等篩選宏請改用實際 ext: 條件。</p>
+        <p class="rule-hint">檔案類型依副檔名篩選，可與日期、大小、路徑排除及 regex: 混用；如只要指定副檔名，可選「只有檔案」並輸入 ext:mp4;mkv。相對日期會隨每次查詢更新。</p>
         <p id="everything-rule-error" role="status"></p><div class="modal-buttons"><button id="everything-rule-cancel" type="button" class="btn btn-ghost">取消</button><button id="everything-rule-save" type="submit" class="btn btn-primary">儲存追蹤</button></div>
       </form>
     </dialog>
     <dialog id="everything-dialog" class="modal everything-dialog" aria-labelledby="everything-title">
       <h2 id="everything-title">Everything 本機搜尋</h2>
       <p class="rule-hint">Everything 語法可直接輸入 dm:、size:、! 路徑排除、ext:、分組及 regex:。語法由已安裝的 Everything 版本解讀；這裡輸入搜尋式，不是 es.exe 指令列參數。</p>
-      <details class="everything-syntax-help"><summary>語法例子與版本差異</summary><p><code>dm:last7days !C:\Users\Benson\AppData\Local\Temp size:&gt;200mb</code></p><p><code>ext:pdf;docx regex:"^Report [0-9]+"</code></p><p>GUI 的影片篩選與搜尋選項不會自動套用；請把條件寫入搜尋式。Everything 1.4 的 IPC 不支援 video: 等篩選宏，可貼上該篩選器實際的 ext: 條件；1.5 的功能依安裝版本、索引與 IPC 權限而定。</p></details>
+      <details class="everything-syntax-help"><summary>語法例子與版本差異</summary><p><code>dm:last7days !C:\Users\Benson\AppData\Local\Temp size:&gt;200mb</code></p><p><code>ext:pdf;docx regex:"^Report [0-9]+"</code></p><p>可在「類型」選擇音訊、壓縮檔、文件、執行檔、圖片或影片，再輸入日期、大小等條件；分類依本程式內建副檔名清單篩選。如只要指定副檔名，可選「只有檔案」並輸入 ext:mp4;mkv。</p><p>Everything GUI 的自訂篩選與搜尋選項不會自動套用。這裡的類型選單可用於 Everything 1.4；直接輸入 video: 等篩選宏則受 IPC 版本限制。1.5 的功能依安裝版本、索引與 IPC 權限而定。</p></details>
       <form id="everything-search-form" class="everything-search-tools">
         <input id="everything-query" type="search" maxlength="4096" placeholder="例如 dm:last7days !C:\Temp\ size:>200mb" aria-label="Everything 搜尋條件">
         <select id="everything-mode" aria-label="Everything 語法模式"><option value="syntax">Everything 語法（含 regex:）</option><option value="simple">檔名關鍵字</option></select>
@@ -2260,6 +2260,12 @@
           <option value="all">檔案及資料夾</option>
           <option value="file">只有檔案</option>
           <option value="folder">只有資料夾</option>
+          <option value="audio">音訊（MP3、FLAC、WAV…）</option>
+          <option value="compressed">壓縮檔（ZIP、RAR、7Z…）</option>
+          <option value="document">文件（PDF、Word、Excel…）</option>
+          <option value="executable">執行檔（EXE、MSI、BAT…）</option>
+          <option value="picture">圖片（JPG、PNG、HEIC…）</option>
+          <option value="video">影片（MP4、MKV、AVI…）</option>
         </select>
         <button id="btn-everything-search" type="submit" class="btn btn-primary">搜尋</button>
       </form>

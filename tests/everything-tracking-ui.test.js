@@ -12,6 +12,15 @@ function fixture(t){
  window.everythingTrackingUI.init({showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error)});
  return {window,document,api,service,rule,file,favorites,calls,actions,toasts,errors,intervals,fail:value=>failure=value,$:id=>document.getElementById(id)};
 }
+test('both type selectors offer the supported categories and tracked edits retain the selected type',async t=>{
+ const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');await flush();
+ const expected=['all','file','folder',...Object.keys(FILE_TYPES)];
+ for(const id of ['everything-type','everything-rule-type'])assert.deepEqual(h.$(id).querySelectorAll('option').map(option=>option.value),expected);
+ h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-edit').dispatch('click');
+ h.$('everything-rule-type').value='video';await h.$('everything-rule-form').dispatch('submit');await flush();
+ assert.equal(h.service.list().queries[0].type,'video');assert.equal(h.calls.at(-1).type,'video');
+ await h.$('everything-tracking-edit').dispatch('click');assert.equal(h.$('everything-rule-type').value,'video');
+});
 test('tracked searches refresh on entry, filter tags and provide validated file actions and manual favorites',async t=>{
  const h=fixture(t);await flush();assert.equal(h.calls.length,0);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-command').textContent,/dm:last7days/);
  const check=h.$('everything-tracking-results').querySelector('input');assert.equal(check.disabled,false);check.checked=true;await check.dispatch('change');assert.equal(h.$('everything-tracking-copy').disabled,false);await h.$('everything-tracking-copy').dispatch('click');await flush();assert.equal(h.actions[0].action,'copy');
