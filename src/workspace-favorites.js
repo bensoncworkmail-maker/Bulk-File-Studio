@@ -19,7 +19,8 @@
   kind=next;
   $('favorite-files-layout').hidden=kind!=='files';
   $('workspace-favorites-panel').hidden=kind!=='workspace';
-  for(const value of ['files','workspace']){
+  $('everything-tracking-panel').hidden=kind!=='everything';window.everythingTrackingUI?.activate(kind==='everything');
+  for(const value of ['files','workspace','everything']){
    const tab=$('favorite-kind-'+value),active=value===kind;
    tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;
   }
@@ -261,11 +262,11 @@
    onSelect:render,onTag:tag=>{activeTag=tag.toLocaleLowerCase();render();},
    showFailure:callbacks.showFailure,showToast:callbacks.showToast
   });
-  for(const value of ['files','workspace']){
+  for(const value of ['files','workspace','everything']){
    const tab=$('favorite-kind-'+value);tab.addEventListener('click',()=>show(value));
    tab.addEventListener('keydown',event=>{
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
-    event.preventDefault();const next=event.key==='Home'?'files':event.key==='End'?'workspace':value==='files'?'workspace':'files';show(next);$('favorite-kind-'+next).focus();
+    event.preventDefault();const values=['files','workspace','everything'],next=event.key==='Home'?'files':event.key==='End'?'everything':values[(values.indexOf(value)+(event.key==='ArrowRight'?1:2))%3];show(next);$('favorite-kind-'+next).focus();
    });
   }
   window.sidebarResize.initFavoritesWorkspace({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>saving||callbacks.isBusy()});
@@ -305,7 +306,7 @@
  }
  function activate(){
   const preferred=window.settingsUI.get().favoriteStartKind||'files';
-  if(defaultKind!==preferred){defaultKind=preferred;show(preferred);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}
+  if(defaultKind!==preferred){defaultKind=preferred;show(preferred);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}else if(kind==='everything')window.everythingTrackingUI?.activate(true);
  }
- window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),isWorkspace:()=>kind==='workspace'};
+ window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),showEverything:()=>show('everything'),isFiles:()=>kind==='files',isWorkspace:()=>kind==='workspace'};
 })();

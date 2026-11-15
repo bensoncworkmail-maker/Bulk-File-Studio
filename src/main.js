@@ -66,7 +66,7 @@ function popupFloatingMenu(template,options){
 const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
-let favorites,everything;
+let favorites,everything,everythingTracking;
 let notesImportReadVersion=0;
 let notes,notesImportDocument,notesImportName='',notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
 function invalidateNotesImport(){notesImportReadVersion++;notesImportDocument=null;notesImportName='';sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;}
@@ -490,13 +490,28 @@ app.whenReady().then(() => {
   handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
   handle('notes-import-commit',(_,token,options)=>{const result=notesChanged(notesStore().importCommit(token,options));if(sharedImportToken?.token===token&&sharedImport){try{notesShare.completeImport(sharedImport,result.revision,sharedImportToken.mode);if(notesShare.rollbackNotice)result.result.shareNotice=notesShare.rollbackNotice;}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
   handle('everything-status',()=>everything.status());
-  handle('everything-configure',(_,enabled,instance)=>everything.configure(enabled,instance));
-  handle('everything-choose',async(_,dropped)=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const filepath=await openFileInput(dialog,win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']},dropped);return !filepath?{canceled:true}:everything.choose(filepath);});
+  handle('everything-configure',(_,enabled,instance)=>{const value=everything.configure(enabled,instance);everythingTracking.invalidate();send(win,'everything-tracking-changed');return value;});
+  handle('everything-choose',async(_,dropped)=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const filepath=await openFileInput(dialog,win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const value=everything.choose(filepath);everythingTracking.invalidate();send(win,'everything-tracking-changed');return value;});
+  handle('everything-tracking-list',()=>everythingTracking.list());
+  handle('everything-tracking-save',(_,input)=>{const value=everythingTracking.save(input);send(win,'everything-tracking-changed');return value;});
+  handle('everything-tracking-remove',(_,id)=>{everythingTracking.remove(id);send(win,'everything-tracking-changed');return everythingTracking.list();});
+  handle('everything-tracking-configure',(_,seconds)=>{const value=everythingTracking.configure(seconds);send(win,'everything-tracking-changed');return value;});
+  handle('everything-tracking-refresh',(_,id)=>everythingTracking.refresh(id));
+  handle('everything-tracking-action',(_,id,token,indices,action)=>fileOperation(async()=>{
+    if(!['open','show','copy','favorite'].includes(action))throw Error('追蹤搜尋操作無效');
+    const {paths,tags}=everythingTracking.selection(id,token,indices);
+    if(action==='favorite'){const result=favorites.addPaths(paths,tags);notifyFavorites();return result;}
+    if(action==='copy'){clipboard.writeText(paths.join('\n'));return {copied:paths.length};}
+    if(paths.length!==1)throw Error('請逐項開啟或定位');
+    if(action==='show'){shell.showItemInFolder(paths[0]);return {shown:true};}
+    await require('./notes-location-links').safeLocationOpen(paths[0]);const error=await shell.openPath(paths[0]);if(error)throw Error(error);return {opened:true};
+  }));
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());
   handle('everything-favorite',(_,token,indices,tags)=>{const paths=everything.selection(token,indices);const result=favorites.addPaths(paths,tags);notifyFavorites();return result;});
   handle('everything-to-rename',(_,token,indices)=>{const paths=everything.selection(token,indices);for(const file of paths)if(inspectPath(file).type!=='file')throw new Error('加入改名只接受一般檔案，資料夾可先加入收藏');return listPaths(paths,false);});
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
+  everythingTracking=new(require('./everything-tracking').EverythingTracking)({favorites,bridge:everything});
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
   handle('favorites-list', event => {
     if(event.sender===floating?.webContents)return {items:favorites.list()};

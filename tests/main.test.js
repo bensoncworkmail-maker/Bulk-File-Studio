@@ -194,7 +194,7 @@ test('bulk open validates the entire selection, limits volume, and copies paths'
 
 test('floating window has offline policy, limited IPC and can focus a tag in the main window',t=>{
  const {handlers,rawHandlers,windows,registered,dir}=harness(t);assert.ok(registered.has('CommandOrControl+Alt+B'));handlers.get('floating-show')();assert.equal(windows.length,2);const mini=windows[1];assert.equal(mini.options.alwaysOnTop,true);assert.equal(mini.options.webPreferences.sandbox,true);const event={sender:mini.webContents,senderFrame:{url:mini.url}};
- assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
+ assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','everything-tracking-list','everything-tracking-save','everything-tracking-remove','everything-tracking-configure','everything-tracking-refresh','everything-tracking-action','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
  rawHandlers.get('floating-main')(event,'work');assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
  registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,false);registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,true);
  handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.deepEqual([...registered.keys()],['CommandOrControl+Alt+S','CommandOrControl+Alt+D']);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
@@ -1103,4 +1103,13 @@ test('workspace bookmark tag management IPC updates table tags and derived rows 
  const id=h.handlers.get('notes-record-save')(null,{sheetId:master.id,title:'Inherited row',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id;
  batch(null,[{kind:'sheet',id:master.id}],'save',['Old'],{followRecords:true});assert.deepEqual(manage(null,'Old','New',1),{updated:1});assert.deepEqual(list().find(item=>item.id===id).tags,['New']);
  manage(null,'New',null,1);assert.deepEqual(list().find(item=>item.id===id).tags,[]);assert.equal(list().find(item=>item.id===master.id).followRecords,true);
+});
+
+
+test('Everything tracked-search IPC derives current files, validates actions and preserves manual favorites on removal',async t=>{
+ let file;class Bridge{status(){return {supported:true,configured:true,enabled:true};}async search(input,options){assert.equal(input.mode,'syntax');assert.equal(options.publish,false);return {rows:[{path:file,name:'large.txt'}],truncated:false,skipped:0};}cancel(){}}
+ const h=harness(t,{'./everything-bridge':{EverythingBridge:Bridge}});file=path.join(h.dir,'large.txt');fs.writeFileSync(file,'content');const query=h.handlers.get('everything-tracking-save')(null,{name:'Large files',text:'dm:last7days size:>200mb',mode:'syntax',type:'file',tags:['Large'],enabled:true});
+ const value=await h.handlers.get('everything-tracking-refresh')(null,query.id),snapshot=value.queries[0].snapshot;assert.equal(snapshot.rows.length,1);
+ const action=h.handlers.get('everything-tracking-action');await assert.rejects(action(null,query.id,'forged',[0],'copy'),/已更新/);await action(null,query.id,snapshot.token,[0],'copy');assert.equal(h.getCopied(),file);const saved=await action(null,query.id,snapshot.token,[0],'favorite');assert.equal(saved.added,1);
+ h.handlers.get('everything-tracking-remove')(null,query.id);assert.equal(h.handlers.get('everything-tracking-list')().queries.length,0);assert.equal(h.handlers.get('favorites-list')().items.length,1);assert.equal(fs.readFileSync(file,'utf8'),'content');
 });

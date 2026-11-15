@@ -34,3 +34,10 @@ test('the selected preview path rejects a public UNC source before reading and r
  assert.equal(result.type,'text');
  assert.equal(result.text,'<img src="https://example.test/x">');
 });
+
+
+test('full backups include tagged Everything query rules and restore them without executable authorization',t=>{
+ const h=setup(t),{EverythingTracking}=require('../src/everything-tracking'),tracking=new EverythingTracking({favorites:h.favorites,bridge:{status:()=>({enabled:false})}});
+ const query=tracking.save({name:'Large files',text:'dm:last7days size:>200mb',mode:'syntax',type:'file',tags:['Large'],enabled:true});tracking.configure(300);const bundle=h.profile.snapshot({});assert.equal(bundle.favorites.everythingSearches[0].id,query.id);assert.equal(bundle.favorites.everythingRefreshSeconds,300);
+ tracking.remove(query.id);const preview=h.profile.preview(bundle);h.profile.restore(preview.token,{});assert.equal(tracking.list().queries[0].text,query.text);assert.deepEqual(tracking.list().queries[0].tags,['Large']);assert.ok(!fs.existsSync(path.join(h.root,'everything-config.json')));
+});

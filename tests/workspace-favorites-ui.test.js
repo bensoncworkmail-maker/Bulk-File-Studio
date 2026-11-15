@@ -171,3 +171,8 @@ test('tag management includes manual bookmarks hidden by table-tracked recycling
  const tag=h.$('workspace-favorite-tag-list').children.find(item=>item.textContent.startsWith('Work'));await tag.dispatch('contextmenu');await h.menus.at(-1)[2].run();assert.match(h.$('workspace-favorite-manage-description').textContent,/2 項/);
  h.$('workspace-favorite-manage-name').value='Renamed';await h.$('workspace-favorite-manage-form').dispatch('submit');await flush();assert.equal(h.$('workspace-favorite-manage-dialog').open,false);assert.ok(h.tools.get().bookmarks.every(item=>item.tags.join()==='Renamed'));assert.deepEqual(h.errors,[]);
 });
+
+test('favorite source tabs include Everything tracking with independent panels and keyboard navigation',async t=>{
+ const h=fixture(t);await flush();await h.$('favorite-kind-workspace').dispatch('keydown',{key:'ArrowRight'});assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(h.$('workspace-favorites-panel').hidden,true);assert.equal(h.$('favorite-files-layout').hidden,true);assert.equal(h.window.workspaceFavoritesUI.isFiles(),false);
+ await h.$('favorite-kind-everything').dispatch('keydown',{key:'Home'});assert.equal(h.$('favorite-files-layout').hidden,false);assert.equal(h.$('everything-tracking-panel').hidden,true);
+});
