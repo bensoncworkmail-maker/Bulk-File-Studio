@@ -8,6 +8,20 @@ function fixture(t){
  const tracking=new EverythingTracking({favorites,bridge});const save=(patch={})=>tracking.save({name:'Large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true,...patch});
  return {dir,a,b,favorites,bridge,tracking,calls,save,paths:value=>paths=value,fail:value=>fail=value,pending:value=>pending=value};
 }
+test('file categories survive saved-rule reload, validation, refresh and editing without changing query text',async t=>{
+ const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');
+ for(const type of Object.keys(FILE_TYPES))h.save({name:type,type});
+ const restored=validateFavorites(JSON.parse(JSON.stringify(h.favorites.read())));
+ const store=new FavoritesStore(path.join(h.dir,'restored.json'));store.write(restored);
+ const tracking=new EverythingTracking({favorites:store,bridge:h.bridge});
+ assert.deepEqual(tracking.list().queries.map(query=>query.type),Object.keys(FILE_TYPES));
+ for(const query of tracking.list().queries){
+  await tracking.refresh(query.id);assert.equal(h.calls.at(-1).input.type,query.type);assert.equal(h.calls.at(-1).input.text,'dm:last7days size:>200mb');
+ }
+ const video=tracking.list().queries.find(query=>query.type==='video');assert.throws(()=>tracking.save({...video,type:'picture'}),/已在追蹤/);
+ tracking.save({...video,type:'picture',text:'dm:today'});
+ assert.equal(tracking.list().queries.find(query=>query.id===video.id).type,'picture');
+});
 test('tracked queries persist in favorites and full backup validation without touching manual favorites',t=>{
  const h=fixture(t);h.favorites.addPaths([h.a],['Manual']);const query=h.save();h.tracking.configure(300);const stored=h.favorites.read();assert.equal(stored.items.length,1);assert.equal(validateFavorites(stored).everythingSearches[0].id,query.id);assert.equal(normalizeRules(stored).refreshSeconds,300);
  assert.equal(new EverythingTracking({favorites:new FavoritesStore(h.favorites.filename),bridge:h.bridge}).list().queries[0].text,query.text);

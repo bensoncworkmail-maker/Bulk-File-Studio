@@ -13,3 +13,11 @@ test('Everything search uses native syntax and can save a tagged command instead
  await h.els.get('everything-search-form').emit('submit');await new Promise(setImmediate);assert.equal(h.calls[0].mode,'syntax');assert.equal(h.calls[0].text,h.els.get('everything-query').value);
  await h.els.get('btn-everything-track').emit('click');assert.equal(h.getTracked().name,'Recent large files');assert.deepEqual(Array.from(h.getTracked().tags),['工作','大型檔案']);assert.equal(h.getTracked().text,h.calls[0].text);assert.equal(h.getAdded(),undefined);assert.deepEqual(h.visits,['saved-query','everything']);assert.equal(h.els.get('everything-dialog').open,false);
 });
+
+test('search and save tracking carry the chosen video category without altering the user expression',async()=>{
+ const h=harness();await new Promise(setImmediate);await h.els.get('btn-everything-favorite').emit('click');
+ h.els.get('everything-mode').value='syntax';h.els.get('everything-type').value='video';h.els.get('everything-query').value='dm:last7days size:>200mb';
+ await h.els.get('everything-search-form').emit('submit');await new Promise(setImmediate);
+ assert.equal(h.calls[0].type,'video');await h.els.get('btn-everything-track').emit('click');
+ assert.equal(h.getTracked().type,'video');assert.equal(h.getTracked().text,'dm:last7days size:>200mb');
+});
