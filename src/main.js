@@ -1,7 +1,7 @@
 'use strict';
 const { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, clipboard, screen, globalShortcut, Tray, Menu, nativeImage, utilityProcess, Notification } = require('electron');
 const {installOfflinePolicy,assertLocalPath,assertSafeOpen}=require('./offline-policy');
-const {resolveMoveSources,planMove,executeRelocation,prepareMoveUndo}=require('./move-core');
+const {resolveMoveSources,planMove,planRename,executeRelocation,prepareMoveUndo}=require('./move-core');
 const {previewPathImport,importPathList}=require('./path-import-core');
 const {createSettingsExport,writeSettingsExport}=require('./settings-export');
 const {DesktopState}=require('./desktop-state');
@@ -109,6 +109,24 @@ async function confirmBatch(ids,kind,parent){
  }finally{batchOpening=false;}
 }
 function reportFloatingBatch(result){send(floating,'desktop-settings-changed',result.failures.length?{error:`已開啟 ${result.opened} 項；${result.failures.join('\n')}`}:{notice:result.canceled?'已取消批次開啟':`已開啟 ${result.opened} 項`});}
+async function confirmTrackedBatch(selection,kind){
+ if(batchOpening)throw new Error('另一項批次開啟仍在處理');batchOpening=true;
+ try{
+  const store=require('./everything-tracking-actions').trackingBatchStore(everythingTracking,selection.id,selection.token,selection.indices);
+  const plan=prepareBatch(store,[],kind),locations=kind==='locations';
+  const choice=await dialog.showMessageBox(win,{type:'question',title:locations?'批次開啟所在資料夾':'批次開啟檔案／資料夾',message:`將開啟 ${plan.targets.length} 個${locations?'所在資料夾（已合併相同位置）':'檔案／資料夾'}，是否繼續？`,detail:plan.targets.map(target=>target.path).join('\n'),buttons:['開啟','取消'],defaultId:1,cancelId:1,noLink:true});
+  if(choice.response!==0||win.isDestroyed())return {canceled:true,opened:0,failures:[]};
+  return await executeBatch(store,plan,filepath=>shell.openPath(filepath));
+ }finally{batchOpening=false;}
+}
+function performMovePlan(moves){
+ if(!moves.length)return {changed:0,moves:[],history:Boolean(readHistory())};
+ const record={version:3,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
+ try{executeRelocation(moves,{onPrepared:()=>saveHistory(record)});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}
+ const warning=syncFavoriteMoves(moves);
+ try{saveHistory({...record,state:'completed'});}catch(e){return {changed:moves.length,moves,history:false,warning:warning+' 操作成功，但復原紀錄無法儲存：'+e.message};}
+ return {changed:moves.length,moves,history:true,warning};
+}
 let contextMenu;
 let queuedFavorites = favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
@@ -497,8 +515,8 @@ app.whenReady().then(() => {
   handle('everything-tracking-remove',(_,id)=>{everythingTracking.remove(id);send(win,'everything-tracking-changed');return everythingTracking.list();});
   handle('everything-tracking-configure',(_,seconds)=>{const value=everythingTracking.configure(seconds);send(win,'everything-tracking-changed');return value;});
   handle('everything-tracking-refresh',(_,id)=>everythingTracking.refresh(id));
-  handle('everything-tracking-action',(_,id,token,indices,action)=>fileOperation(async()=>{
-    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,favorites,notifyFavorites,clipboard,shell,listPaths});
+  handle('everything-tracking-action',(_,id,token,indices,action,input)=>fileOperation(async()=>{
+    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen:confirmTrackedBatch,renameItem:(source,name)=>{const result=performMovePlan(planRename(source,name));if(result.changed)everythingTracking.invalidate();return result;}});
   }));
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());
@@ -751,10 +769,7 @@ app.whenReady().then(() => {
   handle('move-files',(_,paths,folder,expected,options)=>fileOperation(()=>{
     const moves=planMove(paths,folder,options);
     if(JSON.stringify(moves)!==JSON.stringify(expected))throw new Error('搬移預覽已變更，請重新預覽');
-    const record={version:3,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
-    try{executeRelocation(moves,{onPrepared:()=>saveHistory(record)});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}const warning=syncFavoriteMoves(moves);
-    try{saveHistory({...record,state:'completed'});}catch(e){return {changed:moves.length,moves,history:false,warning:warning+' 搬移成功，但復原紀錄無法儲存：'+e.message};}
-    return {changed:moves.length,moves,history:true,warning};
+    return performMovePlan(moves);
   }));
   handle('context-menu-status', () => contextMenu.status());
   handle('context-menu-set', (_, enabled) => contextMenu.setEnabled(enabled));

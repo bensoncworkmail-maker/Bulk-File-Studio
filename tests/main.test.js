@@ -1118,3 +1118,42 @@ test('Everything tracked-search IPC derives current files, validates actions and
  await assert.rejects(action(null,query.id,snapshot.token,[0],'delete'),/操作無效/);
  h.handlers.get('everything-tracking-remove')(null,query.id);assert.equal(h.handlers.get('everything-tracking-list')().queries.length,0);assert.equal(h.handlers.get('favorites-list')().items.length,1);assert.equal(fs.readFileSync(file,'utf8'),'content');
 });
+
+function trackedResults(t){
+ let paths=[];class Bridge{status(){return {supported:true,configured:true,enabled:true};}async search(){return {rows:paths.map(file=>({path:file,name:path.basename(file)})),truncated:false,skipped:0};}cancel(){}}
+ const h=harness(t,{'./everything-bridge':{EverythingBridge:Bridge}}),query=h.handlers.get('everything-tracking-save')(null,{name:'All',text:'*',mode:'syntax',type:'all',tags:[],enabled:true});
+ return {...h,setPaths:value=>paths=value,refresh:async()=> (await h.handlers.get('everything-tracking-refresh')(null,query.id)).queries[0].snapshot,action:(token,indices,kind,input)=>h.handlers.get('everything-tracking-action')(null,query.id,token,indices,kind,input)};
+}
+test('tracked bulk opening confirms, opens files and folders, and deduplicates locations without adding favorites',async t=>{
+ const h=trackedResults(t),file=path.join(h.dir,'a.txt'),folder=path.join(h.dir,'album');fs.writeFileSync(file,'a');fs.mkdirSync(folder);h.setPaths([file,folder]);const snapshot=await h.refresh();
+ let prompts=0;h.dialog.showMessageBox=async()=>{prompts++;return {response:0};};
+ const opened=await h.action(snapshot.token,[0,1],'bulk-open');assert.equal(opened.opened,2);assert.deepEqual(h.opened,[file,folder]);
+ const locations=await h.action(snapshot.token,[0,1],'bulk-locations');assert.equal(locations.opened,1);assert.equal(h.opened.at(-1),h.dir);assert.equal(prompts,2);assert.equal(h.handlers.get('favorites-list')().items.length,0);
+ h.dialog.showMessageBox=async()=>({response:1});assert.equal((await h.action(snapshot.token,[0],'bulk-open')).canceled,true);assert.equal(h.opened.length,3);
+ h.dialog.showMessageBox=async()=>{fs.renameSync(file,file+'.old');fs.writeFileSync(file,'replacement');return {response:0};};
+ await assert.rejects(h.action(snapshot.token,[0,1],'bulk-open'),/已替換/);assert.equal(h.opened.length,3);
+});
+test('tracked bulk opening enforces distinct-target limits and blocks scripts before any prompt',async t=>{
+ const h=trackedResults(t),files=Array.from({length:21},(_,i)=>path.join(h.dir,i+'.txt'));files.forEach(file=>fs.writeFileSync(file,'text'));h.setPaths(files);let snapshot=await h.refresh(),prompts=0;
+ h.dialog.showMessageBox=async()=>{prompts++;return {response:0};};
+ await assert.rejects(h.action(snapshot.token,files.map((_,i)=>i),'bulk-open'),/20/);assert.equal(prompts,0);
+ assert.equal((await h.action(snapshot.token,files.map((_,i)=>i),'bulk-locations')).opened,1);
+ const script=path.join(h.dir,'run.cmd');fs.writeFileSync(script,'echo test');h.setPaths([script]);snapshot=await h.refresh();
+ await assert.rejects(h.action(snapshot.token,[0],'bulk-open'),/腳本/);assert.equal(prompts,1);assert.equal(h.opened.length,1);
+});
+test('tracked single file rename validates names and tokens, syncs favorites and supports undo',async t=>{
+ const h=trackedResults(t),file=path.join(h.dir,'original.txt'),other=path.join(h.dir,'other.txt');fs.writeFileSync(file,'original bytes');fs.writeFileSync(other,'keep');h.setPaths([file,other]);let snapshot=await h.refresh();
+ for(const name of ['../outside.txt','CON','other.txt'])await assert.rejects(h.action(snapshot.token,[0],'rename-item',{name}));
+ await assert.rejects(h.action(snapshot.token,[0,1],'rename-item',{name:'multi.txt'}),/一個/);
+ await h.action(snapshot.token,[0],'favorite');const result=await h.action(snapshot.token,[0],'rename-item',{name:'new name.txt'}),target=path.join(h.dir,'new name.txt');
+ assert.equal(result.changed,1);assert.equal(fs.readFileSync(target,'utf8'),'original bytes');assert.equal(h.handlers.get('favorites-list')().items[0].path,target);
+ await assert.rejects(h.action(snapshot.token,[0],'rename-item',{name:'stale.txt'}),/已更新/);
+ await h.handlers.get('undo')(null);assert.equal(fs.readFileSync(file,'utf8'),'original bytes');assert.equal(h.handlers.get('favorites-list')().items[0].path,file);assert.equal(fs.readFileSync(other,'utf8'),'keep');
+ snapshot=await h.refresh();assert.equal((await h.action(snapshot.token,[0],'rename-item',{name:'original.txt'})).changed,0);
+});
+test('tracked folder rename preserves descendants and favorite links and restores them on undo',async t=>{
+ const h=trackedResults(t),folder=path.join(h.dir,'old folder'),child=path.join(folder,'child.txt');fs.mkdirSync(folder);fs.writeFileSync(child,'nested');h.setPaths([folder,child]);const snapshot=await h.refresh();
+ await h.action(snapshot.token,[0,1],'favorite');await h.action(snapshot.token,[0],'rename-item',{name:'renamed folder'});const target=path.join(h.dir,'renamed folder');
+ assert.equal(fs.readFileSync(path.join(target,'child.txt'),'utf8'),'nested');assert.deepEqual(h.handlers.get('favorites-list')().items.map(item=>item.path).sort(),[target,path.join(target,'child.txt')].sort());
+ await h.handlers.get('undo')(null);assert.equal(fs.readFileSync(child,'utf8'),'nested');assert.deepEqual(h.handlers.get('favorites-list')().items.map(item=>item.path).sort(),[folder,child].sort());
+});

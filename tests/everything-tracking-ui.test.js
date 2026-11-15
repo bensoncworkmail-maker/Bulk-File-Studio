@@ -11,7 +11,7 @@ function fixture(t){
  const renamed=[],moved=[],window={everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
  const callbacks={showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error),onRename:result=>renamed.push(result),isBusy:()=>false};window.everythingTrackingUI.init(callbacks);
- return {window,document,api,service,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
+ return {window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
 }
 test('both type selectors offer the supported categories and tracked edits retain the selected type',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');await flush();
@@ -47,10 +47,47 @@ test('new bulk buttons and shortcuts use the validated selection and stage renam
  await h.$('everything-tracking-select-all').dispatch('click');
  for(const kind of ['copy-names','copy-folders','rename','move']){await h.$('everything-tracking-'+kind).dispatch('click');await flush();assert.equal(h.actions.at(-1).action,kind);}
  assert.equal(h.renamed.length,1);assert.deepEqual(h.moved[0].paths,[h.file]);
- await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});await flush();assert.equal(h.renamed.length,2);
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});await flush();assert.equal(h.renamed.length,1);assert.equal(h.$('everything-item-rename-dialog').open,true);await h.$('everything-item-rename-cancel').dispatch('click');
  await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'m',ctrlKey:true,shiftKey:true});await flush();assert.equal(h.moved.length,2);
  const before=h.calls.length;await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F5'});await flush();assert.equal(h.calls.length,before+1);
  assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');assert.equal(h.$('everything-tracking-rename').disabled,true);assert.deepEqual(h.errors,[]);
+});
+
+test('blank row clicks select with Ctrl and Shift without stealing button actions or selected text',async t=>{
+ const h=fixture(t);await flush();const files=[h.file,...['two.txt','three.txt'].map(name=>{const file=path.join(path.dirname(h.file),name);fs.writeFileSync(file,'data');return file;})];
+ h.bridge.search=async()=>({rows:files.map(file=>({path:file,name:path.basename(file)})),skipped:0,truncated:false});h.window.everythingTrackingUI.activate(true);await flush();
+ const row=i=>h.$('everything-tracking-results').querySelectorAll('article')[i];
+ await row(0).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(h.$('everything-tracking-rename-item').disabled,false);
+ await row(2).dispatch('click',{ctrlKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(h.$('everything-tracking-rename-item').disabled,true);
+ h.window.getSelection=()=>({toString:()=> 'browser shift-selection'});await row(0).dispatch('click',{shiftKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 3 項');h.window.getSelection=()=>null;
+ await row(1).dispatch('click',{ctrlKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
+ await row(1).dispatch('click',{target:row(1).querySelector('button')});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
+ await row(1).dispatch('click',{target:row(1).querySelector('input')});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
+ h.window.getSelection=()=>({toString:()=> 'copied text'});await row(1).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');
+ h.window.getSelection=()=>null;await row(1).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(h.actions.length,0);
+});
+
+test('F2 opens a single-item rename dialog, confirms the captured token and retains errors for correction',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-results').querySelector('article').dispatch('click');
+ const captured=h.service.list().queries[0].snapshot.token,requests=[];let failure=true;
+ h.api.trackingAction=async(id,token,indices,action,input)=>{requests.push({id,token,indices,action,input});if(failure)throw Error('目標已存在');return {changed:1};};
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});
+ assert.equal(h.$('everything-item-rename-dialog').open,true);assert.equal(h.$('everything-item-rename-name').value,'report.txt');assert.equal(requests.length,0);assert.equal(h.renamed.length,0);
+ h.$('everything-item-rename-name').value='new report.txt';await h.$('everything-item-rename-form').dispatch('submit');await flush();
+ assert.equal(h.$('everything-item-rename-dialog').open,true);assert.match(h.$('everything-item-rename-error').textContent,/目標已存在/);assert.equal(h.$('everything-item-rename-save').disabled,false);
+ failure=false;await h.$('everything-item-rename-form').dispatch('submit');await flush();assert.equal(h.$('everything-item-rename-dialog').open,false);
+ assert.equal(requests[1].token,captured);assert.equal(requests[1].action,'rename-item');assert.deepEqual(Array.from(requests[1].indices),[0]);assert.equal(requests[1].input.name,'new report.txt');
+ assert.ok(h.toasts.includes('已重新命名'));assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+});
+
+test('bulk open buttons and Enter shortcuts forward the selection; Enter on a button keeps native activation',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-select-all').dispatch('click');
+ h.api.trackingAction=async(id,token,indices,action)=>{h.actions.push({action});return {opened:1,failures:[],canceled:false};};
+ for(const kind of ['bulk-open','bulk-locations']){await h.$('everything-tracking-'+kind).dispatch('click');await flush();assert.equal(h.actions.at(-1).action,kind);}
+ const panel=h.$('everything-tracking-panel'),target=h.$('everything-tracking-results');
+ await panel.dispatch('keydown',{target,key:'Enter'});await flush();assert.equal(h.actions.at(-1).action,'bulk-open');
+ await panel.dispatch('keydown',{target,key:'Enter',ctrlKey:true});await flush();assert.equal(h.actions.at(-1).action,'bulk-locations');
+ const before=h.actions.length;await panel.dispatch('keydown',{target:h.$('everything-tracking-rename-item'),key:'Enter'});await flush();assert.equal(h.actions.length,before);
 });
 test('tracked searches refresh on entry, filter tags and provide validated file actions and manual favorites',async t=>{
  const h=fixture(t);await flush();assert.equal(h.calls.length,0);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-command').textContent,/dm:last7days/);
