@@ -23,7 +23,11 @@
   const id=++refreshRequest;let failure='';busy=true;selected.clear();render();$('everything-tracking-status').textContent='正在查詢 Everything…';
   try{const value=await api.trackingRefresh(query.id);if(id===refreshRequest&&currentId===query.id){data=value;render();}}
   catch(error){failure=String(error.message||error);}
-  finally{busy=false;render();if(failure&&id===refreshRequest)$('everything-tracking-status').textContent=failure;if(active&&currentId!==query.id)void refresh();}
+  finally{busy=false;render();if(failure&&id===refreshRequest)$('everything-tracking-status').textContent=failure;
+   // Re-entry may have loaded the snapshot before this invalidated request finished.
+   if(active&&id!==refreshRequest)void load(currentId!==query.id);
+   else if(active&&currentId!==query.id)void refresh();
+  }
  }
  function renderControls(){
   const query=current(),rows=query?.snapshot?.rows||[],has=query&&ready();

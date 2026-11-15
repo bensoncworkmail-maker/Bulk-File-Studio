@@ -39,3 +39,17 @@ test('automatic refresh preserves an active result selection until it is cleared
  const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const first=h.calls.length,check=h.$('everything-tracking-results').querySelector('input');check.checked=true;await check.dispatch('change');[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first);assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');
  await h.$('everything-tracking-select-none').dispatch('click');[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first+1);
 });
+
+for(const failure of ['', 'offline'])test('re-entering during an outstanding query reloads its '+(failure?'error':'results')+' with automatic updates disabled',async t=>{
+ const h=fixture(t);await flush();h.service.configure(0);h.fail(failure);
+ let release;const pending=new Promise(resolve=>{release=resolve;}),refresh=h.api.trackingRefresh;
+ h.api.trackingRefresh=async id=>{await pending;return refresh(id);};
+ h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-refresh').disabled,true);
+ h.window.everythingTrackingUI.activate(false);h.window.everythingTrackingUI.activate(true);await flush();
+ assert.equal(h.intervals.size,0);assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,0);
+ release();await flush();
+ assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-refresh').disabled,false);
+ if(failure)assert.match(h.$('everything-tracking-status').textContent,/更新失敗.*offline/);
+ else {assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-status').textContent,/已更新/);}
+ assert.deepEqual(h.errors,[]);
+});
