@@ -1111,5 +1111,10 @@ test('Everything tracked-search IPC derives current files, validates actions and
  const h=harness(t,{'./everything-bridge':{EverythingBridge:Bridge}});file=path.join(h.dir,'large.txt');fs.writeFileSync(file,'content');const query=h.handlers.get('everything-tracking-save')(null,{name:'Large files',text:'dm:last7days size:>200mb',mode:'syntax',type:'file',tags:['Large'],enabled:true});
  const value=await h.handlers.get('everything-tracking-refresh')(null,query.id),snapshot=value.queries[0].snapshot;assert.equal(snapshot.rows.length,1);
  const action=h.handlers.get('everything-tracking-action');await assert.rejects(action(null,query.id,'forged',[0],'copy'),/已更新/);await action(null,query.id,snapshot.token,[0],'copy');assert.equal(h.getCopied(),file);const saved=await action(null,query.id,snapshot.token,[0],'favorite');assert.equal(saved.added,1);
+ await action(null,query.id,snapshot.token,[0],'copy-names');assert.equal(h.getCopied(),'large.txt');
+ await action(null,query.id,snapshot.token,[0],'copy-folders');assert.equal(h.getCopied(),h.dir);
+ assert.deepEqual((await action(null,query.id,snapshot.token,[0],'move')).paths,[file]);
+ assert.deepEqual((await action(null,query.id,snapshot.token,[0],'rename')).paths,[file]);
+ await assert.rejects(action(null,query.id,snapshot.token,[0],'delete'),/操作無效/);
  h.handlers.get('everything-tracking-remove')(null,query.id);assert.equal(h.handlers.get('everything-tracking-list')().queries.length,0);assert.equal(h.handlers.get('favorites-list')().items.length,1);assert.equal(fs.readFileSync(file,'utf8'),'content');
 });

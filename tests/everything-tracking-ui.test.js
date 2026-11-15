@@ -8,9 +8,10 @@ function fixture(t){
  const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true});
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;
  const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged(){},trackingAction:async(id,token,indices,action)=>{const result=service.selection(id,token,indices);actions.push({action,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
- const window={everythingAPI:api,confirm:()=>true};vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
- window.everythingTrackingUI.init({showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error)});
- return {window,document,api,service,rule,file,favorites,calls,actions,toasts,errors,intervals,fail:value=>failure=value,$:id=>document.getElementById(id)};
+ const renamed=[],moved=[],window={everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
+ const callbacks={showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error),onRename:result=>renamed.push(result),isBusy:()=>false};window.everythingTrackingUI.init(callbacks);
+ return {window,document,api,service,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
 }
 test('both type selectors offer the supported categories and tracked edits retain the selected type',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');await flush();
@@ -20,6 +21,36 @@ test('both type selectors offer the supported categories and tracked edits retai
  h.$('everything-rule-type').value='video';await h.$('everything-rule-form').dispatch('submit');await flush();
  assert.equal(h.service.list().queries[0].type,'video');assert.equal(h.calls.at(-1).type,'video');
  await h.$('everything-tracking-edit').dispatch('click');assert.equal(h.$('everything-rule-type').value,'video');
+});
+
+test('tracking shortcuts select, invert, copy and clear only inside an active non-editing results view',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const panel=h.$('everything-tracking-panel'),results=h.$('everything-tracking-results');let prevented=0;
+ const key=(key,extra={})=>panel.dispatch('keydown',{key,target:results,preventDefault(){prevented++;},...extra});
+ await key('a',{ctrlKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(h.document.activeElement,results);
+ await key('c',{ctrlKey:true});await flush();assert.equal(h.actions.at(-1).action,'copy');
+ await key('C',{ctrlKey:true,shiftKey:true});await flush();assert.equal(h.actions.at(-1).action,'copy-names');
+ await key('a',{ctrlKey:true,shiftKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+ const check=results.querySelector('input');await key('a',{ctrlKey:true,target:check});assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');
+ await key('Escape');assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+ const before=prevented;
+ await key('a',{ctrlKey:true,target:h.$('everything-rule-name')});
+ h.$('everything-tracking-dialog').showModal();await key('a',{ctrlKey:true});h.$('everything-tracking-dialog').close();
+ h.callbacks.isBusy=()=>true;await key('a',{ctrlKey:true});h.callbacks.isBusy=()=>false;
+ await key('a',{ctrlKey:true,isComposing:true});await key('a',{ctrlKey:true,altKey:true});await key('a',{ctrlKey:true,repeat:true});await key('a',{ctrlKey:true,defaultPrevented:true});
+ h.window.everythingTrackingUI.activate(false);await key('a',{ctrlKey:true});assert.equal(prevented,before);
+});
+
+test('new bulk buttons and shortcuts use the validated selection and stage rename or move',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ h.api.trackingAction=async(id,token,indices,action)=>{const value=h.service.selection(id,token,indices);h.actions.push({action,...value});return action==='move'||action==='rename'?{paths:value.paths}:{copied:1};};
+ await h.$('everything-tracking-select-all').dispatch('click');
+ for(const kind of ['copy-names','copy-folders','rename','move']){await h.$('everything-tracking-'+kind).dispatch('click');await flush();assert.equal(h.actions.at(-1).action,kind);}
+ assert.equal(h.renamed.length,1);assert.deepEqual(h.moved[0].paths,[h.file]);
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});await flush();assert.equal(h.renamed.length,2);
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'m',ctrlKey:true,shiftKey:true});await flush();assert.equal(h.moved.length,2);
+ const before=h.calls.length;await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F5'});await flush();assert.equal(h.calls.length,before+1);
+ assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');assert.equal(h.$('everything-tracking-rename').disabled,true);assert.deepEqual(h.errors,[]);
 });
 test('tracked searches refresh on entry, filter tags and provide validated file actions and manual favorites',async t=>{
  const h=fixture(t);await flush();assert.equal(h.calls.length,0);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.calls.length,1);assert.equal(h.$('everything-tracking-results').querySelectorAll('article').length,1);assert.match(h.$('everything-tracking-command').textContent,/dm:last7days/);

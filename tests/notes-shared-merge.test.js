@@ -145,6 +145,58 @@ function pull(store,{data,context}){
  return preview;
 }
 
+test('published table renames merge after restart while local record edits and relation IDs remain intact',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document),sheet=document.sheets[0];
+ pull(h.store,publisher.publish(document));
+ const row=h.store.get().document.records.find(item=>item.id===h.id);
+ h.store.saveRecord({...row,expectedVersion:row.version,notes:'本機筆記保留'});h.restart();
+ sheet.name='來源改名後的表格';document.sheets.find(item=>M.parentField(document,item)).name='來源改名後的明細';document.records[0].title='來源更新紀錄';
+ const release=publisher.publish(document),preview=pull(h.store,release),saved=h.store.get().document;
+ assert.ok(preview.structure.length);assert.equal(saved.sheets.find(item=>item.id===sheet.id).name,sheet.name);
+ assert.equal(saved.records.find(item=>item.id===h.id).notes,'本機筆記保留');
+ assert.equal(saved.records.find(item=>item.id===h.id).title,'來源更新紀錄');
+ assert.deepEqual(saved.sheets.map(item=>item.id),document.sheets.map(item=>item.id));
+ assert.deepEqual(saved.sheets.map(item=>item.name),document.sheets.map(item=>item.name));
+ assert.deepEqual(saved.sheets.map(item=>item.fields),document.sheets.map(item=>item.fields));
+ const again=publisher.publish(document);assert.doesNotThrow(()=>pull(h.store,again));
+});
+
+test('conflicting table names can be reviewed without discarding independent source columns',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document),sheet=document.sheets[0];
+ pull(h.store,publisher.publish(document));
+ const local=h.store.get().document.sheets.find(item=>item.id===sheet.id);
+ h.store.saveSheet({...local,expectedVersion:local.version,name:'本機表格名稱'});
+ sheet.name='來源表格名稱';sheet.fields.push({id:randomUUID(),label:'來源新增欄位',type:'text'});
+ const release=publisher.publish(document),before=h.store.get();
+ assert.throws(()=>h.store.importShared(release.data,before.revision,release.context),/衝突/);assert.deepEqual(h.store.get(),before);
+ const review=h.store.importPreview(release.data,'merge',release.context,{reviewConflicts:true});
+ assert.equal(review.conflicts.length,1);assert.match(review.conflicts[0].name,/表格設定/);
+ const preview=h.store.importPreview(release.data,'merge',release.context,{reviewConflicts:true,resolution:{token:review.token,choices:[{id:review.conflicts[0].id,choice:'local'}]}});
+ const result=h.store.importCommit(preview.token);assert.equal(result.document.sheets.find(item=>item.id===sheet.id).name,'本機表格名稱');
+ assert.ok(result.document.sheets.find(item=>item.id===sheet.id).fields.some(item=>item.label==='來源新增欄位'));
+ sheet.name='來源再改名';const next=publisher.publish(document);
+ const nextReview=h.store.importPreview(next.data,'merge',next.context,{reviewConflicts:true});
+ const chosen=h.store.importPreview(next.data,'merge',next.context,{reviewConflicts:true,resolution:{token:nextReview.token,choices:[{id:nextReview.conflicts[0].id,choice:'source'}]}});
+ assert.equal(h.store.importCommit(chosen.token).document.sheets.find(item=>item.id===sheet.id).name,sheet.name);
+});
+
+test('automatic receive accepts a source-only table rename using an existing persisted baseline',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document);
+ pull(h.store,publisher.publish(document));h.restart();document.sheets[0].name='自動接收新表名';
+ const release=publisher.publish(document),applied=h.store.importShared(release.data,h.store.get().revision,release.context);
+ assert.equal(applied.document.sheets.find(sheet=>sheet.id===document.sheets[0].id).name,'自動接收新表名');
+ assert.ok(fs.existsSync(applied.result.backup));assert.equal(applied.document.records.length,document.records.length);
+});
+
+test('scoped table renames retain local-only tables and their settings',t=>{
+ const h=setup(t),publisher=releases(t,h),document=M.clone(h.published.document),master=document.sheets[0];
+ h.store.addTemplate('projects');const outside=h.store.get().document.sheets.filter(sheet=>!document.sheets.some(item=>item.id===sheet.id));
+ const scoped=release=>({...release,context:{...release.context,scope:{mode:'masters',masterIds:[master.id]}}});
+ pull(h.store,scoped(publisher.publish(document)));master.name='指定主表改名';pull(h.store,scoped(publisher.publish(document)));
+ const result=h.store.get().document;assert.equal(result.sheets.find(sheet=>sheet.id===master.id).name,master.name);
+ assert.deepEqual(result.sheets.filter(sheet=>outside.some(item=>item.id===sheet.id)),outside);
+});
+
 test('published recycle and restore travel across skipped releases and keep record IDs and local-only rows',t=>{
  const h=setup(t),publisher=releases(t,h),source=new NotesStore(path.join(path.dirname(h.store.filename),'publisher.sqlite'));
  t.after(()=>source.close());
