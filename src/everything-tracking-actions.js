@@ -2,10 +2,19 @@
 const path=require('node:path');
 const {parentPath}=require('./favorites-batch');
 const pathAPI=value=>/^[a-z]:[\\/]/i.test(value)?path.win32:path;
+function trackingBatchStore(tracking,id,token,indices){
+ return {read:()=>null,selection:()=>tracking.selection(id,token,indices).paths.map((path,index)=>({id:String(index),path,...require('./favorites-store').inspectPath(path)})),state:()=>({status:'ready'})};
+}
 
-async function trackingAction({tracking,id,token,indices,action,favorites,notifyFavorites,clipboard,shell,listPaths}){
- if(!['open','show','copy','copy-names','copy-folders','favorite','rename','move'].includes(action))throw Error('追蹤搜尋操作無效');
+async function trackingAction({tracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen,renameItem}){
+ if(!['open','show','copy','copy-names','copy-folders','favorite','rename','move','bulk-open','bulk-locations','rename-item'].includes(action))throw Error('追蹤搜尋操作無效');
  const {paths,tags}=tracking.selection(id,token,indices);
+ if(action==='bulk-open'||action==='bulk-locations')return bulkOpen({id,token,indices},action==='bulk-open'?'open':'locations');
+ if(action==='rename-item'){
+  if(paths.length!==1)throw Error('請只選取一個檔案或資料夾再重新命名');
+  if(!input||typeof input.name!=='string')throw Error('請輸入新名稱');
+  return renameItem(paths[0],input.name);
+ }
  if(action==='favorite'){const result=favorites.addPaths(paths,tags);notifyFavorites();return result;}
  if(['copy','copy-names','copy-folders'].includes(action)){
   const values=action==='copy-names'?paths.map(value=>pathAPI(value).basename(value)):action==='copy-folders'?paths.map(parentPath):paths;
@@ -21,4 +30,4 @@ async function trackingAction({tracking,id,token,indices,action,favorites,notify
  if(action==='show'){shell.showItemInFolder(paths[0]);return {shown:true};}
  await require('./notes-location-links').safeLocationOpen(paths[0]);const error=await shell.openPath(paths[0]);if(error)throw Error(error);return {opened:true};
 }
-module.exports={trackingAction};
+module.exports={trackingAction,trackingBatchStore};

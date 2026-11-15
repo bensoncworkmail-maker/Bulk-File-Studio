@@ -70,17 +70,19 @@ function resolveMoveSources(paths,scope='selected'){
     }
   });
 }
-function planMove(paths,folder,options={}){
+function planMove(paths,folder,options={},renameTo=null){
+  if(renameTo!==null&&(typeof renameTo!=='string'||filenameProblem(renameTo)))throw new Error('目標名稱無效');
   const conflict=options?.conflict??'stop';if(!['stop','number'].includes(conflict))throw new Error('同名處理方式無效');
   const reserved=new Set();
   function destinationFor(source){
-    const name=path.basename(source),ext=fs.lstatSync(source).isDirectory()?'':path.extname(name),stem=ext?name.slice(0,-ext.length):name;
+    const name=renameTo??path.basename(source),ext=fs.lstatSync(source).isDirectory()?'':path.extname(name),stem=ext?name.slice(0,-ext.length):name;
     let destination=path.join(folder,name),index=0;
     if(conflict==='number')while(reserved.has(key(destination))||exists(destination)){if(++index>10000)throw new Error('自動編號超過上限');destination=path.join(folder,stem+'('+index+')'+ext);}
     reserved.add(key(destination));return destination;
   }
   assertLocalPath(folder);if(!fs.lstatSync(folder).isDirectory())throw new Error('請選擇目標資料夾');
   const roots=resolveMoveSources(paths,options?.scope??'selected');
+  if(renameTo!==null&&roots.length!==1)throw new Error('單筆改名只接受一個項目');
   const moves=[];
   function add(source,destination){
     assertLocalPath(source);const stat=fs.lstatSync(source),kind=stat.isDirectory()?'folder':'file';
@@ -158,4 +160,10 @@ function prepareMoveUndo(history){
   const moves=history.moves.map(move=>({source:move.destination,destination:move.source,kind:move.kind||'file',expectedFingerprint:history.version===3?move.destinationFingerprint:move.expectedFingerprint}));
   validate(moves);return moves;
 }
-module.exports={resolveMoveSources,planMove,executeRelocation,prepareMoveUndo};
+function planRename(source,name){
+  if(typeof name!=='string'||filenameProblem(name))throw new Error(filenameProblem(typeof name==='string'?name:'')||'目標名稱無效');
+  assertLocalPath(source);if(path.resolve(source)===path.parse(path.resolve(source)).root)throw new Error('不可重新命名磁碟根目錄');
+  if(path.basename(source)===name)return [];
+  return planMove([source],path.dirname(source),{conflict:'stop'},name);
+}
+module.exports={resolveMoveSources,planMove,planRename,executeRelocation,prepareMoveUndo};

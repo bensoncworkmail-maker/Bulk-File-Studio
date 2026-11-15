@@ -3,7 +3,7 @@
  const GLOBALS={mainShortcut:'叫回主視窗',floatingShortcut:'顯示／隱藏浮動工具',collapseShortcut:'收合／展開浮動工具',searchShortcut:'浮動搜尋面板',draftShortcut:'草稿筆記',snippetsShortcut:'分類文字面板',calendarShortcut:'小月曆'};
  const FIXED=[
   ['tracking-all','追蹤結果全選','Ctrl+A','tracking'],['tracking-invert','追蹤結果反向選取','Ctrl+Shift+A','tracking'],['tracking-clear','追蹤結果取消選取','Escape','tracking'],
-  ['tracking-copy','複製追蹤結果路徑','Ctrl+C','tracking'],['tracking-copy-names','複製追蹤結果檔名','Ctrl+Shift+C','tracking'],['tracking-rename','追蹤結果批次改名預覽','F2','tracking'],['tracking-move','追蹤結果搬移預覽','Ctrl+Shift+M','tracking'],['tracking-refresh','更新追蹤結果','F5','tracking'],
+  ['tracking-copy','複製追蹤結果路徑','Ctrl+C','tracking'],['tracking-copy-names','複製追蹤結果檔名','Ctrl+Shift+C','tracking'],['tracking-rename','重新命名單一追蹤結果','F2','tracking'],['tracking-open','批次開啟追蹤結果','Enter','tracking'],['tracking-locations','開啟追蹤結果所在資料夾','Ctrl+Enter','tracking'],['tracking-move','追蹤結果搬移預覽','Ctrl+Shift+M','tracking'],['tracking-refresh','更新追蹤結果','F5','tracking'],
   ['app-search','全域搜尋頁','Ctrl+Shift+F','main'],
   ['record-save','儲存紀錄表單','Ctrl+Enter','record'],
   ['draft-new','新草稿','Ctrl+N','draft'],['draft-save','儲存草稿','Ctrl+S','draft'],
