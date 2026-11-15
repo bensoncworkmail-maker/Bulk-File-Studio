@@ -1,13 +1,21 @@
 'use strict';
 (() => {
- const $=id=>document.getElementById(id),api=window.everythingAPI;
+ const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView;
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
+ let sortKey='name',sortDirection='asc';
  const node=(name,text,className)=>{const el=document.createElement(name);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
  const button=(text,run,className='btn btn-ghost')=>{const el=node('button',text,className);el.type='button';el.disabled=busy;el.addEventListener('click',run);return el;};
  const current=()=>data.queries.find(item=>item.id===currentId);
  const ready=()=>data.engine.supported&&data.engine.enabled&&data.engine.configured;
  const filtered=()=>data.queries.filter(item=>tag===null||(tag===''?!item.tags.length:item.tags.some(name=>name.toLocaleLowerCase()===tag)));
  const blocked=()=>busy||loading||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
+ const ordered=()=>view.sortedRows(current()?.snapshot?.rows||[],sortKey,sortDirection);
+ function paintSelection(){
+  for(const row of $('everything-tracking-body').querySelectorAll('tr[data-index]')){
+   const checked=selected.has(Number(row.getAttribute('data-index')));row.classList.toggle('selected',checked);row.setAttribute('aria-selected',String(checked));row.querySelector('input').checked=checked;
+  }
+  renderControls();
+ }
  function visible(){return active&&!$('favorites-page').classList.contains('hidden')&&!document.hidden;}
  function schedule(){clearInterval(timer);if(active&&data.refreshSeconds)timer=setInterval(()=>{if(visible()&&!busy&&!loading&&!selected.size&&!document.querySelector('dialog[open]')&&current()?.enabled&&ready())void refresh();},data.refreshSeconds*1000);}
  async function load(update=false){
@@ -53,28 +61,36 @@
   $('everything-tracking-title').textContent=query?.name||'追蹤 Everything 搜尋';$('everything-tracking-command').textContent=query?.text||'新增搜尋命令及標籤，追蹤符合條件的檔案與資料夾。';
   const status=$('everything-tracking-status');status.classList.toggle('error',Boolean(snapshot?.error));
   status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；可從編輯搜尋重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置':'');
-  const list=$('everything-tracking-results'),scroll=list.scrollTop,focused=list.contains(document.activeElement);list.replaceChildren();
-  rows.forEach((item,index)=>{
-   const row=node('article',undefined,'everything-tracking-row'),check=node('input');check.type='checkbox';check.checked=selected.has(index);check.disabled=busy;row.classList.toggle('selected',check.checked);check.setAttribute('aria-label','選取 '+item.name);check.addEventListener('change',()=>{if(blocked())return;check.checked?selected.add(index):selected.delete(index);anchor=index;row.classList.toggle('selected',check.checked);renderControls();});
+  const list=$('everything-tracking-results'),body=$('everything-tracking-body'),scroll=list.scrollTop,focused=body.contains(document.activeElement)||document.activeElement===list;body.replaceChildren();
+  const labels={name:'檔案名稱',location:'所在位置',size:'大小',modified:'修改日期'};
+  for(const [key,label] of Object.entries(labels)){
+   const control=$('everything-tracking-sort-'+key);control.textContent=label+(key===sortKey?(sortDirection==='asc'?' ▲':' ▼'):'');control.disabled=busy||loading;
+   control.parentElement.setAttribute('aria-sort',key===sortKey?(sortDirection==='asc'?'ascending':'descending'):'none');
+  }
+  ordered().forEach(({item,index})=>{
+   const row=node('tr',undefined,'everything-tracking-row'),check=node('input'),checkCell=node('td');row.setAttribute('data-index',String(index));check.type='checkbox';check.checked=selected.has(index);check.disabled=busy;row.classList.toggle('selected',check.checked);row.setAttribute('aria-selected',String(check.checked));check.setAttribute('aria-label','選取 '+item.name);check.addEventListener('change',()=>{if(blocked())return;check.checked?selected.add(index):selected.delete(index);anchor=index;paintSelection();});checkCell.append(check);
    row.addEventListener('click',event=>{
-    if(blocked()||event.button!==undefined&&event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]')||!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&window.getSelection?.()?.toString())return;
-    if(event.shiftKey&&anchor!==null){if(!event.ctrlKey&&!event.metaKey)selected.clear();for(let i=Math.min(anchor,index);i<=Math.max(anchor,index);i++)selected.add(i);}
+    if(blocked()||event.detail>1||event.button!==undefined&&event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]')||!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&window.getSelection?.()?.toString())return;
+    if(event.shiftKey&&anchor!==null){const ids=ordered().map(entry=>entry.index),from=ids.indexOf(anchor),to=ids.indexOf(index);if(!event.ctrlKey&&!event.metaKey)selected.clear();for(const id of ids.slice(Math.min(from,to),Math.max(from,to)+1))selected.add(id);}
     else if(event.ctrlKey||event.metaKey){selected.has(index)?selected.delete(index):selected.add(index);anchor=index;}
     else {selected=new Set([index]);anchor=index;}
-    render();$('everything-tracking-results').focus();
+    // Keep the clicked cell alive so the browser can deliver its native dblclick.
+    paintSelection();$('everything-tracking-results').focus();
    });
-   const text=node('div',undefined,'everything-tracking-file');text.append(button(item.name,()=>void action('open',[index]),'workspace-favorite-link'),button(item.path,()=>void action('show',[index]),'everything-tracking-path'));
-   const size=item.type==='folder'?'資料夾':Number.isFinite(item.size)?(item.size>=1048576?(item.size/1048576).toLocaleString('zh-Hant',{maximumFractionDigits:1})+' MB':item.size.toLocaleString('zh-Hant')+' bytes'):'檔案';text.append(node('small',size+(Number.isFinite(item.modifiedMs)?' · 修改 '+new Date(item.modifiedMs).toLocaleString('zh-Hant'):'')));
-   const tools=node('div',undefined,'everything-tracking-actions');tools.append(button('開啟',()=>void action('open',[index])),button('定位',()=>void action('show',[index])));row.append(check,text,tools);list.append(row);
+   const name=node('td',item.name,'everything-tracking-name'),location=node('td',view.location(item),'everything-tracking-location');
+   name.title=(item.type==='folder'?'資料夾':'檔案')+'：'+item.path+'\n雙擊開啟';location.title=view.location(item)+'\n雙擊開啟所在位置';
+   name.addEventListener('dblclick',()=>void action('open',[index]));location.addEventListener('dblclick',()=>void action('show',[index]));
+   const size=item.type==='folder'?'—':Number.isFinite(item.size)?(item.size>=1048576?(item.size/1048576).toLocaleString('zh-Hant',{maximumFractionDigits:1})+' MB':item.size.toLocaleString('zh-Hant')+' bytes'):'—';
+   row.append(checkCell,name,location,node('td',size,'everything-tracking-size'),node('td',Number.isFinite(item.modifiedMs)?new Date(item.modifiedMs).toLocaleString('zh-Hant'):'—','everything-tracking-modified'));body.append(row);
   });
-  if(query&&snapshot&&!rows.length&&!snapshot.error)list.append(node('p','目前沒有符合條件的結果。','list-empty'));
+  if(query&&snapshot&&!rows.length&&!snapshot.error){const row=node('tr'),cell=node('td','目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan','5');row.append(cell);body.append(row);}
   list.scrollTop=scroll;renderControls();if(focused)list.focus();
  }
  function selectResults(kind){
   if(blocked())return;const rows=current()?.snapshot?.rows||[];
   selected=new Set(rows.map((_,i)=>i).filter(i=>kind==='all'||kind==='invert'&&!selected.has(i)));
   if(kind==='none')anchor=null;
-  render();$('everything-tracking-results').focus();
+  paintSelection();$('everything-tracking-results').focus();
  }
  async function action(kind,indices=[...selected]){
   const query=current();if(!query?.snapshot||blocked()||!indices.length)return;
@@ -146,6 +162,7 @@
   $('everything-item-rename-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   $('everything-item-rename-dialog').addEventListener('close',()=>{renaming=null;});
   $('everything-tracking-panel').addEventListener('keydown',keydown);
+  for(const key of ['name','location','size','modified'])$('everything-tracking-sort-'+key).addEventListener('click',()=>{if(blocked())return;sortDirection=key===sortKey&&sortDirection==='asc'?'desc':'asc';sortKey=key;render();});
   for(const name of ['everything-tracking-interval','settings-everything-tracking-refresh'])$(name).addEventListener('change',()=>interval($(name)));
   $('everything-rule-form').addEventListener('submit',event=>{event.preventDefault();void save();});$('everything-rule-cancel').addEventListener('click',()=>{if(!busy)$('everything-tracking-dialog').close();});$('everything-tracking-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});$('everything-tracking-dialog').addEventListener('close',()=>{editing=null;});
   api.onTrackingChanged(()=>{void load(false);});void load(active);

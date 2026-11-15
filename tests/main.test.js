@@ -197,7 +197,7 @@ test('floating window has offline policy, limited IPC and can focus a tag in the
  assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','everything-tracking-list','everything-tracking-save','everything-tracking-remove','everything-tracking-configure','everything-tracking-refresh','everything-tracking-action','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
  rawHandlers.get('floating-main')(event,'work');assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
  registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,false);registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,true);
- handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.deepEqual([...registered.keys()],['CommandOrControl+Alt+S','CommandOrControl+Alt+D']);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
+ handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.deepEqual([...registered.keys()],['CommandOrControl+Alt+S','CommandOrControl+Alt+D','CommandOrControl+Alt+Shift+F']);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
 });
 test('Explorer quick-tag requests survive reads by the floating tool and acknowledge only handled IDs',t=>{
  const {dir,events,handlers,rawHandlers,windows}=harness(t);const paths=['a.txt','b.txt'].map(name=>path.join(dir,name));paths.forEach(p=>fs.writeFileSync(p,'A'));events.get('second-instance')(null,['Studio.exe','--favorite','--',paths[0]]);events.get('second-instance')(null,['Studio.exe','--favorite','--',paths[1]]);
@@ -1041,11 +1041,27 @@ test('focus mode unregisters excluded global shortcuts and restores them when tu
  assert.ok(normal.includes('CommandOrControl+Alt+7'));
  assert.ok(normal.includes('CommandOrControl+Alt+8'));
  configure({focusMode:true,focusShortcutIds:['draftShortcut','action:'+quickId,'snippet:'+snippet.id]});
- assert.deepEqual([...h.registered.keys()].sort(),['CommandOrControl+Alt+7','CommandOrControl+Alt+8','CommandOrControl+Alt+D']);
+ assert.deepEqual([...h.registered.keys()].sort(),['CommandOrControl+Alt+7','CommandOrControl+Alt+8','CommandOrControl+Alt+D','CommandOrControl+Alt+Shift+F']);
  configure({focusShortcutIds:[]});
- assert.equal(h.registered.size,0);
+ assert.deepEqual([...h.registered.keys()],['CommandOrControl+Alt+Shift+F']);
  configure({focusMode:false});
  assert.deepEqual([...h.registered.keys()].sort(),normal);
+});
+
+test('focus hotkey and trusted floating toggle share persisted state and broadcasts, with a usable exit hotkey',async t=>{
+ const h=harness(t),get=()=>h.handlers.get('desktop-settings-get')(),key='CommandOrControl+Alt+Shift+F';
+ h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}},normal=[...h.registered.keys()];
+ await h.registered.get(key)();assert.equal(get().focusMode,true);assert.deepEqual([...h.registered.keys()],[key]);
+ assert.ok(h.messages.some(([channel,value])=>channel==='desktop-settings-changed'&&value.settings?.focusMode===true));
+ const off=h.rawHandlers.get('focus-mode-toggle')(event);assert.equal(off.settings.focusMode,false);assert.deepEqual([...h.registered.keys()],normal);
+ h.rawHandlers.get('focus-mode-toggle')(event);assert.equal(get().focusMode,true);await h.registered.get(key)();assert.equal(get().focusMode,false);
+ assert.equal(new (require('../src/desktop-state').DesktopState)(path.join(h.dir,'desktop-state.json')).settings.focusMode,false);
+ assert.throws(()=>h.rawHandlers.get('focus-mode-toggle')({sender:{},senderFrame:{url:mini.url}}),/不受信任/);
+ assert.throws(()=>h.rawHandlers.get('desktop-settings-set')(event,{focusMode:true}),/不受信任/);
+ h.handlers.get('desktop-settings-set')(null,{focusShortcut:'Ctrl+Alt+Shift+Q'});assert.ok(h.registered.has('CommandOrControl+Alt+Shift+Q'));assert.ok(!h.registered.has(key));
+ assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{focusShortcut:'Ctrl+Alt+B'}),/相同/);
+ assert.equal(get().focusShortcut,'CommandOrControl+Alt+Shift+Q');
+ h.handlers.get('desktop-settings-set')(null,{focusShortcut:''});assert.equal(get().focusShortcut,'');assert.ok(!h.registered.has('CommandOrControl+Alt+Shift+Q'));
 });
 
 test('workspace favorites persist tagged records and master/detail tables separately from log pins',async t=>{
