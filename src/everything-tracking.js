@@ -65,7 +65,7 @@ class EverythingTracking{
   if(!snapshot||token!==snapshot.token||!Array.isArray(indices)||!indices.length||indices.length>500||indices.some(index=>!Number.isInteger(index)||index<0||index>=snapshot.rows.length))throw Error('追蹤結果已更新，請重新選取');
   const rows=[...new Set(indices)].map(index=>snapshot.rows[index]);
   for(const item of rows){const checked=this.inspect(item.path);if(checked.type!==item.type||!sameIdentity(checked.identity,item.identity))throw Error('檔案已替換，請重新更新搜尋結果');}
-  return {paths:rows.map(item=>item.path),tags:query.tags};
+  return {paths:rows.map(item=>item.path),tags:query.tags,rows};
  }
 }
 module.exports={EverythingTracking,normalizeRules,MAX_RULES,INTERVALS};
