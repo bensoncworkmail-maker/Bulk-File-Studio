@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.110.0。以 `npm run audit:functions` 重新產生。
+版本：v1.111.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 191 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 257 個介面／桌面偏好。
+讀取 src 全部 192 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 257 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -11,7 +11,7 @@
 - 一般收藏既有排序由 favoriteSort／favoriteDirection 保存；工作區由 notes-table-state 管理表格版面與篩選；查看紀錄由 log-view-settings-model 管理各範圍篩選／排序歷史，沒有另建平行資料來源。
 - Everything 僅建立可見結果欄的 DOM 與格式文字；局部偏好更新避免重複重建結果，隱藏欄資料仍保留於同一快取。
 - 查看紀錄主視窗／浮窗共用標題與空白處展開／收合行為，提醒與前往工作區置於詳情內，保留文字選取；追蹤暫停沿用 trackingSave，表格複製沿用結果版本與檔案身分核對，不新增平行資料來源。
-- 新手指南共用 17 章內容來源，六項學習進度獨立保存；Ctrl+K 功能搜尋沿用首頁功能導覽與原有入口，F1 開啟指南。check:app 同時驗證指南版本、目標及離線產物。
+- 新手指南共用 17 章內容來源，六項學習進度獨立保存；Ctrl+K 功能搜尋沿用首頁功能導覽與原有入口，F1 開啟指南，兩個按鈕位於資訊頁以精簡頂端；紀錄瀏覽將搜尋、篩選與檢視分開，條件標籤及快速日期共用原查詢與記憶。check:app 同時驗證指南版本、目標及離線產物。
 - check:app 檢查頁面與快捷入口、功能目錄、工具目標、設定預設／分類／控制項、DOM ID、aria-controls 與本機依賴，錯誤會令命令失敗。
 
 ## 界線與後續驗證
@@ -84,6 +84,7 @@
 | [preload.js](../src/preload.js) | `invoke`、`listener`、`notifyOperation` |
 | [quick-actions-model.js](../src/quick-actions-model.js) | `displayOptions`、`entry`、`form`、`normalize` |
 | [quick-actions-settings.js](../src/quick-actions-settings.js) | `$`、`actionButton`、`appendOptions`、`displayFields`、`dropOptions`、`edit`、`fields`、`formFields`、`init`、`masters`、`move`、`node`、`persist`、`refresh`、`render`、`renderTagChecks`、`sheet` |
+| [record-browser.css](../src/record-browser.css) | 版面、主題與互動狀態樣式 |
 | [release-history.js](../src/release-history.js) | 宣告、設定或共用模型 |
 | [renderer.js](../src/renderer.js) | `$`、`addFromResult`、`append`、`applyFontSize`、`applyRules`、`applyTheme`、`basename`、`bind`、`chooseFiles`、`chooseFolder`、`clearFiles`、`confirmRename`、`describe`、`dirname`、`dragOver`、`dropTarget`、`element`、`enqueuePreview`、`executeRename`、`executeUndo`、`expandGroups`、`exportCSV`、`filterFiles`、`getRules`、`groupHeader`、`grouped`、`init`、`initPresets`、`isFileDrag`、`moveListedSelection`、`norm`、`render`、`renderFiles`、`renderSavedPresets`、`renderTable`、`renderWorkspaceControls`、`saveCollapsedLocations`、`saveRulePreferences`、`selectFiltered`、`selectOne`、`setBusy`、`setRuleTab`、`shortDir`、`showDrop`、`showFailure`、`showToast`、`single`、`storeSavedPresets`、`undo`、`updatePreview`、`updateRuleControls`、`visibleGroupRows`、`wireEvents`、`withoutPrefix` |
 | [scheduled-backup.js](../src/scheduled-backup.js) | `tick` |
@@ -191,7 +192,7 @@
 | [tool-overlay.js](../src/tool-overlay.js) | `close`、`closeForParent`、`constructor`、`invalidate`、`open`、`owner`、`refresh`、`setPinned`、`switchTab`、`updateSettings`、`windowKey` |
 | [tool-preferences.js](../src/tool-preferences.js) | `value` |
 | [tool-views-model.js](../src/tool-views-model.js) | `configuration`、`dateValue`、`firstField`、`followUpField`、`logDay`、`logDetail`、`logRecord`、`logValue`、`paginate`、`pinnedRows`、`snippetRows`、`viewData` |
-| [tool-views-ui.js](../src/tool-views-ui.js) | `act`、`applyPinnedOnly`、`arrow`、`button`、`card`、`choices`、`detailFields`、`field`、`go`、`hasLogFilters`、`load`、`logRow`、`mount`、`node`、`pinButton`、`reloadField`、`reminderButton`、`render`、`renderLogDetail`、`renderMonth`、`renderPins`、`saveLogFilters`、`setWindowPin`、`showRows`、`toggle`、`updateFilterSummary` |
+| [tool-views-ui.js](../src/tool-views-ui.js) | `act`、`applyPinnedOnly`、`arrow`、`button`、`card`、`choices`、`day`、`detailFields`、`field`、`go`、`hasLogFilters`、`label`、`load`、`logRow`、`mount`、`node`、`pinButton`、`reloadField`、`reminderButton`、`render`、`renderLogChips`、`renderLogDetail`、`renderMonth`、`renderPins`、`saveLogFilters`、`setWindowPin`、`showRows`、`toggle`、`updateFilterSummary` |
 | [tool-views.css](../src/tool-views.css) | 版面、主題與互動狀態樣式 |
 | [windows-context-menu.js](../src/windows-context-menu.js) | `command`、`favoriteArguments`、`invoke`、`setEnabled`、`status`、`supported`、`validFavoritePaths` |
 ### 搜尋與規劃

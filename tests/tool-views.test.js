@@ -143,3 +143,9 @@ test('log dates use follow-up first and modified dates for missing values in bot
  const lastModified=viewData(doc,[],[],config,{},{dateSource:'modified'},[a.id]);
  assert.equal(lastModified.pinned[0].date,'2026-11-09');
 });
+
+test('record browser metadata uses readable status, limits tag previews and keeps sorting and source data unchanged',()=>{
+ const now='2026-11-17T01:00:00Z',doc=notes.template(randomUUID,now,'clients'),logs=doc.sheets.find(sheet=>sheet.name==='紀錄'),state=logs.fields.find(field=>field.type==='checkbox');
+ const id=randomUUID();doc.records.push({id,sheetId:logs.id,title:'合約跟進',values:{[state.id]:false},notes:'確認文件',tags:['工作','合約','本週','客戶'],createdAt:now,updatedAt:now,fileLinks:[],favoriteTagLinks:[],version:1,deletedAt:null});const before=JSON.stringify(doc);
+ const result=viewData(doc,[],[],configuration({kind:'logs',sheetId:logs.id}),{}),row=result.rows.find(row=>row.id===id);assert.equal(row.sheet,logs.name);assert.equal(row.markers[0].label,state.label);assert.equal(row.markers[0].value,'未勾選');assert.deepEqual(row.tags,['工作','合約','本週']);assert.equal(row.tagCount,4);assert.equal(JSON.stringify(doc),before);
+});

@@ -126,6 +126,11 @@ test('floating log pins can be collapsed, expanded on demand, and shown without 
  await new Promise(setImmediate);
  assert.equal(root.querySelector('.tool-view-results').hidden,true);
  assert.equal(saved.at(-1).pinnedOnly,true);
+ assert.equal(root.querySelector('.tool-view-filter-panel').querySelector('.tool-view-filters').hidden,true);
+ await byText('只看釘選').dispatch('click');await new Promise(setImmediate);
+ assert.equal(root.querySelector('.tool-view-filter-panel').querySelector('.tool-view-filters').hidden,false);assert.equal(root.querySelector('.tool-view-results').hidden,false);
+ await byText('只看釘選').dispatch('click');await new Promise(setImmediate);
+ assert.equal(root.querySelector('.tool-view-filter-panel').querySelector('.tool-view-filters').hidden,true);
  await byText('New Fingerprint').dispatch('click');
  assert.equal(byText('New Fingerprint').getAttribute('aria-expanded'),'false');
  assert.doesNotMatch(pins.textContent,/完整的跟進內容/);
@@ -180,4 +185,16 @@ for(const floating of [false,true])test('log blank-space expansion preserves con
  await item().dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,1);assert.match(root.querySelector('.tool-view-pin-detail').textContent,/Full note/);
  await item().dispatch('click',{target:root.querySelector('.tool-view-pin-detail')});assert.equal(item().dataset.expanded,'true');await item().dispatch('click');assert.equal(item().dataset.expanded,'false');assert.equal(reads.length,1);
  await root.querySelector('.tool-view-log-link').dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,2);assert.deepEqual(actions,[]);const reminder=root.querySelector('[aria-label="新增提醒 Report"]');assert.ok(reminder.closest('.tool-view-pin-detail'));await reminder.dispatch('click');await root.querySelectorAll('button').find(button=>button.textContent==='前往工作區').dispatch('click');assert.deepEqual(actions.map(args=>args.slice(0,2)),[['reminder','record'],['visit','record']]);view.dispose();
+});
+
+test('record browser separates primary search, advanced filters and view options and clears grouped filter chips',async()=>{
+ const document=documentFromHTML('<html><body><section id="view"></section></body></html>'),window={},saved=[],requests=[],root=document.getElementById('view');
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
+ const view=window.toolViewsUI.mount(root,{saveFilters:async value=>saved.push({...value}),data:async filters=>{requests.push({...filters});return {rows:[],pinned:[],page:0,last:0,total:0,layout:filters.layout||'list',sort:filters.sort||'recent',tables:[{id:'logs',name:'跟進紀錄'}],sheetId:'logs',masters:[{id:'m',title:'示範客戶'}],dateFields:[{id:'date',label:'跟進日期'}],stateFields:[{id:'state',label:'狀態'}],states:['待辦','完成'],presentation:{showCount:true}};},action(){}},{kind:'logs'},{query:'合約',masterId:'m',stateField:'state',value:'待辦',from:'2026-11-01',to:'2026-11-30',page:0});
+ await new Promise(setImmediate);
+ assert.ok(root.querySelector('[aria-label="所屬主紀錄"]').closest('.tool-view-filter-panel'));assert.ok(root.querySelector('[aria-label="排序"]').closest('.tool-view-display-options'));assert.ok(root.querySelector('[aria-label="日期由"]').closest('.tool-view-advanced'));assert.equal(root.querySelector('.log-filter-chips').children.length,4);
+ await root.querySelector('.log-filter-chips').children.find(button=>button.textContent.startsWith('欄位：')).dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));assert.equal(requests.at(-1).stateField,undefined);assert.equal(requests.at(-1).value,undefined);assert.equal(requests.at(-1).masterId,'m');
+ await root.querySelectorAll('button').find(button=>button.textContent==='最近 7 天').dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));const recent=requests.at(-1);const days=(new Date(recent.to+'T12:00:00Z')-new Date(recent.from+'T12:00:00Z'))/86400000;assert.equal(days,6);assert.equal(recent.masterId,'m');
+ await root.querySelectorAll('button').find(button=>button.textContent==='本月').dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));assert.equal(requests.at(-1).from.slice(-2),'01');assert.ok(Number(requests.at(-1).to.slice(-2))>=28);
+ await root.querySelector('.log-filter-chips').children.find(button=>button.textContent.startsWith('日期：')).dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));assert.equal(requests.at(-1).from,undefined);assert.equal(requests.at(-1).to,undefined);assert.equal(requests.at(-1).query,'合約');assert.ok(saved.length>0);view.dispose();
 });
