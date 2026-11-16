@@ -74,3 +74,8 @@ test('custom extension profiles survive backup validation and do not mutate save
  assert.throws(()=>h.tracking.saveFileType({name:'超過上限',extensions:'pdf'}),/30/);
  assert.equal(h.tracking.list().fileTypes.length,30);
 });
+
+test('tracked metadata stays bound to the inspected path and never replaces local identity or type',async t=>{
+ const h=fixture(t),query=h.save();h.bridge.search=async(input,options)=>{assert.equal(options.metadata,true);return {rows:[{path:h.a,name:'a.txt',createdMs:1000,accessedMs:2000,runCount:7,attributes:'A',identity:{dev:'forged'},type:'folder'}],truncated:false};};
+ const snapshot=(await h.tracking.refresh(query.id)).queries[0].snapshot;assert.equal(snapshot.rows[0].createdMs,1000);assert.equal(snapshot.rows[0].type,'file');assert.notEqual(snapshot.rows[0].identity.dev,'forged');assert.deepEqual(h.tracking.selection(query.id,snapshot.token,[0]).paths,[h.a]);
+});

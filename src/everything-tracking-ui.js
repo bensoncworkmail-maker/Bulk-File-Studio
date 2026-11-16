@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView;
+ const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns;
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
  let sortKey='name',sortDirection='asc';
  const node=(name,text,className)=>{const el=document.createElement(name);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
@@ -9,6 +9,7 @@
  const ready=()=>data.engine.supported&&data.engine.enabled&&data.engine.configured;
  const filtered=()=>data.queries.filter(item=>tag===null||(tag===''?!item.tags.length:item.tags.some(name=>name.toLocaleLowerCase()===tag)));
  const blocked=()=>busy||loading||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
+ const shownColumns=()=>columns.normalizeColumns(window.settingsUI?.get().everythingColumns);
  const ordered=()=>view.sortedRows(current()?.snapshot?.rows||[],sortKey,sortDirection);
  function paintSelection(){
   for(const row of $('everything-tracking-body').querySelectorAll('tr[data-index]')){
@@ -65,7 +66,7 @@
   const status=$('everything-tracking-status');status.classList.toggle('error',Boolean(snapshot?.error));
   status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；可從編輯搜尋重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置':'');
   const list=$('everything-tracking-results'),body=$('everything-tracking-body'),scroll=list.scrollTop,focused=body.contains(document.activeElement)||document.activeElement===list;body.replaceChildren();
-  const labels={name:'檔案名稱',location:'所在位置',size:'大小',modified:'修改日期'};
+  const labels=Object.fromEntries(Object.entries(columns.COLUMNS).map(([key,column])=>[key,column.label]));if(!shownColumns().includes(sortKey)){sortKey='name';sortDirection='asc';}
   for(const [key,label] of Object.entries(labels)){
    const control=$('everything-tracking-sort-'+key);control.textContent=label+(key===sortKey?(sortDirection==='asc'?' ▲':' ▼'):'');control.disabled=busy||loading;
    control.parentElement.setAttribute('aria-sort',key===sortKey?(sortDirection==='asc'?'ascending':'descending'):'none');
@@ -83,13 +84,29 @@
    const name=node('td',item.name,'everything-tracking-name'),location=node('td',view.location(item),'everything-tracking-location');
    name.title=(item.type==='folder'?'資料夾':'檔案')+'：'+item.path+'\n雙擊開啟';location.title=view.location(item)+'\n雙擊開啟所在位置';
    name.addEventListener('dblclick',()=>void action('open',[index]));location.addEventListener('dblclick',()=>void action('show',[index]));
-   const size=item.type==='folder'?'—':Number.isFinite(item.size)?(item.size>=1048576?(item.size/1048576).toLocaleString('zh-Hant',{maximumFractionDigits:1})+' MB':item.size.toLocaleString('zh-Hant')+' bytes'):'—';
    const copy=node('td'),copyButton=button('⧉ 路徑',()=>void action('copy',[index]));copyButton.title='複製 '+item.path;copyButton.setAttribute('aria-label','複製 '+item.name+' 的完整路徑');copy.append(copyButton);
-   row.addEventListener('contextmenu',event=>rowMenu(event,index));
-   row.append(checkCell,name,location,node('td',size,'everything-tracking-size'),node('td',Number.isFinite(item.modifiedMs)?new Date(item.modifiedMs).toLocaleString('zh-Hant'):'—','everything-tracking-modified'),copy);body.append(row);
+   row.addEventListener('contextmenu',event=>rowMenu(event,index));row.append(checkCell);
+   for(const [key,column] of Object.entries(columns.COLUMNS)){
+    const cell=key==='name'?name:key==='location'?location:node('td',columns.display(item,key),'everything-tracking-'+key);cell.setAttribute('data-column',key);cell.hidden=!shownColumns().includes(key);if(key!=='name'&&key!=='location')cell.title=columns.display(item,key);if(column.number)cell.classList.add('everything-tracking-number');row.append(cell);
+   }row.append(copy);body.append(row);
   });
-  if(query&&snapshot&&!rows.length&&!snapshot.error){const row=node('tr'),cell=node('td','目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan','6');row.append(cell);body.append(row);}
-  list.scrollTop=scroll;renderControls();if(focused)list.focus();
+  if(query&&snapshot&&!rows.length&&!snapshot.error){const row=node('tr'),cell=node('td','目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan',String(shownColumns().length+2));row.append(cell);body.append(row);}
+  window.everythingLayout?.apply();list.scrollTop=scroll;renderControls();if(snapshot?.metadataUnavailable)status.textContent+=' · 目前 ES 不支援額外欄位，相關資訊顯示 —；可更新官方 ES 工具。';if(focused)list.focus();
+ }
+ function chooseColumns(){
+  if(blocked())return;const root=$('everything-column-choices');root.replaceChildren();
+  for(const [key,column] of Object.entries(columns.COLUMNS)){const label=node('label',undefined,'check-row'),check=node('input');check.type='checkbox';check.value=key;check.checked=shownColumns().includes(key);check.disabled=key==='name';label.append(check,node('span',column.label+(key==='name'?'（固定）':'')));root.append(label);}
+  $('everything-columns-dialog').showModal();
+ }
+ function setColumns(values){
+  window.settingsUI?.update({everythingColumns:columns.normalizeColumns(values)});if(!shownColumns().includes(sortKey)){sortKey='name';sortDirection='asc';}render();
+ }
+ function columnMenu(event,key){
+  event.preventDefault();event.stopPropagation();if(blocked())return;
+  window.favoritesUI?.showMenu(event,[{label:'調整適合欄位大小',run:()=>window.everythingLayout?.autoSize(key)},{label:'自動調整所有欄位大小',run:()=>window.everythingLayout?.autoSize()},
+   ...['asc','desc'].map(direction=>({label:direction==='asc'?'依此欄遞增排序':'依此欄遞減排序',run:()=>{sortKey=key;sortDirection=direction;render();}})),
+   ...Object.entries(columns.COLUMNS).map(([name,column])=>({label:(shownColumns().includes(name)?'✓ ':'　 ')+column.label,disabled:name==='name',run:()=>setColumns(shownColumns().includes(name)?shownColumns().filter(value=>value!==name):[...shownColumns(),name])})),
+   {label:'選擇欄位…',run:chooseColumns},{label:'還原預設四欄',run:()=>setColumns(columns.DEFAULT_COLUMNS)},{label:'還原欄寬',run:()=>window.everythingLayout?.reset()}]);
  }
  function syncStartQuery(){
   const control=$('settings-everything-start-query');if(!control)return;const value=window.settingsUI?.get().everythingStartQuery||'';control.replaceChildren();
@@ -182,16 +199,18 @@
   callbacks=options;window.everythingWorkbench?.setup({key:'everything-rule',text:'everything-rule-text',mode:'everything-rule-mode',type:'everything-rule-type',blocked:()=>busy});window.everythingLayout?.init();$('everything-tracking-new').addEventListener('click',()=>editor());$('everything-tracking-edit').addEventListener('click',()=>editor(current()));$('everything-tracking-delete').addEventListener('click',remove);$('everything-tracking-refresh').addEventListener('click',refresh);
   for(const name of ['all','none','invert'])$('everything-tracking-select-'+name).addEventListener('click',()=>selectResults(name));
   for(const name of ['copy','copy-names','copy-folders','favorite','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
+  $('everything-tracking-columns').addEventListener('click',chooseColumns);$('everything-tracking-autosize').addEventListener('click',()=>{if(!blocked())window.everythingLayout?.autoSize();});
+  $('everything-columns-cancel').addEventListener('click',()=>$('everything-columns-dialog').close());$('everything-columns-default').addEventListener('click',()=>{for(const check of $('everything-column-choices').querySelectorAll('input'))check.checked=columns.DEFAULT_COLUMNS.includes(check.value);});$('everything-columns-save').addEventListener('click',()=>{setColumns([...$('everything-column-choices').querySelectorAll('input')].filter(check=>check.checked).map(check=>check.value));$('everything-columns-dialog').close();});
   $('everything-tracking-copy-query').addEventListener('click',copyQuery);$('everything-tracking-quick-settings').addEventListener('click',()=>window.settingsUI?.openCategory('floating'));$('everything-tracking-reset-widths').addEventListener('click',()=>window.everythingLayout?.reset());
   $('everything-tracking-results').addEventListener('contextmenu',event=>{if(event.target.closest('tr[data-index]'))return;event.preventDefault();if(!blocked())window.favoritesUI?.showMenu(event,[{label:'全選結果',run:()=>selectResults('all')},{label:'立即更新',disabled:!current()?.enabled||!ready(),run:refresh},{label:'新增追蹤搜尋',run:()=>editor()},{label:'還原欄寬與面板寬度',run:()=>window.everythingLayout?.reset()}]);});
-  for(const key of ['name','location','size','modified'])$('everything-tracking-sort-'+key).parentElement.addEventListener('contextmenu',event=>{event.preventDefault();event.stopPropagation();if(blocked())return;window.favoritesUI?.showMenu(event,[...['asc','desc'].map(direction=>({label:direction==='asc'?'依此欄遞增排序':'依此欄遞減排序',run:()=>{sortKey=key;sortDirection=direction;render();}})),{label:'還原欄寬',run:()=>window.everythingLayout?.reset()}]);});
+  for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).parentElement.addEventListener('contextmenu',event=>columnMenu(event,key));
   $('everything-tracking-rename-item').addEventListener('click',renameItem);
   $('everything-item-rename-form').addEventListener('submit',event=>{event.preventDefault();void saveItemName();});
   $('everything-item-rename-cancel').addEventListener('click',()=>{if(!busy)$('everything-item-rename-dialog').close();});
   $('everything-item-rename-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   $('everything-item-rename-dialog').addEventListener('close',()=>{renaming=null;});
   $('everything-tracking-panel').addEventListener('keydown',keydown);
-  for(const key of ['name','location','size','modified'])$('everything-tracking-sort-'+key).addEventListener('click',()=>{if(blocked())return;sortDirection=key===sortKey&&sortDirection==='asc'?'desc':'asc';sortKey=key;render();});
+  for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).addEventListener('click',()=>{if(blocked())return;sortDirection=key===sortKey&&sortDirection==='asc'?'desc':'asc';sortKey=key;render();});
   for(const name of ['everything-tracking-interval','settings-everything-tracking-refresh'])$(name).addEventListener('change',()=>interval($(name)));
   $('everything-rule-form').addEventListener('submit',event=>{event.preventDefault();void save();});$('everything-rule-cancel').addEventListener('click',()=>{if(!busy)$('everything-tracking-dialog').close();});$('everything-tracking-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});$('everything-tracking-dialog').addEventListener('close',()=>{editing=null;});
   api.onTrackingChanged(()=>{void load(false);});void load(active);
