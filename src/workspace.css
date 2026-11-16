@@ -329,3 +329,6 @@ div.file-location-group, tr.file-location-group td { padding: 10px 12px; border-
 .notes-search-context{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);}.notes-search-context>strong{color:var(--accent);}.notes-search-context>small{color:var(--muted);}
 
 .notes-import-default-tools{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin:4px 0;}.notes-import-default-tools small{color:var(--muted);}.notes-import-default-tools .btn{min-height:28px;padding:3px 8px;}
+
+/* List cells retain small breathing room inside their existing click targets. */
+.favorite-table-scroll[data-view="list"] .favorite-cell-text{padding:3px 4px}.favorite-table-scroll[data-view="list"] .favorite-column-heading{padding-block:4px}

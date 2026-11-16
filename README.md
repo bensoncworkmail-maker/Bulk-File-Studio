@@ -2,13 +2,15 @@
 
 Bulk File Studio 是繁體中文 Windows 桌面工具，將檔案收藏、標籤、自訂資料工作區及批次檔案操作放在同一個應用程式。預設離線運作，使用者可另行啟用指定資料夾的共享資料包。
 
-[完整功能導覽](docs/function-map-zh-Hant.md) · [安裝與使用](INSTALL.md) · [完整更新紀錄](CHANGELOG.md) · [浮動工具](docs/floating-panels.md) · [共享範圍與版本](docs/sharing-scope-and-versions.md)
+[完整功能導覽](docs/function-map-zh-Hant.md) · [模組與函式盤點](docs/app-function-audit.md) · [安裝與使用](INSTALL.md) · [完整更新紀錄](CHANGELOG.md) · [浮動工具](docs/floating-panels.md) · [共享範圍與版本](docs/sharing-scope-and-versions.md)
 
 ![Bulk File Studio 早期操作介面示意](assets/preview.png)
 
 *上圖為早期版本的示意畫面。*
 
 ## 近期更新
+
+- **追蹤排序記憶與工具列收合**。Everything 按追蹤搜尋保存排序欄位、升降冪及各欄位上次方向；操作工具列可收合並記住，保留選取數量與快捷操作。查看紀錄及收藏清單補足內容內距，新增全模組索引與入口／設定一致性檢查。
 
 - **收藏分頁記憶與 Everything 欄位**。重新啟動後預設回到上次的收藏分頁；追蹤可勾選額外十欄，記住選項並自動調寬，預設維持原四欄。快速條件另加入檔名、萬用字元、regex、路徑及屬性。[操作說明](docs/function-map-zh-Hant.md)
 

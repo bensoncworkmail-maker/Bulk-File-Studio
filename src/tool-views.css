@@ -232,3 +232,5 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 [data-pinned-only=true] .tool-view-log-filter-footer{border-top:0;margin-top:0;padding-top:0;}
 
 .tool-view-log-filter-footer button[hidden]{display:none;}
+/* Keep log titles, previews and expanded fields away from the card border. */
+[data-compact-logs=true] .tool-view-result.tool-view-log-row{padding:8px 10px;gap:5px}.tool-view-log-row .tool-view-log-identity{padding-block:2px}.tool-view-log-row .tool-view-log-link{padding:3px 2px}.tool-view-log-row .tool-view-log-preview{padding:2px 3px}.tool-view-log-row .tool-view-pin-detail{padding:9px 3px 3px;gap:8px}.tool-view-log-row .tool-view-pin-fields :is(dt,dd){padding-block:2px}
