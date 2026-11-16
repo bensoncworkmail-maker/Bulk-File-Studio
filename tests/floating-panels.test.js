@@ -126,6 +126,11 @@ test('floating log pins can be collapsed, expanded on demand, and shown without 
  await new Promise(setImmediate);
  assert.equal(root.querySelector('.tool-view-results').hidden,true);
  assert.equal(saved.at(-1).pinnedOnly,true);
+ assert.equal(root.querySelector('.tool-view-filter-panel').querySelector('.tool-view-filters').hidden,true);
+ await byText('只看釘選').dispatch('click');await new Promise(setImmediate);
+ assert.equal(root.querySelector('.tool-view-filter-panel').querySelector('.tool-view-filters').hidden,false);assert.equal(root.querySelector('.tool-view-results').hidden,false);
+ await byText('只看釘選').dispatch('click');await new Promise(setImmediate);
+ assert.equal(root.querySelector('.tool-view-filter-panel').querySelector('.tool-view-filters').hidden,true);
  await byText('New Fingerprint').dispatch('click');
  assert.equal(byText('New Fingerprint').getAttribute('aria-expanded'),'false');
  assert.doesNotMatch(pins.textContent,/完整的跟進內容/);

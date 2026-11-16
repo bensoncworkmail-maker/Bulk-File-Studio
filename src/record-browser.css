@@ -22,7 +22,7 @@
 [data-compact-logs=true] .tool-view-heading .log-page-description{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
 [data-compact-logs=true] .tool-view-heading .btn{height:auto;min-height:32px;font-size:12px;padding:6px 12px}
 [data-compact-logs=true] .tool-view-filter-panel{background:var(--panel);padding:14px 16px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;box-shadow:0 4px 18px #11182704}
-[data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+[data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters:not([hidden]){display:flex;gap:12px;align-items:end;flex-wrap:wrap}
 [data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters>label{flex:0 1 220px;gap:5px;font-size:11px;font-weight:600}
 [data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters>.tool-view-query{flex:1 1 280px}
 [data-compact-logs=true] .tool-view-filter-panel :is(input,select){height:38px;min-height:38px;border-radius:9px;font-size:13px}
