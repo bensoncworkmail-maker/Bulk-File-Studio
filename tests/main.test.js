@@ -1197,3 +1197,11 @@ test('floating Everything shortcuts open, copy, refresh and revalidate stale nat
  h.handlers.get('everything-tracking-remove')(null,query.id);await assert.rejects(run(),/移除/);assert.equal(h.getCopied(),'file: <size:>1gb | dm:today>');
  set('menu',null);assert.equal(run().menu,true);assert.match(h.popup().template[0].label,/尚無/);
 });
+
+test('in-app guide chapter clicks preserve the exact trusted URL and subsequent favorites IPC access',async t=>{
+ const h=harness(t),{documentFromHTML}=require('./helpers/dom'),document=documentFromHTML('<html><body><main id="guide"></main></body></html>'),window={userGuideModel:require('../src/user-guide-model')};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/user-guide-ui'),'utf8'),{window,document});window.userGuideUI.mount(document.getElementById('guide'),{storage:{getItem:()=>null},openFeature(){}});
+ let url=h.windows[0].url;const original=url;
+ for(const link of document.querySelectorAll('a')){let prevented=false;await link.dispatch('click',{preventDefault(){prevented=true;}});if(!prevented)url=new URL(link.href,url).href;assert.equal(url,original);assert.ok(h.rawHandlers.get('favorites-list')({sender:h.windows[0].webContents,senderFrame:{url}}).items);}
+ assert.throws(()=>h.rawHandlers.get('favorites-list')({sender:h.windows[0].webContents,senderFrame:{url:original+'#guide-workspace'}}),/不受信任/);
+});
