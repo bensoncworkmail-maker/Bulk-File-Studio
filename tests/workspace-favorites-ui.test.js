@@ -176,3 +176,11 @@ test('favorite source tabs include Everything tracking with independent panels a
  const h=fixture(t);await flush();await h.$('favorite-kind-workspace').dispatch('keydown',{key:'ArrowRight'});assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(h.$('workspace-favorites-panel').hidden,true);assert.equal(h.$('favorite-files-layout').hidden,true);assert.equal(h.window.workspaceFavoritesUI.isFiles(),false);
  await h.$('favorite-kind-everything').dispatch('keydown',{key:'Home'});assert.equal(h.$('favorite-files-layout').hidden,false);assert.equal(h.$('everything-tracking-panel').hidden,true);
 });
+
+test('favorites can initialize from the last tab, remember explicit tab selections and keep the startup choice separate',async t=>{
+ const h=fixture(t);await flush();h.window.settingsUI.update=patch=>Object.assign(h.settings,patch);h.settings.favoriteStartKind='last';h.settings.favoriteLastKind='everything';const visits=[];h.window.everythingTrackingUI={activate:value=>visits.push(value)};
+ h.window.workspaceFavoritesUI.activate();assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(visits.at(-1),true);
+ await h.$('favorite-kind-files').dispatch('click');assert.equal(h.settings.favoriteLastKind,'files');assert.equal(h.settings.favoriteStartKind,'last');
+ h.window.workspaceFavoritesUI.activate();assert.equal(h.$('favorite-files-layout').hidden,false);
+ h.settings.favoriteStartKind='everything';h.window.workspaceFavoritesUI.activate();assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(h.settings.favoriteLastKind,'files');
+});

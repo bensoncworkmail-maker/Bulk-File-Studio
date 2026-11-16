@@ -58,3 +58,19 @@ test('disabling or reselecting the engine revokes cached tokens and late query r
  const h=fixture(t),query=h.save(),initial=await h.tracking.refresh(query.id),token=initial.queries[0].snapshot.token;let resolve;h.pending(new Promise(value=>resolve=value));const pending=h.tracking.refresh(query.id);h.tracking.invalidate();resolve({rows:[{path:h.a,name:'a'}],truncated:false});await pending;
  assert.equal(h.tracking.list().queries[0].snapshot,null);assert.throws(()=>h.tracking.selection(query.id,token,[0]),/已更新/);
 });
+
+test('custom extension profiles survive backup validation and do not mutate saved queries',async t=>{
+ const h=fixture(t);h.tracking.saveFileType({name:'工作文件',extensions:'.PDF, docx PDF'});
+ assert.deepEqual(h.tracking.list().fileTypes,[{name:'工作文件',extensions:'docx;pdf'}]);
+ const first=h.save({type:'custom',extensions:'pdf;docx'}),second=h.save({type:'custom',extensions:'xlsx'});
+ assert.throws(()=>h.save({type:'custom',extensions:'.pdf,.DOCX'}),/已在追蹤/);
+ h.tracking.saveFileType({name:'工作文件',extensions:'xlsx'});h.tracking.removeFileType('工作文件');
+ const restored=validateFavorites(JSON.parse(JSON.stringify(h.favorites.read())));
+ assert.equal(restored.everythingSearches[0].extensions,'docx;pdf');assert.equal(restored.everythingSearches[1].extensions,'xlsx');
+ await h.tracking.refresh(first.id);assert.equal(h.calls.at(-1).input.extensions,'docx;pdf');
+ assert.equal(h.tracking.query(second.id).extensions,'xlsx');
+ const bad=structuredClone(restored);bad.everythingFileTypes=[{name:'Bad',extensions:'pdf | folder:'}];assert.throws(()=>validateFavorites(bad),/副檔名/);
+ for(let i=0;i<30;i++)h.tracking.saveFileType({name:'類型'+i,extensions:'pdf'});
+ assert.throws(()=>h.tracking.saveFileType({name:'超過上限',extensions:'pdf'}),/30/);
+ assert.equal(h.tracking.list().fileTypes.length,30);
+});

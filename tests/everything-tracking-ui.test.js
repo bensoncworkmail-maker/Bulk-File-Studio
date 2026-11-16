@@ -15,7 +15,7 @@ function fixture(t){
 }
 test('both type selectors offer the supported categories and tracked edits retain the selected type',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');await flush();
- const expected=['all','file','folder',...Object.keys(FILE_TYPES)];
+ const expected=['all','file','folder',...Object.keys(FILE_TYPES),'custom'];
  for(const id of ['everything-type','everything-rule-type'])assert.deepEqual(h.$(id).querySelectorAll('option').map(option=>option.value),expected);
  h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-edit').dispatch('click');
  h.$('everything-rule-type').value='video';await h.$('everything-rule-form').dispatch('submit');await flush();
@@ -152,4 +152,20 @@ for(const failure of ['', 'offline'])test('re-entering during an outstanding que
  if(failure)assert.match(h.$('everything-tracking-status').textContent,/更新失敗.*offline/);
  else {assert.equal(h.$('everything-tracking-results').querySelectorAll('tr[data-index]').length,1);assert.match(h.$('everything-tracking-status').textContent,/已更新/);}
  assert.deepEqual(h.errors,[]);
+});
+
+test('quick copy and row context actions follow the clicked snapshot row after sorting and preserve multi-selection',async t=>{
+ const h=fixture(t);await flush();const menus=[];h.window.favoritesUI={showMenu:(_,actions)=>menus.push(actions)};h.api.copyQuery=async id=>h.actions.push({action:'copy-query',id});
+ const other=path.join(path.dirname(h.file),'a.pdf');fs.writeFileSync(other,'other');h.bridge.search=async()=>({rows:[{name:'report.txt',path:h.file},{name:'a.pdf',path:other}],truncated:false});
+ h.window.everythingTrackingUI.activate(true);await flush();let rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');assert.equal(rows[0].getAttribute('data-index'),'1');
+ await rows[0].children[5].querySelector('button').dispatch('click');await flush();assert.equal(h.actions.at(-1).action,'copy');assert.deepEqual(h.actions.at(-1).paths,[other]);assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+ await h.$('everything-tracking-copy-query').dispatch('click');await flush();assert.equal(h.actions.at(-1).id,h.rule.id);
+ rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');await rows[0].dispatch('contextmenu');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');await menus.at(-1).find(item=>item.label.startsWith('複製完整路徑')).run();assert.deepEqual(h.actions.at(-1).paths,[other]);
+ await h.$('everything-tracking-select-all').dispatch('click');rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');await rows[0].dispatch('contextmenu');assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(menus.at(-1).find(item=>item.label.startsWith('重新命名')).disabled,true);
+ await h.$('everything-tracking-select-none').dispatch('click');rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');await rows[1].dispatch('contextmenu');await menus.at(-1).find(item=>item.label.startsWith('複製檔名')).run();assert.deepEqual(h.actions.at(-1).paths,[h.file]);
+ await h.$('everything-tracking-sort-size').parentElement.dispatch('contextmenu');await menus.at(-1).find(item=>item.label==='依此欄遞減排序').run();assert.equal(h.$('everything-tracking-sort-size').parentElement.getAttribute('aria-sort'),'descending');assert.deepEqual(h.errors,[]);
+});
+test('startup query preference selects the requested rule, with a first-rule fallback for deleted targets',async t=>{
+ const h=fixture(t);await flush();const next=h.service.save({...h.rule,id:undefined,name:'另一個搜尋',text:'dm:today'});h.window.settingsUI={get:()=>({everythingStartQuery:next.id})};h.window.everythingTrackingUI.select(null);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-title').textContent,'另一個搜尋');assert.equal(h.$('settings-everything-start-query').value,next.id);
+ h.service.remove(next.id);h.window.everythingTrackingUI.select(null);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-title').textContent,h.rule.name);assert.match(h.$('settings-everything-start-query').children.at(-1).textContent,/已移除/);
 });
