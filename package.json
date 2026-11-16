@@ -1,6 +1,6 @@
 {
   "name": "bulk-rename-studio",
-  "version": "1.107.0",
+  "version": "1.108.0",
   "description": "離線收藏、標籤、自訂資料工作區、批次重新命名與檔案搬移工具",
   "main": "src/main.js",
   "author": "Bulk File Studio",
@@ -16,7 +16,9 @@
     "prestart": "node build/check-dependencies.js",
     "predist:win": "node build/check-dependencies.js",
     "predist:portable": "node build/check-dependencies.js",
-    "predist:setup": "node build/check-dependencies.js"
+    "predist:setup": "node build/check-dependencies.js",
+    "check:app": "node build/check-app-contracts.js",
+    "audit:functions": "node build/check-app-contracts.js --write"
   },
   "devDependencies": {
     "electron": "45.1.0",

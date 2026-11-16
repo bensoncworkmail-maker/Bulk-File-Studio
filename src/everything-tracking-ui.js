@@ -1,8 +1,8 @@
 'use strict';
 (() => {
- const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns;
+ const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns,views=window.everythingViewSettings;
+ let updatingView=false;
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
- let sortKey='name',sortDirection='asc';
  const node=(name,text,className)=>{const el=document.createElement(name);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
  const button=(text,run,className='btn btn-ghost')=>{const el=node('button',text,className);el.type='button';el.disabled=busy;el.addEventListener('click',run);return el;};
  const current=()=>data.queries.find(item=>item.id===currentId);
@@ -10,7 +10,11 @@
  const filtered=()=>data.queries.filter(item=>tag===null||(tag===''?!item.tags.length:item.tags.some(name=>name.toLocaleLowerCase()===tag)));
  const blocked=()=>busy||loading||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
  const shownColumns=()=>columns.normalizeColumns(window.settingsUI?.get().everythingColumns);
- const ordered=()=>view.sortedRows(current()?.snapshot?.rows||[],sortKey,sortDirection);
+ const rememberedSort=()=>views.sort(window.settingsUI?.get().everythingSortStates?.[currentId]);
+ const sorting=()=>views.effective(rememberedSort(),shownColumns());
+ const ordered=()=>{const sort=sorting();return view.sortedRows(current()?.snapshot?.rows||[],sort.key,sort.direction);};
+ function updateView(patch,controlsOnly=false){updatingView=true;try{window.settingsUI?.update(patch);}finally{updatingView=false;}controlsOnly?renderControls():render();}
+ function changeSort(key,direction){if(!currentId||blocked())return;const states=window.settingsUI?.get().everythingSortStates||{},remembered=rememberedSort(),active=sorting();if(direction===undefined&&active.key===key&&remembered.key!==key)direction=active.direction==='asc'?'desc':'asc';updateView({everythingSortStates:{...states,[currentId]:views.select(remembered,key,direction)}});}
  function paintSelection(){
   for(const row of $('everything-tracking-body').querySelectorAll('tr[data-index]')){
    const checked=selected.has(Number(row.getAttribute('data-index')));row.classList.toggle('selected',checked);row.setAttribute('aria-selected',String(checked));row.querySelector('input').checked=checked;
@@ -50,6 +54,9 @@
   $('everything-tracking-rename-item').disabled=busy||loading||selected.size!==1;
   $('everything-tracking-interval').value=String(data.refreshSeconds);$('everything-tracking-interval').disabled=busy;
   $('settings-everything-tracking-refresh').value=String(data.refreshSeconds);
+  $('everything-tracking-selected-menu').disabled=busy||loading||!selected.size;
+  const expanded=window.settingsUI?.get().everythingToolsExpanded!==false,toggle=$('everything-tracking-toggle-tools'),tools=$('everything-tracking-tools');
+  if(!expanded&&tools.contains(document.activeElement))toggle.focus();tools.hidden=!expanded;toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?'▾ 收合操作工具':'▸ 展開操作工具';
   $('everything-tracking-selected').textContent='已選 '+selected.size+' 項';
  }
  function render(){
@@ -61,12 +68,12 @@
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
    const control=button('',()=>{if(busy)return;currentId=query.id;selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
   }));
-  const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[];
+  const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns();
   $('everything-tracking-title').textContent=query?.name||'追蹤 Everything 搜尋';$('everything-tracking-command').textContent=query?.text||'新增搜尋命令及標籤，追蹤符合條件的檔案與資料夾。';
   const status=$('everything-tracking-status');status.classList.toggle('error',Boolean(snapshot?.error));
   status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；可從編輯搜尋重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置':'');
   const list=$('everything-tracking-results'),body=$('everything-tracking-body'),scroll=list.scrollTop,focused=body.contains(document.activeElement)||document.activeElement===list;body.replaceChildren();
-  const labels=Object.fromEntries(Object.entries(columns.COLUMNS).map(([key,column])=>[key,column.label]));if(!shownColumns().includes(sortKey)){sortKey='name';sortDirection='asc';}
+  const labels=Object.fromEntries(Object.entries(columns.COLUMNS).map(([key,column])=>[key,column.label])),sort=sorting(),sortKey=sort.key,sortDirection=sort.direction;
   for(const [key,label] of Object.entries(labels)){
    const control=$('everything-tracking-sort-'+key);control.textContent=label+(key===sortKey?(sortDirection==='asc'?' ▲':' ▼'):'');control.disabled=busy||loading;
    control.parentElement.setAttribute('aria-sort',key===sortKey?(sortDirection==='asc'?'ascending':'descending'):'none');
@@ -86,8 +93,8 @@
    name.addEventListener('dblclick',()=>void action('open',[index]));location.addEventListener('dblclick',()=>void action('show',[index]));
    const copy=node('td'),copyButton=button('⧉ 路徑',()=>void action('copy',[index]));copyButton.title='複製 '+item.path;copyButton.setAttribute('aria-label','複製 '+item.name+' 的完整路徑');copy.append(copyButton);
    row.addEventListener('contextmenu',event=>rowMenu(event,index));row.append(checkCell);
-   for(const [key,column] of Object.entries(columns.COLUMNS)){
-    const cell=key==='name'?name:key==='location'?location:node('td',columns.display(item,key),'everything-tracking-'+key);cell.setAttribute('data-column',key);cell.hidden=!shownColumns().includes(key);if(key!=='name'&&key!=='location')cell.title=columns.display(item,key);if(column.number)cell.classList.add('everything-tracking-number');row.append(cell);
+   for(const key of visibleColumns){const column=columns.COLUMNS[key];
+    const cell=key==='name'?name:key==='location'?location:node('td',columns.display(item,key),'everything-tracking-'+key);cell.setAttribute('data-column',key);if(key!=='name'&&key!=='location')cell.title=cell.textContent;if(column.number)cell.classList.add('everything-tracking-number');row.append(cell);
    }row.append(copy);body.append(row);
   });
   if(query&&snapshot&&!rows.length&&!snapshot.error){const row=node('tr'),cell=node('td','目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan',String(shownColumns().length+2));row.append(cell);body.append(row);}
@@ -99,12 +106,12 @@
   $('everything-columns-dialog').showModal();
  }
  function setColumns(values){
-  window.settingsUI?.update({everythingColumns:columns.normalizeColumns(values)});if(!shownColumns().includes(sortKey)){sortKey='name';sortDirection='asc';}render();
+  updateView({everythingColumns:columns.normalizeColumns(values)});
  }
  function columnMenu(event,key){
   event.preventDefault();event.stopPropagation();if(blocked())return;
   window.favoritesUI?.showMenu(event,[{label:'調整適合欄位大小',run:()=>window.everythingLayout?.autoSize(key)},{label:'自動調整所有欄位大小',run:()=>window.everythingLayout?.autoSize()},
-   ...['asc','desc'].map(direction=>({label:direction==='asc'?'依此欄遞增排序':'依此欄遞減排序',run:()=>{sortKey=key;sortDirection=direction;render();}})),
+   ...['asc','desc'].map(direction=>({label:direction==='asc'?'依此欄遞增排序':'依此欄遞減排序',run:()=>changeSort(key,direction)})),
    ...Object.entries(columns.COLUMNS).map(([name,column])=>({label:(shownColumns().includes(name)?'✓ ':'　 ')+column.label,disabled:name==='name',run:()=>setColumns(shownColumns().includes(name)?shownColumns().filter(value=>value!==name):[...shownColumns(),name])})),
    {label:'選擇欄位…',run:chooseColumns},{label:'還原預設四欄',run:()=>setColumns(columns.DEFAULT_COLUMNS)},{label:'還原欄寬',run:()=>window.everythingLayout?.reset()}]);
  }
@@ -199,6 +206,8 @@
   callbacks=options;window.everythingWorkbench?.setup({key:'everything-rule',text:'everything-rule-text',mode:'everything-rule-mode',type:'everything-rule-type',blocked:()=>busy});window.everythingLayout?.init();$('everything-tracking-new').addEventListener('click',()=>editor());$('everything-tracking-edit').addEventListener('click',()=>editor(current()));$('everything-tracking-delete').addEventListener('click',remove);$('everything-tracking-refresh').addEventListener('click',refresh);
   for(const name of ['all','none','invert'])$('everything-tracking-select-'+name).addEventListener('click',()=>selectResults(name));
   for(const name of ['copy','copy-names','copy-folders','favorite','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
+  $('everything-tracking-toggle-tools').addEventListener('click',()=>{if(callbacks?.isBusy?.())return;updateView({everythingToolsExpanded:window.settingsUI?.get().everythingToolsExpanded===false},true);});
+  $('everything-tracking-selected-menu').addEventListener('click',event=>{if(!blocked()&&selected.size)rowMenu(event,[...selected][0]);});
   $('everything-tracking-columns').addEventListener('click',chooseColumns);$('everything-tracking-autosize').addEventListener('click',()=>{if(!blocked())window.everythingLayout?.autoSize();});
   $('everything-columns-cancel').addEventListener('click',()=>$('everything-columns-dialog').close());$('everything-columns-default').addEventListener('click',()=>{for(const check of $('everything-column-choices').querySelectorAll('input'))check.checked=columns.DEFAULT_COLUMNS.includes(check.value);});$('everything-columns-save').addEventListener('click',()=>{setColumns([...$('everything-column-choices').querySelectorAll('input')].filter(check=>check.checked).map(check=>check.value));$('everything-columns-dialog').close();});
   $('everything-tracking-copy-query').addEventListener('click',copyQuery);$('everything-tracking-quick-settings').addEventListener('click',()=>window.settingsUI?.openCategory('floating'));$('everything-tracking-reset-widths').addEventListener('click',()=>window.everythingLayout?.reset());
@@ -210,10 +219,10 @@
   $('everything-item-rename-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   $('everything-item-rename-dialog').addEventListener('close',()=>{renaming=null;});
   $('everything-tracking-panel').addEventListener('keydown',keydown);
-  for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).addEventListener('click',()=>{if(blocked())return;sortDirection=key===sortKey&&sortDirection==='asc'?'desc':'asc';sortKey=key;render();});
+  for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).addEventListener('click',()=>changeSort(key));
   for(const name of ['everything-tracking-interval','settings-everything-tracking-refresh'])$(name).addEventListener('change',()=>interval($(name)));
   $('everything-rule-form').addEventListener('submit',event=>{event.preventDefault();void save();});$('everything-rule-cancel').addEventListener('click',()=>{if(!busy)$('everything-tracking-dialog').close();});$('everything-tracking-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});$('everything-tracking-dialog').addEventListener('close',()=>{editing=null;});
   api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={init,activate,open,select:id=>{currentId=id;selected.clear();},render};
+ window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(!updatingView)render();},select:id=>{currentId=id;selected.clear();},render};
 })();
