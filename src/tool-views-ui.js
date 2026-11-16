@@ -307,6 +307,11 @@
    }
    top.append(identity,date);
    if(readLogDetail){
+    item.classList.add('tool-view-log-expandable');item.title='點擊空白處展開／收合詳情';
+    item.addEventListener('click',event=>{
+     if(event.defaultPrevented||event.detail>1||event.button!==undefined&&event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.target.closest('button,a,input,textarea,select,label,summary,[contenteditable],.tool-view-pin-detail')||window.getSelection?.()?.toString())return;
+     toggle();
+    });
     const expand=button(expanded?'▾':'▸',toggle);if(!pinned)expand.dataset.logToggle=row.id;expand.title=expanded?'收合詳情':'展開詳情';
     expand.setAttribute('aria-expanded',String(expanded));expand.setAttribute('aria-label','切換詳情 '+row.title);actions.append(expand);
    }

@@ -1,19 +1,28 @@
 'use strict';
 const path=require('node:path');
 const {parentPath}=require('./favorites-batch');
+const columns=require('./everything-result-columns');
 const pathAPI=value=>/^[a-z]:[\\/]/i.test(value)?path.win32:path;
 function trackingBatchStore(tracking,id,token,indices){
  return {read:()=>null,selection:()=>tracking.selection(id,token,indices).paths.map((path,index)=>({id:String(index),path,...require('./favorites-store').inspectPath(path)})),state:()=>({status:'ready'})};
 }
 
 async function trackingAction({tracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen,renameItem}){
- if(!['open','show','copy','copy-names','copy-folders','favorite','rename','move','bulk-open','bulk-locations','rename-item'].includes(action))throw Error('追蹤搜尋操作無效');
- const {paths,tags}=tracking.selection(id,token,indices);
+ if(!['open','show','copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations','rename-item'].includes(action))throw Error('追蹤搜尋操作無效');
+ const {paths,tags,rows}=tracking.selection(id,token,indices);
  if(action==='bulk-open'||action==='bulk-locations')return bulkOpen({id,token,indices},action==='bulk-open'?'open':'locations');
  if(action==='rename-item'){
   if(paths.length!==1)throw Error('請只選取一個檔案或資料夾再重新命名');
   if(!input||typeof input.name!=='string')throw Error('請輸入新名稱');
   return renameItem(paths[0],input.name);
+ }
+ if(action==='copy-table'){
+  const keys=input?.columns;
+  if(!Array.isArray(keys)||!keys.length||keys.length>Object.keys(columns.COLUMNS).length||new Set(keys).size!==keys.length||keys.some(key=>!Object.hasOwn(columns.COLUMNS,key)))throw Error('表格欄位無效，請重新選擇欄位');
+  const cell=value=>{const text=String(value).replace(/[\t\r\n\u0000-\u001f]/g,' ');return /^\s*[=+@-]/.test(text)?"'"+text:text;};
+  const text=[keys.map(key=>columns.COLUMNS[key].label),...rows.map(row=>keys.map(key=>columns.display(row,key)))].map(row=>row.map(cell).join('\t')).join('\r\n');
+  if(Buffer.byteLength(text,'utf8')>2*1024*1024)throw Error('複製內容過大，請減少選取項目或欄位');
+  clipboard.writeText(text);return {copied:rows.length};
  }
  if(action==='favorite'){const result=favorites.addPaths(paths,tags);notifyFavorites();return result;}
  if(['copy','copy-names','copy-folders'].includes(action)){

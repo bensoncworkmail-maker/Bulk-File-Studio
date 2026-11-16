@@ -165,3 +165,18 @@ test('compact logs can hide previews and toolbar extras while expanding and crea
  assert.match(root.querySelector('.tool-view-pin-detail').textContent,/Full note/);
  view.dispose();
 });
+
+for(const floating of [false,true])test('log blank-space expansion preserves controls and text selection in '+(floating?'floating':'main')+' view',async()=>{
+ const document=documentFromHTML('<html><body><section id="view"></section></body></html>');let selection='';const window={getSelection:()=>({toString:()=>selection})},actions=[],reads=[],root=document.getElementById('view');
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
+ const row={id:'record',title:'Report',summary:'Preview',date:'2026-11-16',markers:[]},detail=async id=>{reads.push(id);return {updatedAt:'2026-11-16',fields:[],notes:'Full note',tags:[]};};
+ const api={data:async()=>({rows:[row],pinned:[],page:0,last:0,total:1,layout:'list',sort:'recent',tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]}),action:async(...args)=>actions.push(args),saveFilters:async()=>{}};
+ if(floating){api.close=()=>{};api.logRecord=async(action,id)=>action==='detail'?detail(id):undefined;}else api.logDetail=detail;
+ const view=window.toolViewsUI.mount(root,api,{kind:'logs'});await new Promise(setImmediate);const item=()=>root.querySelector('.tool-view-log-row');
+ assert.equal(reads.length,0);const title=root.querySelector('.tool-view-log-link');await title.dispatch('click');await new Promise(setImmediate);assert.equal(actions[0][0],'visit');
+ for(const props of [{target:title},{ctrlKey:true},{shiftKey:true},{detail:2},{button:2},{defaultPrevented:true}]){await item().dispatch('click',props);assert.equal(item().dataset.expanded,'false');}
+ selection='Preview';await item().dispatch('click');assert.equal(reads.length,0);selection='';
+ await item().dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,1);assert.match(root.querySelector('.tool-view-pin-detail').textContent,/Full note/);
+ await item().dispatch('click',{target:root.querySelector('.tool-view-pin-detail')});assert.equal(item().dataset.expanded,'true');await item().dispatch('click');assert.equal(item().dataset.expanded,'false');assert.equal(reads.length,1);
+ await root.querySelector('[aria-label="切換詳情 Report"]').dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,2);view.dispose();
+});

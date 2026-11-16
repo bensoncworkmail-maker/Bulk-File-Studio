@@ -48,15 +48,17 @@
  function renderControls(){
   const query=current(),rows=query?.snapshot?.rows||[],has=query&&ready();
   $('everything-tracking-copy-query').disabled=busy||loading||!query;
+  const pause=$('everything-tracking-pause');pause.disabled=busy||loading||!query;pause.textContent=query?.enabled===false?'恢復追蹤':'暫停追蹤';
   for(const name of ['refresh','edit','delete'])$('everything-tracking-'+name).disabled=busy||!query||(name==='refresh'&&(!has||!query.enabled));
   for(const name of ['select-all','select-none','select-invert'])$('everything-tracking-'+name).disabled=busy||loading||!rows.length;
-  for(const name of ['favorite','copy','copy-names','copy-folders','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).disabled=busy||loading||!selected.size;
+  for(const name of ['favorite','copy','copy-names','copy-folders','copy-table','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).disabled=busy||loading||!selected.size;
   $('everything-tracking-rename-item').disabled=busy||loading||selected.size!==1;
   $('everything-tracking-interval').value=String(data.refreshSeconds);$('everything-tracking-interval').disabled=busy;
   $('settings-everything-tracking-refresh').value=String(data.refreshSeconds);
   $('everything-tracking-selected-menu').disabled=busy||loading||!selected.size;
   const expanded=window.settingsUI?.get().everythingToolsExpanded!==false,toggle=$('everything-tracking-toggle-tools'),tools=$('everything-tracking-tools');
   if(!expanded&&tools.contains(document.activeElement))toggle.focus();tools.hidden=!expanded;toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?'▾ 收合操作工具':'▸ 展開操作工具';
+  const summary=$('everything-tracking-update-summary');summary.hidden=expanded;summary.textContent=!query?'尚無追蹤搜尋':!query.enabled?'追蹤已暫停':!ready()?'Everything 未就緒':!data.refreshSeconds?'定時更新已關閉':selected.size?'定時更新暫停（已選取結果）':'定時更新：'+({60:'每分鐘',300:'每 5 分鐘',900:'每 15 分鐘'}[data.refreshSeconds]||data.refreshSeconds+' 秒');
   $('everything-tracking-selected').textContent='已選 '+selected.size+' 項';
  }
  function render(){
@@ -71,7 +73,7 @@
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns();
   $('everything-tracking-title').textContent=query?.name||'追蹤 Everything 搜尋';$('everything-tracking-command').textContent=query?.text||'新增搜尋命令及標籤，追蹤符合條件的檔案與資料夾。';
   const status=$('everything-tracking-status');status.classList.toggle('error',Boolean(snapshot?.error));
-  status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；可從編輯搜尋重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置':'');
+  status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；按「恢復追蹤」重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置':'');
   const list=$('everything-tracking-results'),body=$('everything-tracking-body'),scroll=list.scrollTop,focused=body.contains(document.activeElement)||document.activeElement===list;body.replaceChildren();
   const labels=Object.fromEntries(Object.entries(columns.COLUMNS).map(([key,column])=>[key,column.label])),sort=sorting(),sortKey=sort.key,sortDirection=sort.direction;
   for(const [key,label] of Object.entries(labels)){
@@ -127,7 +129,7 @@
   const count=selected.size,one=count===1;
   const items=[{label:'開啟檔案／資料夾'+(one?'':'（'+count+' 項，先確認）'),run:()=>action(one?'open':'bulk-open')},
    {label:'開啟所在資料夾'+(one?'':'（先確認）'),run:()=>action(one?'show':'bulk-locations')},
-   {label:'複製完整路徑 · Ctrl+C',run:()=>action('copy')},{label:'複製檔名 · Ctrl+Shift+C',run:()=>action('copy-names')},{label:'複製所在資料夾',run:()=>action('copy-folders')},
+   {label:'複製完整路徑 · Ctrl+C',run:()=>action('copy')},{label:'複製檔名 · Ctrl+Shift+C',run:()=>action('copy-names')},{label:'複製所在資料夾',run:()=>action('copy-folders')},{label:'複製所選表格（可貼到試算表）',run:()=>action('copy-table')},
    {label:'重新命名… · F2',disabled:!one,run:renameItem},{label:'批次改名…',run:()=>action('rename')},{label:'批次搬移… · Ctrl+Shift+M',run:()=>action('move')},{label:'保留為一般收藏',run:()=>action('favorite')},
    {label:'全選結果 · Ctrl+A',run:()=>selectResults('all')},{label:'取消選取 · Esc',run:()=>selectResults('none')},{label:'複製搜尋條件',run:copyQuery},{label:'編輯搜尋／標籤',run:()=>editor(current())}];
   window.favoritesUI?.showMenu(event,items);
@@ -143,14 +145,22 @@
  }
  async function action(kind,indices=[...selected]){
   const query=current();if(!query?.snapshot||blocked()||!indices.length)return;
+  if(kind==='copy-table'){const wanted=new Set(indices);indices=ordered().filter(entry=>wanted.has(entry.index)).map(entry=>entry.index);}
   busy=true;render();
-  try{const result=await api.trackingAction(query.id,query.snapshot.token,indices,kind);
+  try{const result=await api.trackingAction(query.id,query.snapshot.token,indices,kind,kind==='copy-table'?{columns:shownColumns()}:undefined);
    if(kind==='favorite'){callbacks.showToast('已保留 '+result.added+' 項一般收藏；'+result.existing+' 項已存在');if(result.issues?.length)callbacks.showFailure('部分結果未能收藏',result.issues.join('\n'));}
+   else if(kind==='copy-table')callbacks.showToast('已複製 '+result.copied+' 項表格，可貼到試算表');
    else if(['copy','copy-names','copy-folders'].includes(kind))callbacks.showToast('已複製 '+result.copied+' 項'+({'copy':'路徑','copy-names':'檔名','copy-folders':'所在資料夾'}[kind]));
    else if(kind==='rename')callbacks.onRename(result);
    else if(kind==='move')await window.movingUI.start(result.paths,{sourceLabel:'Everything 追蹤結果'});
    else if(kind==='bulk-open'||kind==='bulk-locations'){if(!result.canceled){callbacks.showToast('已開啟 '+result.opened+' 項');if(result.failures?.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));}}
   }catch(error){callbacks.showFailure('追蹤結果操作未完成',error);}
+  finally{busy=false;render();}
+ }
+ async function toggleTracking(){
+  const query=current();if(!query||blocked())return;const enabled=!query.enabled;busy=true;renderControls();
+  try{await api.trackingSave({...query,enabled});busy=false;await load(enabled);callbacks.showToast(enabled?'已恢復追蹤':'已暫停追蹤');}
+  catch(error){callbacks.showFailure('無法切換追蹤狀態',error);}
   finally{busy=false;render();}
  }
  function renameItem(){
@@ -205,7 +215,7 @@
  function init(options){
   callbacks=options;window.everythingWorkbench?.setup({key:'everything-rule',text:'everything-rule-text',mode:'everything-rule-mode',type:'everything-rule-type',blocked:()=>busy});window.everythingLayout?.init();$('everything-tracking-new').addEventListener('click',()=>editor());$('everything-tracking-edit').addEventListener('click',()=>editor(current()));$('everything-tracking-delete').addEventListener('click',remove);$('everything-tracking-refresh').addEventListener('click',refresh);
   for(const name of ['all','none','invert'])$('everything-tracking-select-'+name).addEventListener('click',()=>selectResults(name));
-  for(const name of ['copy','copy-names','copy-folders','favorite','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
+  for(const name of ['copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
   $('everything-tracking-toggle-tools').addEventListener('click',()=>{if(callbacks?.isBusy?.())return;updateView({everythingToolsExpanded:window.settingsUI?.get().everythingToolsExpanded===false},true);});
   $('everything-tracking-selected-menu').addEventListener('click',event=>{if(!blocked()&&selected.size)rowMenu(event,[...selected][0]);});
   $('everything-tracking-columns').addEventListener('click',chooseColumns);$('everything-tracking-autosize').addEventListener('click',()=>{if(!blocked())window.everythingLayout?.autoSize();});
@@ -222,7 +232,8 @@
   for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).addEventListener('click',()=>changeSort(key));
   for(const name of ['everything-tracking-interval','settings-everything-tracking-refresh'])$(name).addEventListener('change',()=>interval($(name)));
   $('everything-rule-form').addEventListener('submit',event=>{event.preventDefault();void save();});$('everything-rule-cancel').addEventListener('click',()=>{if(!busy)$('everything-tracking-dialog').close();});$('everything-tracking-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});$('everything-tracking-dialog').addEventListener('close',()=>{editing=null;});
-  api.onTrackingChanged(()=>{void load(false);});void load(active);
+  $('everything-tracking-pause').addEventListener('click',toggleTracking);
+  renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
  window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(!updatingView)render();},select:id=>{currentId=id;selected.clear();},render};
 })();

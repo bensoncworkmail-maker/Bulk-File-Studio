@@ -1,16 +1,16 @@
 # 應用程式功能與模組盤點
 
-版本：v1.108.0。以 `npm run audit:functions` 重新產生。
+版本：v1.109.0。以 `npm run audit:functions` 重新產生。
 
 讀取 src 全部 187 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 257 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
 - Everything 排序由共用驗證模型管理，按追蹤 ID 保存欄位、方向與各欄位上次方向；欄位隱藏時暫用名稱排序，不刪除原偏好。
-- 追蹤選取與批次操作共用可收合工具列，保留已選數量、所選項目選單、右鍵與快捷鍵，收合狀態納入偏好還原／匯出。
+- 追蹤定時更新、選取與批次操作共用可收合工具列，啟動立即還原狀態並保留更新摘要、已選數量、所選項目選單、右鍵與快捷鍵，收合狀態納入偏好還原／匯出。
 - 一般收藏既有排序由 favoriteSort／favoriteDirection 保存；工作區由 notes-table-state 管理表格版面與篩選；查看紀錄由 log-view-settings-model 管理各範圍篩選／排序歷史，沒有另建平行資料來源。
 - Everything 僅建立可見結果欄的 DOM 與格式文字；局部偏好更新避免重複重建結果，隱藏欄資料仍保留於同一快取。
-- 查看紀錄的主視窗／浮窗共用 tool-views 樣式，補足標題、摘要與展開欄位的內距；收藏清單內容亦增加少量內距。
+- 查看紀錄主視窗／浮窗共用空白處展開／收合行為，保留按鈕與文字選取；追蹤暫停沿用 trackingSave，表格複製沿用結果版本與檔案身分核對，不新增平行資料來源。
 - check:app 檢查頁面與快捷入口、功能目錄、工具目標、設定預設／分類／控制項、DOM ID、aria-controls 與本機依賴，錯誤會令命令失敗。
 
 ## 界線與後續驗證
@@ -100,8 +100,8 @@
 | [everything-metadata.js](../src/everything-metadata.js) | `cell`、`date`、`parse`、`record` |
 | [everything-query.js](../src/everything-query.js) | `buildQuery`、`normalizeExtensions`、`normalizeQuery`、`searchExpression` |
 | [everything-result-columns.js](../src/everything-result-columns.js) | `display`、`location`、`normalizeColumns`、`value`、`widths` |
-| [everything-tracking-actions.js](../src/everything-tracking-actions.js) | `pathAPI`、`trackingAction`、`trackingBatchStore` |
-| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`node`、`open`、`ordered`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`shownColumns`、`sorting`、`syncStartQuery`、`updateView`、`visible` |
+| [everything-tracking-actions.js](../src/everything-tracking-actions.js) | `cell`、`pathAPI`、`trackingAction`、`trackingBatchStore` |
+| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`node`、`open`、`ordered`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`shownColumns`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
 | [everything-tracking-view.js](../src/everything-tracking-view.js) | `sortedRows`、`value` |
 | [everything-tracking.js](../src/everything-tracking.js) | `configure`、`invalidate`、`list`、`normalizeRules`、`query`、`queryKey`、`read`、`refresh`、`remove`、`removeFileType`、`save`、`saveFileType`、`selection`、`snapshot` |
 | [everything-view-settings.js](../src/everything-view-settings.js) | `direction`、`effective`、`normalize`、`select`、`sort` |
