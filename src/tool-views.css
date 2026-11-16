@@ -87,7 +87,7 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 .tool-view-snippet-preview{display:block;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3px}
 
 .tool-overlay-bar[hidden]{display:none}
-.tool-view:has([data-compact-logs=true]){padding:8px 10px}
+.tool-view:has([data-compact-logs=true]){padding:clamp(12px,1.5vw,22px)}
 [data-compact-logs=true] .tool-view-heading{margin:0 0 6px;gap:6px}
 [data-compact-logs=true] .tool-view-heading h1{font-size:1.18em}
 [data-compact-logs=true] .btn{height:auto;min-height:26px;padding:3px 7px}
@@ -193,7 +193,7 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 [data-compact-logs=true] .tool-view-filters[hidden] { display:none; }
 
 /* Log rows keep the timestamp and actions on the same line as the title. */
-.tool-view:has(>[data-compact-logs=true]),.tool-view[data-compact-logs=true]{padding:7px 9px}
+.tool-view:has(>[data-compact-logs=true]),.tool-view[data-compact-logs=true]{padding:clamp(12px,1.5vw,22px)}
 [data-compact-logs=true] .tool-view-heading h1{font-size:1.05em}
 [data-compact-logs=true] .tool-view-result.tool-view-log-row{display:grid;grid-template-columns:minmax(0,1fr);justify-items:stretch;gap:2px;padding:4px 6px}
 .tool-view-list:has(>.tool-view-log-row){
@@ -236,3 +236,6 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 [data-compact-logs=true] .tool-view-result.tool-view-log-row{padding:8px 10px;gap:5px}.tool-view-log-row .tool-view-log-identity{padding-block:2px}.tool-view-log-row .tool-view-log-link{padding:3px 2px}.tool-view-log-row .tool-view-log-preview{padding:2px 3px}.tool-view-log-row .tool-view-pin-detail{padding:9px 3px 3px;gap:8px}.tool-view-log-row .tool-view-pin-fields :is(dt,dd){padding-block:2px}
 
 .tool-view-log-expandable{cursor:pointer}.tool-view-log-expandable .tool-view-pin-detail{cursor:auto}
+
+.tool-view-pin-footer{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.tool-view-pin-footer>small{margin-inline-end:auto}
+@media(max-width:520px){.tool-view[data-compact-logs=true]{padding:12px}.tool-view-log-top{flex-wrap:wrap}.tool-view-log-identity{flex-basis:65%}.tool-view-log-master{max-width:45%}}

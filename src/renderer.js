@@ -658,6 +658,7 @@ async function init() {
   window.sidebarResize.initNotes({getWidth:()=>window.settingsUI.get().notesPanelWidth,save:value=>window.settingsUI.update({notesPanelWidth:value}),isBusy:()=>busy||window.notesUI.isBusy()||window.notesUI.hasOpenDialog()});
   window.appSearchUI.init({showFailure,isBusy:()=>busy,transient:()=>({sources:files,presets:[...savedPresets.map(item=>({id:item.id,name:item.name,rules:item.rules})),...BUILTIN_PRESETS.map(item=>({id:'builtin:'+item.id,name:item.name,description:item.description}))]}),showPreset:id=>{window.favoritesUI.show('rename');setRuleTab('presets');if(id.startsWith('builtin:')){$('preset-select').value=id.slice(8);$('preset-select').dispatchEvent(new Event('change'));}else renderSavedPresets(id);},showSources:()=>window.favoritesUI.show('rename')});
   window.homeUI.init({showFailure,isBusy:()=>busy});
+  window.appHelpUI.init({showFailure,isBusy:()=>busy||Boolean(window.notesUI?.isBusy?.())});
   window.dialogSizesUI?.init();
   window.logViewSettingsUI?.init();window.calendarScopeSettingsUI?.init();
   window.floatingPanelsSettings?.init();window.snippetPickerSettings?.init();

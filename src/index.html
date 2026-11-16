@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="app-layout.css">
     <link rel="stylesheet" href="notes-sharing.css">
     <link rel="stylesheet" href="home.css">
+    <link rel="stylesheet" href="user-guide.css">
     <link rel="stylesheet" href="productivity.css">
     <link rel="stylesheet" href="planning-view.css">
     <link rel="stylesheet" href="tool-views.css">
@@ -50,7 +51,7 @@
           <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
           <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
         </nav>
-        <div class="header-right">
+        <div class="header-right"><button id="app-function-finder" type="button" class="btn btn-ghost" title="快速找功能（Ctrl+K）" aria-haspopup="dialog">⌕ 找功能</button><button id="app-guide" type="button" class="btn btn-ghost" title="新手使用指南（F1）" aria-haspopup="dialog">？ 使用指南</button>
           <span class="local-state">
             <span class="state-dot"></span>
             <span id="app-connection-label">本機與指定內網檔案 · 封鎖網頁連線</span>
@@ -1445,6 +1446,7 @@
         <div class="settings-grid">
           <section class="settings-card">
             <h2>本機檔案工作台</h2>
+            <p>第一次使用？從新手清單及常見任務逐步學習。</p><button id="info-open-guide" type="button" class="btn btn-primary" aria-haspopup="dialog">開啟新手使用指南</button>
             <p>收藏位置、標籤分類、自訂資料工作區、批次重新命名與搬移。原名 Bulk Rename Studio；沿用原有資料、設定與應用程式識別。</p>
             <h2>離線與資料保護</h2>
             <p>程式封鎖網頁網路請求、外部連結、導向與下載。共享資料包、手動匯入、工作區位置及文件預覽可使用指定的內網檔案。直接 UNC 共享只接受私有位址或解析至私有位址的主機。PDF 使用本機副本，HTML 以純文字顯示。主資料庫儲存於本機。</p>
@@ -2740,6 +2742,8 @@
     <div id="toast-container" aria-live="polite"></div>
     <script src="presets.js" defer></script>
     <script src="list-pagination.js" defer></script>
+    <dialog id="user-guide-dialog" class="modal" aria-labelledby="user-guide-title"><header class="guide-dialog-head"><h2 id="user-guide-title">新手使用指南</h2><button id="user-guide-close" type="button" class="btn btn-ghost">關閉</button></header><div id="user-guide-root"></div></dialog>
+    <dialog id="function-finder-dialog" class="modal" aria-labelledby="function-finder-title"><header class="guide-dialog-head"><h2 id="function-finder-title">快速找功能</h2><button id="function-finder-close" type="button" class="btn btn-ghost">關閉</button></header><label class="field"><span>搜尋功能入口</span><input id="function-finder-search" type="search" placeholder="例如：共享、備份、副檔名" aria-describedby="function-finder-count"></label><p id="function-finder-count" role="status"></p><div id="function-finder-results" class="function-finder-results"></div></dialog>
     <script src="file-location-groups.js" defer></script>
     <script src="settings-workbench.js" defer></script>
     <script src="quick-actions-model.js" defer></script>
@@ -2765,7 +2769,7 @@
     <script src="menu-dismiss.js" defer></script><script src="notes.js" defer></script>
     <script src="app-search.js" defer></script>
     <script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="snippet-picker-model.js" defer></script><script src="snippet-picker-settings.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="calendar-scope.js" defer></script><script src="calendar-scope-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
-    <script src="layout-editor.js" defer></script><script src="function-directory.js" defer></script><script src="home.js" defer></script>
+    <script src="layout-editor.js" defer></script><script src="function-directory.js" defer></script><script src="home.js" defer></script><script src="user-guide-model.js" defer></script><script src="user-guide-ui.js" defer></script><script src="app-help.js" defer></script>
     <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul></dialog>
 </body>

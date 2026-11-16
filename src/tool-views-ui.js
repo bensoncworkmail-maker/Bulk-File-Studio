@@ -265,6 +265,9 @@
    toggle.className='btn btn-secondary tool-view-pin-star';
    return toggle;
   }
+  function reminderButton(row){
+   const reminder=button('提醒',()=>act('reminder',row.id));reminder.setAttribute('aria-label','新增提醒 '+row.title);reminder.title='為此紀錄新增提醒';return reminder;
+  }
   function detailFields(fields){
    const list=node('dl',undefined,'tool-view-pin-fields');
    for(const {label,value} of fields)list.append(node('dt',label),node('dd',value));
@@ -276,6 +279,7 @@
     if(disposed||expandedId!==row.id)return;
     const footer=node('footer',undefined,'tool-view-pin-footer');
     footer.append(node('small','修改日期 '+data.updatedAt.slice(0,10)));
+    footer.append(button('前往工作區',()=>act('visit',row.id)),reminderButton(row));
     if(pinned)footer.append(button('編輯',async()=>{
      try{await api.logRecord('edit',row.id);}
      catch(error){status.textContent=error.message;}
@@ -296,9 +300,9 @@
     const root=pinned?pinsList:results;
     [...root.querySelectorAll('button')].find(button=>button.dataset.logToggle===row.id)?.focus();
    }
-   const title=button(row.title,()=>pinned?toggle():act('visit',row.id));
+   const title=button(row.title,()=>readLogDetail?toggle():act('visit',row.id));
    title.className='tool-view-log-link';title.title=row.title;
-   if(pinned){title.dataset.logToggle=row.id;title.setAttribute('aria-expanded',String(expanded));title.setAttribute('aria-label','切換詳情 '+row.title);}
+   if(readLogDetail){title.dataset.logToggle=row.id;title.setAttribute('aria-expanded',String(expanded));title.setAttribute('aria-label','切換詳情 '+row.title);}
    const date=node('time',row.date||'');if(row.date)date.dateTime=row.date;
    const identity=node('div',undefined,'tool-view-log-identity');
    identity.append(title);
@@ -312,12 +316,10 @@
      if(event.defaultPrevented||event.detail>1||event.button!==undefined&&event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.target.closest('button,a,input,textarea,select,label,summary,[contenteditable],.tool-view-pin-detail')||window.getSelection?.()?.toString())return;
      toggle();
     });
-    const expand=button(expanded?'▾':'▸',toggle);if(!pinned)expand.dataset.logToggle=row.id;expand.title=expanded?'收合詳情':'展開詳情';
+    const expand=button(expanded?'▾':'▸',toggle);expand.title=expanded?'收合詳情':'展開詳情';
     expand.setAttribute('aria-expanded',String(expanded));expand.setAttribute('aria-label','切換詳情 '+row.title);actions.append(expand);
    }
-   const reminder=button('提醒',()=>act('reminder',row.id));
-   reminder.setAttribute('aria-label','新增提醒 '+row.title);
-   reminder.title='為此紀錄新增提醒';actions.append(reminder);
+   if(!readLogDetail)actions.append(reminderButton(row));
    if(canPin)actions.append(pinButton(row,pinned));
    top.append(actions);item.append(top);
    if(expanded){

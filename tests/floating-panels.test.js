@@ -158,11 +158,12 @@ test('compact logs can hide previews and toolbar extras while expanding and crea
  assert.equal(root.querySelector('.tool-view-pins').hidden,true);
  assert.equal(root.querySelectorAll('button').find(button=>button.textContent==='釘住視窗').hidden,true);
  assert.equal(root.querySelector('.tool-view-status').textContent,'');
- await root.querySelector('[aria-label="新增提醒 Report"]').dispatch('click');
- assert.deepEqual(actions,[['reminder','record']]);
- await root.querySelector('[aria-label="切換詳情 Report"]').dispatch('click');
- await new Promise(setImmediate);
+ assert.equal(root.querySelector('[aria-label="新增提醒 Report"]'),null);
+ await root.querySelector('.tool-view-log-link').dispatch('click');await new Promise(setImmediate);
  assert.match(root.querySelector('.tool-view-pin-detail').textContent,/Full note/);
+ const reminder=root.querySelector('[aria-label="新增提醒 Report"]');assert.ok(reminder.closest('.tool-view-pin-detail'));
+ await reminder.dispatch('click');assert.deepEqual(actions,[['reminder','record']]);
+ const visit=root.querySelectorAll('button').find(button=>button.textContent==='前往工作區');assert.ok(visit.closest('.tool-view-pin-detail'));await visit.dispatch('click');assert.deepEqual(actions.at(-1),['visit','record']);
  view.dispose();
 });
 
@@ -173,10 +174,10 @@ for(const floating of [false,true])test('log blank-space expansion preserves con
  const api={data:async()=>({rows:[row],pinned:[],page:0,last:0,total:1,layout:'list',sort:'recent',tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]}),action:async(...args)=>actions.push(args),saveFilters:async()=>{}};
  if(floating){api.close=()=>{};api.logRecord=async(action,id)=>action==='detail'?detail(id):undefined;}else api.logDetail=detail;
  const view=window.toolViewsUI.mount(root,api,{kind:'logs'});await new Promise(setImmediate);const item=()=>root.querySelector('.tool-view-log-row');
- assert.equal(reads.length,0);const title=root.querySelector('.tool-view-log-link');await title.dispatch('click');await new Promise(setImmediate);assert.equal(actions[0][0],'visit');
+ assert.equal(reads.length,0);const title=root.querySelector('.tool-view-log-link');assert.equal(title.getAttribute('aria-expanded'),'false');
  for(const props of [{target:title},{ctrlKey:true},{shiftKey:true},{detail:2},{button:2},{defaultPrevented:true}]){await item().dispatch('click',props);assert.equal(item().dataset.expanded,'false');}
  selection='Preview';await item().dispatch('click');assert.equal(reads.length,0);selection='';
  await item().dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,1);assert.match(root.querySelector('.tool-view-pin-detail').textContent,/Full note/);
  await item().dispatch('click',{target:root.querySelector('.tool-view-pin-detail')});assert.equal(item().dataset.expanded,'true');await item().dispatch('click');assert.equal(item().dataset.expanded,'false');assert.equal(reads.length,1);
- await root.querySelector('[aria-label="切換詳情 Report"]').dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,2);view.dispose();
+ await root.querySelector('.tool-view-log-link').dispatch('click');await new Promise(setImmediate);assert.equal(item().dataset.expanded,'true');assert.equal(reads.length,2);assert.deepEqual(actions,[]);const reminder=root.querySelector('[aria-label="新增提醒 Report"]');assert.ok(reminder.closest('.tool-view-pin-detail'));await reminder.dispatch('click');await root.querySelectorAll('button').find(button=>button.textContent==='前往工作區').dispatch('click');assert.deepEqual(actions.map(args=>args.slice(0,2)),[['reminder','record'],['visit','record']]);view.dispose();
 });
