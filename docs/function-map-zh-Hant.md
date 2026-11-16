@@ -49,7 +49,7 @@
 - 可輸入完整 Windows 資料夾路徑後按「限定資料夾」、「排除此資料夾」或「只搜尋直接子項目」；含空格路徑會加引號。
 - 可繼續手動編輯 Everything 原生條件。實際搜尋由本機 Everything 版本解讀。
 
-欄位及固定匯出參數參考：[官方 ES 命令列工具](https://github.com/voidtools/ES)。舊 ES 不支援額外欄位參數時會自動回退原路徑查詢，相關額外資訊顯示 —。
+欄位及固定匯出參數參考：[官方 ES 命令列工具](https://github.com/voidtools/ES)。每次查詢用 `-columns` 明確取代 ES 從 `es.ini` 載入的欄位配置，確保 CSV 順序與欄數固定，不寫入 ES 個人設定。舊 ES 不支援額外欄位參數時會自動回退原路徑查詢，相關額外資訊顯示 —。
 
 官方語法參考：[Everything 搜尋說明](https://www.voidtools.com/support/everything/searching/)、[搜尋函式](https://www.voidtools.com/support/everything/search_functions/)。內建類型使用明確 `ext:` 清單，以相容 IPC 搜尋。
 

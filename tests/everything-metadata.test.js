@@ -24,3 +24,16 @@ test('older ES metadata switches fall back to the original path-only query witho
  const calls=[],h=bridge(t,(exe,args,options,done)=>{calls.push(args);setImmediate(()=>{if(args.includes('-export-csv'))done(Object.assign(Error('unsupported'),{code:6}));else {fs.writeFileSync(args[args.indexOf('-export-txt')+1],'C:\\keep.txt\r\n');done(null);}});return {kill(){}};});
  const result=await h.value.search({text:'*',mode:'syntax',type:'file'},{publish:false,metadata:true});assert.equal(result.rows[0].path,'C:\\keep.txt');assert.equal(result.metadataUnavailable,true);assert.equal(calls.length,2);assert.equal(fs.readdirSync(h.dir).some(name=>name.startsWith('bfs-everything-')),false);
 });
+
+test('metadata replaces saved ES columns, including extra properties and conflicting column order',async t=>{
+ const savedColumns=['size','date-run','name','date-created','system.comment'],original=[...savedColumns],layouts=[],now=Date.UTC(2026,10,16);
+ const values={'full-path-and-name':'C:\\Work\\a,b.txt','date-created':time(now),'date-accessed':time(now+1000),attributes:'A','date-recently-changed':time(now+2000),'run-count':'7','date-run':time(now+3000),'file-list-file-name':'C:\\lists\\work.efu',size:'999',name:'a,b.txt','system.comment':'custom property'};
+ const h=bridge(t,(exe,args,options,done)=>{
+  // Model ES loading es.ini, replacing on -columns, and otherwise only adding named properties.
+  let columns=[...savedColumns];for(let i=0;i<args.indexOf('--');i++){if(args[i]==='-columns')columns=args[++i].split(';');else if(Object.hasOwn(values,args[i].slice(1))&&!columns.includes(args[i].slice(1)))columns.push(args[i].slice(1));}
+  layouts.push(columns);assert.equal(args.includes('-save-settings'),false);assert.equal(args.includes('-clear-settings'),false);
+  setImmediate(()=>{fs.writeFileSync(args[args.indexOf('-export-csv')+1],csv(columns.map(key=>values[key])));done(null);});return {kill(){}};
+ });
+ const result=await h.value.search({text:'*',type:'file',mode:'syntax'},{publish:false,metadata:true});assert.deepEqual(layouts[0],['full-path-and-name','date-created','date-accessed','attributes','date-recently-changed','run-count','date-run','file-list-file-name']);
+ assert.equal(result.rows[0].path,'C:\\Work\\a,b.txt');assert.equal(result.rows[0].createdMs,now);assert.equal(result.rows[0].dateRunMs,now+3000);assert.equal(result.rows[0].runCount,7);assert.deepEqual(savedColumns,original);
+});

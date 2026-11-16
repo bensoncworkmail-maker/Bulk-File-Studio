@@ -1,6 +1,8 @@
 'use strict';
 const path=require('node:path');
-const FLAGS=Object.freeze(['-full-path-and-name','-date-created','-date-accessed','-attributes','-date-recently-changed','-run-count','-date-run','-file-list-file-name','-date-format','2','-no-digit-grouping']);
+// -columns replaces the entire layout loaded from es.ini; individual switches only add columns.
+// Keep parser order independent of saved columns, including custom Everything 1.5 properties.
+const FLAGS=Object.freeze(['-columns','full-path-and-name;date-created;date-accessed;attributes;date-recently-changed;run-count;date-run;file-list-file-name','-date-format','2','-no-digit-grouping']);
 function date(value){if(!/^\d{1,20}$/.test(value)||BigInt(value)===0n)return null;const ms=Number((BigInt(value)-116444736000000000n)/10000n);return Number.isFinite(ms)&&Math.abs(ms)<=8640000000000000?ms:null;}
 function parse(bytes){
  if(bytes.length>20*1024*1024)throw Error('搜尋輸出過大，請縮小搜尋範圍');let text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes).replace(/^\uFEFF/,'');}catch{throw Error('ES 輸出不是 UTF-8，請更新官方 ES 工具');}
