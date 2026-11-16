@@ -18,3 +18,11 @@ test('homepage provides edit/done, exact size controls and reset without visitin
 test('renderer settings notification refreshes home editing controls without a navigation or unrelated preference update',async()=>{
  const h=setup();await h.ui.activate();const source=fs.readFileSync(require.resolve('../src/renderer'),'utf8'),body=source.split('onChange:(settings,changed)=>{')[1].split('\n  }});')[0],apply=vm.runInNewContext('(settings,changed)=>{'+body+'}',{window:h.window,defaults:{},render(){}});h.window.favoritesUI.render=()=>{};let redraws=0;const original=h.window.homeUI;h.window.homeUI={...original,settingsChanged:()=>{redraws++;original.settingsChanged();}};apply(h.prefs(),['layoutEditing']);assert.equal(redraws,1);
 });
+
+test('home tracking summary and function directory route to canonical pages and preserve existing widget choices',async()=>{
+ const h=setup({homeWidgets:['tracking']}),visits=[],M=require('../src/function-directory');h.window.studioFunctionDirectory=M;h.window.everythingTrackingUI={open:id=>visits.push(['tracking',id])};h.window.everythingAPI={copyQuery:async id=>visits.push(['copy',id])};
+ h.setResult({counts:{},tracking:{engine:{enabled:true,configured:true},queries:[{id:'rule',name:'今日文件',enabled:true,count:8,checkedAt:'2026-11-16T00:00:00Z'}]},warnings:[]});await h.ui.activate();assert.match(h.$('home-widgets').textContent,/今日文件/);assert.equal(h.$('home-tracking-count').textContent,'1 個搜尋');
+ await find(h.$('home-widgets'),'今日文件').dispatch('click');await find(h.$('home-widgets'),'複製搜尋條件').dispatch('click');assert.deepEqual(visits,[['tracking','rule'],['copy','rule']]);assert.deepEqual(h.prefs().homeWidgets,['tracking']);
+ h.$('home-function-search').value='自訂副檔名';await h.$('home-function-search').dispatch('input');assert.equal(h.$('home-function-count').textContent,'1 項功能');await find(h.$('home-function-results'),'Everything 追蹤').dispatch('click');assert.deepEqual(visits.at(-1),['tracking',undefined]);
+ for(const entry of M.entries){if(entry.page)assert.ok(Object.hasOwn(require('../src/quick-actions-model').PAGES,entry.page));if(entry.tool)assert.ok(Object.hasOwn(require('../src/quick-actions-model').TOOLS,entry.tool));if(entry.settings)assert.ok(require('../src/settings-catalog').groups.some(group=>group.id===entry.settings));}
+});

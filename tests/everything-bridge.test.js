@@ -40,3 +40,14 @@ test('file categories also work with quoted filename keywords and reject unknown
  for(const [type,extensions] of Object.entries(FILE_TYPES))assert.equal(buildQuery({text:'Annual Report *.MP4',type}),'file: ext:'+extensions+' <"Annual" "Report" "*.MP4">');
  for(const type of ['unknown','__proto__','constructor','toString',null,{}])assert.throws(()=>buildQuery({text:'*',type,mode:'syntax'}),/搜尋條件無效/);
 });
+
+test('custom extensions cannot inject operators and portable expressions preserve file/folder restrictions',async t=>{
+ const {normalizeExtensions,searchExpression}=require('../src/everything-query');
+ assert.equal(normalizeExtensions('.PDF, docx;PDF xlsx'),'docx;pdf;xlsx');
+ for(const value of ['',null,['pdf'],'pdf | exe','*.pdf','ext:pdf','pdf\nfolder:','p"df','tar.gz','a'.repeat(21)])assert.throws(()=>normalizeExtensions(value),/副檔名/);
+ const input={text:'dm:7days | size:>1gb',type:'custom',mode:'syntax',extensions:'.pdf,.DOCX'};
+ assert.equal(buildQuery(input),'file: ext:docx;pdf <dm:7days | size:>1gb>');
+ assert.equal(searchExpression({...input,type:'folder'}),'folder: <dm:7days | size:>1gb>');
+ assert.equal(searchExpression({...input,type:'file'}),'file: <dm:7days | size:>1gb>');
+ const h=setup(t);h.bridge.choose(h.file);h.bridge.configure(true,'');await h.bridge.search(input);assert.equal(h.calls.at(-1).args.at(-1),buildQuery(input));assert.ok(h.calls.at(-1).args.includes('/a-d'));
+});

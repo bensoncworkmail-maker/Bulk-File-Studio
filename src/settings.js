@@ -7,7 +7,7 @@
   const tabs=catalog.groups.map(group=>group.id);let workbench,resetScope='all';
   function syncControls() {
     for(const tab of tabs){const current=settings.settingsTab===tab;const button=$('settings-tab-'+tab);button.setAttribute('aria-selected',String(current));button.tabIndex=current?0:-1;$('settings-panel-'+tab).hidden=!current;}
-    workbench?.sync();applyRoot(document.documentElement,settings);for(const [key,id] of [['notesPanelWidth','settings-notes-panel-width-value'],['notesDetailWidth','settings-notes-detail-width-value'],['notesRowHeight','settings-notes-row-height-value']])$(id).textContent=settings[key]+' px';
+    workbench?.sync();window.everythingLayout?.sync();applyRoot(document.documentElement,settings);for(const [key,id] of [['notesPanelWidth','settings-notes-panel-width-value'],['notesDetailWidth','settings-notes-detail-width-value'],['notesRowHeight','settings-notes-row-height-value']])$(id).textContent=settings[key]+' px';
     $('settings-source-width-value').textContent=settings.sourcePanelWidth+' px';
     $('settings-rules-width-value').textContent=settings.rulesWidth+' px';
     $('settings-tag-width-value').textContent=settings.tagPanelWidth+' px';
@@ -107,9 +107,11 @@
       const routes=window.quickActionsModel;
       const page=typeof target==='string'&&Object.hasOwn(routes.PAGES,target);
       const tool=target&&typeof target==='object'&&Object.hasOwn(routes.TOOLS,target.tool);
-      if(!page&&!tool)return;
+      const tracking=target&&typeof target==='object'&&Object.hasOwn(target,'everything')&&(target.everything===null||typeof target.everything==='string'&&window.quickActionsModel.ID.test(target.everything));
+      if(!page&&!tool&&!tracking)return;
       if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}
-      if(tool)window.productivityUI.openSection(target.tool);
+      if(tracking)window.everythingTrackingUI?.open(target.everything);
+      else if(tool)window.productivityUI.openSection(target.tool);
       else window.favoritesUI.show(target);
     });syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();window.shortcutOverviewUI?.init();
     let nativeValues={},availableTags=[];

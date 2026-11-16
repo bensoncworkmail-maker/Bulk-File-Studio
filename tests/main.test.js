@@ -1173,3 +1173,27 @@ test('tracked folder rename preserves descendants and favorite links and restore
  assert.equal(fs.readFileSync(path.join(target,'child.txt'),'utf8'),'nested');assert.deepEqual(h.handlers.get('favorites-list')().items.map(item=>item.path).sort(),[target,path.join(target,'child.txt')].sort());
  await h.handlers.get('undo')(null);assert.equal(fs.readFileSync(child,'utf8'),'nested');assert.deepEqual(h.handlers.get('favorites-list')().items.map(item=>item.path).sort(),[folder,child].sort());
 });
+
+test('Everything profiles and command copying are main-only, include type filters and appear in the home summary',async t=>{
+ const h=harness(t),save=h.handlers.get('everything-tracking-save'),query=save(null,{name:'工作 PDF',text:'dm:today | dm:yesterday',type:'custom',extensions:'.pdf,docx',mode:'syntax',tags:[],enabled:true});
+ h.handlers.get('everything-file-type-save')(null,{name:'工作文件',extensions:'pdf;docx'});assert.equal(h.handlers.get('everything-tracking-list')().fileTypes[0].name,'工作文件');
+ h.handlers.get('everything-copy-query')(null,query.id);assert.equal(h.getCopied(),'file: ext:docx;pdf <dm:today | dm:yesterday>');
+ const home=h.handlers.get('studio-home')();assert.equal(home.tracking.queries[0].id,query.id);assert.equal(home.tracking.queries[0].checkedAt,null);assert.equal(home.tracking.queries[0].snapshot,undefined);
+ const options=h.handlers.get('quick-action-options')();assert.equal(options.trackingQueries[0].id,query.id);
+ h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ for(const channel of ['everything-copy-query','everything-file-type-save','everything-file-type-remove'])assert.throws(()=>h.rawHandlers.get(channel)(event,query.id),/不受信任/);
+ h.handlers.get('everything-file-type-remove')(null,'工作文件');assert.equal(h.handlers.get('everything-tracking-list')().queries[0].extensions,'docx;pdf');
+});
+test('floating Everything shortcuts open, copy, refresh and revalidate stale native menu targets',async t=>{
+ let queries=0;class Bridge{cancel(){}status(){return {supported:true,enabled:true,configured:true};}async search(){queries++;return {rows:[],truncated:false};}}
+ const h=harness(t,{'./everything-bridge':{EverythingBridge:Bridge}}),query=h.handlers.get('everything-tracking-save')(null,{name:'大型檔案',text:'size:>1gb | dm:today',mode:'syntax',type:'file',tags:[],enabled:true}),id=require('node:crypto').randomUUID();
+ const set=(trackingAction,trackingId=query.id)=>h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{id,type:'everything-tracking',label:'追蹤',trackingId,trackingAction,shortcut:'Ctrl+Alt+Shift+9'}]});
+ h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}},run=()=>h.rawHandlers.get('floating-quick-action')(event,id);
+ set('copy');await run();assert.equal(h.getCopied(),'file: <size:>1gb | dm:today>');
+ set('open');await run();assert.deepEqual(JSON.parse(JSON.stringify(h.messages.at(-1))),['open-app-page',{everything:query.id}]);
+ set('refresh');assert.equal((await run()).refreshed,0);assert.equal(queries,1);
+ set('menu',null);assert.equal(run().menu,true);const entry=h.popup().template[0];assert.equal(entry.label,'大型檔案');assert.equal(entry.submenu.length,3);
+ set('copy');h.registered.get('CommandOrControl+Alt+Shift+9')();await new Promise(setImmediate);assert.equal(h.getCopied(),'file: <size:>1gb | dm:today>');
+ h.handlers.get('everything-tracking-remove')(null,query.id);await assert.rejects(run(),/移除/);assert.equal(h.getCopied(),'file: <size:>1gb | dm:today>');
+ set('menu',null);assert.equal(run().menu,true);assert.match(h.popup().template[0].label,/尚無/);
+});

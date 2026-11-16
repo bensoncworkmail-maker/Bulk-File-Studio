@@ -17,6 +17,8 @@
   if(result.inline)return '已切換浮動內容分頁';
   if(result.pasted)return '已送出貼上（請核對目標欄位）';
   if(result.menu)return '已開啟外部選單';
+  if(result.queryCopied)return '已複製 Everything 搜尋條件';
+  if(result.refreshed!==undefined)return 'Everything 已更新，共 '+result.refreshed+' 項';
   if(result.copied!==undefined)return '已複製 '+result.copied+' 項路徑';
   if(item.type==='open-search')return '已開啟浮動全域搜尋';
   if(item.type==='open-drafts')return '已開啟草稿筆記';

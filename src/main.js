@@ -317,7 +317,7 @@ app.whenReady().then(() => {
   handle('notes-share-publish',(_,profileId)=>notesShare.publish(profileId));
   handle('notes-share-inspect',async(_,name)=>{const result=await notesShare.read(name),M=require('./notes-model'),doc=M.readPackage(result.data);return {name,source:result.sharing?.source||'未提供',version:result.sharing?.version||null,commit:result.sharing?.commit||null,revision:result.sharing?.revision??null,scope:result.sharing?.scope||{mode:'all',masterIds:[]},masters:M.masterTableTree(doc).map(branch=>({id:branch.master.id,name:branch.master.name,children:branch.children.length,referenceOnly:result.sharing?.scope?.mode==='masters'&&!result.sharing.scope.masterIds.includes(branch.master.id)})),records:doc.records.length,recycled:result.data.tombstones?.length||0};});
   handle('notes-share-load',async(_,name,profileId=notesShare.selected)=>{invalidateNotesImport();const readVersion=notesImportReadVersion;sharedImport={profileId,loading:true};const result=await notesShare.read(name,profileId);if(readVersion!==notesImportReadVersion)throw new Error('匯入來源已變更，請使用最新選擇');notesImportDocument=result.data;notesImportName=name;sharedImport={name,sharing:result.sharing,profileId:result.profileId,scope:require('./notes-sharing-model').receivingScope(result.sharing?.scope,result.receiveScope)};return {name,canceled:false,supportsMerge:Boolean(result.sharing?.source&&Number.isSafeInteger(result.sharing.revision))};});
-  handle('studio-home',()=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],pins:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('釘選／檢視讀取失敗：'+error.message);}return {...require('./home-model').snapshot({document,tools,favorites:favorites.read().items}),warnings};});
+  handle('studio-home',()=>{const warnings=[];let document={areas:[],sheets:[],records:[]},tools={views:[],pins:[]};try{document=notesStore().get().document;}catch(error){warnings.push('工作區讀取失敗：'+error.message);}try{tools=toolsStore().get();}catch(error){warnings.push('釘選／檢視讀取失敗：'+error.message);}let tracking={queries:[],engine:{}};try{const value=everythingTracking.list();tracking={engine:value.engine,queries:value.queries.map(({id,name,enabled,snapshot})=>({id,name,enabled,count:snapshot?.rows.length||0,checkedAt:snapshot?.checkedAt||null,error:snapshot?.error||''}))};}catch(error){warnings.push('追蹤搜尋讀取失敗：'+error.message);}return {...require('./home-model').snapshot({document,tools,favorites:favorites.read().items}),tracking,warnings};});
   handle('studio-search',(_,query,options,transient)=>searchLocalData(query,options,transient));
   handle('studio-search-copy',(_,value)=>{clipboard.writeText(require('./notes-model').text(value,4096,'位置文字',true));});
   handle('notes-tools-get',()=>toolsStore().get());
@@ -354,7 +354,7 @@ app.whenReady().then(() => {
   handle('notes-navigation',()=>{const next=pendingNotesNavigation;pendingNotesNavigation=null;return next;});
   handle('quick-action-options',()=>{
     const M=require('./notes-model'),doc=notesStore().get().document,live=doc.sheets.filter(sheet=>!sheet.deletedAt),masterSheets=new Set(doc.areas.map(area=>area.masterSheetId));
-    return {snippets:productivity.store.get().snippets.map(({id,name,category})=>({id,name,category})),tags:tagList(favorites.read().items),sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
+    return {trackingQueries:everythingTracking.read().queries.map(({id,name,enabled})=>({id,name,enabled})),snippets:productivity.store.get().snippets.map(({id,name,category})=>({id,name,category})),tags:tagList(favorites.read().items),sheets:live.map(sheet=>({id:sheet.id,name:sheet.name,fields:sheet.fields,area:doc.areas.find(area=>area.id===sheet.areaId)?.name||'未分組',parentSheetId:M.parentField(doc,sheet)?.targetSheetId||null})),masters:doc.records.filter(record=>masterSheets.has(record.sheetId)&&M.live(doc,record)).map(record=>({id:record.id,sheetId:record.sheetId,title:record.title}))};
   });
   handle('floating-search-open',(_,query)=>floatingSearchController().open(query));
   handle('studio-search-target-opened',(_,requestId)=>floatingSearch?.targetOpened(requestId)??false);
@@ -398,6 +398,20 @@ app.whenReady().then(() => {
   }
   runQuickAction=(event,id,anchor,pasteTarget)=>{
     const action=configuredQuick(id);
+    if(action.type==='everything-tracking'){
+      const resolve=target=>{const latest=configuredQuick(id);if(latest.type!=='everything-tracking'||JSON.stringify(latest)!==JSON.stringify(action))throw Error('快捷設定已變更，請重新開啟選單');if(latest.trackingId&&target!==latest.trackingId)throw Error('追蹤目標已變更');return target?everythingTracking.query(target):null;};
+      const perform=async(kind,target)=>{
+        const query=resolve(target);
+        if(kind==='copy'){if(!query)throw Error('請先指定追蹤搜尋');clipboard.writeText(require('./everything-query').searchExpression(query));return {copied:1,queryCopied:true};}
+        if(kind==='refresh'){if(!query)throw Error('請先指定追蹤搜尋');const value=await everythingTracking.refresh(query.id),snapshot=value.queries.find(row=>row.id===query.id)?.snapshot;send(win,'everything-tracking-changed');if(JSON.stringify(resolve(query.id))!==JSON.stringify(query)||!snapshot)throw Error('追蹤條件已變更，請重新更新');if(snapshot.error)throw Error(snapshot.error);return {refreshed:snapshot?.rows.length||0};}
+        focusMain();const targetWindow=win,payload={everything:query?.id||null};if(targetWindow.webContents.isLoadingMainFrame?.())targetWindow.webContents.once('did-finish-load',()=>send(targetWindow,'open-app-page',payload));else send(targetWindow,'open-app-page',payload);keepFloatingAfterQuick();return {opened:true};
+      };
+      if(action.trackingAction==='menu'){
+        const rows=action.trackingId?[resolve(action.trackingId)]:everythingTracking.read().queries;
+        popupFloatingMenu(rows.length?rows.map(query=>({label:menuLabel(query.name)+(query.enabled?'':'（已暫停）'),submenu:[{label:'開啟追蹤結果',click:floatingAction(()=>perform('open',query.id))},{label:'複製完整搜尋式',click:floatingAction(()=>perform('copy',query.id))},{label:'立即更新',enabled:query.enabled,click:floatingAction(()=>perform('refresh',query.id))}]})):[{label:'尚無追蹤搜尋；開啟新增',click:floatingAction(()=>perform('open',null))}],{allowCollapsed:true});return {menu:true};
+      }
+      return perform(action.trackingAction,action.trackingId);
+    }
     if(action.type==='open-tag-menu')return {...showTagMenu(action.tagKeys||action.tag,action.query,{allowCollapsed:true,menuItems:action.menuItems}),menu:true};
     if(action.type==='copy-tag-paths'){const selected=(action.tagKeys?tagListMenu:tagMenu)(favorites.list(),action.tagKeys||action.tag,action.query,{});clipboard.writeText(favorites.recordedPaths(selected.ids).join('\r\n'));return {copied:selected.count};}
     if(action.type==='paste-snippet')return productivity.pasteSnippet(action.snippetId);
@@ -510,6 +524,9 @@ app.whenReady().then(() => {
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>{const value=everything.configure(enabled,instance);everythingTracking.invalidate();send(win,'everything-tracking-changed');return value;});
   handle('everything-choose',async(_,dropped)=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const filepath=await openFileInput(dialog,win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const value=everything.choose(filepath);everythingTracking.invalidate();send(win,'everything-tracking-changed');return value;});
+  handle('everything-file-type-save',(_,input)=>{const value=everythingTracking.saveFileType(input);send(win,'everything-tracking-changed');return value;});
+  handle('everything-file-type-remove',(_,name)=>{const value=everythingTracking.removeFileType(name);send(win,'everything-tracking-changed');return value;});
+  handle('everything-copy-query',(_,id)=>{clipboard.writeText(require('./everything-query').searchExpression(everythingTracking.query(id)));return {copied:1};});
   handle('everything-tracking-list',()=>everythingTracking.list());
   handle('everything-tracking-save',(_,input)=>{const value=everythingTracking.save(input);send(win,'everything-tracking-changed');return value;});
   handle('everything-tracking-remove',(_,id)=>{everythingTracking.remove(id);send(win,'everything-tracking-changed');return everythingTracking.list();});

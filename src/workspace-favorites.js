@@ -15,8 +15,8 @@
  function action(text,handler,className='btn btn-ghost'){
   const item=node('button',text,className);item.type='button';item.addEventListener('click',handler);return item;
  }
- function show(next){
-  kind=next;
+ function show(next,remember=true){
+  kind=next;if(remember&&window.settingsUI.get().favoriteLastKind!==next)window.settingsUI.update?.({favoriteLastKind:next});
   $('favorite-files-layout').hidden=kind!=='files';
   $('workspace-favorites-panel').hidden=kind!=='workspace';
   $('everything-tracking-panel').hidden=kind!=='everything';window.everythingTrackingUI?.activate(kind==='everything');
@@ -305,8 +305,8 @@
   api.onToolsChanged(()=>{if(!$('favorites-page').classList.contains('hidden'))void refresh();});
  }
  function activate(){
-  const preferred=window.settingsUI.get().favoriteStartKind||'files';
-  if(defaultKind!==preferred){defaultKind=preferred;show(preferred);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}else if(kind==='everything')window.everythingTrackingUI?.activate(true);
+  const settings=window.settingsUI.get(),preferred=settings.favoriteStartKind||'files',initial=preferred==='last'?(settings.favoriteLastKind||'files'):preferred;
+  if(defaultKind!==preferred){defaultKind=preferred;show(initial,false);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}else if(kind==='everything')window.everythingTrackingUI?.activate(true);
  }
- window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),showEverything:()=>show('everything'),isFiles:()=>kind==='files',isWorkspace:()=>kind==='workspace'};
+ window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),showWorkspace:()=>show('workspace'),showEverything:()=>show('everything'),isFiles:()=>kind==='files',isWorkspace:()=>kind==='workspace'};
 })();
