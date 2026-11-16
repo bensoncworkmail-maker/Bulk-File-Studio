@@ -2,13 +2,16 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
 const {documentFromHTML}=require('./helpers/dom'),{FavoritesStore}=require('../src/favorites-store'),{EverythingTracking}=require('../src/everything-tracking');
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise(setImmediate);};
-function fixture(t){
+function fixture(t,initial={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-ui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'report.txt');fs.writeFileSync(file,'data');
  const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='';
  const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true});
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;
  const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged(){},trackingAction:async(id,token,indices,action)=>{const result=service.selection(id,token,indices);actions.push({action,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
- const renamed=[],moved=[],window={everythingTrackingView:require('../src/everything-tracking-view'),everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
+ let prefs=require('../src/settings-model').normalize(initial);
+ const renamed=[],moved=[],window={everythingResultColumns:require('../src/everything-result-columns'),everythingTrackingView:require('../src/everything-tracking-view'),everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
+ window.settingsUI={get:()=>prefs,update:patch=>{prefs=require('../src/settings-model').normalize({...prefs,...patch});window.everythingLayout?.sync();}};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-layout.js'),'utf8'),{window,document});
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
  const callbacks={showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error),onRename:result=>renamed.push(result),isBusy:()=>false};window.everythingTrackingUI.init(callbacks);
  return {window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
@@ -158,7 +161,7 @@ test('quick copy and row context actions follow the clicked snapshot row after s
  const h=fixture(t);await flush();const menus=[];h.window.favoritesUI={showMenu:(_,actions)=>menus.push(actions)};h.api.copyQuery=async id=>h.actions.push({action:'copy-query',id});
  const other=path.join(path.dirname(h.file),'a.pdf');fs.writeFileSync(other,'other');h.bridge.search=async()=>({rows:[{name:'report.txt',path:h.file},{name:'a.pdf',path:other}],truncated:false});
  h.window.everythingTrackingUI.activate(true);await flush();let rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');assert.equal(rows[0].getAttribute('data-index'),'1');
- await rows[0].children[5].querySelector('button').dispatch('click');await flush();assert.equal(h.actions.at(-1).action,'copy');assert.deepEqual(h.actions.at(-1).paths,[other]);assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+ await rows[0].children.at(-1).querySelector('button').dispatch('click');await flush();assert.equal(h.actions.at(-1).action,'copy');assert.deepEqual(h.actions.at(-1).paths,[other]);assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
  await h.$('everything-tracking-copy-query').dispatch('click');await flush();assert.equal(h.actions.at(-1).id,h.rule.id);
  rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');await rows[0].dispatch('contextmenu');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');await menus.at(-1).find(item=>item.label.startsWith('複製完整路徑')).run();assert.deepEqual(h.actions.at(-1).paths,[other]);
  await h.$('everything-tracking-select-all').dispatch('click');rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');await rows[0].dispatch('contextmenu');assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(menus.at(-1).find(item=>item.label.startsWith('重新命名')).disabled,true);
@@ -168,4 +171,23 @@ test('quick copy and row context actions follow the clicked snapshot row after s
 test('startup query preference selects the requested rule, with a first-rule fallback for deleted targets',async t=>{
  const h=fixture(t);await flush();const next=h.service.save({...h.rule,id:undefined,name:'另一個搜尋',text:'dm:today'});h.window.settingsUI={get:()=>({everythingStartQuery:next.id})};h.window.everythingTrackingUI.select(null);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-title').textContent,'另一個搜尋');assert.equal(h.$('settings-everything-start-query').value,next.id);
  h.service.remove(next.id);h.window.everythingTrackingUI.select(null);h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-title').textContent,h.rule.name);assert.match(h.$('settings-everything-start-query').children.at(-1).textContent,/已移除/);
+});
+
+test('optional column selection keeps the original four defaults, saves choices, preserves row IDs and restores after restart',async t=>{
+ const h=fixture(t);await flush();h.bridge.search=async()=>({rows:[{name:'report.txt',path:h.file,createdMs:1234,runCount:3,attributes:'A'}],truncated:false});h.window.everythingTrackingUI.activate(true);await flush();
+ const row=()=>h.$('everything-tracking-body').querySelector('tr[data-index]'),shown=()=>row().querySelectorAll('td[data-column]').filter(cell=>!cell.hidden).map(cell=>cell.getAttribute('data-column'));
+ assert.deepEqual(shown(),['name','location','size','modified']);await row().dispatch('click');
+ await h.$('everything-tracking-columns').dispatch('click');const choices=h.$('everything-column-choices').querySelectorAll('input');assert.equal(choices.find(check=>check.value==='name').disabled,true);choices.find(check=>check.value==='extension').checked=true;choices.find(check=>check.value==='created').checked=true;choices.find(check=>check.value==='runCount').checked=true;
+ await h.$('everything-columns-cancel').dispatch('click');assert.deepEqual(shown(),['name','location','size','modified']);
+ await h.$('everything-tracking-columns').dispatch('click');for(const check of h.$('everything-column-choices').querySelectorAll('input'))if(['extension','created','runCount'].includes(check.value))check.checked=true;await h.$('everything-columns-save').dispatch('click');
+ assert.deepEqual(shown(),['name','location','size','modified','extension','created','runCount']);assert.equal(h.$('everything-tracking-sort-created').parentElement.hidden,false);assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(row().querySelector('[data-column="extension"]').textContent,'txt');assert.equal(row().querySelector('[data-column="runCount"]').textContent,'3');
+ await h.$('everything-tracking-sort-created').dispatch('click');await h.$('everything-tracking-copy').dispatch('click');await flush();assert.deepEqual(h.actions.at(-1).paths,[h.file]);
+ const saved=JSON.parse(JSON.stringify(h.window.settingsUI.get())),next=fixture(t,saved);await flush();next.window.everythingTrackingUI.activate(true);await flush();assert.equal(next.$('everything-tracking-sort-created').parentElement.hidden,false);assert.equal(next.window.settingsUI.get().everythingColumns.includes('extension'),true);
+ await next.$('everything-tracking-columns').dispatch('click');await next.$('everything-columns-default').dispatch('click');await next.$('everything-columns-save').dispatch('click');assert.deepEqual(next.window.settingsUI.get().everythingColumns,['name','location','size','modified']);assert.equal(next.$('everything-tracking-sort-created').parentElement.hidden,true);
+});
+test('header context menu can toggle columns and auto-size without changing selection',async t=>{
+ const h=fixture(t),menus=[];h.window.favoritesUI={showMenu:(_,items)=>menus.push(items)};await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-select-all').dispatch('click');
+ await h.$('everything-tracking-sort-name').parentElement.dispatch('contextmenu');assert.equal(menus.at(-1).find(item=>item.label==='✓ 檔案名稱').disabled,true);await menus.at(-1).find(item=>item.label.endsWith('副檔名')).run();assert.equal(h.window.settingsUI.get().everythingColumns.includes('extension'),true);
+ await h.$('everything-tracking-sort-name').parentElement.dispatch('contextmenu');await menus.at(-1).find(item=>item.label==='調整適合欄位大小').run();assert.ok(h.window.settingsUI.get().everythingColumnWidths.name>=80);assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');
+ await h.$('everything-tracking-autosize').dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.deepEqual(h.errors,[]);
 });

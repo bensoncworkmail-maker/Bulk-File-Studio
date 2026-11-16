@@ -7,7 +7,7 @@
   ['docs','最近 30 天文件','dm:30days','document'],['pdf','所有 PDF','*','pdf'],['images','最近 7 天圖片','dm:7days','picture'],
   ['archives','大型壓縮檔','size:>100mb','compressed'],['code','最近 7 天程式碼','dm:7days','code'],['empty','空檔案（檢視用）','size:0','file'],['folders','最近修改的資料夾','dm:7days','folder']
  ]);
- const CONDITIONS=Object.freeze([['今天修改','dm:today'],['昨天修改','dm:yesterday'],['最近 7 天','dm:7days'],['最近 30 天','dm:30days'],['本月','dm:thismonth'],['大於 200 MB','size:>200mb'],['大於 1 GB','size:>1gb'],['小於 10 MB','size:<10mb'],['PDF / Word','ext:pdf;doc;docx'],['不含隱藏檔','!attrib:h']]);
+ const CONDITIONS=Object.freeze([['今天修改','dm:today'],['昨天修改','dm:yesterday'],['最近 7 天','dm:7days'],['最近 30 天','dm:30days'],['本月','dm:thismonth'],['大於 200 MB','size:>200mb'],['大於 1 GB','size:>1gb'],['小於 10 MB','size:<10mb'],['PDF / Word','ext:pdf;doc;docx'],['不含隱藏檔','!attrib:h'],['只有檔案','file:'],['只有資料夾','folder:'],['唯讀項目','attrib:r'],['隱藏項目','attrib:h'],['不含系統檔','!attrib:s'],['壓縮屬性','attrib:c'],['加密屬性','attrib:e'],['排除暫存副檔名','!ext:tmp;temp;bak;part;crdownload'],['排除程式相依資料夾','!path:"\\node_modules\\" !path:"\\.git\\"']]);
  const instances=new Map();let profiles=[];
  const el=(tag,text)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;};
  function setup({key,text,mode,type,blocked=()=>false,changed=()=>{}}){
@@ -18,12 +18,23 @@
   for(const [id,label] of PRESETS){const option=el('option',label);option.value=id;presets.append(option);}
   const status=el('p');status.className='rule-hint';status.setAttribute('role','status');
   const button=(label,run)=>{const node=el('button',label);node.type='button';node.className='btn btn-ghost';node.addEventListener('click',()=>{if(blocked())return;status.textContent='';try{Promise.resolve(run()).catch(error=>{status.textContent=String(error.message||error);});}catch(error){status.textContent=String(error.message||error);}});return node;};
-  const append=fragment=>{if(modeInput.value==='simple'&&input.value.trim()){const words=input.value.trim().split(/\s+/).map(word=>'"'+word+'"').join(' ');input.value='<'+words+'> '+fragment;}else input.value=input.value.trim()?'<'+input.value.trim()+'> '+fragment:fragment;modeInput.value='syntax';changed();input.focus();};
+  const append=fragment=>{
+   let original=input.value.trim();if(modeInput.value==='simple'&&original){M.normalizeQuery({text:original,type:'all',mode:'simple'});original=original.split(/\s+/).map(word=>'"'+word+'"').join(' ');}
+   const next=original?'<'+original+'> '+fragment:fragment;if(next.length>4096)throw Error('搜尋條件超過 4096 字，請先縮短條件');input.value=next;modeInput.value='syntax';changed();input.focus();
+  };
   tools.append(presets,button('套用預設（取代條件）',()=>{const preset=PRESETS.find(item=>item[0]===presets.value);if(!preset)return;input.value=preset[2];modeInput.value='syntax';typeInput.value=preset[3];syncCustom();changed();status.textContent='已套用「'+preset[1]+'」，儲存或搜尋後生效。';}));root.append(tools);
   const conditions=el('div');conditions.className='everything-condition-chips';for(const [label,fragment] of CONDITIONS)conditions.append(button('＋ '+label,()=>append(fragment)));root.append(conditions);
+  const names=el('div');names.className='everything-preset-tools';const match=el('select');match.setAttribute('aria-label','檔名與路徑快速條件模式');
+  const matches=[['contains','檔名包含'],['exclude','檔名不含'],['exact','完整檔名'],['prefix','檔名開頭'],['suffix','檔名結尾'],['case','檔名區分大小寫'],['whole','完整單字'],['wildcard','檔名萬用字元'],['regex','檔名正則表達式'],['path','路徑包含']];
+  for(const [key,label] of matches){const option=el('option',label);option.value=key;match.append(option);}
+  const term=el('input');term.maxLength=256;term.placeholder='輸入文字、*.pdf 或 regex，例如 ^Report_[0-9]+';term.setAttribute('aria-label','檔名或路徑條件內容');
+  names.append(match,term,button('加入檔名／路徑條件',()=>{const value=term.value.trim();if(!value||value.length>256||/["\x00-\x1f\x7f]/.test(value))throw Error('請輸入 1–256 字的條件，不含雙引號或控制字元');
+   const prefixes={contains:'nopath:',exclude:'!nopath:',exact:'nopath:exact:',prefix:'nopath:startwith:',suffix:'nopath:endwith:',case:'nopath:case:',whole:'nopath:ww:',wildcard:'nopath:',regex:'nopath:regex:',path:'path:'};append(prefixes[match.value]+'"'+value+'"');
+  }));root.append(names);
+  const nameHelp=el('p','檔名條件可包含空格；萬用字元使用 * 或 ?。正則表達式由 Everything 解讀。屬性條件須由索引提供，加入的條件仍可在搜尋文字中修改。');nameHelp.className='rule-hint';root.append(nameHelp);
   const pathTools=el('div');pathTools.className='everything-preset-tools';const path=el('input');path.placeholder='例如 C:\\Work Projects\\';path.setAttribute('aria-label','限定或排除的資料夾路徑');
   const pathFragment=exclude=>{const value=path.value.trim().replace(/^"|"$/g,'');if(!/^(?:[a-z]:\\|\\\\)/i.test(value)||/["\x00-\x1f<>|]/.test(value))throw Error('請輸入完整的 Windows 資料夾路徑');return (exclude?'!':'')+'"'+value.replace(/\\?$/,'\\')+'"';};
-  pathTools.append(path,button('限定資料夾',()=>append(pathFragment(false))),button('排除此資料夾',()=>append(pathFragment(true))));root.append(pathTools);
+  pathTools.append(path,button('限定資料夾',()=>append(pathFragment(false))),button('排除此資料夾',()=>append(pathFragment(true))),button('只搜尋直接子項目',()=>append('parent:'+pathFragment(false))));root.append(pathTools);
   const custom=el('div');custom.className='everything-custom-types';const extensions=el('input');extensions.id=key+'-extensions';extensions.placeholder='例如 .pdf, docx, xlsx';extensions.maxLength=2048;extensions.setAttribute('aria-label','自訂副檔名');
   const extLabel=el('label','自訂副檔名（逗號、分號或空格分隔）');extLabel.className='field';extLabel.append(extensions);custom.append(extLabel);
   const saved=el('select');saved.setAttribute('aria-label','已儲存的自訂檔案類型');const name=el('input');name.maxLength=50;name.placeholder='類型名稱，例如工作文件';name.setAttribute('aria-label','儲存自訂檔案類型的名稱');

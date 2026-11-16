@@ -14,6 +14,7 @@
     for(const [key,id] of Object.entries(controls)){
       const el=$(id);if(typeof settings[key]==='boolean')el.checked=settings[key];else el.value=settings[key];
     }
+    $('settings-favorite-start-kind').disabled=settings.favoriteRememberLastTab;
     $('settings-notes-sidebar-details').disabled=settings.notesSidebarMode!=='masters';
     $('settings-notes-title-copy').disabled=!settings.notesShowDetailCopy;
   }

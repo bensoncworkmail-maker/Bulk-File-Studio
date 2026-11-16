@@ -30,3 +30,14 @@ test('path assignment quotes spaces, supports exclusion and rejects expressions 
  await find(h.root,'排除此資料夾').dispatch('click');assert.equal(text.value,'<dm:today> !"C:\\Work Projects\\"');
  path.value='C:\\Work" | *';await find(h.root,'限定資料夾').dispatch('click');assert.match(h.root.querySelector('[role="status"]').textContent,/完整/);assert.equal(text.value,'<dm:today> !"C:\\Work Projects\\"');
 });
+
+test('new quick assignments preserve existing controls and compose quoted name, path, regex and attribute filters',async()=>{
+ const h=setup(),text=h.$('everything-rule-text'),mode=h.$('everything-rule-mode'),match=h.root.querySelector('[aria-label="檔名與路徑快速條件模式"]'),term=h.root.querySelector('[aria-label="檔名或路徑條件內容"]');
+ for(const label of ['＋ 今天修改','＋ 大於 200 MB','＋ PDF / Word','＋ 不含隱藏檔'])assert.ok(find(h.root,label));
+ const options={contains:'nopath:',exclude:'!nopath:',exact:'nopath:exact:',prefix:'nopath:startwith:',suffix:'nopath:endwith:',case:'nopath:case:',whole:'nopath:ww:',wildcard:'nopath:',regex:'nopath:regex:',path:'path:'};
+ for(const [key,prefix] of Object.entries(options)){text.value='size:>1gb | dm:today';mode.value='syntax';match.value=key;term.value=key==='regex'?'^Report_[0-9]+':key==='wildcard'?'Report*.pdf':'Annual Report';await find(h.root,'加入檔名／路徑條件').dispatch('click');assert.equal(text.value,'<size:>1gb | dm:today> '+prefix+'"'+term.value+'"');}
+ text.value='*';await find(h.root,'＋ 排除程式相依資料夾').dispatch('click');assert.equal(text.value,'<*> !path:"\\node_modules\\" !path:"\\.git\\"');
+ text.value='*';h.root.querySelector('[aria-label="限定或排除的資料夾路徑"]').value='D:\\資料';await find(h.root,'只搜尋直接子項目').dispatch('click');assert.equal(text.value,'<*> parent:"D:\\資料\\"');
+ text.value='*';term.value='bad" | *';await find(h.root,'加入檔名／路徑條件').dispatch('click');assert.equal(text.value,'*');assert.match(h.root.querySelector('[role="status"]').textContent,/雙引號/);
+ text.value='x'.repeat(4090);await find(h.root,'＋ 唯讀項目').dispatch('click');assert.equal(text.value,'x'.repeat(4090));assert.match(h.root.querySelector('[role="status"]').textContent,/4096/);
+});

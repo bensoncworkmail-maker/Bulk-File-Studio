@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
 const {documentFromHTML}=require('./helpers/dom'),M=require('../src/notes-model'),{NotesStore}=require('../src/notes-store'),{NotesToolsStore,workspaceBookmarks}=require('../src/notes-tools-store');
 const flush=async()=>{for(let i=0;i<5;i++)await new Promise(setImmediate);};
-function fixture(t){
+function fixture(t,initial={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-favorite-ui-')),store=new NotesStore(path.join(dir,'workspace.sqlite')),tools=new NotesToolsStore(path.join(dir,'tools.json'));
  t.after(()=>{store.close();fs.rmSync(dir,{recursive:true,force:true});});
  const [master,detail]=store.addTemplate().document.sheets,code=master.fields.find(field=>field.type==='text');
@@ -12,10 +12,10 @@ function fixture(t){
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8')),errors=[],visits=[],calls=[],changes=[],toasts=[];
  document.getElementById('favorites-page').classList.remove('hidden');
  const proto=Object.getPrototypeOf(document.createElement('input'));if(!proto.favoriteChecked){const match=proto.matches;proto.matches=function(selector){return (!selector.includes(':checked')||this.checked)&&match.call(this,selector.replace(/:checked/g,''));};proto.favoriteChecked=true;}
- const settings=require('../src/settings-model').normalize({favoriteStartKind:'workspace'});
+ const settings=require('../src/settings-model').normalize({favoriteStartKind:'workspace',favoriteRememberLastTab:false,...initial});
  const api={tools:async()=>tools.get(),bookmarks:async()=>workspaceBookmarks(store.get().document,tools.get()),get:async()=>store.get(),favorites:async()=>({items:[]}),onChanged:fn=>changes.push(fn),onToolsChanged(){},batchBookmarks:async(...args)=>{calls.push(args);tools.batchBookmarks(store.get().document,...args);return tools.get();},copy:async input=>calls.push(input)};
  const menus=[];api.manageBookmarkTag=async(...args)=>{calls.push(args);return tools.manageBookmarkTag(...args);};
- const window={favoritesUI:{showMenu:(event,actions)=>menus.push(actions)},workspaceAPI:api,notesModel:M,webLinkModel:require('../src/web-link-model'),settingsUI:{get:()=>settings},notesUI:{openSearchTarget:async(...args)=>visits.push(args)},sidebarResize:{initFavoritesWorkspace(){}},addEventListener(){},innerWidth:1200,innerHeight:900};
+ const window={favoritesUI:{showMenu:(event,actions)=>menus.push(actions)},workspaceAPI:api,notesModel:M,webLinkModel:require('../src/web-link-model'),settingsUI:{get:()=>settings,update:patch=>Object.assign(settings,patch)},notesUI:{openSearchTarget:async(...args)=>visits.push(args)},sidebarResize:{initFavoritesWorkspace(){}},addEventListener(){},innerWidth:1200,innerHeight:900};
  for(const name of ['workspace-favorite-detail.js','workspace-favorites.js'])vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src',name),'utf8'),{window,document},{filename:name});
  window.workspaceFavoritesUI.init({isBusy:()=>false,showFailure:(title,error)=>errors.push(error.message),showToast:text=>toasts.push(text)});window.workspaceFavoritesUI.activate();
  return {menus,settings,window,document,api,store,tools,master,detail,parent,child,targets,errors,visits,calls,changes,toasts,$:id=>document.getElementById(id)};
@@ -183,4 +183,13 @@ test('favorites can initialize from the last tab, remember explicit tab selectio
  await h.$('favorite-kind-files').dispatch('click');assert.equal(h.settings.favoriteLastKind,'files');assert.equal(h.settings.favoriteStartKind,'last');
  h.window.workspaceFavoritesUI.activate();assert.equal(h.$('favorite-files-layout').hidden,false);
  h.settings.favoriteStartKind='everything';h.window.workspaceFavoritesUI.activate();assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(h.settings.favoriteLastKind,'files');
+});
+
+test('the remember-last-tab default overrides old fixed-tab settings and survives a fresh app session for each source',async t=>{
+ assert.equal(require('../src/settings-model').normalize({favoriteStartKind:'files'}).favoriteRememberLastTab,true);
+ let prefs={favoriteRememberLastTab:true,favoriteStartKind:'files'};
+ for(const kind of ['everything','workspace','files']){
+  const first=fixture(t,prefs);await flush();await first.$('favorite-kind-'+kind).dispatch('click');prefs=JSON.parse(JSON.stringify(first.settings));
+  const restarted=fixture(t,prefs);await flush();assert.equal(restarted.$('favorite-kind-'+kind).getAttribute('aria-selected'),'true');assert.equal(restarted.settings.favoriteStartKind,'files');
+ }
 });

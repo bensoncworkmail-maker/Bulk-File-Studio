@@ -305,7 +305,7 @@
   api.onToolsChanged(()=>{if(!$('favorites-page').classList.contains('hidden'))void refresh();});
  }
  function activate(){
-  const settings=window.settingsUI.get(),preferred=settings.favoriteStartKind||'files',initial=preferred==='last'?(settings.favoriteLastKind||'files'):preferred;
+  const settings=window.settingsUI.get(),preferred=settings.favoriteRememberLastTab!==false?'last':settings.favoriteStartKind||'files',initial=preferred==='last'?(settings.favoriteLastKind||'files'):preferred;
   if(defaultKind!==preferred){defaultKind=preferred;show(initial,false);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}else if(kind==='everything')window.everythingTrackingUI?.activate(true);
  }
  window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),showWorkspace:()=>show('workspace'),showEverything:()=>show('everything'),isFiles:()=>kind==='files',isWorkspace:()=>kind==='workspace'};

@@ -49,14 +49,14 @@ class EverythingTracking{
   const query=this.read().queries.find(item=>item.id===id);if(!query)throw Error('追蹤搜尋已移除');if(!query.enabled)throw Error('此追蹤搜尋已暫停');
   const previous=this.snapshot(query),epoch=this.epoch;
   try{
-   const found=await this.bridge.search(query,{publish:false}),rows=[],seen=new Set();let skipped=found.skipped||0;
+   const found=await this.bridge.search(query,{publish:false,metadata:true}),rows=[],seen=new Set();let skipped=found.skipped||0;
    for(const item of found.rows){
-    try{const checked=this.inspect(item.path),key=path.win32.isAbsolute(item.path)?path.win32.normalize(item.path).toLowerCase():path.normalize(item.path);if(seen.has(key))continue;seen.add(key);rows.push({path:item.path,name:item.name,...checked});}catch{skipped++;}
+    try{const checked=this.inspect(item.path),key=path.win32.isAbsolute(item.path)?path.win32.normalize(item.path).toLowerCase():path.normalize(item.path);if(seen.has(key))continue;seen.add(key);rows.push({...item,...checked});}catch{skipped++;}
    }
    if(epoch!==this.epoch||queryKey(this.read().queries.find(item=>item.id===id))!==queryKey(query))throw Error('追蹤搜尋已變更，請重新查詢');
-   this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:crypto.randomUUID(),rows,truncated:found.truncated,skipped,checkedAt:new Date(this.now()).toISOString(),error:''});
+   this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:crypto.randomUUID(),rows,metadataUnavailable:found.metadataUnavailable===true,truncated:found.truncated,skipped,checkedAt:new Date(this.now()).toISOString(),error:''});
   }catch(error){
-   if(epoch===this.epoch&&queryKey(this.read().queries.find(item=>item.id===id))===queryKey(query))this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:previous?.token||crypto.randomUUID(),rows:previous?.rows||[],checkedAt:previous?.checkedAt||null,truncated:previous?.truncated||false,skipped:previous?.skipped||0,error:String(error.message||error)});
+   if(epoch===this.epoch&&queryKey(this.read().queries.find(item=>item.id===id))===queryKey(query))this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:previous?.token||crypto.randomUUID(),rows:previous?.rows||[],metadataUnavailable:previous?.metadataUnavailable===true,checkedAt:previous?.checkedAt||null,truncated:previous?.truncated||false,skipped:previous?.skipped||0,error:String(error.message||error)});
   }
   return this.list();
  }
