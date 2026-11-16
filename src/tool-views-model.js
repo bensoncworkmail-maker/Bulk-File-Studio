@@ -92,7 +92,8 @@ function viewData(doc,reminders,snippets,config,filters={},logView,logPins){
   const fields=table.fields.filter(field=>field.type!=='relation').map(field=>M.cell(doc,field,record.values[field.id]));
   const linked=parent?(record.values[parent.id]||[]).map(id=>masterById.get(id)?.title||'').join('、'):'';
   if(query&&![record.title,record.notes,...record.tags,...fields,linked].some(value=>value.toLocaleLowerCase().includes(query)))continue;
-  rows.push({id:record.id,title:record.title,date:day,context:linked,detail:[day,linked].filter(Boolean).join(' · '),summary:record.notes.slice(0,800),updatedAt:record.updatedAt});
+  const markerField=stateField||stateFields[0],markers=markerField?[{label:markerField.label,value:logValue(doc,record,markerField)}].filter(item=>item.value!==''):[];
+  rows.push({id:record.id,title:record.title,date:day,sheet:table.name,markers,tags:record.tags.slice(0,3),tagCount:record.tags.length,context:linked,detail:[day,linked].filter(Boolean).join(' · '),summary:record.notes.slice(0,800),updatedAt:record.updatedAt});
  }
  rows.sort((a,b)=>{
   if(sort==='title')return a.title.localeCompare(b.title,'zh-Hant')||b.date.localeCompare(a.date);
