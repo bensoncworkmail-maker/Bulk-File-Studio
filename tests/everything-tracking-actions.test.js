@@ -46,3 +46,7 @@ test('table copy protects cell boundaries and spreadsheet formulas and enforces 
  const tracking={selection:()=>({paths:[row.path],rows:[row],tags:[]})},run=()=>trackingAction({tracking,action:'copy-table',input:{columns:['name','fileList']},clipboard:{writeText:value=>{copied=value;}}});
  await run();assert.equal(copied,"檔案名稱\t檔案清單檔案名稱\r\n'=1+1.txt\t' @SUM(A1) bad  next");const prior=copied;row.fileList='x'.repeat(2*1024*1024);await assert.rejects(run(),/內容過大/);assert.equal(copied,prior);
 });
+
+test('copied table honors chosen display units and rejects unknown units without modifying file bytes',async t=>{
+ const h=fixture(t);await h.tracking.refresh(h.query.id);await h.run('copy-table',[0],undefined,{columns:['name','size'],sizeUnit:'GB'});assert.match(h.copy(),/<0\.01 GB/);assert.equal(fs.readFileSync(h.files[0],'utf8'),'original');await assert.rejects(h.run('copy-table',[0],undefined,{columns:['size'],sizeUnit:'invalid'}),/單位無效/);
+});

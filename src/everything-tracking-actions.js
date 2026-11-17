@@ -24,8 +24,9 @@ async function trackingAction({tracking,id,token,indices,action,input,favorites,
  if(action==='copy-table'){
   const keys=input?.columns;
   if(!Array.isArray(keys)||!keys.length||keys.length>Object.keys(columns.COLUMNS).length||new Set(keys).size!==keys.length||keys.some(key=>!Object.hasOwn(columns.COLUMNS,key)))throw Error('表格欄位無效，請重新選擇欄位');
+  if(input?.sizeUnit!==undefined&&!columns.SIZE_UNITS.includes(input.sizeUnit))throw Error('大小單位無效');
   const cell=value=>{const text=String(value).replace(/[\t\r\n\u0000-\u001f]/g,' ');return /^\s*[=+@-]/.test(text)?"'"+text:text;};
-  const text=[keys.map(key=>columns.COLUMNS[key].label),...rows.map(row=>keys.map(key=>columns.display(row,key)))].map(row=>row.map(cell).join('\t')).join('\r\n');
+  const text=[keys.map(key=>columns.COLUMNS[key].label),...rows.map(row=>keys.map(key=>columns.display(row,key,{sizeUnit:input?.sizeUnit})))].map(row=>row.map(cell).join('\t')).join('\r\n');
   if(Buffer.byteLength(text,'utf8')>2*1024*1024)throw Error('複製內容過大，請減少選取項目或欄位');
   clipboard.writeText(text);return {copied:rows.length};
  }

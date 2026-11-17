@@ -23,3 +23,7 @@ test('result filter matches literal name/path terms without changing rows or the
  const {filterRows}=require('../src/everything-tracking-view'),rows=[{name:'Report[1].PDF',path:'C:\\Work\\Report[1].PDF'},{name:'report2.pdf',path:'C:\\Other\\report2.pdf'},{name:'Work',path:'C:\\Work',type:'folder'}],entries=sortedRows(rows),before=structuredClone(rows);
  assert.deepEqual(filterRows(entries,'WORK report[1]').map(row=>row.index),[0]);assert.deepEqual(filterRows(entries,'REPORT').map(row=>row.index),[0,1]);assert.deepEqual(filterRows(entries,'not-found'),[]);assert.deepEqual(filterRows(entries,'   '),entries);assert.deepEqual(rows,before);
 });
+
+test('size display units are binary, handle small values and leave numeric sort values unchanged',()=>{
+ const M=require('../src/everything-result-columns'),item={size:18432,type:'file'};assert.equal(M.formatSize(1024),'1 KB');assert.equal(M.display(item,'size',{sizeUnit:'KB'}),'18 KB');assert.equal(M.display(item,'size',{sizeUnit:'bytes'}),'18,432 bytes');assert.equal(M.display(item,'size',{sizeUnit:'MB'}),'0.02 MB');assert.equal(M.display(item,'size',{sizeUnit:'GB'}),'<0.01 GB');assert.equal(M.formatSize(1073741824,'GB'),'1 GB');assert.equal(M.formatSize(0,'KB'),'0 KB');assert.equal(M.formatSize(null,'MB'),'—');assert.equal(M.display({size:20,type:'folder'},'size',{sizeUnit:'KB'}),'—');assert.equal(M.value(item,'size'),18432);assert.equal(M.normalizeSizeUnit('invalid'),'auto');
+});

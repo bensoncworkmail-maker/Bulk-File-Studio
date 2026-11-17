@@ -29,3 +29,7 @@ test('folder types never use extensionless native shell icons',async()=>{
  let calls=0;const {service,rows}=fixture(async()=>{calls++;return native();});rows[0].type='folder';rows[1].type='file';
  const icons=await service.read('query','token',[0,1]);assert.equal(icons[0].dataURL,'');assert.equal(icons[1].dataURL,png);assert.equal(calls,1);
 });
+
+test('native worker PNG data follows the same bounded icon payload validation',async()=>{
+ const {service}=fixture(async()=>png);assert.equal((await service.read('query','token',[0]))[0].dataURL,png);const invalid=fixture(async()=> 'data:image/svg+xml,<script/>');assert.equal((await invalid.service.read('query','token',[0]))[0].dataURL,'');
+});

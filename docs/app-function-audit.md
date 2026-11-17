@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.115.0。以 `npm run audit:functions` 重新產生。
+版本：v1.116.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 193 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 258 個介面／桌面偏好。
+讀取 src 全部 194 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 260 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -106,9 +106,9 @@
 | [everything-layout.js](../src/everything-layout.js) | `apply`、`autoSize`、`end`、`fit`、`init`、`measure`、`prefs`、`reset`、`set`、`shown`、`sync` |
 | [everything-metadata.js](../src/everything-metadata.js) | `cell`、`date`、`parse`、`record` |
 | [everything-query.js](../src/everything-query.js) | `buildQuery`、`normalizeExtensions`、`normalizeQuery`、`searchExpression` |
-| [everything-result-columns.js](../src/everything-result-columns.js) | `display`、`location`、`normalizeColumns`、`value`、`widths` |
+| [everything-result-columns.js](../src/everything-result-columns.js) | `display`、`formatSize`、`location`、`normalizeColumns`、`normalizeSizeUnit`、`value`、`widths` |
 | [everything-tracking-actions.js](../src/everything-tracking-actions.js) | `cell`、`pathAPI`、`trackingAction`、`trackingBatchStore`、`trackingTrashStore` |
-| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`loadIcons`、`node`、`open`、`ordered`、`paintIcons`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`resultFilter`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`showCopy`、`showHint`、`shownColumns`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
+| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`loadIcons`、`node`、`open`、`ordered`、`paintIcons`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`resultFilter`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`showCopy`、`showHint`、`shownColumns`、`sizeUnit`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
 | [everything-tracking-view.js](../src/everything-tracking-view.js) | `filterRows`、`sortedRows`、`value` |
 | [everything-tracking.js](../src/everything-tracking.js) | `apiFor`、`configure`、`invalidate`、`key`、`list`、`normalizeRules`、`query`、`queryKey`、`read`、`refresh`、`remove`、`removeFileType`、`removePaths`、`save`、`saveFileType`、`selection`、`snapshot` |
 | [everything-view-settings.js](../src/everything-view-settings.js) | `direction`、`effective`、`normalize`、`select`、`sort` |
@@ -196,6 +196,7 @@
 | [tool-views-ui.js](../src/tool-views-ui.js) | `act`、`applyPinnedOnly`、`arrow`、`button`、`card`、`choices`、`day`、`detailFields`、`field`、`go`、`hasLogFilters`、`label`、`load`、`logRow`、`mount`、`node`、`pinButton`、`reloadField`、`reminderButton`、`render`、`renderLogChips`、`renderLogDetail`、`renderMonth`、`renderPins`、`saveLogFilters`、`setWindowPin`、`showRows`、`toggle`、`updateFilterSummary` |
 | [tool-views.css](../src/tool-views.css) | 版面、主題與互動狀態樣式 |
 | [windows-context-menu.js](../src/windows-context-menu.js) | `command`、`favoriteArguments`、`invoke`、`setEnabled`、`status`、`supported`、`validFavoritePaths` |
+| [windows-file-icons.js](../src/windows-file-icons.js) | `close`、`fail`、`get`、`local`、`request`、`start` |
 ### 搜尋與規劃
 
 | 原始檔 | 函式索引／用途 |

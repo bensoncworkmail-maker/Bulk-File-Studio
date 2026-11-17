@@ -156,3 +156,9 @@ test('remember-last-tab is on for existing settings and exposes the fixed startu
  const data=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.107.0');assert.equal(data.settings.favoriteRememberLastTab,false);
  h.ui.openCategory('favorites');await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');assert.equal(h.ui.get().favoriteRememberLastTab,true);assert.equal(h.$('settings-favorite-start-kind').disabled,true);
 });
+
+test('Everything display controls are searchable, remember units and icons and reset within favorites',async()=>{
+ const h=setup({settingsTab:'favorites',everythingSizeUnit:'KB',everythingFileIcons:true,everythingShowCopy:true});await flush();assert.equal(h.$('settings-everything-size-unit').value,'KB');h.$('settings-query').value='大小 單位';await h.$('settings-query').dispatch('input');assert.match(h.$('settings-query-results').textContent,/檔案大小顯示單位/);
+ h.$('settings-everything-size-unit').value='GB';await h.$('settings-everything-size-unit').dispatch('change');for(const id of ['settings-everything-file-icons','settings-everything-show-copy']){h.$(id).checked=false;await h.$(id).dispatch('change');}assert.equal(h.ui.get().everythingSizeUnit,'GB');assert.equal(h.ui.get().everythingFileIcons,false);assert.equal(h.ui.get().everythingShowCopy,false);
+ const exported=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.116.0');assert.equal(Settings.normalize(exported.settings).everythingSizeUnit,'GB');await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');await flush();assert.equal(h.ui.get().everythingSizeUnit,'auto');assert.equal(h.ui.get().everythingFileIcons,true);assert.equal(h.ui.get().everythingShowCopy,true);
+});

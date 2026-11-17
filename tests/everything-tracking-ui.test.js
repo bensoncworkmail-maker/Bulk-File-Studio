@@ -4,9 +4,9 @@ const {documentFromHTML}=require('./helpers/dom'),{FavoritesStore}=require('../s
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise(setImmediate);};
 function fixture(t,initial={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-ui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'report.txt');fs.writeFileSync(file,'data');
- const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='',changed=()=>{};
+ const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='',changed=()=>{},documentKey=()=>{};
  const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true});
- const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;
+ const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;document.addEventListener=(name,handler)=>{if(name==='keydown')documentKey=handler;};
  const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged:callback=>{changed=callback;},trackingAction:async(id,token,indices,action,input)=>{const result=service.selection(id,token,indices);actions.push({action,input,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
  let prefs=require('../src/settings-model').normalize(initial);
  const renamed=[],moved=[],window={everythingViewSettings:require('../src/everything-view-settings'),everythingResultColumns:require('../src/everything-result-columns'),everythingTrackingView:require('../src/everything-tracking-view'),everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
@@ -14,7 +14,7 @@ function fixture(t,initial={}){
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-layout.js'),'utf8'),{window,document});
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
  const callbacks={showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error),onRename:result=>renamed.push(result),isBusy:()=>false};window.everythingTrackingUI.init(callbacks);
- return {changed:()=>changed(),window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
+ return {documentKey:event=>documentKey(event),changed:()=>changed(),window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
 }
 test('both type selectors offer the supported categories and tracked edits retain the selected type',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');await flush();
@@ -316,4 +316,25 @@ test('copy action column toggles from headers and column chooser, persists and n
 
 test('empty result rows span only the data and action columns currently displayed',async t=>{
  const h=fixture(t,{everythingShowCopy:false});h.bridge.search=async()=>({rows:[],truncated:false});await flush();h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-body').querySelector('td').getAttribute('colspan'),'5');
+});
+
+test('Ctrl+F focuses and selects the filter only in the active tracking page with no dialog or busy operation',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const filter=h.$('everything-tracking-filter');let selected=0,prevented=0;filter.select=()=>selected++;const event=extra=>({key:'f',ctrlKey:true,target:h.$('favorite-kind-everything'),preventDefault(){prevented++;},stopPropagation(){},...extra});
+ h.documentKey(event());assert.equal(h.document.activeElement,filter);assert.equal(selected,1);h.$('everything-tracking-filter-clear').focus();h.documentKey(event({target:filter}));assert.equal(selected,2);
+ const before=prevented;for(const extra of [{shiftKey:true},{altKey:true},{isComposing:true},{repeat:true},{defaultPrevented:true}])h.documentKey(event(extra));h.$('everything-tracking-dialog').showModal();h.documentKey(event());h.$('everything-tracking-dialog').close();h.callbacks.isBusy=()=>true;h.documentKey(event());h.callbacks.isBusy=()=>false;h.window.everythingTrackingUI.activate(false);h.documentKey(event());assert.equal(prevented,before);
+});
+
+test('chosen size units persist, render and copy consistently while native file icons can be disabled',async t=>{
+ const h=fixture(t);let icons=0;h.api.trackingIcons=async()=>{icons++;return [];};await flush();h.window.everythingTrackingUI.activate(true);await flush();const unit=h.$('everything-tracking-size-unit');unit.value='KB';await unit.dispatch('change');assert.equal(h.window.settingsUI.get().everythingSizeUnit,'KB');assert.match(h.$('everything-tracking-body').querySelector('[data-column="size"]').textContent,/KB/);
+ await h.$('everything-tracking-select-all').dispatch('click');await h.$('everything-tracking-copy-table').dispatch('click');await flush();assert.equal(h.actions.at(-1).input.sizeUnit,'KB');const next=fixture(t,h.window.settingsUI.get());await flush();next.window.everythingTrackingUI.activate(true);await flush();assert.equal(next.$('everything-tracking-size-unit').value,'KB');
+ const disabled=fixture(t,{everythingFileIcons:false});disabled.api.trackingIcons=async()=>assert.fail('native icons disabled');await flush();disabled.window.everythingTrackingUI.activate(true);await flush();assert.equal(disabled.$('everything-tracking-body').querySelector('.everything-tracking-file-icon').getAttribute('data-kind'),'file');assert.ok(icons>0);
+});
+
+test('shortcut file labels retain a visible shortcut marker beside the loaded target icon',async t=>{
+ const h=fixture(t),shortcut=h.file+'.lnk';fs.writeFileSync(shortcut,'link');h.bridge.search=async()=>({rows:[{path:shortcut,name:'Example.lnk'}],truncated:false});h.api.trackingIcons=async()=>[{index:0,dataURL:'data:image/png;base64,aWNvbg=='}];await flush();h.window.everythingTrackingUI.activate(true);await flush();const label=h.$('everything-tracking-body').querySelector('.everything-tracking-file-label');assert.equal(label.getAttribute('data-shortcut'),'true');assert.equal(label.querySelector('img').getAttribute('src'),'data:image/png;base64,aWNvbg==');
+});
+
+
+test('turning off native icons suppresses delayed replies and turning them back on reuses the completed icon',async t=>{
+ const h=fixture(t);let resolve;h.api.trackingIcons=()=>new Promise(done=>resolve=done);await flush();h.window.everythingTrackingUI.activate(true);await flush();h.window.settingsUI.update({everythingFileIcons:false});h.window.everythingTrackingUI.settingsChanged();resolve([{index:0,dataURL:'data:image/png;base64,aWNvbg=='}]);await flush();assert.equal(h.$('everything-tracking-body').querySelector('img').getAttribute('src'),null);h.window.settingsUI.update({everythingFileIcons:true});h.window.everythingTrackingUI.settingsChanged();assert.equal(h.$('everything-tracking-body').querySelector('img').getAttribute('src'),'data:image/png;base64,aWNvbg==');
 });
