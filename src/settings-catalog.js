@@ -321,7 +321,7 @@ const config={
     "tagPanelWidth": "favorites",
     "showTips": "appearance",
     "favoriteView": "favorites",
-    "favoriteStartKind":"favorites","favoriteRememberLastTab":"favorites","everythingColumns":"favorites","everythingSizeUnit":"favorites","everythingRenameMode":"favorites","everythingSelectedTag":"favorites","everythingFileIcons":"favorites","everythingShowCopy":"favorites","everythingSortStates":"favorites","everythingToolsExpanded":"favorites","favoriteLastKind":"favorites","everythingStartQuery":"favorites","everythingSidebarWidth":"favorites","everythingColumnWidths":"favorites",
+    "favoriteStartKind":"favorites","favoriteRememberLastTab":"favorites","everythingColumns":"favorites","everythingSizeUnit":"favorites","everythingRenameMode":"favorites","everythingSelectedTag":"favorites","everythingLastQuery":"favorites","everythingFileIcons":"favorites","everythingShowCopy":"favorites","everythingSortStates":"favorites","everythingToolsExpanded":"favorites","favoriteLastKind":"favorites","everythingStartQuery":"favorites","everythingSidebarWidth":"favorites","everythingColumnWidths":"favorites",
     "favoriteIncludeLogPins":"favorites",
     "favoriteTableDefaultFollow":"favorites","favoriteShowTableRecords":"favorites","favoriteShowFollowedTables":"favorites","favoriteTableInheritTags":"favorites",
     "favoriteOpenMode": "favorites",

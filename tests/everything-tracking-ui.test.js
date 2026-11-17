@@ -2,10 +2,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
 const {documentFromHTML}=require('./helpers/dom'),{FavoritesStore}=require('../src/favorites-store'),{EverythingTracking}=require('../src/everything-tracking');
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise(setImmediate);};
-function fixture(t,initial={},ruleTags=['工作']){
+function fixture(t,initial={},ruleTags=['工作'],savedRules){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-ui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'report.txt');fs.writeFileSync(file,'data');
  const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='',changed=()=>{},documentKey=()=>{};
- const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:ruleTags,enabled:true});
+ const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=savedRules?(favorites.write({...favorites.read(),everythingSearches:savedRules}),savedRules[0]):service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:ruleTags,enabled:true});
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;document.addEventListener=(name,handler)=>{if(name==='keydown')documentKey=handler;};
  const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged:callback=>{changed=callback;},trackingAction:async(id,token,indices,action,input)=>{const result=service.selection(id,token,indices);actions.push({action,input,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
  let prefs=require('../src/settings-model').normalize(initial);
@@ -394,7 +394,7 @@ test('inline rename rejects duplicate submits and defers changed results until c
 
 test('inline rename uses the actual sorted source and rejects conflicts before executing an existing relocation plan',async t=>{
  const h=fixture(t),{planRename,executeRelocation}=require('../src/move-core'),{trackingAction}=require('../src/everything-tracking-actions'),other=path.join(path.dirname(h.file),'a.txt');fs.writeFileSync(other,'keep');h.bridge.search=async()=>({rows:[{path:h.file,name:'report.txt'},{path:other,name:'a.txt'}]});await flush();h.window.everythingTrackingUI.activate(true);await flush();
- h.api.trackingAction=async(id,token,indices,action,input)=>trackingAction({tracking:h.service,id,token,indices,action,input,renameItem:(source,name)=>{const moves=planRename(source,name);executeRelocation(moves);h.service.invalidate();return {changed:moves.length};}});
+ h.api.trackingAction=async(id,token,indices,action,input)=>trackingAction({tracking:h.service,id,token,indices,action,input,renameItem:(source,name)=>{const moves=planRename(source,name);executeRelocation(moves);return {changed:moves.length,moves};}});
  const rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');assert.equal(rows[0].getAttribute('data-index'),'1');await rows[0].dispatch('click');await h.$('everything-tracking-rename-item').dispatch('click');const input=h.$('everything-inline-rename-name');assert.equal(input.value,'a.txt');input.value='report.txt';await input.dispatch('keydown',{key:'Enter'});await flush();assert.ok(h.$('everything-inline-rename-error').textContent.length>0);assert.equal(fs.readFileSync(other,'utf8'),'keep');input.value='renamed.txt';await input.dispatch('keydown',{key:'Enter'});await flush();assert.equal(fs.existsSync(other),false);assert.equal(fs.readFileSync(path.join(path.dirname(other),'renamed.txt'),'utf8'),'keep');assert.equal(fs.readFileSync(h.file,'utf8'),'data');
 });
 
@@ -419,4 +419,33 @@ test('inline folder rename selects the full dotted folder name and multi-selecti
 test('editing a matching query keeps the remembered tag while explicitly opening a newly tracked query makes it visible',async t=>{
  const h=fixture(t,{everythingSelectedTag:'elearning'},['eLearning']);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-edit').dispatch('click');h.$('everything-rule-name').value='Renamed learning search';await h.$('everything-rule-form').dispatch('submit');await flush();assert.equal(h.window.settingsUI.get().everythingSelectedTag,'elearning');assert.equal(h.$('everything-tracking-rules').children.length,1);
  const other=h.service.save({name:'Different',text:'ext:pdf',type:'file',mode:'syntax',tags:['Work'],enabled:true});h.window.everythingTrackingUI.select(other.id);h.changed();await flush();assert.equal(h.window.settingsUI.get().everythingSelectedTag,null);assert.match(h.$('everything-tracking-title').textContent,/Different/);assert.equal(h.$('everything-tracking-rules').children.length,2);
+});
+
+test('successful inline and dialog renames show the new name immediately without querying a stale Everything index',async t=>{
+ for(const mode of ['inline','dialog']){
+  const h=fixture(t,{everythingRenameMode:mode}),{planRename,executeRelocation}=require('../src/move-core'),{trackingAction}=require('../src/everything-tracking-actions');await flush();h.window.everythingTrackingUI.activate(true);await flush();
+  const before=h.calls.length;
+  h.api.trackingAction=async(id,token,indices,action,input)=>trackingAction({tracking:h.service,id,token,indices,action,input,renameItem:(source,name)=>{const moves=planRename(source,name);executeRelocation(moves);return {changed:moves.length,moves};}});
+  for(const name of ['renamed.txt','again.txt']){
+   const token=h.service.list().queries[0].snapshot.token;
+   await h.$('everything-tracking-body').querySelector('tr[data-index]').dispatch('click');await h.$('everything-tracking-rename-item').dispatch('click');
+   const input=h.$(mode==='inline'?'everything-inline-rename-name':'everything-item-rename-name');input.value=name;
+   if(mode==='inline')await input.dispatch('keydown',{key:'Enter'});else await h.$('everything-item-rename-form').dispatch('submit');await flush();
+   const row=h.$('everything-tracking-body').querySelector('tr[data-index]');assert.equal(row.querySelector('.everything-tracking-file-text').textContent,name);assert.equal(h.calls.length,before);
+   const snapshot=h.service.list().queries[0].snapshot;assert.notEqual(snapshot.token,token);assert.deepEqual(h.service.selection(h.rule.id,snapshot.token,[0]).paths,[path.join(path.dirname(h.file),name)]);
+  }
+  h.fail('index unavailable');await h.$('everything-tracking-refresh').dispatch('click');await flush();assert.equal(h.$('everything-tracking-body').querySelector('.everything-tracking-file-text').textContent,'again.txt');assert.deepEqual(h.errors,[]);
+ }
+});
+
+test('selected tracking item and tag survive restart with explicit startup, removed and filtered-out fallbacks',async t=>{
+ const h=fixture(t);await flush();const other=h.service.save({...h.rule,id:undefined,name:'Second work search',text:'ext:pdf'}),learning=h.service.save({...h.rule,id:undefined,name:'Learning',text:'ext:docx',tags:['Learning']});h.changed();await flush();
+ await h.$('everything-tracking-rules').children.find(button=>button.textContent.startsWith(other.name)).dispatch('click');await flush();assert.equal(h.window.settingsUI.get().everythingLastQuery,other.id);
+ const restart=(prefs,rules=h.service.read().queries)=>fixture(t,JSON.parse(JSON.stringify(prefs)),[],rules);
+ const restored=restart(h.window.settingsUI.get());await flush();assert.equal(restored.$('everything-tracking-title').textContent,other.name);
+ const fixed=restart({...h.window.settingsUI.get(),everythingStartQuery:h.rule.id});await flush();assert.equal(fixed.$('everything-tracking-title').textContent,h.rule.name);
+ const missing=restart(h.window.settingsUI.get(),h.service.read().queries.filter(rule=>rule.id!==other.id));await flush();assert.equal(missing.$('everything-tracking-title').textContent,h.rule.name);assert.equal(missing.window.settingsUI.get().everythingLastQuery,h.rule.id);
+ const tagged=restart({...h.window.settingsUI.get(),everythingSelectedTag:'learning'});await flush();assert.equal(tagged.$('everything-tracking-title').textContent,learning.name);assert.equal(tagged.window.settingsUI.get().everythingLastQuery,learning.id);
+ const taggedRestart=restart(tagged.window.settingsUI.get());await flush();assert.equal(taggedRestart.$('everything-tracking-title').textContent,learning.name);assert.equal(taggedRestart.window.settingsUI.get().everythingSelectedTag,'learning');
+ tagged.window.everythingTrackingUI.activate(true);await flush();await tagged.$('everything-tracking-delete').dispatch('click');await flush();assert.equal(tagged.window.settingsUI.get().everythingLastQuery,h.rule.id);assert.equal(tagged.window.settingsUI.get().everythingSelectedTag,null);
 });

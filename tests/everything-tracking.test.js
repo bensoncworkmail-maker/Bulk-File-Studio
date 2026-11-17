@@ -8,6 +8,27 @@ function fixture(t){
  const tracking=new EverythingTracking({favorites,bridge});const save=(patch={})=>tracking.save({name:'Large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true,...patch});
  return {dir,a,b,favorites,bridge,tracking,calls,save,paths:value=>paths=value,fail:value=>fail=value,pending:value=>pending=value};
 }
+test('completed folder renames update all cached roots and descendants, revoke stale selections and preserve unaffected files',async t=>{
+ const h=fixture(t),{planRename,executeRelocation}=require('../src/move-core'),folder=path.join(h.dir,'folder'),child=path.join(folder,'child.txt');fs.mkdirSync(folder);fs.writeFileSync(child,'keep');h.paths([folder,child,h.b]);
+ const one=h.save(),two=h.save({name:'Second',text:'*'});await h.tracking.refresh(one.id);await h.tracking.refresh(two.id);const original=h.tracking.list().queries.map(query=>query.snapshot);
+ const moves=planRename(folder,'renamed');executeRelocation(moves);h.tracking.applyMoves(moves);
+ for(const [index,query] of h.tracking.list().queries.entries()){
+  const snapshot=query.snapshot;assert.deepEqual(snapshot.rows.map(row=>row.path),[path.join(h.dir,'renamed'),path.join(h.dir,'renamed','child.txt'),h.b]);assert.deepEqual(snapshot.rows.map(row=>row.name),['renamed','child.txt','b.txt']);assert.notEqual(snapshot.token,original[index].token);assert.equal(snapshot.checkedAt,original[index].checkedAt);
+  assert.throws(()=>h.tracking.selection(query.id,original[index].token,[0]),/已更新/);assert.equal(h.tracking.selection(query.id,snapshot.token,[1]).rows[0].name,'child.txt');
+ }
+ h.fail('offline');assert.equal((await h.tracking.refresh(one.id)).queries[0].snapshot.rows.length,3);
+});
+
+test('a pre-rename in-flight query cannot overwrite renamed results and later successful queries apply the original search',async t=>{
+ const h=fixture(t),query=h.save(),destination=path.join(h.dir,'new.txt');await h.tracking.refresh(query.id);let finish;h.pending(new Promise(resolve=>finish=resolve));const pending=h.tracking.refresh(query.id);
+ fs.renameSync(h.a,destination);h.tracking.applyMoves([{source:h.a,destination}]);finish({rows:[{path:h.a,name:'a.txt'},{path:h.b,name:'b.txt'}]});await pending;assert.deepEqual(h.tracking.list().queries[0].snapshot.rows.map(row=>row.path),[destination,h.b]);
+ h.pending(null);h.paths([h.b]);await h.tracking.refresh(query.id);assert.deepEqual(h.tracking.list().queries[0].snapshot.rows.map(row=>row.path),[h.b]);assert.equal(h.calls.at(-1).input.text,query.text);
+});
+
+test('Windows rename cache matching ignores case, updates extensions and does not alter similarly named neighbors',async t=>{
+ const h=fixture(t),query=h.save(),paths=['C:\\Work\\OLD.txt','C:\\Work\\OLD.txt.bak','D:\\Work\\OLD.txt'];h.bridge.search=async()=>({rows:paths.map(value=>({path:value,name:path.win32.basename(value)}))});h.tracking.inspect=()=>({type:'file',identity:{dev:'1',ino:'2',birthtimeNs:'3'},size:4});await h.tracking.refresh(query.id);
+ h.tracking.applyMoves([{source:'c:\\work\\old.txt',destination:'C:\\Work\\New.pdf'}]);const snapshot=h.tracking.list().queries[0].snapshot;assert.deepEqual(snapshot.rows.map(row=>row.path),['C:\\Work\\New.pdf',...paths.slice(1)]);assert.equal(require('../src/everything-result-columns').value(snapshot.rows[0],'extension'),'pdf');
+});
 test('file categories survive saved-rule reload, validation, refresh and editing without changing query text',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');
  for(const type of Object.keys(FILE_TYPES))h.save({name:type,type});

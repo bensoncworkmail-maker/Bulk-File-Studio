@@ -22,6 +22,30 @@ function normalizeRules(data){
 class EverythingTracking{
  constructor({favorites,bridge,inspect=inspectPath,inspectShared,withPaths=network.withIntranetPaths,now=Date.now}){Object.assign(this,{favorites,bridge,inspect,inspectShared,withPaths,now});this.cache=new Map();this.epoch=0;}
  invalidate(){this.epoch++;this.cache.clear();}
+ applyMoves(moves){
+  if(!moves.length)return;
+  const apiFor=value=>/^[a-z]:[\\/]|^\\\\/i.test(value)?path.win32:path;
+  const key=value=>{const api=apiFor(value),clean=api.resolve(value);return api===path.win32?clean.toLowerCase():clean;};
+  const destinations=new Map(moves.map(move=>[key(move.source),move.destination])),checked=new Map();
+  // A completed move is authoritative even while the Everything index still has
+  // the old name. Revoke pending searches and tokens without clearing the list.
+  this.epoch++;
+  for(const [id,snapshot] of this.cache){
+   const rows=[],seen=new Set();let skipped=0;
+   for(const item of snapshot.rows){
+    const destination=destinations.get(key(item.path));let row=item;
+    if(destination){
+     if(!checked.has(destination)){
+      try{checked.set(destination,this.inspect(destination));}catch{checked.set(destination,null);}
+     }
+     const info=checked.get(destination);if(!info||info.type!==item.type){skipped++;continue;}
+     row={...item,...info,path:destination,name:apiFor(destination).basename(destination)};
+    }
+    const location=key(row.path);if(seen.has(location))continue;seen.add(location);rows.push(row);
+   }
+   this.cache.set(id,{...snapshot,rows,token:crypto.randomUUID(),skipped:(snapshot.skipped||0)+skipped});
+  }
+ }
  removePaths(paths){
   if(!paths.length)return;
   // Revoke in-flight queries and old indices, while keeping unaffected rows visible.

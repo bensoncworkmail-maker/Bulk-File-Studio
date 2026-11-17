@@ -20,3 +20,10 @@ test('rename presentation and nullable tracking tag survive storage/export and r
  const exported=require('../src/settings-export').createSettingsExport({settings,rules:{}},{},'1.120.0');assert.equal(Settings.normalize(exported.settings).everythingSelectedTag,'elearning');assert.equal(Settings.normalize(exported.settings).everythingRenameMode,'dialog');
  const reset=require('../src/settings-catalog').resetPatch('renderer','favorites',Settings.DEFAULTS);assert.equal(reset.everythingSelectedTag,null);assert.equal(reset.everythingRenameMode,'inline');
 });
+
+test('last selected tracking query survives preference storage and export and is cleared by favorites reset',()=>{
+ const id=require('node:crypto').randomUUID(),settings=Settings.normalize({everythingLastQuery:id}),storage={getItem:key=>key===Settings.KEY?JSON.stringify(settings):null};assert.equal(Settings.load(storage).everythingLastQuery,id);
+ const exported=require('../src/settings-export').createSettingsExport({settings,rules:{}},{},'1.121.0');assert.equal(Settings.normalize(exported.settings).everythingLastQuery,id);
+ assert.equal(require('../src/settings-catalog').resetPatch('renderer','favorites',Settings.DEFAULTS).everythingLastQuery,'');
+ for(const value of [null,{},33,'not-an-id'])assert.equal(Settings.normalize({everythingLastQuery:value}).everythingLastQuery,'');
+});
