@@ -50,3 +50,27 @@ test('table copy protects cell boundaries and spreadsheet formulas and enforces 
 test('copied table honors chosen display units and rejects unknown units without modifying file bytes',async t=>{
  const h=fixture(t);await h.tracking.refresh(h.query.id);await h.run('copy-table',[0],undefined,{columns:['name','size'],sizeUnit:'GB'});assert.match(h.copy(),/<0\.01 GB/);assert.equal(fs.readFileSync(h.files[0],'utf8'),'original');await assert.rejects(h.run('copy-table',[0],undefined,{columns:['size'],sizeUnit:'invalid'}),/單位無效/);
 });
+
+test('shared result read actions validate inside a host scope and use Windows path names while source edits stay unavailable',async()=>{
+ const network=require('../src/intranet-path'),paths=[String.raw`\\10.0.0.1\team\a.txt`,String.raw`\\10.0.0.1\team\b.txt`],selected={paths,tags:['Team'],rows:paths.map(path=>({path,type:'file',name:path.split('\\').at(-1)}))};let copied='',shown='',added=0,notified=0;
+ const tracking={entries:()=>selected,selection:()=>{assert.equal(network.isValidated(paths[0]),true);return selected;}},context={tracking,clipboard:{writeText:value=>copied=value},shell:{showItemInFolder:value=>shown=value},favorites:{addPaths:(values,tags)=>{assert.equal(network.isValidated(values[0]),true);assert.deepEqual(tags,['Team']);added++;return {added:2};}},notifyFavorites:()=>notified++};
+ const run=(action,extra={})=>trackingAction({...context,action,...extra});
+ await run('copy-names');assert.equal(copied,'a.txt\nb.txt');await run('copy-folders');assert.equal(copied,String.raw`\\10.0.0.1\team`+'\\');await run('favorite');assert.equal(added,1);assert.equal(notified,1);
+ tracking.selection=()=>{assert.equal(network.isValidated(paths[0]),true);return {...selected,paths:[paths[0]]};};await run('show');assert.equal(shown,paths[0]);assert.equal(network.isValidated(paths[0]),false);
+ for(const action of ['trash','move','rename','rename-item'])await assert.rejects(run(action),/檔案總管操作/);
+});
+
+test('shared refresh and real favorites/action identity checks work together and reject replaced sources',async t=>{
+ const h=fixture(t),network=require('../src/intranet-path'),file=String.raw`\\10.10.2.101\hr\HRM\Share_Backup\Client\report.pdf`;let ino=3n;
+ const stat=value=>({isDirectory:()=>value!==file,isFile:()=>value===file,isSymbolicLink:()=>false,dev:2n,ino,birthtimeNs:5n,size:10n,mtimeMs:1000n});
+ const sync=fs.lstatSync,asyncStat=fs.promises.lstat;
+ t.mock.method(fs,'lstatSync',(value,...args)=>{if(!network.isUNC(value))return sync(value,...args);assert.equal(network.isValidated(value),true);return stat(value);});
+ t.mock.method(fs.promises,'lstat',async(value,...args)=>{if(!network.isUNC(value))return asyncStat(value,...args);assert.equal(network.isValidated(value),true);return stat(value);});
+ h.tracking.bridge.search=async()=>({rows:[{path:file,name:'report.pdf',attributes:'A'}]});
+ let snapshot=(await h.tracking.refresh(h.query.id)).queries[0].snapshot;assert.equal(snapshot.rows[0].type,'file');assert.equal(snapshot.rows[0].size,10);assert.equal(network.isValidated(file),false);
+ await h.run('copy-names',[0]);assert.equal(h.copy(),'report.pdf');assert.equal((await h.run('favorite',[0])).added,1);assert.equal(h.notifications(),1);
+ const stored=h.tracking.favorites.read().items[0];assert.equal(stored.path,file);assert.equal(stored.type,'file');assert.equal(stored.identity.ino,'3');assert.deepEqual(stored.tags,['工作']);
+ let opened='';await trackingAction({tracking:h.tracking,id:h.query.id,token:snapshot.token,indices:[0],action:'open',shell:{openPath:async value=>{opened=value;return '';}}});assert.equal(opened,file);assert.equal(network.isValidated(file),false);
+ ino=4n;await assert.rejects(h.run('copy',[0]),/已替換/);assert.equal(h.copy(),'report.pdf');
+ snapshot=(await h.tracking.refresh(h.query.id)).queries[0].snapshot;assert.equal(snapshot.rows[0].identity.ino,'4');const refused=await h.run('favorite',[0]);assert.equal(refused.added,0);assert.match(refused.issues[0],/已收藏.*替換/);assert.equal(h.tracking.favorites.read().items[0].identity.ino,'3');
+});

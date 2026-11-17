@@ -204,3 +204,7 @@
 .everything-tracking-result-filter .everything-filter-help>small[hidden]{display:none!important}
 
 .everything-tracking-result-filter .everything-size-unit-label{display:inline-flex;align-items:center;gap:5px}.everything-size-unit-label select{width:82px;height:32px;min-width:0}.everything-tracking-file-icon[data-kind=file]{background:url(file-icon.svg) center/contain no-repeat}.everything-tracking-file-label[data-shortcut=true]{position:relative}.everything-tracking-file-label[data-shortcut=true]::after{content:'↗';position:absolute;inset-inline-start:-1px;bottom:0;width:9px;height:9px;border:1px solid var(--line);border-radius:1px;background:var(--panel);color:var(--text);font:700 9px/8px sans-serif;text-align:center;pointer-events:none}
+
+/* Keep update status and collapsed controls in a single compact, wrapping row. */
+.everything-tracking-tools-heading>#everything-tracking-status{padding:0;flex:0 1 auto;min-width:0}
+.everything-tracking-tools-heading>#everything-tracking-status.error{flex-basis:100%}

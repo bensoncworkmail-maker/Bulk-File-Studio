@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto'),path=require('node:path');
 const {normalizeQuery,normalizeExtensions}=require('./everything-query'),{cleanTags,inspectPath,sameIdentity}=require('./favorites-store');
+const network=require('./intranet-path'),{sharedInspector,accessReason}=require('./everything-result-paths');
 const queryKey=query=>JSON.stringify(query);
 const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,INTERVALS=[0,60,300,900],MAX_RULES=20;
 function normalizeRules(data){
@@ -19,7 +20,7 @@ function normalizeRules(data){
  });return {queries,refreshSeconds,fileTypes};
 }
 class EverythingTracking{
- constructor({favorites,bridge,inspect=inspectPath,now=Date.now}){Object.assign(this,{favorites,bridge,inspect,now});this.cache=new Map();this.epoch=0;}
+ constructor({favorites,bridge,inspect=inspectPath,inspectShared,withPaths=network.withIntranetPaths,now=Date.now}){Object.assign(this,{favorites,bridge,inspect,inspectShared,withPaths,now});this.cache=new Map();this.epoch=0;}
  invalidate(){this.epoch++;this.cache.clear();}
  removePaths(paths){
   if(!paths.length)return;
@@ -63,23 +64,40 @@ class EverythingTracking{
   const query=this.read().queries.find(item=>item.id===id);if(!query)throw Error('追蹤搜尋已移除');if(!query.enabled)throw Error('此追蹤搜尋已暫停');
   const previous=this.snapshot(query),epoch=this.epoch;
   try{
-   const found=await this.bridge.search(query,{publish:false,metadata:true}),rows=[],seen=new Set();let skipped=found.skipped||0;
-   for(const item of found.rows){
-    try{const checked=this.inspect(item.path),key=path.win32.isAbsolute(item.path)?path.win32.normalize(item.path).toLowerCase():path.normalize(item.path);if(seen.has(key))continue;seen.add(key);rows.push({...item,...checked});}catch{skipped++;}
+   const found=await this.bridge.search(query,{publish:false,metadata:true}),rows=[],seen=new Set(),accepted=new Map(),groups=new Map(),skippedReasons=[...(found.skippedReasons||[])].slice(0,3);let skipped=found.skipped||0;
+   const failed=(error,count=1)=>{skipped+=count;const reason=accessReason(error);if(skippedReasons.length<3&&!skippedReasons.includes(reason))skippedReasons.push(reason);};
+   const inspectShared=this.inspectShared||sharedInspector();
+   for(const [index,item] of found.rows.entries()){
+    const host=network.isUNC(item.path)?item.path.replaceAll('/','\\').split('\\')[2]?.toLowerCase():'';
+    if(!groups.has(host))groups.set(host,[]);groups.get(host).push({index,item});
+   }
+   for(const entries of groups.values()){
+    try{await this.withPaths(entries.map(({item})=>item.path),async()=>{
+     for(const {index,item} of entries){
+      try{const checked=network.isUNC(item.path)?await inspectShared(item.path):this.inspect(item.path);accepted.set(index,{...item,...checked});}catch(error){failed(error);}
+     }
+    });}catch(error){failed(error,entries.length);}
+   }
+   for(const [index,item] of found.rows.entries()){
+    if(!accepted.has(index))continue;const key=path.win32.isAbsolute(item.path)?path.win32.normalize(item.path).toLowerCase():path.normalize(item.path);if(seen.has(key))continue;seen.add(key);rows.push(accepted.get(index));
    }
    if(epoch!==this.epoch||queryKey(this.read().queries.find(item=>item.id===id))!==queryKey(query))throw Error('追蹤搜尋已變更，請重新查詢');
-   this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:crypto.randomUUID(),rows,metadataUnavailable:found.metadataUnavailable===true,truncated:found.truncated,skipped,checkedAt:new Date(this.now()).toISOString(),error:''});
+   this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:crypto.randomUUID(),rows,metadataUnavailable:found.metadataUnavailable===true,truncated:found.truncated,skipped,skippedReasons,checkedAt:new Date(this.now()).toISOString(),error:''});
   }catch(error){
-   if(epoch===this.epoch&&queryKey(this.read().queries.find(item=>item.id===id))===queryKey(query))this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:previous?.token||crypto.randomUUID(),rows:previous?.rows||[],metadataUnavailable:previous?.metadataUnavailable===true,checkedAt:previous?.checkedAt||null,truncated:previous?.truncated||false,skipped:previous?.skipped||0,error:String(error.message||error)});
+   if(epoch===this.epoch&&queryKey(this.read().queries.find(item=>item.id===id))===queryKey(query))this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:previous?.token||crypto.randomUUID(),rows:previous?.rows||[],metadataUnavailable:previous?.metadataUnavailable===true,checkedAt:previous?.checkedAt||null,truncated:previous?.truncated||false,skipped:previous?.skipped||0,skippedReasons:previous?.skippedReasons||[],error:String(error.message||error)});
   }
   return this.list();
  }
- selection(id,token,indices){
+ entries(id,token,indices){
   const query=this.read().queries.find(item=>item.id===id),snapshot=query&&this.snapshot(query);
   if(!snapshot||token!==snapshot.token||!Array.isArray(indices)||!indices.length||indices.length>500||indices.some(index=>!Number.isInteger(index)||index<0||index>=snapshot.rows.length))throw Error('追蹤結果已更新，請重新選取');
   const rows=[...new Set(indices)].map(index=>snapshot.rows[index]);
-  for(const item of rows){const checked=this.inspect(item.path);if(checked.type!==item.type||!sameIdentity(checked.identity,item.identity))throw Error('檔案已替換，請重新更新搜尋結果');}
   return {paths:rows.map(item=>item.path),tags:query.tags,rows};
+ }
+ selection(id,token,indices){
+  const selection=this.entries(id,token,indices),{rows}=selection;
+  for(const item of rows){const checked=this.inspect(item.path);if(checked.type!==item.type||!sameIdentity(checked.identity,item.identity))throw Error('檔案已替換，請重新更新搜尋結果');}
+  return selection;
  }
 }
 module.exports={EverythingTracking,normalizeRules,MAX_RULES,INTERVALS};

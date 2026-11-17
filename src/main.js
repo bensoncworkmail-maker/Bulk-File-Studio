@@ -546,7 +546,7 @@ app.whenReady().then(() => {
   }));
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());
-  handle('everything-favorite',(_,token,indices,tags)=>{const paths=everything.selection(token,indices);const result=favorites.addPaths(paths,tags);notifyFavorites();return result;});
+  handle('everything-favorite',(_,token,indices,tags)=>{const paths=everything.selection(token,indices);return require('./intranet-path').withIntranetPaths(paths,()=>{const result=favorites.addPaths(paths,tags);notifyFavorites();return result;});});
   handle('everything-to-rename',(_,token,indices)=>{const paths=everything.selection(token,indices);for(const file of paths)if(inspectPath(file).type!=='file')throw new Error('加入改名只接受一般檔案，資料夾可先加入收藏');return listPaths(paths,false);});
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
   everythingTracking=new(require('./everything-tracking').EverythingTracking)({favorites,bridge:everything});

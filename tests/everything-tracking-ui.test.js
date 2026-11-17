@@ -338,3 +338,22 @@ test('shortcut file labels retain a visible shortcut marker beside the loaded ta
 test('turning off native icons suppresses delayed replies and turning them back on reuses the completed icon',async t=>{
  const h=fixture(t);let resolve;h.api.trackingIcons=()=>new Promise(done=>resolve=done);await flush();h.window.everythingTrackingUI.activate(true);await flush();h.window.settingsUI.update({everythingFileIcons:false});h.window.everythingTrackingUI.settingsChanged();resolve([{index:0,dataURL:'data:image/png;base64,aWNvbg=='}]);await flush();assert.equal(h.$('everything-tracking-body').querySelector('img').getAttribute('src'),null);h.window.settingsUI.update({everythingFileIcons:true});h.window.everythingTrackingUI.settingsChanged();assert.equal(h.$('everything-tracking-body').querySelector('img').getAttribute('src'),'data:image/png;base64,aWNvbg==');
 });
+
+test('update status, collapsed controls, timer summary and selection share the same compact heading',async t=>{
+ const h=fixture(t,{everythingToolsExpanded:false});await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const heading=h.$('everything-tracking-toggle-tools').parentElement;
+ for(const id of ['everything-tracking-status','everything-tracking-update-summary','everything-tracking-selected','everything-tracking-selected-menu'])assert.equal(h.$(id).parentElement,heading);
+ assert.match(h.$('everything-tracking-status').textContent,/已更新.*1 項/);assert.equal(h.$('everything-tracking-tools').hidden,true);assert.equal(h.$('everything-tracking-update-summary').hidden,false);
+ await h.$('everything-tracking-toggle-tools').dispatch('click');assert.equal(h.$('everything-tracking-status').parentElement,heading);assert.equal(h.$('everything-tracking-tools').hidden,false);
+});
+
+test('shared rows retain folder/file fallbacks without disrupting native icon requests for local files',async t=>{
+ const h=fixture(t),folder=String.raw`\\10.0.0.1\team\folder`,shared=String.raw`\\10.0.0.1\team\a.txt`,requests=[];
+ h.service.inspectShared=async value=>({type:value===folder?'folder':'file',identity:{dev:'1',ino:value,birthtimeNs:'1'}});h.bridge.search=async()=>({rows:[{path:folder,name:'folder'},{path:shared,name:'a.txt'},{path:h.file,name:'report.txt'}]});
+ h.api.trackingIcons=async(id,token,indices)=>{requests.push(indices);return [];};await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ assert.deepEqual(requests.map(value=>Array.from(value)),[[2]]);assert.equal(h.$('everything-tracking-body').querySelectorAll('tr[data-index]').length,3);assert.deepEqual(h.errors,[]);
+});
+
+test('unreachable share diagnostics remain visible in the compact update status',async t=>{
+ const h=fixture(t);h.bridge.search=async()=>({rows:[],skipped:199,skippedReasons:['沒有位置的存取權']});await flush();h.window.everythingTrackingUI.activate(true);await flush();assert.match(h.$('everything-tracking-status').textContent,/略過 199 項.*沒有位置的存取權/);
+});
