@@ -1,8 +1,8 @@
 'use strict';
-const path=require('node:path');
+const path=require('node:path'),network=require('./intranet-path');
 const {parentPath}=require('./favorites-batch');
 const columns=require('./everything-result-columns');
-const pathAPI=value=>/^[a-z]:[\\/]/i.test(value)?path.win32:path;
+const pathAPI=value=>/^[a-z]:[\\/]/i.test(value)||network.isUNC(value)?path.win32:path;
 function trackingBatchStore(tracking,id,token,indices){
  return {read:()=>null,selection:()=>tracking.selection(id,token,indices).paths.map((path,index)=>({id:String(index),path,...require('./favorites-store').inspectPath(path)})),state:()=>({status:'ready'})};
 }
@@ -13,6 +13,9 @@ function trackingTrashStore(tracking,favorites,id,token,indices){
 
 async function trackingAction({tracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen,renameItem,trash}){
  if(!['open','show','copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations','rename-item','trash'].includes(action))throw Error('追蹤搜尋操作無效');
+ const entries=tracking.entries?tracking.entries(id,token,indices):tracking.selection(id,token,indices);
+ if(entries.paths.some(network.isUNC)&&['trash','rename-item','rename','move'].includes(action))throw Error('共享位置支援開啟、定位、複製與收藏；改名、搬移或移至資源回收筒請在檔案總管操作');
+ return network.withIntranetPaths(entries.paths,async()=>{
  const {paths,tags,rows}=tracking.selection(id,token,indices);
  if(action==='trash')return trash({id,token,indices});
  if(action==='bulk-open'||action==='bulk-locations')return bulkOpen({id,token,indices},action==='bulk-open'?'open':'locations');
@@ -44,5 +47,6 @@ async function trackingAction({tracking,id,token,indices,action,input,favorites,
  if(paths.length!==1)throw Error('請逐項開啟或定位');
  if(action==='show'){shell.showItemInFolder(paths[0]);return {shown:true};}
  await require('./notes-location-links').safeLocationOpen(paths[0]);const error=await shell.openPath(paths[0]);if(error)throw Error(error);return {opened:true};
+ });
 }
 module.exports={trackingAction,trackingBatchStore,trackingTrashStore};

@@ -5,8 +5,18 @@ const {assertLocalPath}=require('./offline-policy');
 const LIMIT=500,MAX_BYTES=20*1024*1024;
 function fingerprint(file){assertLocalPath(file);if(path.basename(file).toLowerCase()!=='es.exe')throw new Error('請選取官方 ES 命令列工具 es.exe，不是 Everything.exe');const stat=fs.lstatSync(file);if(!stat.isFile()||stat.size<2||stat.size>32*1024*1024)throw new Error('ES 工具格式或大小無效');const bytes=fs.readFileSync(file);if(bytes[0]!==77||bytes[1]!==90)throw new Error('請選取 Windows 版 es.exe');return crypto.createHash('sha256').update(bytes).digest('hex');}
 function instanceName(value){if(typeof value!=='string'||!/^[-\w.]{0,64}$/.test(value))throw new Error('Everything 執行個體名稱只接受英數字、底線、點及連字號，最多 64 字元');return value;}
-const {buildQuery}=require('./everything-query');
-function parseResults(bytes){if(bytes.length>MAX_BYTES)throw new Error('搜尋輸出過大，請縮小搜尋範圍');let text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new Error('ES 輸出不是 UTF-8，請更新官方 ES 工具');}const lines=text.replace(/^\uFEFF/,'').split(/\r\n|\n/).filter(Boolean);if(lines.length>LIMIT+1)throw new Error('ES 未遵守結果上限，請更新官方 ES 工具');const seen=new Set(),rows=[];let skipped=0;for(let value of lines){if(value.startsWith('"')&&value.endsWith('"'))value=value.slice(1,-1);if(!/^[a-z]:[\\/]/i.test(value)||value.length>32767||/[\x00-\x1f]/.test(value)||value.includes('"')){skipped++;continue;}const key=path.win32.normalize(value).toLowerCase();if(!seen.has(key)){seen.add(key);rows.push({path:value,name:path.win32.basename(value)});}}return {rows:rows.slice(0,LIMIT),truncated:lines.length>LIMIT,skipped};}
+const {buildQuery}=require('./everything-query'),{resultPath,accessReason}=require('./everything-result-paths');
+function parseResults(bytes){
+ if(bytes.length>MAX_BYTES)throw new Error('搜尋輸出過大，請縮小搜尋範圍');let text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new Error('ES 輸出不是 UTF-8，請更新官方 ES 工具');}
+ const lines=text.replace(/^\uFEFF/,'').split(/\r\n|\n/).filter(Boolean);if(lines.length>LIMIT+1)throw new Error('ES 未遵守結果上限，請更新官方 ES 工具');
+ const seen=new Set(),rows=[],skippedReasons=[];let skipped=0;
+ for(let value of lines){
+  if(value.startsWith('"')&&value.endsWith('"'))value=value.slice(1,-1);
+  try{value=resultPath(value);}catch(error){skipped++;const reason=accessReason(error);if(skippedReasons.length<3&&!skippedReasons.includes(reason))skippedReasons.push(reason);continue;}
+  const key=path.win32.normalize(value).toLowerCase();if(!seen.has(key)){seen.add(key);rows.push({path:value,name:path.win32.basename(value)});}
+ }
+ return {rows:rows.slice(0,LIMIT),truncated:lines.length>LIMIT,skipped,skippedReasons};
+}
 class EverythingBridge{
  constructor(filename,{platform=process.platform,run=execFile,tempRoot=os.tmpdir()}={}){this.filename=filename;this.platform=platform;this.run=run;this.tempRoot=tempRoot;this.active=null;this.revision=0;this.result=null;this.config={version:1,enabled:false,executable:'',sha256:'',instance:''};try{const data=JSON.parse(fs.readFileSync(filename,'utf8'));if(data.version!==1||typeof data.enabled!=='boolean'||typeof data.executable!=='string'||!/^([a-f0-9]{64})?$/.test(data.sha256))throw new Error('設定格式無效');this.config={version:1,enabled:data.enabled,executable:data.executable,sha256:data.sha256,instance:instanceName(data.instance)};}catch(e){if(e.code!=='ENOENT')this.readError=e;}}
  status(){return {supported:this.platform==='win32',enabled:this.config.enabled,configured:Boolean(this.config.executable&&this.config.sha256),executable:this.config.executable,sha256:this.config.sha256,instance:this.config.instance,error:this.readError?'Everything 設定無法讀取，已停用；請重新選取工具。':''};}

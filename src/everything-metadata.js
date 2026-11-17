@@ -1,5 +1,5 @@
 'use strict';
-const path=require('node:path');
+const path=require('node:path'),{resultPath,accessReason}=require('./everything-result-paths');
 // -columns replaces the entire layout loaded from es.ini; individual switches only add columns.
 // Keep parser order independent of saved columns, including custom Everything 1.5 properties.
 const FLAGS=Object.freeze(['-columns','full-path-and-name;date-created;date-accessed;attributes;date-recently-changed;run-count;date-run;file-list-file-name','-date-format','2','-no-digit-grouping']);
@@ -15,12 +15,12 @@ function parse(bytes){
   else if(char===',')cell();else if(char==='\r'||char==='\n'){if(char==='\r'&&text[i+1]==='\n')i++;record();}else {if(closed)throw Error('ES CSV 格式無效');field+=char;}
  }
  if(quoted)throw Error('ES CSV 格式無效');if(field||row.length||closed)record();
- const rows=[],seen=new Set();let skipped=0;
- for(const [file,created,accessed,attributes,recentlyChanged,runCount,dateRun,fileList] of records){
-  if(!/^[a-z]:[\\/]/i.test(file)||file.length>32767||/["\x00-\x1f\x7f]/.test(file)){skipped++;continue;}
+ const rows=[],seen=new Set(),skippedReasons=[];let skipped=0;
+ for(const [raw,created,accessed,attributes,recentlyChanged,runCount,dateRun,fileList] of records){
+  let file;try{file=resultPath(raw);}catch(error){skipped++;const reason=accessReason(error);if(skippedReasons.length<3&&!skippedReasons.includes(reason))skippedReasons.push(reason);continue;}
   const key=path.win32.normalize(file).toLowerCase();if(seen.has(key))continue;seen.add(key);
   rows.push({path:file,name:path.win32.basename(file),createdMs:date(created),accessedMs:date(accessed),attributes:/^[a-z0-9 -]{1,64}$/i.test(attributes)?attributes:null,recentlyChangedMs:date(recentlyChanged),runCount:/^\d{1,15}$/.test(runCount)&&Number.isSafeInteger(Number(runCount))?Number(runCount):null,dateRunMs:date(dateRun),fileList:fileList.length<=32767&&!/[\x00-\x1f\x7f]/.test(fileList)?fileList:null});
  }
- return {rows:rows.slice(0,500),truncated:records.length>500,skipped};
+ return {rows:rows.slice(0,500),truncated:records.length>500,skipped,skippedReasons};
 }
 module.exports={FLAGS,parse,date};

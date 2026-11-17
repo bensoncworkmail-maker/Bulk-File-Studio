@@ -4,7 +4,7 @@ const {parse,date,FLAGS}=require('../src/everything-metadata'),{EverythingBridge
 const time=ms=>String(BigInt(ms)*10000n+116444736000000000n),csv=fields=>fields.map(value=>'"'+String(value).replaceAll('"','""')+'"').join(',');
 test('metadata CSV retains comma filenames, FILETIME dates, missing properties, counts and index file names',()=>{
  const now=Date.UTC(2026,10,16),fields=['C:\\Work\\a,b.pdf',time(now),time(now+1000),'RA',time(now+2000),'12',time(now+3000),'C:\\lists\\a,b.efu'];
- const result=parse(Buffer.from('\uFEFF'+csv(fields)+'\r\n'+csv(['C:\\other.txt','','','','','0','',''])+'\r\n'+csv(['c:\\work\\A,B.PDF','','','','','','',''])+'\r\n'+csv(['\\\\server\\a','','','','','','',''])+'\r\n'));
+ const result=parse(Buffer.from('\uFEFF'+csv(fields)+'\r\n'+csv(['C:\\other.txt','','','','','0','',''])+'\r\n'+csv(['c:\\work\\A,B.PDF','','','','','','',''])+'\r\n'+csv(['\\\\8.8.8.8\\a','','','','','','',''])+'\r\n'));
  assert.equal(result.rows.length,2);assert.equal(result.rows[0].name,'a,b.pdf');assert.equal(result.rows[0].createdMs,now);assert.equal(result.rows[0].accessedMs,now+1000);assert.equal(result.rows[0].dateRunMs,now+3000);assert.equal(result.rows[0].runCount,12);assert.equal(result.rows[0].attributes,'RA');assert.equal(result.rows[0].fileList,'C:\\lists\\a,b.efu');assert.equal(result.rows[1].runCount,0);assert.equal(result.rows[1].createdMs,null);assert.equal(result.skipped,1);
  assert.equal(date('0'),null);assert.equal(date('invalid'),null);assert.equal(date('9'.repeat(20)),null);
 });

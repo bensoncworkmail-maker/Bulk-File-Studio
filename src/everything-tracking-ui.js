@@ -82,7 +82,7 @@
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
   $('everything-tracking-title').textContent=query?.name||'追蹤 Everything 搜尋';$('everything-tracking-command').textContent=query?.text||'新增搜尋命令及標籤，追蹤符合條件的檔案與資料夾。';
   const status=$('everything-tracking-status');status.classList.toggle('error',Boolean(snapshot?.error));
-  status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；按「恢復追蹤」重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置':'');
+  status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；按「恢復追蹤」重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置'+(snapshot.skippedReasons?.length?'（'+snapshot.skippedReasons.join('；')+'）':''):'');
   const list=$('everything-tracking-results'),body=$('everything-tracking-body'),scroll=list.scrollTop,focused=body.contains(document.activeElement)||document.activeElement===list;body.replaceChildren();
   const labels=Object.fromEntries(Object.entries(columns.COLUMNS).map(([key,column])=>[key,column.label])),sort=sorting(),sortKey=sort.key,sortDirection=sort.direction;
   for(const [key,label] of Object.entries(labels)){
@@ -129,7 +129,7 @@
   const key=query.id+':'+query.snapshot.token;
   if(iconState?.key!==key)iconState={key,values:new Map(),started:false};
   const state=iconState;paintIcons(state);if(state.started)return;state.started=true;
-  const files=query.snapshot.rows.map((item,index)=>({item,index})).filter(({item})=>item.type!=='folder').map(({index})=>index);
+  const files=query.snapshot.rows.map((item,index)=>({item,index})).filter(({item})=>item.type!=='folder'&&!/^[\\/]{2}/.test(item.path)).map(({index})=>index);
   for(let offset=0;offset<files.length;offset+=100){
    if(iconState!==state)return;
    const indices=files.slice(offset,offset+100);

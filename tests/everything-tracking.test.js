@@ -98,3 +98,20 @@ test('a query started before recycling cannot reintroduce removed rows or clear 
 test('pruning Windows paths ignores case and preserves sibling prefixes and other drives',async t=>{
  const h=fixture(t),query=h.save(),paths=['C:\\Album','C:\\Album\\child.txt','C:\\Album-old\\keep.txt','D:\\Album\\keep.txt'];h.bridge.search=async()=>({rows:paths.map(location=>({path:location,name:location})),truncated:false});h.tracking.inspect=()=>({type:'file',identity:{dev:'1',ino:'1',birthtimeNs:'1'}});await h.tracking.refresh(query.id);h.tracking.removePaths(['c:\\ALBUM']);assert.deepEqual(h.tracking.list().queries[0].snapshot.rows.map(row=>row.path),paths.slice(2));
 });
+
+test('refresh validates each shared host independently, preserves ES order and exposes skipped reasons without discarding local rows',async t=>{
+ const h=fixture(t),network=require('../src/intranet-path'),good=String.raw`\\fileserver\team\folder`,bad=String.raw`\\external\team\a`,privateFile=String.raw`\\10.10.2.101\hr\file.txt`,missing=String.raw`\\fileserver\team\missing`,hosts=[];
+ const paths=[good,h.a,bad,privateFile,missing,good.toUpperCase()];h.bridge.search=async()=>({rows:paths.map(value=>({path:value,name:path.win32.basename(value)})),skipped:1,skippedReasons:['無效的索引路徑']});
+ h.tracking.withPaths=(paths,run)=>network.withIntranetPaths(paths,run,async host=>{hosts.push(host);return [{address:host==='external'?'8.8.8.8':'10.0.0.2'}];});
+ h.tracking.inspectShared=async value=>{assert.equal(network.isValidated(value),true);if(value===missing)throw Object.assign(Error('missing'),{code:'ENOENT'});return {type:value===good?'folder':'file',identity:{dev:'1',ino:value.toLowerCase(),birthtimeNs:'1'},size:null};};
+ const query=h.save(),snapshot=(await h.tracking.refresh(query.id)).queries[0].snapshot;
+ assert.deepEqual(snapshot.rows.map(row=>row.path),[good,h.a,privateFile]);assert.equal(snapshot.rows[0].type,'folder');assert.equal(snapshot.skipped,3);assert.equal(snapshot.error,'');assert.match(snapshot.skippedReasons.join('；'),/內網位址/);assert.match(snapshot.skippedReasons.join('；'),/未連線/);assert.deepEqual(hosts,['fileserver','external']);assert.equal(network.isValidated(good),false);
+ assert.deepEqual(h.tracking.entries(query.id,snapshot.token,[0]).paths,[good]);assert.throws(()=>h.tracking.entries(query.id,'stale',[0]),/已更新/);
+ h.fail('offline');h.bridge.search=async()=>{throw Error('offline');};const next=(await h.tracking.refresh(query.id)).queries[0].snapshot;assert.deepEqual(next.skippedReasons,snapshot.skippedReasons);assert.deepEqual(next.rows,snapshot.rows);
+});
+
+test('an edited tracking query cannot receive an old response while asynchronous shared inspection is pending',async t=>{
+ const h=fixture(t),value=String.raw`\\10.0.0.1\team\folder`;h.bridge.search=async()=>({rows:[{path:value,name:'folder'}]});let finish,started;
+ const inspecting=new Promise(resolve=>started=resolve);h.tracking.inspectShared=async()=>{started();return new Promise(resolve=>finish=resolve);};
+ const query=h.save(),pending=h.tracking.refresh(query.id);await inspecting;h.save({...query,text:'changed'});finish({type:'folder',identity:{dev:'1',ino:'1',birthtimeNs:'1'}});await pending;assert.equal(h.tracking.list().queries[0].snapshot,null);
+});
