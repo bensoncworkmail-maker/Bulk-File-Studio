@@ -542,7 +542,7 @@ app.whenReady().then(() => {
   handle('everything-tracking-refresh',(_,id)=>everythingTracking.refresh(id));
   handle('everything-tracking-icons',(_,id,token,indices)=>trackingIcons.read(id,token,indices));
   handle('everything-tracking-action',(_,id,token,indices,action,input)=>fileOperation(async()=>{
-    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen:confirmTrackedBatch,trash:confirmTrackedTrash,renameItem:(source,name)=>{const result=performMovePlan(planRename(source,name));if(result.changed)everythingTracking.invalidate();return result;}});
+    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen:confirmTrackedBatch,trash:confirmTrackedTrash,renameItem:(source,name)=>performMovePlan(planRename(source,name))});
   }));
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());

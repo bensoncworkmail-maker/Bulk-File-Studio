@@ -22,7 +22,9 @@ async function trackingAction({tracking,id,token,indices,action,input,favorites,
  if(action==='rename-item'){
   if(paths.length!==1)throw Error('請只選取一個檔案或資料夾再重新命名');
   if(!input||typeof input.name!=='string')throw Error('請輸入新名稱');
-  return renameItem(paths[0],input.name);
+  const result=await renameItem(paths[0],input.name);
+  if(result.changed)tracking.applyMoves(result.moves);
+  return result;
  }
  if(action==='copy-table'){
   const keys=input?.columns;

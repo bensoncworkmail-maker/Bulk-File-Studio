@@ -44,11 +44,15 @@
    const sheet=sheets.get(record.sheetId);
    const fields=sheet.fields.filter(field=>field.type==='date'||field.type==='timeline');
    if(!fields.length)continue;
-   const base={recordId:record.id,title:record.title,sheet:sheet.name,master:masterLabel(record)};
+   const base={recordId:record.id,title:record.title,sheet:sheet.name,master:masterLabel(record)},dates=new Map();
    for(const field of fields){
     const value=record.values[field.id];
     if(field.type==='date'){
-     if(value?.startsWith(month+'-'))events.push({...base,label:field.label,date:value,kind:'date'});
+     if(value?.startsWith(month+'-')){
+      let grouped=dates.get(value);
+      if(!grouped){const event={...base,label:field.label,date:value,kind:'date'};grouped={event,labels:new Set()};dates.set(value,grouped);events.push(event);}
+      grouped.labels.add(field.label);grouped.event.label=[...grouped.labels].join('、');
+     }
     }else{
      for(const item of value||[]){
       if(item.date.startsWith(month+'-'))events.push({...base,label:field.label,date:item.date,kind:'timeline',itemLabel:item.label});

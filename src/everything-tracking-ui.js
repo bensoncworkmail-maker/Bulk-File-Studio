@@ -13,6 +13,7 @@
  const blocked=()=>busy||loading||renaming?.mode==='inline'||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
  const renameMode=()=>window.settingsUI?.get().everythingRenameMode==='dialog'?'dialog':'inline';
  function rememberTag(value){tag=value;updateView({everythingSelectedTag:value},true);}
+ function rememberQuery(value){currentId=value;if(window.settingsUI?.get().everythingLastQuery!==(value||''))updateView({everythingLastQuery:value||''},true);}
  const sizeUnit=()=>columns.normalizeSizeUnit(window.settingsUI?.get().everythingSizeUnit);
  const showCopy=()=>window.settingsUI?.get().everythingShowCopy!==false;
  const shownColumns=()=>columns.normalizeColumns(window.settingsUI?.get().everythingColumns);
@@ -35,9 +36,9 @@
   const id=++request;loading=true;
   try{const value=await api.trackingList();if(id!==request)return;data=value;window.everythingWorkbench?.syncProfiles(data.fileTypes);selected.clear();anchor=null;
    if(tag&&!data.queries.some(item=>item.tags.some(name=>name.toLocaleLowerCase()===tag)))rememberTag(null);
-   if(!currentId){const preferred=window.settingsUI?.get().everythingStartQuery;if(filtered().some(item=>item.id===preferred))currentId=preferred;}
+   if(!currentId){const prefs=window.settingsUI?.get(),preferred=prefs?.everythingStartQuery||prefs?.everythingLastQuery;if(filtered().some(item=>item.id===preferred))currentId=preferred;}
    if(!filtered().some(item=>item.id===currentId))currentId=filtered()[0]?.id||null;
-   syncStartQuery();
+   rememberQuery(currentId);syncStartQuery();
    for(const key of resultFilters.keys())if(!data.queries.some(query=>query.id===key))resultFilters.delete(key);
    loading=false;render();schedule();if(update&&visible()&&current()?.enabled&&ready())await refresh();
   }catch(error){if(id===request)$('everything-tracking-status').textContent=String(error.message||error);}
@@ -78,10 +79,10 @@
   if(!callbacks)return;if(renaming?.mode==='inline'){renderControls();return;}
   const tags=new Map();for(const query of data.queries)for(const name of query.tags){const key=name.toLocaleLowerCase(),prior=tags.get(key);tags.set(key,{key,name:prior?.name||name,count:(prior?.count||0)+1});}
   $('everything-tracking-tags').replaceChildren(...[{key:null,name:'全部追蹤',count:data.queries.length},{key:'',name:'未加標籤',count:data.queries.filter(item=>!item.tags.length).length},...[...tags.values()].sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'))].map(item=>{
-   const control=button('',()=>{if(blocked())return;rememberTag(item.key);currentId=filtered()[0]?.id||null;selected.clear();anchor=null;render();void refresh();},'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.title=item.count+' 個追蹤搜尋';return control;
+   const control=button('',()=>{if(blocked())return;rememberTag(item.key);rememberQuery(filtered()[0]?.id||null);selected.clear();anchor=null;render();void refresh();},'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.title=item.count+' 個追蹤搜尋';return control;
   }));
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
-   const control=button('',()=>{if(blocked())return;currentId=query.id;selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
+   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
   }));
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns(),entries=ordered();
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
@@ -169,7 +170,7 @@
  }
  function syncStartQuery(){
   const control=$('settings-everything-start-query');if(!control)return;const value=window.settingsUI?.get().everythingStartQuery||'';control.replaceChildren();
-  for(const item of [{id:'',name:'第一個追蹤搜尋'},...data.queries]){const option=node('option',item.name);option.value=item.id;control.append(option);}
+  for(const item of [{id:'',name:'上次選取的追蹤搜尋（首次使用第一項）'},...data.queries]){const option=node('option',item.name);option.value=item.id;control.append(option);}
   if(value&&!data.queries.some(item=>item.id===value)){const option=node('option','原搜尋已移除（改用第一項）');option.value=value;control.append(option);}control.value=value;
  }
  async function copyQuery(){const query=current();if(!query||blocked())return;try{await api.copyQuery(query.id);callbacks.showToast('已複製搜尋條件（包含類型篩選）');}catch(error){callbacks.showFailure('無法複製搜尋條件',error);}}
@@ -185,7 +186,7 @@
   window.favoritesUI?.showMenu(event,items);
  }
  function open(id=null){
-  if(!window.favoritesUI?.show('favorites'))return false;if(id){cancelInlineRename(false,false);currentId=id;rememberTag(null);selected.clear();}window.workspaceFavoritesUI?.showEverything();return true;
+  if(!window.favoritesUI?.show('favorites'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);selected.clear();}window.workspaceFavoritesUI?.showEverything();return true;
  }
  function selectResults(kind){
   if(blocked())return;
@@ -247,7 +248,7 @@
   try{
    const result=await api.trackingAction(target.id,target.token,[target.index],'rename-item',{name:input.value});
    if(inline)renaming=null;else $('everything-item-rename-dialog').close();pendingLoad=false;callbacks.showToast(result.changed?'已重新命名':'名稱未變更');
-   if(result.warning)callbacks.showFailure('改名完成，請留意',result.warning);busy=false;await load(true);
+   if(result.warning)callbacks.showFailure('改名完成，請留意',result.warning);busy=false;await load(false);
   }catch(error){failed=true;(inline?target.error:$('everything-item-rename-error')).textContent=String(error.message||error);if(inline)input.setAttribute('aria-invalid','true');}
   finally{busy=false;if(inline){input.disabled=false;if(failed&&renaming===target)input.focus();}else for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=false;renderControls();}
  }
@@ -320,5 +321,5 @@
   $('everything-tracking-pause').addEventListener('click',toggleTracking);
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;rememberTag(null);selected.clear();},render};
+ window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);selected.clear();},render};
 })();
