@@ -4,17 +4,17 @@ const {documentFromHTML}=require('./helpers/dom'),{FavoritesStore}=require('../s
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise(setImmediate);};
 function fixture(t,initial={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-ui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'report.txt');fs.writeFileSync(file,'data');
- const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='';
+ const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='',changed=()=>{};
  const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true});
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;
- const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged(){},trackingAction:async(id,token,indices,action,input)=>{const result=service.selection(id,token,indices);actions.push({action,input,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
+ const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged:callback=>{changed=callback;},trackingAction:async(id,token,indices,action,input)=>{const result=service.selection(id,token,indices);actions.push({action,input,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
  let prefs=require('../src/settings-model').normalize(initial);
  const renamed=[],moved=[],window={everythingViewSettings:require('../src/everything-view-settings'),everythingResultColumns:require('../src/everything-result-columns'),everythingTrackingView:require('../src/everything-tracking-view'),everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
  window.settingsUI={get:()=>prefs,update:patch=>{prefs=require('../src/settings-model').normalize({...prefs,...patch});window.everythingLayout?.sync();}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-layout.js'),'utf8'),{window,document});
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/everything-tracking-ui.js'),'utf8'),{window,document,setInterval:fn=>{intervals.set(++tickId,fn);return tickId;},clearInterval:id=>intervals.delete(id)});
  const callbacks={showToast:value=>toasts.push(value),showFailure:(title,error)=>errors.push(error.message||error),onRename:result=>renamed.push(result),isBusy:()=>false};window.everythingTrackingUI.init(callbacks);
- return {window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
+ return {changed:()=>changed(),window,document,api,service,bridge,rule,file,favorites,calls,actions,toasts,errors,intervals,renamed,moved,callbacks,fail:value=>failure=value,$:id=>document.getElementById(id)};
 }
 test('both type selectors offer the supported categories and tracked edits retain the selected type',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');await flush();
@@ -264,4 +264,37 @@ test('late native icons cannot paint a refreshed snapshot and failures keep file
  await h.$('everything-tracking-refresh').dispatch('click');await flush();assert.equal(pending.length,2);assert.notEqual(pending[0].token,pending[1].token);
  pending[0].resolve([{index:0,dataURL:'data:image/png;base64,b2xk'}]);await flush();assert.equal(h.$('everything-tracking-body').querySelector('img').getAttribute('src'),null);
  pending[1].resolve([{index:0,dataURL:''}]);await flush();assert.equal(h.$('everything-tracking-body').querySelector('.everything-tracking-file-icon').hidden,false);
+});
+
+
+test('folder rows show the bundled yellow folder icon and skip native file icon requests',async t=>{
+ const h=fixture(t),folder=path.join(path.dirname(h.file),'folder');fs.mkdirSync(folder);h.bridge.search=async()=>({rows:[{path:folder,name:'folder'}],truncated:false});let calls=0;h.api.trackingIcons=async()=>{calls++;return [];};await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const row=h.$('everything-tracking-body').querySelector('tr'),image=row.querySelector('img');assert.equal(image.getAttribute('src'),'folder-icon.svg');assert.equal(image.getAttribute('data-result-index'),null);assert.equal(calls,0);await image.dispatch('load');assert.equal(image.hidden,false);assert.equal(row.querySelector('.everything-tracking-file-icon').hidden,true);
+});
+
+test('local result filtering keeps query commands unchanged, selects visible original indices and remains outside collapsed tools',async t=>{
+ const h=fixture(t,{everythingToolsExpanded:false}),other=path.join(path.dirname(h.file),'Other.txt');fs.writeFileSync(other,'other');let searches=0;h.bridge.search=async()=>{searches++;return {rows:[{path:h.file,name:'report.txt'},{path:other,name:'Other.txt'}],truncated:false};};await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const filter=h.$('everything-tracking-filter'),before=h.service.query(h.rule.id),calls=searches;assert.equal(h.$('everything-tracking-tools').contains(filter),false);filter.focus();filter.value='other';await filter.dispatch('input');assert.equal(h.document.activeElement,filter);assert.equal(h.$('everything-tracking-filter-count').textContent,'顯示 1 / 2 項');assert.equal(h.$('everything-tracking-body').querySelector('tr').getAttribute('data-index'),'1');assert.deepEqual(h.service.query(h.rule.id),before);assert.equal(searches,calls);
+ await h.$('everything-tracking-panel').dispatch('keydown',{key:'a',ctrlKey:true,target:filter});await h.$('everything-tracking-panel').dispatch('keydown',{key:'Delete',target:filter});assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');assert.equal(h.actions.length,0);
+ await h.$('everything-tracking-panel').dispatch('keydown',{key:'a',ctrlKey:true,target:h.$('everything-tracking-results')});assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');await h.$('everything-tracking-copy').dispatch('click');await flush();assert.deepEqual(h.actions.at(-1).paths,[other]);
+ filter.value='nothing';await filter.dispatch('input');assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');assert.match(h.$('everything-tracking-body').textContent,/沒有符合篩選/);assert.equal(h.$('everything-tracking-select-all').disabled,true);
+ await h.$('everything-tracking-filter-clear').dispatch('click');assert.equal(filter.value,'');assert.equal(h.$('everything-tracking-filter-count').textContent,'共 2 項');assert.equal(h.$('everything-tracking-body').querySelectorAll('tr').length,2);
+});
+
+test('successful recycling preserves surviving results during a change event and failed ES requery',async t=>{
+ const h=fixture(t),other=path.join(path.dirname(h.file),'survivor.txt');fs.writeFileSync(other,'other');h.bridge.search=async()=>({rows:[{path:h.file,name:'report.txt'},{path:other,name:'survivor.txt'}],truncated:false});await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ h.api.trackingAction=async(id,token,indices,kind)=>{assert.equal(kind,'trash');const {paths}=h.service.selection(id,token,indices);fs.unlinkSync(paths[0]);h.service.removePaths(paths);h.changed();h.bridge.search=async()=>{throw Error('ES unavailable');};return {trashed:1,failures:[]};};
+ const row=h.$('everything-tracking-body').querySelectorAll('tr').find(row=>row.querySelector('.everything-tracking-file-text').textContent==='report.txt');await row.dispatch('click');await h.$('everything-tracking-trash').dispatch('click');await flush();const rows=h.$('everything-tracking-body').querySelectorAll('tr');assert.equal(rows.length,1);assert.equal(rows[0].querySelector('.everything-tracking-file-text').textContent,'survivor.txt');assert.match(h.$('everything-tracking-status').textContent,/ES unavailable/);assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+});
+
+
+test('result filters stay with each tracked search during this session and survive refresh',async t=>{
+ const h=fixture(t);await flush();const second=h.service.save({name:'Second',text:'other',type:'file',mode:'syntax',tags:[],enabled:true});h.window.everythingTrackingUI.activate(true);await flush();
+ const filter=h.$('everything-tracking-filter');filter.value='report';await filter.dispatch('input');await h.$('everything-tracking-refresh').dispatch('click');await flush();assert.equal(filter.value,'report');
+ const choose=name=>h.$('everything-tracking-rules').querySelectorAll('button').find(button=>button.textContent.includes(name)).dispatch('click');await choose('Second');await flush();assert.equal(filter.value,'');filter.value='no-match';await filter.dispatch('input');await choose('Recent large files');await flush();assert.equal(filter.value,'report');await choose('Second');await flush();assert.equal(filter.value,'no-match');assert.equal(h.service.query(second.id).text,'other');
+});
+
+
+test('a delayed list response cannot overwrite freshly queried result rows',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const old=h.service.list();let resolve;h.api.trackingList=()=>new Promise(done=>resolve=done);h.changed();h.bridge.search=async()=>({rows:[],truncated:false});await h.$('everything-tracking-refresh').dispatch('click');await flush();resolve(old);await flush();assert.equal(h.$('everything-tracking-body').querySelector('.everything-tracking-file-text'),null);assert.match(h.$('everything-tracking-body').textContent,/目前沒有符合條件/);
 });

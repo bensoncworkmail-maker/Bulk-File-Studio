@@ -124,7 +124,7 @@ async function confirmTrackedTrash({id,token,indices}){
  const choice=await dialog.showMessageBox(win,{type:'warning',title:'刪除追蹤結果：移至資源回收筒',message:`將 ${plan.targets.length} 個檔案／資料夾移至資源回收筒，是否繼續？`,detail:plan.targets.map(target=>target.path+'（含 '+target.entries.length+' 個項目）').join('\n')+`\n資料夾內的所有內容也會回收，並移除 ${plan.affected.length} 項相關收藏連結。工作區文字路徑會保留。若系統無法回收，會顯示失敗原因，不會改為永久刪除。`,buttons:['移至資源回收筒','取消'],defaultId:1,cancelId:1,noLink:true});
  if(choice.response!==0||win.isDestroyed())return {canceled:true,trashed:0,failures:[]};
  const result=await executeTrash(store,plan,filepath=>shell.trashItem(filepath));
- if(result.trashedPaths.length){everythingTracking.invalidate();notifyFavorites({trashedPaths:result.trashedPaths});send(win,'everything-tracking-changed');}
+ if(result.trashedPaths.length){everythingTracking.removePaths(result.trashedPaths);notifyFavorites({trashedPaths:result.trashedPaths});send(win,'everything-tracking-changed');}
  return result;
 }
 function performMovePlan(moves){
