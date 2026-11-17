@@ -18,7 +18,6 @@
 .tool-view[data-compact-logs=true]{padding:clamp(16px,2vw,30px);text-align:start}
 [data-compact-logs=true] .tool-view-heading{align-items:center;margin-bottom:20px;gap:16px}
 [data-compact-logs=true] .tool-view-heading h1{font-size:clamp(22px,2vw,28px);line-height:1.4;letter-spacing:-.04em}
-.log-page-eyebrow{font-size:10px;letter-spacing:.12em;color:var(--accent);font-weight:700}
 [data-compact-logs=true] .tool-view-heading .log-page-description{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6}
 [data-compact-logs=true] .tool-view-heading .btn{height:auto;min-height:32px;font-size:12px;padding:6px 12px}
 [data-compact-logs=true] .tool-view-filter-panel{background:var(--panel);padding:14px 16px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;box-shadow:0 4px 18px #11182704}
@@ -70,3 +69,29 @@
 [data-compact-logs=true] .tool-view-results .tool-view-empty{background:var(--panel);padding:32px 24px;line-height:1.8;border-radius:12px;text-align:center;font-size:13px}
 [data-pinned-only=true] .tool-view-advanced,[data-compact-logs=true] :is(.log-filter-chips[hidden],.log-results-context[hidden],label[hidden]){display:none!important}
 @media(max-width:760px){.info-help-hub{grid-template-columns:1fr}.tool-view[data-compact-logs=true]{padding:16px}.tool-view[data-compact-logs=true] .tool-view-filter-panel{padding:12px}.tool-view[data-compact-logs=true] .tool-view-filter-panel>.tool-view-filters>label{flex:1 1 180px}[data-compact-logs=true] .tool-view-result.tool-view-log-row{padding:13px 14px}[data-compact-logs=true] .tool-view-log-top{flex-wrap:wrap;gap:8px}[data-compact-logs=true] .tool-view-log-identity{flex-basis:70%}[data-compact-logs=true] .tool-view-log-top time{order:1}[data-compact-logs=true] .tool-view-log-actions{margin-inline-start:auto}#function-finder-dialog>.guide-dialog-head{padding:18px}#function-finder-dialog>.field{margin-inline:18px}#function-finder-dialog .function-finder-results{padding-inline:18px}}
+
+/* Floating logs mount in an inner section; scope to its marker, not .tool-view. */
+.tool-view:has(>[data-floating-logs=true]){padding:10px}
+[data-floating-logs=true] .tool-view-filter-panel{padding:10px 12px;margin-bottom:8px}
+[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:not([hidden]){display:grid;grid-template-columns:minmax(0,3fr) minmax(100px,2fr);gap:8px;align-items:center}
+[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters>label{min-width:0}
+[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters>[data-log-filter=masterId]{grid-column:1/-1}
+[data-floating-logs=true] .tool-view-filter-panel :is(input,select){height:34px;min-height:34px;font-size:12px}
+[data-floating-logs=true] .tool-view-log-filter-footer{margin-top:8px;padding-top:8px;gap:6px}
+[data-floating-logs=true] .log-results-context{margin:10px 2px 8px}
+[data-floating-logs=true] .tool-view-list:has(>.tool-view-log-row){gap:7px}
+[data-floating-logs=true] .tool-view-result.tool-view-log-row{padding:10px 12px;gap:7px}
+[data-floating-logs=true] .tool-view-log-top{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px}
+[data-floating-logs=true] .tool-view-log-identity{grid-column:1;grid-row:1;min-width:0}
+[data-floating-logs=true] .tool-view-log-top .tool-view-log-link{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:24px}
+[data-floating-logs=true] .tool-view-log-top time{grid-column:2;grid-row:1;order:0;font-size:10px;padding:2px 6px}
+[data-floating-logs=true] .tool-view-log-actions{grid-column:3;grid-row:1;margin-inline-start:0}
+.tool-view[data-compact-logs=true]:not([data-floating-logs=true]){padding:clamp(12px,2vw,26px)}
+[data-compact-logs=true] .tool-view-heading.productivity-heading{margin-bottom:12px;gap:12px}
+[data-compact-logs=true] .tool-view-heading.productivity-heading h1{font-size:clamp(21px,2vw,28px);line-height:1.25}
+[data-compact-logs=true] .tool-view-heading.productivity-heading .log-page-description{margin:6px 0 0;line-height:1.5}
+/* Separate the planning panel, board canvas and individual cards in every theme. */
+#planning-page #productivity-calendar{background:var(--panel);border-color:color-mix(in srgb,var(--muted) 24%,var(--line));box-shadow:0 6px 22px #1118270a}
+#planning-page :is(.planning-calendar-layout,.productivity-board){padding:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+#planning-page :is(.planning-agenda,.productivity-column){background:var(--panel);border-color:color-mix(in srgb,var(--muted) 18%,var(--line))}
+@media(max-width:420px){[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:not([hidden]){grid-template-columns:minmax(0,3fr) minmax(88px,2fr);gap:6px}}

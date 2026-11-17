@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns,views=window.everythingViewSettings;
- let updatingView=false;
+ let updatingView=false,iconState;
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
  const node=(name,text,className)=>{const el=document.createElement(name);if(text!==undefined)el.textContent=text;if(className)el.className=className;return el;};
  const button=(text,run,className='btn btn-ghost')=>{const el=node('button',text,className);el.type='button';el.disabled=busy;el.addEventListener('click',run);return el;};
@@ -51,7 +51,7 @@
   const pause=$('everything-tracking-pause');pause.disabled=busy||loading||!query;pause.textContent=query?.enabled===false?'恢復追蹤':'暫停追蹤';
   for(const name of ['refresh','edit','delete'])$('everything-tracking-'+name).disabled=busy||!query||(name==='refresh'&&(!has||!query.enabled));
   for(const name of ['select-all','select-none','select-invert'])$('everything-tracking-'+name).disabled=busy||loading||!rows.length;
-  for(const name of ['favorite','copy','copy-names','copy-folders','copy-table','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).disabled=busy||loading||!selected.size;
+  for(const name of ['favorite','copy','copy-names','copy-folders','copy-table','rename','move','bulk-open','bulk-locations','trash'])$('everything-tracking-'+name).disabled=busy||loading||!selected.size;
   $('everything-tracking-rename-item').disabled=busy||loading||selected.size!==1;
   $('everything-tracking-interval').value=String(data.refreshSeconds);$('everything-tracking-interval').disabled=busy;
   $('settings-everything-tracking-refresh').value=String(data.refreshSeconds);
@@ -90,7 +90,10 @@
     // Keep the clicked cell alive so the browser can deliver its native dblclick.
     paintSelection();$('everything-tracking-results').focus();
    });
-   const name=node('td',item.name,'everything-tracking-name'),location=node('td',view.location(item),'everything-tracking-location');
+   const name=node('td',undefined,'everything-tracking-name'),label=node('span',undefined,'everything-tracking-file-label'),icon=node('span',item.type==='folder'?'📁':'📄','everything-tracking-file-icon'),image=node('img'),location=node('td',view.location(item),'everything-tracking-location');
+   icon.setAttribute('aria-hidden','true');image.alt='';image.hidden=true;image.width=image.height=16;image.setAttribute('data-result-index',String(index));
+   image.addEventListener('load',()=>{icon.hidden=true;image.hidden=false;});image.addEventListener('error',()=>{icon.hidden=false;image.hidden=true;});
+   label.append(icon,image,node('span',item.name,'everything-tracking-file-text'));name.append(label);
    name.title=(item.type==='folder'?'資料夾':'檔案')+'：'+item.path+'\n雙擊開啟';location.title=view.location(item)+'\n雙擊開啟所在位置';
    name.addEventListener('dblclick',()=>void action('open',[index]));location.addEventListener('dblclick',()=>void action('show',[index]));
    const copy=node('td'),copyButton=button('⧉ 路徑',()=>void action('copy',[index]));copyButton.title='複製 '+item.path;copyButton.setAttribute('aria-label','複製 '+item.name+' 的完整路徑');copy.append(copyButton);
@@ -100,7 +103,29 @@
    }row.append(copy);body.append(row);
   });
   if(query&&snapshot&&!rows.length&&!snapshot.error){const row=node('tr'),cell=node('td','目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan',String(shownColumns().length+2));row.append(cell);body.append(row);}
+  if(query?.snapshot&&!busy&&!loading)void loadIcons(query);
   window.everythingLayout?.apply();list.scrollTop=scroll;renderControls();if(snapshot?.metadataUnavailable)status.textContent+=' · 目前 ES 不支援額外欄位，相關資訊顯示 —；可更新官方 ES 工具。';if(focused)list.focus();
+ }
+ function paintIcons(state){
+  if(iconState!==state||current()?.id+':'+current()?.snapshot?.token!==state.key)return;
+  for(const image of $('everything-tracking-body').querySelectorAll('img[data-result-index]')){
+   const value=state.values.get(Number(image.getAttribute('data-result-index')));
+   if(value&&image.getAttribute('src')!==value)image.setAttribute('src',value);
+  }
+ }
+ async function loadIcons(query){
+  if(!api.trackingIcons)return;
+  const key=query.id+':'+query.snapshot.token;
+  if(iconState?.key!==key)iconState={key,values:new Map(),started:false};
+  const state=iconState;paintIcons(state);if(state.started)return;state.started=true;
+  for(let offset=0;offset<query.snapshot.rows.length;offset+=100){
+   if(iconState!==state)return;
+   const indices=query.snapshot.rows.slice(offset,offset+100).map((_,i)=>offset+i);
+   try{const icons=await api.trackingIcons(query.id,query.snapshot.token,indices);if(iconState!==state)return;
+    for(const icon of icons)if(indices.includes(icon.index)&&typeof icon.dataURL==='string'&&/^data:image\/png;base64,/.test(icon.dataURL))state.values.set(icon.index,icon.dataURL);
+    paintIcons(state);
+   }catch{return;}
+  }
  }
  function chooseColumns(){
   if(blocked())return;const root=$('everything-column-choices');root.replaceChildren();
@@ -130,7 +155,7 @@
   const items=[{label:'開啟檔案／資料夾'+(one?'':'（'+count+' 項，先確認）'),run:()=>action(one?'open':'bulk-open')},
    {label:'開啟所在資料夾'+(one?'':'（先確認）'),run:()=>action(one?'show':'bulk-locations')},
    {label:'複製完整路徑 · Ctrl+C',run:()=>action('copy')},{label:'複製檔名 · Ctrl+Shift+C',run:()=>action('copy-names')},{label:'複製所在資料夾',run:()=>action('copy-folders')},{label:'複製所選表格（可貼到試算表）',run:()=>action('copy-table')},
-   {label:'重新命名… · F2',disabled:!one,run:renameItem},{label:'批次改名…',run:()=>action('rename')},{label:'批次搬移… · Ctrl+Shift+M',run:()=>action('move')},{label:'保留為一般收藏',run:()=>action('favorite')},
+   {label:'重新命名… · F2',disabled:!one,run:renameItem},{label:'批次改名…',run:()=>action('rename')},{label:'批次搬移… · Ctrl+Shift+M',run:()=>action('move')},{label:'保留為一般收藏',run:()=>action('favorite')},{label:'移至資源回收筒… · Delete',run:()=>action('trash')},
    {label:'全選結果 · Ctrl+A',run:()=>selectResults('all')},{label:'取消選取 · Esc',run:()=>selectResults('none')},{label:'複製搜尋條件',run:copyQuery},{label:'編輯搜尋／標籤',run:()=>editor(current())}];
   window.favoritesUI?.showMenu(event,items);
  }
@@ -151,6 +176,7 @@
    if(kind==='favorite'){callbacks.showToast('已保留 '+result.added+' 項一般收藏；'+result.existing+' 項已存在');if(result.issues?.length)callbacks.showFailure('部分結果未能收藏',result.issues.join('\n'));}
    else if(kind==='copy-table')callbacks.showToast('已複製 '+result.copied+' 項表格，可貼到試算表');
    else if(['copy','copy-names','copy-folders'].includes(kind))callbacks.showToast('已複製 '+result.copied+' 項'+({'copy':'路徑','copy-names':'檔名','copy-folders':'所在資料夾'}[kind]));
+   else if(kind==='trash'&&!result.canceled){callbacks.showToast('已移至資源回收筒 '+result.trashed+' 項');if(result.failures?.length)callbacks.showFailure('部分項目未能回收',result.failures.join('\n'));busy=false;if(result.trashed)await load(true);}
    else if(kind==='rename')callbacks.onRename(result);
    else if(kind==='move')await window.movingUI.start(result.paths,{sourceLabel:'Everything 追蹤結果'});
    else if(kind==='bulk-open'||kind==='bulk-locations'){if(!result.canceled){callbacks.showToast('已開啟 '+result.opened+' 項');if(result.failures?.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));}}
@@ -207,6 +233,7 @@
   else if(ctrl&&key==='c'&&selected.size)run=()=>action(event.shiftKey?'copy-names':'copy');
   else if(!ctrl&&!event.shiftKey&&key==='escape')run=()=>selectResults('none');
   else if(!ctrl&&!event.shiftKey&&key==='f5'&&current()?.enabled&&ready())run=refresh;
+  else if(!ctrl&&!event.shiftKey&&key==='delete'&&selected.size)run=()=>action('trash');
   else if(!ctrl&&!event.shiftKey&&key==='f2'&&selected.size)run=renameItem;
   else if(!event.shiftKey&&key==='enter'&&selected.size&&!target.closest('button,a'))run=()=>action(ctrl?'bulk-locations':'bulk-open');
   else if(ctrl&&event.shiftKey&&key==='m'&&selected.size)run=()=>action('move');
@@ -215,7 +242,7 @@
  function init(options){
   callbacks=options;window.everythingWorkbench?.setup({key:'everything-rule',text:'everything-rule-text',mode:'everything-rule-mode',type:'everything-rule-type',blocked:()=>busy});window.everythingLayout?.init();$('everything-tracking-new').addEventListener('click',()=>editor());$('everything-tracking-edit').addEventListener('click',()=>editor(current()));$('everything-tracking-delete').addEventListener('click',remove);$('everything-tracking-refresh').addEventListener('click',refresh);
   for(const name of ['all','none','invert'])$('everything-tracking-select-'+name).addEventListener('click',()=>selectResults(name));
-  for(const name of ['copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
+  for(const name of ['copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations','trash'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
   $('everything-tracking-toggle-tools').addEventListener('click',()=>{if(callbacks?.isBusy?.())return;updateView({everythingToolsExpanded:window.settingsUI?.get().everythingToolsExpanded===false},true);});
   $('everything-tracking-selected-menu').addEventListener('click',event=>{if(!blocked()&&selected.size)rowMenu(event,[...selected][0]);});
   $('everything-tracking-columns').addEventListener('click',chooseColumns);$('everything-tracking-autosize').addEventListener('click',()=>{if(!blocked())window.everythingLayout?.autoSize();});

@@ -39,7 +39,7 @@ function harness(t, overrides = {}) {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
     __dirname:path.dirname(main), process, setTimeout, clearTimeout, setImmediate
   }, { filename:main });
-  return {clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
+  return {app:electron.app,clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
 
 test('productivity IPC is restricted to the main renderer and supports persistent snippets',async t=>{
@@ -194,7 +194,7 @@ test('bulk open validates the entire selection, limits volume, and copies paths'
 
 test('floating window has offline policy, limited IPC and can focus a tag in the main window',t=>{
  const {handlers,rawHandlers,windows,registered,dir}=harness(t);assert.ok(registered.has('CommandOrControl+Alt+B'));handlers.get('floating-show')();assert.equal(windows.length,2);const mini=windows[1];assert.equal(mini.options.alwaysOnTop,true);assert.equal(mini.options.webPreferences.sandbox,true);const event={sender:mini.webContents,senderFrame:{url:mini.url}};
- assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','everything-tracking-list','everything-tracking-save','everything-tracking-remove','everything-tracking-configure','everything-tracking-refresh','everything-tracking-action','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
+ assert.ok(rawHandlers.get('favorites-list')(event).items);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','everything-tracking-list','everything-tracking-save','everything-tracking-remove','everything-tracking-configure','everything-tracking-refresh','everything-tracking-icons','everything-tracking-action','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
  rawHandlers.get('floating-main')(event,'work');assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
  registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,false);registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,true);
  handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.deepEqual([...registered.keys()],['CommandOrControl+Alt+S','CommandOrControl+Alt+D','CommandOrControl+Alt+Shift+F']);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
@@ -1204,4 +1204,44 @@ test('in-app guide chapter clicks preserve the exact trusted URL and subsequent 
  let url=h.windows[0].url;const original=url;
  for(const link of document.querySelectorAll('a')){let prevented=false;await link.dispatch('click',{preventDefault(){prevented=true;}});if(!prevented)url=new URL(link.href,url).href;assert.equal(url,original);assert.ok(h.rawHandlers.get('favorites-list')({sender:h.windows[0].webContents,senderFrame:{url}}).items);}
  assert.throws(()=>h.rawHandlers.get('favorites-list')({sender:h.windows[0].webContents,senderFrame:{url:original+'#guide-workspace'}}),/不受信任/);
+});
+
+
+test('tracked trash requires native confirmation, deduplicates nested selections and removes affected favorites only after success',async t=>{
+ const h=trackedResults(t),folder=path.join(h.dir,'folder'),child=path.join(folder,'child.txt'),other=path.join(h.dir,'other.txt');fs.mkdirSync(folder);fs.writeFileSync(child,'nested');fs.writeFileSync(other,'keep');h.setPaths([folder,child,other]);const snapshot=await h.refresh();await h.action(snapshot.token,[0,1,2],'favorite');
+ const calls=[];h.shell.trashItem=async filepath=>{calls.push(filepath);fs.rmSync(filepath,{recursive:true});};
+ h.dialog.showMessageBox=async(_,options)=>{assert.equal(options.defaultId,1);assert.equal(options.cancelId,1);assert.match(options.detail,/folder/);assert.match(options.detail,/2 項相關收藏/);return {response:1};};
+ assert.equal((await h.action(snapshot.token,[0,1],'trash')).canceled,true);assert.equal(calls.length,0);assert.ok(fs.existsSync(child));
+ h.dialog.showMessageBox=async()=>({response:0});const result=await h.action(snapshot.token,[0,1],'trash');assert.equal(result.trashed,1);assert.equal(result.removed,2);assert.deepEqual(calls,[folder]);assert.equal(fs.existsSync(child),false);assert.deepEqual(h.handlers.get('favorites-list')().items.map(item=>item.path),[other]);
+ await assert.rejects(h.action(snapshot.token,[2],'trash'),/已更新/);assert.ok(h.messages.some(([channel])=>channel==='everything-tracking-changed'));
+});
+
+test('tracked trash rejects replacement, changed descendants and stale tokens and keeps failures without permanent deletion',async t=>{
+ const h=trackedResults(t),folder=path.join(h.dir,'folder'),child=path.join(folder,'child.txt'),file=path.join(h.dir,'file.txt');fs.mkdirSync(folder);fs.writeFileSync(child,'old');fs.writeFileSync(file,'original');h.setPaths([folder,file]);let snapshot=await h.refresh(),calls=0;
+ h.shell.trashItem=async()=>{calls++;throw Error('無法回收');};h.dialog.showMessageBox=async()=>{fs.writeFileSync(child,'changed contents');return {response:0};};
+ await assert.rejects(h.action(snapshot.token,[0],'trash'),/已變更/);assert.equal(calls,0);
+ h.dialog.showMessageBox=async()=>{fs.renameSync(file,file+'.old');fs.writeFileSync(file,'replacement');return {response:0};};await assert.rejects(h.action(snapshot.token,[1],'trash'),/已替換/);assert.equal(calls,0);
+ snapshot=await h.refresh();h.dialog.showMessageBox=async()=>({response:0});await h.action(snapshot.token,[1],'favorite');const result=await h.action(snapshot.token,[1],'trash');assert.equal(result.trashed,0);assert.match(result.failures[0],/無法回收/);assert.equal(fs.readFileSync(file,'utf8'),'replacement');assert.equal(h.handlers.get('favorites-list')().items.length,1);
+ await assert.rejects(h.action('forged',[1],'trash'),/已更新/);assert.equal(calls,1);
+});
+
+test('tracked trash confirmation holds the file-operation lock and revalidates edited query scope',async t=>{
+ const h=trackedResults(t),file=path.join(h.dir,'a.txt');fs.writeFileSync(file,'a');h.setPaths([file]);const snapshot=await h.refresh();let decide;
+ h.dialog.showMessageBox=()=>new Promise(resolve=>decide=resolve);h.shell.trashItem=async()=>assert.fail('must not recycle after scope changes');
+ const pending=h.action(snapshot.token,[0],'trash');await new Promise(setImmediate);assert.throws(()=>h.handlers.get('rename')(null,[file],{prefix:'x'}),/仍在執行/);
+ const query=h.handlers.get('everything-tracking-list')().queries[0];h.handlers.get('everything-tracking-save')(null,{...query,text:'other'});decide({response:0});await assert.rejects(pending,/已更新/);assert.ok(fs.existsSync(file));
+});
+
+
+test('tracked icon IPC never accepts renderer paths or outdated result tokens',async t=>{
+ const h=trackedResults(t),file=path.join(h.dir,'icon.txt');fs.writeFileSync(file,'icon');h.setPaths([file]);const query=h.handlers.get('everything-tracking-list')().queries[0],snapshot=await h.refresh(),calls=[];
+ h.app.getFileIcon=async(filepath,options)=>{calls.push([filepath,options.size]);return {isEmpty:()=>false,toDataURL:()=> 'data:image/png;base64,aWNvbg=='};};
+ const icons=h.handlers.get('everything-tracking-icons');await assert.rejects(icons(null,query.id,'forged',[0]),/已更新/);await assert.rejects(icons(null,query.id,snapshot.token,[file]),/已更新/);assert.equal(calls.length,0);
+ const result=await icons(null,query.id,snapshot.token,[0]);assert.equal(result[0].index,0);assert.equal(result[0].dataURL,'data:image/png;base64,aWNvbg==');assert.deepEqual(calls,[[file,'small']]);
+});
+
+test('tracked recycling reports partial failures, keeps failed favorites and invalidates deleted snapshots',async t=>{
+ const h=trackedResults(t),files=['ok.txt','locked.txt'].map(name=>path.join(h.dir,name));files.forEach(file=>fs.writeFileSync(file,'data'));h.setPaths(files);const snapshot=await h.refresh();await h.action(snapshot.token,[0,1],'favorite');
+ h.dialog.showMessageBox=async()=>({response:0});h.shell.trashItem=async filepath=>{if(filepath===files[1])throw Error('檔案正在使用');fs.unlinkSync(filepath);};
+ const result=await h.action(snapshot.token,[0,1],'trash');assert.equal(result.trashed,1);assert.equal(result.failures.length,1);assert.match(result.failures[0],/正在使用/);assert.deepEqual(h.handlers.get('favorites-list')().items.map(item=>item.path),[files[1]]);assert.equal(fs.existsSync(files[1]),true);await assert.rejects(h.action(snapshot.token,[1],'copy'),/已更新/);
 });

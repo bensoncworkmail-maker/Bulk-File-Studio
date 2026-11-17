@@ -20,7 +20,8 @@
  };
  function mount(root,api,config,filters={query:config.query||'',page:0}){
   let request=0,timer,disposed=false,advanced,filterSummary;
-  const compactLogs=config.kind==='logs';
+  const compactLogs=config.kind==='logs',floatingLogs=compactLogs&&Boolean(api.close);
+  root.dataset.floatingLogs=String(floatingLogs);
   const canPin=compactLogs&&Boolean(api.close&&api.logRecord);
   const readLogDetail=api.logDetail||(canPin?(id=>api.logRecord('detail',id)):null);
   const pinsPanel=canPin?node('details',undefined,'tool-view-pins'):null;
@@ -35,9 +36,8 @@
   const controls=node('div',undefined,'tool-view-filters');
   const results=node('div',undefined,'tool-view-results');
   const status=node('p',undefined,'tool-view-status');status.setAttribute('role','status');
-  const toolbar=node('header',undefined,'tool-view-heading');
+  const toolbar=node('header',undefined,'tool-view-heading'+(compactLogs&&!floatingLogs?' productivity-heading':''));
   const title=node('div');
-  if(compactLogs)title.append(node('small','WORKSPACE · 紀錄瀏覽','log-page-eyebrow'));
   title.append(node('h1',titles[config.kind]));
   if(compactLogs)title.append(node('p','快速找到要跟進的內容，點擊紀錄即可閱讀詳情。','log-page-description'));
   if(!compactLogs&&!smallPlanning&&!(config.kind==='snippets'&&api.close))title.append(node('p',descriptions[config.kind]));
@@ -93,6 +93,7 @@
   function field(key,label,type,parent=controls){
    const compactMonth=calendarPlanning&&key==='month';
    const wrap=node(compactMonth?'div':'label',undefined,compactMonth?'tool-view-month-field':key==='query'?'tool-view-query':undefined);
+   if(compactLogs)wrap.setAttribute('data-log-filter',key);
    const input=node(type==='select'?'select':'input');
    if(type!=='select')input.type=type;
    input.setAttribute('aria-label',label);inputs[key]=input;
@@ -335,8 +336,10 @@
      if(event.defaultPrevented||event.detail>1||event.button!==undefined&&event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||event.target.closest('button,a,input,textarea,select,label,summary,[contenteditable],.tool-view-pin-detail')||window.getSelection?.()?.toString())return;
      toggle();
     });
-    const expand=button(expanded?'▾':'▸',toggle);expand.title=expanded?'收合詳情':'展開詳情';
-    expand.setAttribute('aria-expanded',String(expanded));expand.setAttribute('aria-label','切換詳情 '+row.title);actions.append(expand);
+    if(!floatingLogs){
+     const expand=button(expanded?'▾':'▸',toggle);expand.title=expanded?'收合詳情':'展開詳情';
+     expand.setAttribute('aria-expanded',String(expanded));expand.setAttribute('aria-label','切換詳情 '+row.title);actions.append(expand);
+    }
    }
    if(!readLogDetail)actions.append(reminderButton(row));
    if(canPin)actions.append(pinButton(row,pinned));
