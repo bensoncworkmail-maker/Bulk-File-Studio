@@ -179,6 +179,9 @@ for(const floating of [false,true])test('log blank-space expansion preserves con
  const api={data:async()=>({rows:[row],pinned:[],page:0,last:0,total:1,layout:'list',sort:'recent',tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]}),action:async(...args)=>actions.push(args),saveFilters:async()=>{}};
  if(floating){api.close=()=>{};api.logRecord=async(action,id)=>action==='detail'?detail(id):undefined;}else api.logDetail=detail;
  const view=window.toolViewsUI.mount(root,api,{kind:'logs'});await new Promise(setImmediate);const item=()=>root.querySelector('.tool-view-log-row');
+ assert.equal(root.dataset.floatingLogs,String(floating));
+ assert.equal(root.querySelectorAll('[aria-label="切換詳情 Report"]').length,floating?1:2);
+ if(!floating){assert.ok(root.querySelector('.productivity-heading'));assert.equal(root.querySelector('.log-page-eyebrow'),null);}
  assert.equal(reads.length,0);const title=root.querySelector('.tool-view-log-link');assert.equal(title.getAttribute('aria-expanded'),'false');
  for(const props of [{target:title},{ctrlKey:true},{shiftKey:true},{detail:2},{button:2},{defaultPrevented:true}]){await item().dispatch('click',props);assert.equal(item().dataset.expanded,'false');}
  selection='Preview';await item().dispatch('click');assert.equal(reads.length,0);selection='';
@@ -197,4 +200,20 @@ test('record browser separates primary search, advanced filters and view options
  await root.querySelectorAll('button').find(button=>button.textContent==='最近 7 天').dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));const recent=requests.at(-1);const days=(new Date(recent.to+'T12:00:00Z')-new Date(recent.from+'T12:00:00Z'))/86400000;assert.equal(days,6);assert.equal(recent.masterId,'m');
  await root.querySelectorAll('button').find(button=>button.textContent==='本月').dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));assert.equal(requests.at(-1).from.slice(-2),'01');assert.ok(Number(requests.at(-1).to.slice(-2))>=28);
  await root.querySelector('.log-filter-chips').children.find(button=>button.textContent.startsWith('日期：')).dispatch('click');await new Promise(resolve=>setTimeout(resolve,10));assert.equal(requests.at(-1).from,undefined);assert.equal(requests.at(-1).to,undefined);assert.equal(requests.at(-1).query,'合約');assert.ok(saved.length>0);view.dispose();
+});
+
+
+test('floating record view keeps named primary fields and title/date structure without duplicate disclosure arrows',async()=>{
+ const document=documentFromHTML('<html><body><main class="tool-view"><section id="view"></section></main></body></html>'),window={},root=document.getElementById('view');
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
+ const row={id:'record',title:'示範紀錄',date:'2026-11-17',markers:[]};
+ const api={close(){},saveFilters:async()=>{},logRecord:async(action)=>action==='detail'?{updatedAt:'2026-11-17',fields:[],notes:'詳情內容',tags:[]}:undefined,action(){},data:async()=>({rows:[row],pinned:[],page:0,last:0,total:1,layout:'list',sort:'recent',tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[],dateFields:[],stateFields:[],states:[]})};
+ const view=window.toolViewsUI.mount(root,api,{kind:'logs'});await new Promise(setImmediate);
+ assert.equal(root.classList.contains('tool-view'),false);assert.equal(root.dataset.floatingLogs,'true');
+ const query=root.querySelector('[data-log-filter="query"]'),sheet=root.querySelector('[data-log-filter="sheetId"]');
+ assert.equal(query.parentElement,sheet.parentElement);assert.ok(query.querySelector('[aria-label="搜尋標題或內容"]'));assert.ok(sheet.querySelector('select'));
+ const title=root.querySelector('.tool-view-log-link'),top=title.closest('.tool-view-log-top');
+ assert.equal(top,root.querySelector('time').parentElement);assert.equal(title.tagName,'BUTTON');assert.equal(title.getAttribute('aria-expanded'),'false');
+ assert.equal(root.querySelectorAll('button').some(button=>button.textContent==='▸'),false);assert.equal(root.querySelector('.tool-view-log-actions').children.length,1);
+ await title.dispatch('click');await new Promise(setImmediate);assert.match(root.querySelector('.tool-view-pin-detail').textContent,/詳情內容/);assert.equal(root.querySelector('.tool-view-log-link').getAttribute('aria-expanded'),'true');view.dispose();
 });
