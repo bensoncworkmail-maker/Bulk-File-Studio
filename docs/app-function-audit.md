@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.112.0。以 `npm run audit:functions` 重新產生。
+版本：v1.113.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 192 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 257 個介面／桌面偏好。
+讀取 src 全部 193 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 257 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -75,7 +75,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`updateSharedNotification`、`validatedLinkPaths` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`updateSharedNotification`、`validatedLinkPaths` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [offline-policy.js](../src/offline-policy.js) | `allowedRequest`、`assertLocalPath`、`assertSafeOpen`、`installOfflinePolicy` |
 | [open-file-input.js](../src/open-file-input.js) | `openFileInput` |
@@ -102,12 +102,13 @@
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
 | [everything-bridge.js](../src/everything-bridge.js) | `cancel`、`choose`、`configure`、`fingerprint`、`instanceName`、`parseResults`、`save`、`selection`、`status` |
+| [everything-file-icons.js](../src/everything-file-icons.js) | `constructor`、`icon`、`pump`、`read` |
 | [everything-layout.js](../src/everything-layout.js) | `apply`、`autoSize`、`end`、`fit`、`init`、`measure`、`prefs`、`reset`、`set`、`shown`、`sync` |
 | [everything-metadata.js](../src/everything-metadata.js) | `cell`、`date`、`parse`、`record` |
 | [everything-query.js](../src/everything-query.js) | `buildQuery`、`normalizeExtensions`、`normalizeQuery`、`searchExpression` |
 | [everything-result-columns.js](../src/everything-result-columns.js) | `display`、`location`、`normalizeColumns`、`value`、`widths` |
-| [everything-tracking-actions.js](../src/everything-tracking-actions.js) | `cell`、`pathAPI`、`trackingAction`、`trackingBatchStore` |
-| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`node`、`open`、`ordered`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`shownColumns`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
+| [everything-tracking-actions.js](../src/everything-tracking-actions.js) | `cell`、`pathAPI`、`trackingAction`、`trackingBatchStore`、`trackingTrashStore` |
+| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`loadIcons`、`node`、`open`、`ordered`、`paintIcons`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`shownColumns`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
 | [everything-tracking-view.js](../src/everything-tracking-view.js) | `sortedRows`、`value` |
 | [everything-tracking.js](../src/everything-tracking.js) | `configure`、`invalidate`、`list`、`normalizeRules`、`query`、`queryKey`、`read`、`refresh`、`remove`、`removeFileType`、`save`、`saveFileType`、`selection`、`snapshot` |
 | [everything-view-settings.js](../src/everything-view-settings.js) | `direction`、`effective`、`normalize`、`select`、`sort` |

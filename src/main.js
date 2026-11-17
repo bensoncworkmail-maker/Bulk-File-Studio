@@ -66,7 +66,7 @@ function popupFloatingMenu(template,options){
 const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
-let favorites,everything,everythingTracking;
+let favorites,everything,everythingTracking,trackingIcons;
 let notesImportReadVersion=0;
 let notes,notesImportDocument,notesImportName='',notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
 function invalidateNotesImport(){notesImportReadVersion++;notesImportDocument=null;notesImportName='';sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;}
@@ -79,7 +79,7 @@ function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={record
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
 function notesChanged(result){try{if(notesShare?.reconcile())notesShare.emit();}catch(error){diagnostics.record('main','share-profiles-reconcile',error);}send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(floating,'floating-panel-changed','planning');send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();toolOverlay?.invalidate();recordAttention?.sync();return result;}
 let fileOperationBusy=false;
-function fileOperation(task){if(fileOperationBusy||trashing)throw new Error('另一項改名、搬移或復原仍在執行，請稍候');fileOperationBusy=true;try{const result=task();if(result&&typeof result.then==='function')return result.finally(()=>{fileOperationBusy=false;});fileOperationBusy=false;return result;}catch(error){fileOperationBusy=false;throw error;}}
+function fileOperation(task){if(fileOperationBusy||trashing)throw new Error('另一項改名、搬移、回收或復原仍在執行，請稍候');fileOperationBusy=true;try{const result=task();if(result&&typeof result.then==='function')return result.finally(()=>{fileOperationBusy=false;});fileOperationBusy=false;return result;}catch(error){fileOperationBusy=false;throw error;}}
 function renameProgress(event,context){return value=>{if(event.sender!==win?.webContents||!Number.isSafeInteger(context?.operationId)||context.operationId<=0)return;const labels={snapshot:'建立內容校驗（第 1／2 遍）',verify:'執行前複核（第 2／2 遍）','undo-verify':'復原內容檢查（第 1／2 遍）',staging:'暫存檔名',renaming:'套用檔名'},title=labels[value.phase]||'處理改名';const bytes=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';const detail=typeof value.totalBytes==='number'?`第 ${value.fileIndex}／${value.totalFiles} 個：${value.name}；已讀取 ${bytes(value.completedBytes)}／${bytes(value.totalBytes)}（本階段）`:`${value.fileIndex}／${value.totalFiles} 個：${value.name}`;send(win,'rename-progress',{id:context.operationId,title,detail});};}
 function finishRenameJob(result){const warning=syncFavoriteMoves(result.moves);return {...result,warning:[result.warning,warning].filter(Boolean).join('\n')};}
 let trashing=false;
@@ -118,6 +118,14 @@ async function confirmTrackedBatch(selection,kind){
   if(choice.response!==0||win.isDestroyed())return {canceled:true,opened:0,failures:[]};
   return await executeBatch(store,plan,filepath=>shell.openPath(filepath));
  }finally{batchOpening=false;}
+}
+async function confirmTrackedTrash({id,token,indices}){
+ const store=require('./everything-tracking-actions').trackingTrashStore(everythingTracking,favorites,id,token,indices),plan=prepareTrash(store,indices);
+ const choice=await dialog.showMessageBox(win,{type:'warning',title:'刪除追蹤結果：移至資源回收筒',message:`將 ${plan.targets.length} 個檔案／資料夾移至資源回收筒，是否繼續？`,detail:plan.targets.map(target=>target.path+'（含 '+target.entries.length+' 個項目）').join('\n')+`\n資料夾內的所有內容也會回收，並移除 ${plan.affected.length} 項相關收藏連結。工作區文字路徑會保留。若系統無法回收，會顯示失敗原因，不會改為永久刪除。`,buttons:['移至資源回收筒','取消'],defaultId:1,cancelId:1,noLink:true});
+ if(choice.response!==0||win.isDestroyed())return {canceled:true,trashed:0,failures:[]};
+ const result=await executeTrash(store,plan,filepath=>shell.trashItem(filepath));
+ if(result.trashedPaths.length){everythingTracking.invalidate();notifyFavorites({trashedPaths:result.trashedPaths});send(win,'everything-tracking-changed');}
+ return result;
 }
 function performMovePlan(moves){
  if(!moves.length)return {changed:0,moves:[],history:Boolean(readHistory())};
@@ -532,8 +540,9 @@ app.whenReady().then(() => {
   handle('everything-tracking-remove',(_,id)=>{everythingTracking.remove(id);send(win,'everything-tracking-changed');return everythingTracking.list();});
   handle('everything-tracking-configure',(_,seconds)=>{const value=everythingTracking.configure(seconds);send(win,'everything-tracking-changed');return value;});
   handle('everything-tracking-refresh',(_,id)=>everythingTracking.refresh(id));
+  handle('everything-tracking-icons',(_,id,token,indices)=>trackingIcons.read(id,token,indices));
   handle('everything-tracking-action',(_,id,token,indices,action,input)=>fileOperation(async()=>{
-    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen:confirmTrackedBatch,renameItem:(source,name)=>{const result=performMovePlan(planRename(source,name));if(result.changed)everythingTracking.invalidate();return result;}});
+    return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen:confirmTrackedBatch,trash:confirmTrackedTrash,renameItem:(source,name)=>{const result=performMovePlan(planRename(source,name));if(result.changed)everythingTracking.invalidate();return result;}});
   }));
   handle('everything-search',(_,input)=>everything.search(input));
   handle('everything-cancel',()=>everything.cancel());
@@ -541,6 +550,7 @@ app.whenReady().then(() => {
   handle('everything-to-rename',(_,token,indices)=>{const paths=everything.selection(token,indices);for(const file of paths)if(inspectPath(file).type!=='file')throw new Error('加入改名只接受一般檔案，資料夾可先加入收藏');return listPaths(paths,false);});
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
   everythingTracking=new(require('./everything-tracking').EverythingTracking)({favorites,bridge:everything});
+  trackingIcons=new(require('./everything-file-icons').TrackingIcons)(everythingTracking,(filepath,options)=>app.getFileIcon(filepath,options));
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
   handle('favorites-list', event => {
     if(event.sender===floating?.webContents)return {items:favorites.list()};

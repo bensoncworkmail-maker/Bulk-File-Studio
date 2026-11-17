@@ -237,3 +237,31 @@ test('copy selected table follows displayed sorting and visible columns through 
  const h=fixture(t),menus=[];h.window.favoritesUI={showMenu:(_,items)=>menus.push(items)};await flush();const other=path.join(path.dirname(h.file),'a.pdf');fs.writeFileSync(other,'other');h.bridge.search=async()=>({rows:[{name:'report.txt',path:h.file},{name:'a.pdf',path:other}]});h.window.everythingTrackingUI.activate(true);await flush();h.window.settingsUI.update({everythingColumns:['name','extension']});
  await h.$('everything-tracking-select-all').dispatch('click');await h.$('everything-tracking-toggle-tools').dispatch('click');await h.$('everything-tracking-selected-menu').dispatch('click');await menus.at(-1).find(item=>item.label.startsWith('複製所選表格')).run();await flush();assert.deepEqual(h.actions.at(-1).paths,[other,h.file]);assert.deepEqual(Array.from(h.actions.at(-1).input.columns),['name','extension']);assert.match(h.toasts.at(-1),/2 項表格/);assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.deepEqual(h.errors,[]);
 });
+
+
+test('Delete and recycle menu use tracked selection while editing, repeated keys and modifier combinations stay protected',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();let calls=0;
+ h.api.trackingAction=async(id,token,indices,action)=>{h.service.selection(id,token,indices);assert.equal(action,'trash');calls++;return {canceled:true,trashed:0,failures:[]};};
+ const panel=h.$('everything-tracking-panel'),results=h.$('everything-tracking-results'),key=extra=>panel.dispatch('keydown',{key:'Delete',target:results,...extra});
+ assert.equal(h.$('everything-tracking-trash').disabled,true);await key();assert.equal(calls,0);await h.$('everything-tracking-select-all').dispatch('click');assert.equal(h.$('everything-tracking-trash').disabled,false);
+ for(const extra of [{shiftKey:true},{ctrlKey:true},{metaKey:true},{altKey:true},{repeat:true},{isComposing:true},{target:h.$('everything-rule-name')}])await key(extra);
+ h.$('everything-tracking-dialog').showModal();await key();h.$('everything-tracking-dialog').close();assert.equal(calls,0);
+ await key();await flush();assert.equal(calls,1);assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');
+ let menu;h.window.favoritesUI={showMenu:(_,items)=>menu=items};await h.$('everything-tracking-body').querySelector('tr').dispatch('contextmenu');await menu.find(item=>/資源回收筒/.test(item.label)).run();await flush();assert.equal(calls,2);
+ await h.$('everything-tracking-trash').dispatch('click');await flush();assert.equal(calls,3);
+});
+
+test('tracking icons populate beside names, preserve selection and reuse loaded icons across sorting',async t=>{
+ const h=fixture(t);let calls=0;h.api.trackingIcons=async(id,token,indices)=>{h.service.selection(id,token,indices);calls++;return indices.map(index=>({index,dataURL:'data:image/png;base64,aWNvbg=='}));};await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const name=h.$('everything-tracking-body').querySelector('.everything-tracking-name'),image=name.querySelector('img');assert.equal(name.querySelector('.everything-tracking-file-text').textContent,'report.txt');assert.equal(image.getAttribute('src'),'data:image/png;base64,aWNvbg==');assert.equal(image.alt,'');
+ await image.dispatch('load');assert.equal(image.hidden,false);assert.equal(name.querySelector('.everything-tracking-file-icon').hidden,true);
+ await name.closest('tr').dispatch('click',{target:image});assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');const before=calls;await h.$('everything-tracking-sort-name').dispatch('click');await flush();assert.equal(calls,before);assert.ok(h.$('everything-tracking-body').querySelector('img').getAttribute('src'));
+});
+
+
+test('late native icons cannot paint a refreshed snapshot and failures keep file fallback',async t=>{
+ const h=fixture(t),pending=[];h.api.trackingIcons=(id,token)=>new Promise(resolve=>pending.push({token,resolve}));await flush();h.window.everythingTrackingUI.activate(true);await flush();assert.equal(pending.length,1);
+ await h.$('everything-tracking-refresh').dispatch('click');await flush();assert.equal(pending.length,2);assert.notEqual(pending[0].token,pending[1].token);
+ pending[0].resolve([{index:0,dataURL:'data:image/png;base64,b2xk'}]);await flush();assert.equal(h.$('everything-tracking-body').querySelector('img').getAttribute('src'),null);
+ pending[1].resolve([{index:0,dataURL:''}]);await flush();assert.equal(h.$('everything-tracking-body').querySelector('.everything-tracking-file-icon').hidden,false);
+});
