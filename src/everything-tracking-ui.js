@@ -11,6 +11,7 @@
  const ready=()=>data.engine.supported&&data.engine.enabled&&data.engine.configured;
  const filtered=()=>data.queries.filter(item=>tag===null||(tag===''?!item.tags.length:item.tags.some(name=>name.toLocaleLowerCase()===tag)));
  const blocked=()=>busy||loading||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
+ const showCopy=()=>window.settingsUI?.get().everythingShowCopy!==false;
  const shownColumns=()=>columns.normalizeColumns(window.settingsUI?.get().everythingColumns);
  const rememberedSort=()=>views.sort(window.settingsUI?.get().everythingSortStates?.[currentId]);
  const sorting=()=>views.effective(rememberedSort(),shownColumns());
@@ -107,9 +108,9 @@
    row.addEventListener('contextmenu',event=>rowMenu(event,index));row.append(checkCell);
    for(const key of visibleColumns){const column=columns.COLUMNS[key];
     const cell=key==='name'?name:key==='location'?location:node('td',columns.display(item,key),'everything-tracking-'+key);cell.setAttribute('data-column',key);if(key!=='name'&&key!=='location')cell.title=cell.textContent;if(column.number)cell.classList.add('everything-tracking-number');row.append(cell);
-   }row.append(copy);body.append(row);
+   }if(showCopy())row.append(copy);body.append(row);
   });
-  if(query&&snapshot&&!entries.length){const row=node('tr'),cell=node('td',rows.length?'目前清單沒有符合篩選的項目，請修改或清除結果篩選。':'目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan',String(shownColumns().length+2));row.append(cell);body.append(row);}
+  if(query&&snapshot&&!entries.length){const row=node('tr'),cell=node('td',rows.length?'目前清單沒有符合篩選的項目，請修改或清除結果篩選。':'目前沒有符合條件的結果。','list-empty');cell.setAttribute('colspan',String(shownColumns().length+1+(showCopy()?1:0)));row.append(cell);body.append(row);}
   if(query?.snapshot&&!busy&&!loading)void loadIcons(query);
   window.everythingLayout?.apply();list.scrollTop=scroll;renderControls();if(snapshot?.pruned)status.textContent+=' · 已移除回收項目，保留其餘結果';if(snapshot?.metadataUnavailable)status.textContent+=' · 目前 ES 不支援額外欄位，相關資訊顯示 —；可更新官方 ES 工具。';if(focused)list.focus();
  }
@@ -138,6 +139,7 @@
  function chooseColumns(){
   if(blocked())return;const root=$('everything-column-choices');root.replaceChildren();
   for(const [key,column] of Object.entries(columns.COLUMNS)){const label=node('label',undefined,'check-row'),check=node('input');check.type='checkbox';check.value=key;check.checked=shownColumns().includes(key);check.disabled=key==='name';label.append(check,node('span',column.label+(key==='name'?'（固定）':'')));root.append(label);}
+  const copy=node('label',undefined,'check-row'),check=node('input');check.type='checkbox';check.value='copy-action';check.checked=showCopy();copy.append(check,node('span','複製（操作欄）'));root.append(copy);
   $('everything-columns-dialog').showModal();
  }
  function setColumns(values){
@@ -145,10 +147,11 @@
  }
  function columnMenu(event,key){
   event.preventDefault();event.stopPropagation();if(blocked())return;
-  window.favoritesUI?.showMenu(event,[{label:'調整適合欄位大小',run:()=>window.everythingLayout?.autoSize(key)},{label:'自動調整所有欄位大小',run:()=>window.everythingLayout?.autoSize()},
-   ...['asc','desc'].map(direction=>({label:direction==='asc'?'依此欄遞增排序':'依此欄遞減排序',run:()=>changeSort(key,direction)})),
+  window.favoritesUI?.showMenu(event,[{label:'調整適合欄位大小',disabled:!key,run:()=>window.everythingLayout?.autoSize(key)},{label:'自動調整所有欄位大小',run:()=>window.everythingLayout?.autoSize()},
+   ...(key?['asc','desc']:[]).map(direction=>({label:direction==='asc'?'依此欄遞增排序':'依此欄遞減排序',run:()=>changeSort(key,direction)})),
    ...Object.entries(columns.COLUMNS).map(([name,column])=>({label:(shownColumns().includes(name)?'✓ ':'　 ')+column.label,disabled:name==='name',run:()=>setColumns(shownColumns().includes(name)?shownColumns().filter(value=>value!==name):[...shownColumns(),name])})),
-   {label:'選擇欄位…',run:chooseColumns},{label:'還原預設四欄',run:()=>setColumns(columns.DEFAULT_COLUMNS)},{label:'還原欄寬',run:()=>window.everythingLayout?.reset()}]);
+   {label:(showCopy()?'✓ ':'　 ')+'複製（操作欄）',run:()=>updateView({everythingShowCopy:!showCopy()})},
+   {label:'選擇欄位…',run:chooseColumns},{label:'還原預設四欄',run:()=>updateView({everythingColumns:[...columns.DEFAULT_COLUMNS],everythingShowCopy:true})},{label:'還原欄寬',run:()=>window.everythingLayout?.reset()}]);
  }
  function syncStartQuery(){
   const control=$('settings-everything-start-query');if(!control)return;const value=window.settingsUI?.get().everythingStartQuery||'';control.replaceChildren();
@@ -254,15 +257,21 @@
   $('everything-tracking-toggle-tools').addEventListener('click',()=>{if(callbacks?.isBusy?.())return;updateView({everythingToolsExpanded:window.settingsUI?.get().everythingToolsExpanded===false},true);});
   $('everything-tracking-selected-menu').addEventListener('click',event=>{if(!blocked()&&selected.size)rowMenu(event,[...selected][0]);});
   $('everything-tracking-columns').addEventListener('click',chooseColumns);$('everything-tracking-autosize').addEventListener('click',()=>{if(!blocked())window.everythingLayout?.autoSize();});
-  $('everything-columns-cancel').addEventListener('click',()=>$('everything-columns-dialog').close());$('everything-columns-default').addEventListener('click',()=>{for(const check of $('everything-column-choices').querySelectorAll('input'))check.checked=columns.DEFAULT_COLUMNS.includes(check.value);});$('everything-columns-save').addEventListener('click',()=>{setColumns([...$('everything-column-choices').querySelectorAll('input')].filter(check=>check.checked).map(check=>check.value));$('everything-columns-dialog').close();});
+  $('everything-columns-cancel').addEventListener('click',()=>$('everything-columns-dialog').close());$('everything-columns-default').addEventListener('click',()=>{for(const check of $('everything-column-choices').querySelectorAll('input'))check.checked=check.value==='copy-action'||columns.DEFAULT_COLUMNS.includes(check.value);});$('everything-columns-save').addEventListener('click',()=>{const checked=[...$('everything-column-choices').querySelectorAll('input')].filter(check=>check.checked).map(check=>check.value);updateView({everythingColumns:columns.normalizeColumns(checked),everythingShowCopy:checked.includes('copy-action')});$('everything-columns-dialog').close();});
   $('everything-tracking-copy-query').addEventListener('click',copyQuery);$('everything-tracking-quick-settings').addEventListener('click',()=>window.settingsUI?.openCategory('floating'));$('everything-tracking-reset-widths').addEventListener('click',()=>window.everythingLayout?.reset());
   $('everything-tracking-results').addEventListener('contextmenu',event=>{if(event.target.closest('tr[data-index]'))return;event.preventDefault();if(!blocked())window.favoritesUI?.showMenu(event,[{label:'全選結果',run:()=>selectResults('all')},{label:'立即更新',disabled:!current()?.enabled||!ready(),run:refresh},{label:'新增追蹤搜尋',run:()=>editor()},{label:'還原欄寬與面板寬度',run:()=>window.everythingLayout?.reset()}]);});
   for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).parentElement.addEventListener('contextmenu',event=>columnMenu(event,key));
+  $('everything-tracking-copy-header').addEventListener('contextmenu',event=>columnMenu(event,null));
   $('everything-tracking-rename-item').addEventListener('click',renameItem);
   $('everything-item-rename-form').addEventListener('submit',event=>{event.preventDefault();void saveItemName();});
   $('everything-item-rename-cancel').addEventListener('click',()=>{if(!busy)$('everything-item-rename-dialog').close();});
   $('everything-item-rename-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   $('everything-item-rename-dialog').addEventListener('close',()=>{renaming=null;});
+  const help=$('everything-tracking-filter-help'),hint=$('everything-tracking-filter-hint'),helpWrap=help.parentElement;
+  const showHint=()=>{hint.hidden=false;help.setAttribute('aria-expanded','true');},hideHint=()=>{hint.hidden=true;help.setAttribute('aria-expanded','false');};
+  helpWrap.addEventListener('mouseenter',showHint);helpWrap.addEventListener('mouseleave',()=>{if(document.activeElement!==help)hideHint();});
+  help.addEventListener('focus',showHint);help.addEventListener('blur',hideHint);help.addEventListener('click',showHint);
+  help.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();hideHint();}});
   const filter=$('everything-tracking-filter');
   filter.addEventListener('input',()=>{if(blocked())return;resultFilters.set(currentId,filter.value);selected.clear();anchor=null;$('everything-tracking-results').scrollTop=0;render();});
   $('everything-tracking-filter-clear').addEventListener('click',()=>{if(blocked())return;resultFilters.delete(currentId);selected.clear();anchor=null;$('everything-tracking-results').scrollTop=0;render();filter.focus();});

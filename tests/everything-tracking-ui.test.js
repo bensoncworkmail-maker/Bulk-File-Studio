@@ -298,3 +298,22 @@ test('result filters stay with each tracked search during this session and survi
 test('a delayed list response cannot overwrite freshly queried result rows',async t=>{
  const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const old=h.service.list();let resolve;h.api.trackingList=()=>new Promise(done=>resolve=done);h.changed();h.bridge.search=async()=>({rows:[],truncated:false});await h.$('everything-tracking-refresh').dispatch('click');await flush();resolve(old);await flush();assert.equal(h.$('everything-tracking-body').querySelector('.everything-tracking-file-text'),null);assert.match(h.$('everything-tracking-body').textContent,/目前沒有符合條件/);
 });
+
+test('filter help stays out of the row height and opens with hover, focus or click and closes with Escape',async t=>{
+ const h=fixture(t);await flush();const help=h.$('everything-tracking-filter-help'),hint=h.$('everything-tracking-filter-hint');assert.equal(hint.hidden,true);assert.equal(hint.parentElement,help.parentElement);assert.match(hint.textContent,/最多 500 項/);assert.equal(help.getAttribute('aria-describedby'),hint.id);assert.equal(h.$('everything-tracking-filter').getAttribute('aria-describedby'),hint.id);
+ await help.parentElement.dispatch('mouseenter');assert.equal(hint.hidden,false);await help.parentElement.dispatch('mouseleave');assert.equal(hint.hidden,true);
+ help.focus();await help.dispatch('focus');assert.equal(hint.hidden,false);await help.dispatch('keydown',{key:'Escape'});assert.equal(hint.hidden,true);assert.equal(help.getAttribute('aria-expanded'),'false');await help.dispatch('click');assert.equal(hint.hidden,false);await help.dispatch('blur');assert.equal(hint.hidden,true);
+});
+
+test('copy action column toggles from headers and column chooser, persists and never becomes a sortable data column',async t=>{
+ const h=fixture(t),menus=[];h.window.favoritesUI={showMenu:(_,items)=>menus.push(items)};await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ const root=h.$('everything-tracking-panel'),row=()=>h.$('everything-tracking-body').querySelector('tr'),table=root.querySelector('table'),width=Number.parseInt(table.style.width);assert.equal(row().querySelectorAll('td').length,6);
+ await h.$('everything-tracking-copy-header').dispatch('contextmenu');assert.equal(menus.at(-1).some(item=>item.label.includes('遞增')),false);await menus.at(-1).find(item=>item.label.endsWith('複製（操作欄）')).run();assert.equal(h.window.settingsUI.get().everythingShowCopy,false);assert.equal(h.$('everything-tracking-copy-header').hidden,true);assert.equal(root.querySelector('.tracking-copy-col').hidden,true);assert.equal(row().querySelectorAll('td').length,5);assert.equal(Number.parseInt(table.style.width),width-78);
+ const next=fixture(t,JSON.parse(JSON.stringify(h.window.settingsUI.get())));await flush();next.window.everythingTrackingUI.activate(true);await flush();assert.equal(next.$('everything-tracking-copy-header').hidden,true);
+ await h.$('everything-tracking-columns').dispatch('click');let copy=h.$('everything-column-choices').querySelectorAll('input').find(input=>input.value==='copy-action');assert.equal(copy.checked,false);copy.checked=true;await h.$('everything-columns-save').dispatch('click');assert.equal(h.$('everything-tracking-copy-header').hidden,false);assert.equal(row().querySelectorAll('td').length,6);assert.equal(h.window.settingsUI.get().everythingColumns.includes('copy-action'),false);
+ await h.$('everything-tracking-sort-name').parentElement.dispatch('contextmenu');await menus.at(-1).find(item=>item.label.endsWith('複製（操作欄）')).run();assert.equal(row().querySelectorAll('td').length,5);await menus.at(-1).find(item=>item.label==='還原預設四欄').run();assert.equal(h.window.settingsUI.get().everythingShowCopy,true);
+});
+
+test('empty result rows span only the data and action columns currently displayed',async t=>{
+ const h=fixture(t,{everythingShowCopy:false});h.bridge.search=async()=>({rows:[],truncated:false});await flush();h.window.everythingTrackingUI.activate(true);await flush();assert.equal(h.$('everything-tracking-body').querySelector('td').getAttribute('colspan'),'5');
+});

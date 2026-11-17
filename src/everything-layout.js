@@ -8,7 +8,9 @@
  function apply(){
   const root=document.getElementById('everything-tracking-panel'),table=root.querySelector('table'),visible=shown();
   for(const key of Object.keys(definitions)){const col=root.querySelector('.tracking-'+columnClass(key)+'-col'),head=document.getElementById('everything-tracking-sort-'+key)?.parentElement;if(!col||!head)continue;col.style.width=widths[key]+'px';col.hidden=head.hidden=!visible.includes(key);document.getElementById('everything-column-resize-'+key)?.setAttribute('aria-valuenow',String(widths[key]));}
-  table.style.width=(visible.reduce((sum,key)=>sum+widths[key],0)+116)+'px';
+  const showCopy=prefs().everythingShowCopy!==false;
+  root.querySelector('.tracking-copy-col').hidden=document.getElementById('everything-tracking-copy-header').hidden=!showCopy;
+  table.style.width=(visible.reduce((sum,key)=>sum+widths[key],0)+38+(showCopy?78:0))+'px';
   for(const cell of root.querySelectorAll('td[data-column]'))cell.hidden=!visible.includes(cell.getAttribute('data-column'));
  }
  function fit(key){

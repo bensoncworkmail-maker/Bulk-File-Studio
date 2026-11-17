@@ -95,3 +95,14 @@
 #planning-page :is(.planning-calendar-layout,.productivity-board){padding:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
 #planning-page :is(.planning-agenda,.productivity-column){background:var(--panel);border-color:color-mix(in srgb,var(--muted) 18%,var(--line))}
 @media(max-width:420px){[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:not([hidden]){grid-template-columns:minmax(0,3fr) minmax(88px,2fr);gap:6px}}
+
+/* Keep the primary floating dropdowns together, without squeezing search on narrow windows. */
+[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:has(>[data-log-filter=masterId]:not([hidden])){grid-template-columns:repeat(2,minmax(0,1fr))}
+[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:has(>[data-log-filter=masterId]:not([hidden]))>[data-log-filter=query]{grid-column:1/-1}
+[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters>[data-log-filter=masterId]{grid-column:auto}
+[data-floating-logs=true] .tool-view-log-status{flex-wrap:wrap;justify-content:flex-start;align-items:center;margin:2px 0 8px;gap:6px 8px}
+[data-floating-logs=true] .tool-view-log-status .log-results-context{margin:0;gap:6px;min-width:0;flex:1 1 auto}
+[data-floating-logs=true] .tool-view-log-status .log-results-context strong{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[data-floating-logs=true] .tool-view-log-status .tool-view-status:empty{display:none}
+[data-floating-logs=true] .tool-view-log-status>.btn{margin-inline-start:auto;flex:none}
+@media(min-width:560px){[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:has(>[data-log-filter=masterId]:not([hidden])){grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1fr)}[data-floating-logs=true] .tool-view-filter-panel>.tool-view-filters:has(>[data-log-filter=masterId]:not([hidden]))>[data-log-filter=query]{grid-column:auto}}

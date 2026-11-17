@@ -217,3 +217,15 @@ test('floating record view keeps named primary fields and title/date structure w
  assert.equal(root.querySelectorAll('button').some(button=>button.textContent==='▸'),false);assert.equal(root.querySelector('.tool-view-log-actions').children.length,1);
  await title.dispatch('click');await new Promise(setImmediate);assert.match(root.querySelector('.tool-view-pin-detail').textContent,/詳情內容/);assert.equal(root.querySelector('.tool-view-log-link').getAttribute('aria-expanded'),'true');view.dispose();
 });
+
+for(const floating of [false,true])test('record result context and clear action share a summary only in '+(floating?'floating':'main')+' view',async()=>{
+ const document=documentFromHTML('<html><body><main class="tool-view"><section id="view"></section></main></body></html>'),window={},root=document.getElementById('view'),requests=[];
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/tool-views-ui.js'),'utf8'),{window,document,clearTimeout,setTimeout});
+ const api={saveFilters:async()=>{},action(){},data:async filters=>{requests.push({...filters});return {rows:[],pinned:[],page:0,last:0,total:0,layout:'list',sort:'recent',tables:[{id:'logs',name:'紀錄'}],sheetId:'logs',masters:[{id:'master',title:'客戶'}],dateFields:[],stateFields:[],states:[]};}};
+ if(floating){api.close=()=>{};api.logRecord=async()=>{};}
+ const view=window.toolViewsUI.mount(root,api,{kind:'logs'},{query:'test',page:0});await new Promise(setImmediate);
+ const context=root.querySelector('.log-results-context'),clear=root.querySelectorAll('button').find(button=>button.textContent==='清除篩選'),summary=clear.parentElement;
+ assert.equal(context.closest('.tool-view-log-status')===summary,floating);assert.equal(context.querySelector('strong').textContent,'紀錄');assert.equal(context.querySelector('span').textContent,'清單檢視');assert.equal(clear.hidden,false);
+ const table=root.querySelector('[data-log-filter="sheetId"]'),master=root.querySelector('[data-log-filter="masterId"]');assert.equal(master.hidden,false);assert.equal(table.parentElement,master.parentElement);assert.ok(master.querySelector('[aria-label="所屬主紀錄"]'));
+ await clear.dispatch('click');await new Promise(resolve=>setTimeout(resolve,170));assert.equal(requests.at(-1).query,undefined);assert.equal(clear.hidden,true);assert.equal(context.hidden,false);view.dispose();
+});
