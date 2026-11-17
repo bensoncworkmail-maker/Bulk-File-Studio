@@ -536,6 +536,7 @@ app.whenReady().then(() => {
   handle('everything-file-type-remove',(_,name)=>{const value=everythingTracking.removeFileType(name);send(win,'everything-tracking-changed');return value;});
   handle('everything-copy-query',(_,id)=>{clipboard.writeText(require('./everything-query').searchExpression(everythingTracking.query(id)));return {copied:1};});
   handle('everything-tracking-list',()=>everythingTracking.list());
+  handle('everything-tracking-manage-tag',(_,input)=>{const result=everythingTracking.manageTag(input);send(win,'everything-tracking-changed');return result;});
   handle('everything-tracking-save',(_,input)=>{const value=everythingTracking.save(input);send(win,'everything-tracking-changed');return value;});
   handle('everything-tracking-remove',(_,id)=>{everythingTracking.remove(id);send(win,'everything-tracking-changed');return everythingTracking.list();});
   handle('everything-tracking-configure',(_,seconds)=>{const value=everythingTracking.configure(seconds);send(win,'everything-tracking-changed');return value;});

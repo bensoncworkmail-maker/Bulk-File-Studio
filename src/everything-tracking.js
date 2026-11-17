@@ -75,6 +75,26 @@ class EverythingTracking{
   data.everythingSearches=prior?state.queries.map(item=>item.id===query.id?query:item):[...state.queries,query];this.favorites.write(data);this.cache.delete(query.id);return query;
  }
  remove(id){const data=this.favorites.read(),state=normalizeRules(data);if(!state.queries.some(item=>item.id===id))throw Error('追蹤搜尋已移除');data.everythingSearches=state.queries.filter(item=>item.id!==id);this.favorites.write(data);this.cache.delete(id);return {removed:true};}
+ manageTag(input){
+  const name=cleanTags([input?.name])[0],replacement=input?.replacement===null?null:cleanTags([input?.replacement])[0];
+  if(!name||replacement===undefined)throw Error('請輸入有效標籤名稱');
+  const data=this.favorites.read(),state=normalizeRules(data),key=name.toLocaleLowerCase();
+  const affected=state.queries.filter(query=>query.tags.some(tag=>tag.toLocaleLowerCase()===key)),expected=input?.expected;
+  const versionList=queries=>queries.map(({id,revision})=>({id,revision})).sort((a,b)=>a.id.localeCompare(b.id));
+  if(!Array.isArray(expected)||expected.length>MAX_RULES||expected.some(item=>!item||!ID.test(item.id)||!Number.isSafeInteger(item.revision)||item.revision<1)||!affected.length||JSON.stringify(versionList(expected))!==JSON.stringify(versionList(affected)))throw Error('標籤的追蹤搜尋已變更，請關閉視窗後重新開啟');
+  const updates=new Map(),snapshots=new Map();
+  for(const prior of affected){
+   const tags=cleanTags(prior.tags.map(tag=>tag.toLocaleLowerCase()===key?replacement:tag).filter(tag=>tag!==null));
+   if(JSON.stringify(tags)===JSON.stringify(prior.tags))continue;
+   const query={...prior,tags,revision:prior.revision+1},snapshot=this.snapshot(prior);updates.set(query.id,query);
+   if(snapshot)snapshots.set(query.id,{...snapshot,queryKey:queryKey(query),revision:query.revision,token:crypto.randomUUID()});
+  }
+  if(updates.size){
+   data.everythingSearches=state.queries.map(query=>updates.get(query.id)||query);this.favorites.write(data);
+   for(const id of updates.keys()){this.cache.delete(id);if(snapshots.has(id))this.cache.set(id,snapshots.get(id));}
+  }
+  return {updated:updates.size,replacement};
+ }
  saveFileType(input){
   const data=this.favorites.read(),state=normalizeRules(data),profile=normalizeRules({everythingFileTypes:[input]}).fileTypes[0];
   const key=profile.name.toLocaleLowerCase();data.everythingFileTypes=[...state.fileTypes.filter(item=>item.name.toLocaleLowerCase()!==key),profile];normalizeRules(data);this.favorites.write(data);return this.list();
