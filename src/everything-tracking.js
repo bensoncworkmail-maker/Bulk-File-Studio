@@ -78,6 +78,7 @@ class EverythingTracking{
  manageTag(input){
   const name=cleanTags([input?.name])[0],replacement=input?.replacement===null?null:cleanTags([input?.replacement])[0];
   if(!name||replacement===undefined)throw Error('請輸入有效標籤名稱');
+  if(replacement!==null&&/[,，]/.test(replacement))throw Error('標籤名稱不可包含半形或全形逗號（,／，），請使用其他字元');
   const data=this.favorites.read(),state=normalizeRules(data),key=name.toLocaleLowerCase();
   const affected=state.queries.filter(query=>query.tags.some(tag=>tag.toLocaleLowerCase()===key)),expected=input?.expected;
   const versionList=queries=>queries.map(({id,revision})=>({id,revision})).sort((a,b)=>a.id.localeCompare(b.id));

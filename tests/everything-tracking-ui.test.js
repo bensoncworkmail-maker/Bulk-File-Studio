@@ -478,3 +478,14 @@ test('tag editor preserves typed input on stale data and rejects duplicate submi
  let reject,calls=0;h.api.trackingManageTag=()=>{calls++;return new Promise((_,fail)=>reject=fail);};await h.$('everything-tag-form').dispatch('submit');await h.$('everything-tag-form').dispatch('submit');assert.equal(calls,1);let prevented=false;await h.$('everything-tag-dialog').dispatch('cancel',{preventDefault(){prevented=true;}});assert.equal(prevented,true);await h.$('everything-tag-cancel').dispatch('click');assert.equal(h.$('everything-tag-dialog').open,true);
  reject(Error('標籤的追蹤搜尋已變更'));await flush();assert.equal(h.$('everything-tag-name').value,'Typed');assert.match(h.$('everything-tag-error').textContent,/已變更/);assert.equal(h.$('everything-tag-save').disabled,false);assert.deepEqual(h.service.read().queries[0].tags,['工作']);
 });
+
+test('tag rename rejects comma separators without splitting tags and a corrected name survives query editing and prefilled creation',async t=>{
+ const h=fixture(t,{},['Work']),menus=[];h.window.favoritesUI={showMenu:(_,items)=>menus.push(items)};await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ await h.$('everything-tracking-tags').children[2].dispatch('contextmenu');menus.at(-1).find(item=>/重新命名/.test(item.label)).run();const before=h.favorites.read();
+ for(const value of ['Work, personal','Work，personal']){
+  h.$('everything-tag-name').value=value;await h.$('everything-tag-form').dispatch('submit');await flush();assert.equal(h.$('everything-tag-dialog').open,true);assert.equal(h.$('everything-tag-name').value,value);assert.match(h.$('everything-tag-error').textContent,/逗號/);assert.deepEqual(h.favorites.read(),before);
+ }
+ h.$('everything-tag-name').value='Work personal';await h.$('everything-tag-form').dispatch('submit');await flush();assert.equal(h.$('everything-tag-dialog').open,false);
+ await h.$('everything-tracking-edit').dispatch('click');await h.$('everything-rule-form').dispatch('submit');await flush();assert.deepEqual(h.service.read().queries[0].tags,['Work personal']);
+ await h.$('everything-tracking-tags').children[2].dispatch('contextmenu');menus.at(-1).find(item=>/新增/.test(item.label)).run();assert.equal(h.$('everything-rule-tags').value,'Work personal');h.$('everything-rule-name').value='Another';h.$('everything-rule-text').value='ext:pdf';await h.$('everything-rule-form').dispatch('submit');await flush();assert.deepEqual(h.service.read().queries[1].tags,['Work personal']);assert.deepEqual(h.errors,[]);
+});

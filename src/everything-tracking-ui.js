@@ -25,7 +25,7 @@
  }
  function tagNote(){
   if(!tagEditing)return;const value=$('everything-tag-name').value.trim(),key=value.toLocaleLowerCase(),merge=!tagEditing.remove&&key!==tagEditing.key&&data.queries.some(query=>query.tags.some(tag=>tag.toLocaleLowerCase()===key));
-  $('everything-tag-note').textContent=tagEditing.remove?'保留追蹤搜尋、搜尋命令、實際檔案及一般收藏的標籤。':merge?'此標籤已存在；儲存後會合併標籤，並保留所有追蹤搜尋。':'最多 32 個字元；同步更新使用此標籤的所有追蹤搜尋。';
+  $('everything-tag-note').textContent=tagEditing.remove?'保留追蹤搜尋、搜尋命令、實際檔案及一般收藏的標籤。':merge?'此標籤已存在；儲存後會合併標籤，並保留所有追蹤搜尋。':'最多 32 個字元，不可包含半形或全形逗號；同步更新使用此標籤的所有追蹤搜尋。';
   $('everything-tag-save').textContent=tagEditing.remove?'刪除標籤':merge?'合併標籤':'儲存';
  }
  function editTag(item,remove){

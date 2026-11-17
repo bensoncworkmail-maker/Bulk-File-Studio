@@ -60,6 +60,8 @@ test('stale, invalid and failed tracking tag changes do not partially modify sea
   {name:'Work',replacement:'',expected:[one,two]},
   {name:'Work',replacement:'x'.repeat(33),expected:[one,two]},
   {name:'Work',replacement:'bad\nname',expected:[one,two]},
+  {name:'Work',replacement:'Work, personal',expected:[one,two]},
+  {name:'Work',replacement:'Work，personal',expected:[one,two]},
   {name:'Work',replacement:null,expected:[one]},
   {name:'Work',replacement:null,expected:[one,one]},
   {name:'Work',replacement:null,expected:[{...one,revision:2},two]},
