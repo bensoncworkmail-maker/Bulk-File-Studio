@@ -357,3 +357,14 @@ test('shared rows retain folder/file fallbacks without disrupting native icon re
 test('unreachable share diagnostics remain visible in the compact update status',async t=>{
  const h=fixture(t);h.bridge.search=async()=>({rows:[],skipped:199,skippedReasons:['沒有位置的存取權']});await flush();h.window.everythingTrackingUI.activate(true);await flush();assert.match(h.$('everything-tracking-status').textContent,/略過 199 項.*沒有位置的存取權/);
 });
+
+test('Shift primary mousedown prevents browser text selection while ordinary text dragging and control clicks remain native',async t=>{
+ const h=fixture(t);await flush();const other=path.join(path.dirname(h.file),'second.txt');fs.writeFileSync(other,'data');h.bridge.search=async()=>({rows:[{path:h.file,name:'report.txt'},{path:other,name:'second.txt'}]});h.window.everythingTrackingUI.activate(true);await flush();
+ const rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]'),text=rows[1].querySelector('.everything-tracking-file-text');let prevented=0,nativeText='';
+ const down=async(extra={})=>{let canceled=false;await rows[1].dispatch('mousedown',{button:0,target:text,shiftKey:true,...extra,preventDefault(){canceled=true;prevented++;}});return canceled;};
+ await rows[0].dispatch('click');assert.equal(await down(),true);await rows[1].dispatch('click',{target:text,button:0,shiftKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(h.document.activeElement,h.$('everything-tracking-results'));
+ for(const extra of [{shiftKey:false},{button:1},{button:2},{target:rows[1].querySelector('input')},{target:rows[1].querySelector('button')}])assert.equal(await down(extra),false);
+ const anchor=h.document.createElement('a');rows[1].append(anchor);assert.equal(await down({target:anchor}),false);const editing=h.document.createElement('span');editing.setAttribute('contenteditable','true');rows[1].append(editing);assert.equal(await down({target:editing}),false);
+ h.$('everything-tracking-dialog').showModal();assert.equal(await down(),false);h.$('everything-tracking-dialog').close();h.callbacks.isBusy=()=>true;assert.equal(await down(),false);h.callbacks.isBusy=()=>false;
+ if(!await down({shiftKey:false}))nativeText='report.txt copied with mouse';h.window.getSelection=()=>({toString:()=>nativeText});await rows[1].dispatch('click',{target:text,button:0});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(nativeText,'report.txt copied with mouse');assert.equal(prevented,1);assert.deepEqual(h.errors,[]);
+});

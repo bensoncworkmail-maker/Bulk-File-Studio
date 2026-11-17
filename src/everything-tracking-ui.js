@@ -91,6 +91,12 @@
   }
   entries.forEach(({item,index})=>{
    const row=node('tr',undefined,'everything-tracking-row'),check=node('input'),checkCell=node('td');row.setAttribute('data-index',String(index));check.type='checkbox';check.checked=selected.has(index);check.disabled=busy;row.classList.toggle('selected',check.checked);row.setAttribute('aria-selected',String(check.checked));check.setAttribute('aria-label','選取 '+item.name);check.addEventListener('change',()=>{if(blocked())return;check.checked?selected.add(index):selected.delete(index);anchor=index;paintSelection();});checkCell.append(check);
+   // Cancel the browser's range-selection gesture before click selects rows.
+   // Ordinary mouse dragging keeps its native text-selection behavior.
+   row.addEventListener('mousedown',event=>{
+    if(blocked()||!event.shiftKey||event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]'))return;
+    event.preventDefault();
+   });
    row.addEventListener('click',event=>{
     if(blocked()||event.detail>1||event.button!==undefined&&event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]')||!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&window.getSelection?.()?.toString())return;
     if(event.shiftKey&&anchor!==null){const ids=ordered().map(entry=>entry.index),from=ids.indexOf(anchor),to=ids.indexOf(index);if(!event.ctrlKey&&!event.metaKey)selected.clear();for(const id of ids.slice(Math.min(from,to),Math.max(from,to)+1))selected.add(id);}
@@ -107,7 +113,7 @@
    label.append(icon,image,node('span',item.name,'everything-tracking-file-text'));name.append(label);
    name.title=(item.type==='folder'?'資料夾':'檔案')+'：'+item.path+'\n雙擊開啟';location.title=view.location(item)+'\n雙擊開啟所在位置';
    name.addEventListener('dblclick',()=>void action('open',[index]));location.addEventListener('dblclick',()=>void action('show',[index]));
-   const copy=node('td'),copyButton=button('⧉ 路徑',()=>void action('copy',[index]));copyButton.title='複製 '+item.path;copyButton.setAttribute('aria-label','複製 '+item.name+' 的完整路徑');copy.append(copyButton);
+   const copy=node('td',undefined,'everything-tracking-copy'),copyButton=button('⧉ 路徑',()=>void action('copy',[index]));copyButton.title='複製 '+item.path;copyButton.setAttribute('aria-label','複製 '+item.name+' 的完整路徑');copy.append(copyButton);
    row.addEventListener('contextmenu',event=>rowMenu(event,index));row.append(checkCell);
    for(const key of visibleColumns){const column=columns.COLUMNS[key];
     const cell=key==='name'?name:key==='location'?location:node('td',columns.display(item,key,{sizeUnit:sizeUnit()}),'everything-tracking-'+key);cell.setAttribute('data-column',key);if(key!=='name'&&key!=='location')cell.title=cell.textContent;if(column.number)cell.classList.add('everything-tracking-number');row.append(cell);
