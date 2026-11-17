@@ -11,3 +11,12 @@ test('sort settings validate IDs and keys, bound old queries, and participate in
  const exported=require('../src/settings-export').createSettingsExport({settings,rules:{}},{},'1.108.0');assert.equal(exported.settings.everythingSortStates[id].key,'size');assert.equal(exported.settings.everythingToolsExpanded,false);
  const reset=require('../src/settings-catalog').resetPatch('renderer','favorites',Settings.DEFAULTS);assert.deepEqual(reset.everythingSortStates,{});assert.equal(reset.everythingToolsExpanded,true);
 });
+
+test('rename presentation and nullable tracking tag survive storage/export and reset within favorites',()=>{
+ const settings=Settings.normalize({everythingRenameMode:'dialog',everythingSelectedTag:'  eLearning  '});assert.equal(settings.everythingRenameMode,'dialog');assert.equal(settings.everythingSelectedTag,'elearning');
+ const saved=JSON.stringify(settings),storage={getItem:key=>key===Settings.KEY?saved:null};assert.equal(Settings.load(storage).everythingSelectedTag,'elearning');assert.equal(Settings.load(storage).everythingRenameMode,'dialog');
+ for(const value of [null,{},33,'a'.repeat(33),'bad\ntag','bad\x7f'])assert.equal(Settings.normalize({everythingSelectedTag:value}).everythingSelectedTag,null);
+ assert.equal(Settings.normalize({everythingSelectedTag:''}).everythingSelectedTag,'');assert.equal(Settings.normalize({everythingRenameMode:'unknown'}).everythingRenameMode,'inline');
+ const exported=require('../src/settings-export').createSettingsExport({settings,rules:{}},{},'1.120.0');assert.equal(Settings.normalize(exported.settings).everythingSelectedTag,'elearning');assert.equal(Settings.normalize(exported.settings).everythingRenameMode,'dialog');
+ const reset=require('../src/settings-catalog').resetPatch('renderer','favorites',Settings.DEFAULTS);assert.equal(reset.everythingSelectedTag,null);assert.equal(reset.everythingRenameMode,'inline');
+});

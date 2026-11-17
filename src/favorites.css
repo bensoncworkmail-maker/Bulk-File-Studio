@@ -209,3 +209,8 @@
 /* Keep update status and collapsed controls in a single compact, wrapping row. */
 .everything-tracking-tools-heading>#everything-tracking-status{padding:0;flex:0 1 auto;min-width:0}
 .everything-tracking-tools-heading>#everything-tracking-status.error{flex-basis:100%}
+
+/* Inline rename remains part of the original snapshot row. */
+.everything-tracking-table .everything-inline-rename{width:100%;min-width:0;flex:1;margin:0;padding:3px 5px;border:1px solid var(--accent);border-radius:4px;background:var(--panel);color:var(--text);font:inherit;box-sizing:border-box;user-select:text}
+.everything-tracking-table .everything-inline-rename-error{display:block;white-space:normal;color:var(--danger,var(--bad));font-size:.9em;line-height:1.4}
+.everything-inline-rename-error:empty{display:none}

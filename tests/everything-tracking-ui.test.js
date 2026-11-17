@@ -2,10 +2,10 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),vm=require('node:vm');
 const {documentFromHTML}=require('./helpers/dom'),{FavoritesStore}=require('../src/favorites-store'),{EverythingTracking}=require('../src/everything-tracking');
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise(setImmediate);};
-function fixture(t,initial={}){
+function fixture(t,initial={},ruleTags=['工作']){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-ui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'report.txt');fs.writeFileSync(file,'data');
  const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='',changed=()=>{},documentKey=()=>{};
- const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:['工作'],enabled:true});
+ const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:ruleTags,enabled:true});
  const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;document.addEventListener=(name,handler)=>{if(name==='keydown')documentKey=handler;};
  const actions=[],api={trackingList:async()=>service.list(),trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged:callback=>{changed=callback;},trackingAction:async(id,token,indices,action,input)=>{const result=service.selection(id,token,indices);actions.push({action,input,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
  let prefs=require('../src/settings-model').normalize(initial);
@@ -50,7 +50,7 @@ test('new bulk buttons and shortcuts use the validated selection and stage renam
  await h.$('everything-tracking-select-all').dispatch('click');
  for(const kind of ['copy-names','copy-folders','rename','move']){await h.$('everything-tracking-'+kind).dispatch('click');await flush();assert.equal(h.actions.at(-1).action,kind);}
  assert.equal(h.renamed.length,1);assert.deepEqual(h.moved[0].paths,[h.file]);
- await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});await flush();assert.equal(h.renamed.length,1);assert.equal(h.$('everything-item-rename-dialog').open,true);await h.$('everything-item-rename-cancel').dispatch('click');
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});await flush();assert.equal(h.renamed.length,1);assert.ok(h.$('everything-inline-rename-name'));await h.$('everything-inline-rename-name').dispatch('keydown',{key:'Escape'});
  await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'m',ctrlKey:true,shiftKey:true});await flush();assert.equal(h.moved.length,2);
  const before=h.calls.length;await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F5'});await flush();assert.equal(h.calls.length,before+1);
  assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');assert.equal(h.$('everything-tracking-rename').disabled,true);assert.deepEqual(h.errors,[]);
@@ -71,7 +71,7 @@ test('blank row clicks select with Ctrl and Shift without stealing button action
 });
 
 test('F2 opens a single-item rename dialog, confirms the captured token and retains errors for correction',async t=>{
- const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-results').querySelector('tr[data-index]').dispatch('click');
+ const h=fixture(t,{everythingRenameMode:'dialog'});await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-results').querySelector('tr[data-index]').dispatch('click');
  const captured=h.service.list().queries[0].snapshot.token,requests=[];let failure=true;
  h.api.trackingAction=async(id,token,indices,action,input)=>{requests.push({id,token,indices,action,input});if(failure)throw Error('目標已存在');return {changed:1};};
  await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});
@@ -110,7 +110,7 @@ test('table sorting retains selected snapshot IDs for copy, double-click and F2;
  assert.deepEqual(ids(),['1','2','0']);await rows()[0].dispatch('click');
  const sort=h.$('everything-tracking-sort-name');sort.focus();await sort.dispatch('click');assert.deepEqual(ids(),['0','2','1']);assert.equal(h.document.activeElement,sort);assert.equal(sort.parentElement.getAttribute('aria-sort'),'descending');
  await h.$('everything-tracking-copy').dispatch('click');await flush();assert.deepEqual(h.actions.at(-1).paths,[files[1]]);
- await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});assert.equal(h.$('everything-item-rename-name').value,names[1]);await h.$('everything-item-rename-cancel').dispatch('click');
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});assert.equal(h.$('everything-inline-rename-name').value,names[1]);await h.$('everything-inline-rename-name').dispatch('keydown',{key:'Escape'});
  await rows()[0].children[2].dispatch('dblclick');await flush();assert.deepEqual(h.actions.at(-1).paths,[files[0]]);
  await rows()[0].dispatch('click');await rows()[2].dispatch('click',{shiftKey:true});assert.equal(h.$('everything-tracking-selected').textContent,'已選 3 項');
  for(const key of ['location','size','modified']){await h.$('everything-tracking-sort-'+key).dispatch('click');assert.equal(h.$('everything-tracking-selected').textContent,'已選 3 項');assert.equal(h.$('everything-tracking-sort-'+key).parentElement.getAttribute('aria-sort'),'ascending');}
@@ -367,4 +367,56 @@ test('Shift primary mousedown prevents browser text selection while ordinary tex
  const anchor=h.document.createElement('a');rows[1].append(anchor);assert.equal(await down({target:anchor}),false);const editing=h.document.createElement('span');editing.setAttribute('contenteditable','true');rows[1].append(editing);assert.equal(await down({target:editing}),false);
  h.$('everything-tracking-dialog').showModal();assert.equal(await down(),false);h.$('everything-tracking-dialog').close();h.callbacks.isBusy=()=>true;assert.equal(await down(),false);h.callbacks.isBusy=()=>false;
  if(!await down({shiftKey:false}))nativeText='report.txt copied with mouse';h.window.getSelection=()=>({toString:()=>nativeText});await rows[1].dispatch('click',{target:text,button:0});assert.equal(h.$('everything-tracking-selected').textContent,'已選 2 項');assert.equal(nativeText,'report.txt copied with mouse');assert.equal(prevented,1);assert.deepEqual(h.errors,[]);
+});
+
+test('inline F2 edits the name cell, selects the stem and preserves the captured row while refresh and shortcuts are paused',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const create=h.document.createElement.bind(h.document),ranges=[];h.document.createElement=tag=>{const node=create(tag);if(tag==='input')node.setSelectionRange=(a,b)=>ranges.push([a,b]);return node;};
+ const row=h.$('everything-tracking-body').querySelector('tr[data-index]');await row.dispatch('click');const token=h.service.list().queries[0].snapshot.token,calls=[];let fail=true;
+ h.api.trackingAction=async(id,currentToken,indices,action,input)=>{calls.push({id,token:currentToken,indices:Array.from(indices),action,input});if(fail)throw Error('目標已存在');return {changed:1};};
+ await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});const input=h.$('everything-inline-rename-name');assert.ok(input);assert.equal(input.closest('td').getAttribute('data-column'),'name');assert.equal(input.value,'report.txt');assert.deepEqual(ranges,[[0,6]]);assert.equal(h.$('everything-item-rename-dialog').open,false);assert.equal(h.document.activeElement,input);assert.equal(h.$('everything-tracking-filter').disabled,true);
+ const before=h.calls.length;[...h.intervals.values()][0]();h.changed();await flush();h.window.everythingTrackingUI.render();assert.equal(h.calls.length,before);assert.equal(h.$('everything-inline-rename-name'),input);assert.equal(h.$('everything-tracking-body').querySelector('tr[data-index]'),row);
+ input.value='new report.txt';await input.dispatch('keydown',{key:'Enter',isComposing:true});await input.dispatch('keydown',{key:'Enter',repeat:true});assert.equal(calls.length,0);await input.dispatch('keydown',{key:'Enter'});await flush();assert.match(h.$('everything-inline-rename-error').textContent,/目標已存在/);assert.equal(input.value,'new report.txt');assert.equal(input.disabled,false);assert.equal(h.document.activeElement,input);assert.equal(input.getAttribute('aria-invalid'),'true');
+ await input.dispatch('input');assert.equal(h.$('everything-inline-rename-error').textContent,'');fail=false;await input.dispatch('keydown',{key:'Enter'});await flush();assert.equal(h.$('everything-inline-rename-name'),null);assert.equal(calls[1].token,token);assert.deepEqual(calls[1].indices,[0]);assert.equal(calls[1].input.name,'new report.txt');assert.equal(calls[1].action,'rename-item');assert.equal(h.$('everything-tracking-filter').disabled,false);assert.deepEqual(h.errors,[]);
+});
+
+test('Escape or leaving an inline name cancels without sending a rename and ordinary text selection is restored',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const row=h.$('everything-tracking-body').querySelector('tr[data-index]');await row.dispatch('click');
+ for(const event of ['escape','blur']){await h.$('everything-tracking-rename-item').dispatch('click');const input=h.$('everything-inline-rename-name');input.value='cancel.txt';await input.dispatch(event==='escape'?'keydown':'blur',event==='escape'?{key:'Escape'}:{});assert.equal(h.$('everything-inline-rename-name'),null);assert.equal(row.querySelector('.everything-tracking-file-text').hidden,false);assert.equal(row.querySelector('.everything-tracking-file-text').textContent,'report.txt');assert.equal(h.$('everything-tracking-rename-item').disabled,false);}
+ assert.equal(h.actions.length,0);assert.equal(fs.existsSync(h.file),true);
+ await h.$('everything-tracking-rename-item').dispatch('click');h.window.everythingTrackingUI.activate(false);assert.equal(h.$('everything-inline-rename-name'),null);
+});
+
+test('inline rename rejects duplicate submits and defers changed results until cancellation without losing typed input',async t=>{
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-body').querySelector('tr[data-index]').dispatch('click');await h.$('everything-tracking-rename-item').dispatch('click');const input=h.$('everything-inline-rename-name');let reject,calls=0;h.api.trackingAction=()=>{calls++;return new Promise((_,failed)=>reject=failed);};
+ input.value='typed.txt';await input.dispatch('keydown',{key:'Enter'});await input.dispatch('keydown',{key:'Enter'});assert.equal(calls,1);assert.equal(input.disabled,true);await input.dispatch('blur');assert.equal(h.$('everything-inline-rename-name'),input);reject(Error('追蹤結果已更新，請重新選取'));await flush();assert.equal(input.value,'typed.txt');assert.match(h.$('everything-inline-rename-error').textContent,/已更新/);assert.equal(input.disabled,false);
+ let lists=0;const list=h.api.trackingList;h.api.trackingList=async()=>{lists++;return list();};h.changed();await flush();assert.equal(lists,0);await input.dispatch('keydown',{key:'Escape'});await flush();assert.equal(lists,1);assert.equal(h.$('everything-inline-rename-name'),null);
+});
+
+test('inline rename uses the actual sorted source and rejects conflicts before executing an existing relocation plan',async t=>{
+ const h=fixture(t),{planRename,executeRelocation}=require('../src/move-core'),{trackingAction}=require('../src/everything-tracking-actions'),other=path.join(path.dirname(h.file),'a.txt');fs.writeFileSync(other,'keep');h.bridge.search=async()=>({rows:[{path:h.file,name:'report.txt'},{path:other,name:'a.txt'}]});await flush();h.window.everythingTrackingUI.activate(true);await flush();
+ h.api.trackingAction=async(id,token,indices,action,input)=>trackingAction({tracking:h.service,id,token,indices,action,input,renameItem:(source,name)=>{const moves=planRename(source,name);executeRelocation(moves);h.service.invalidate();return {changed:moves.length};}});
+ const rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');assert.equal(rows[0].getAttribute('data-index'),'1');await rows[0].dispatch('click');await h.$('everything-tracking-rename-item').dispatch('click');const input=h.$('everything-inline-rename-name');assert.equal(input.value,'a.txt');input.value='report.txt';await input.dispatch('keydown',{key:'Enter'});await flush();assert.ok(h.$('everything-inline-rename-error').textContent.length>0);assert.equal(fs.readFileSync(other,'utf8'),'keep');input.value='renamed.txt';await input.dispatch('keydown',{key:'Enter'});await flush();assert.equal(fs.existsSync(other),false);assert.equal(fs.readFileSync(path.join(path.dirname(other),'renamed.txt'),'utf8'),'keep');assert.equal(fs.readFileSync(h.file,'utf8'),'data');
+});
+
+test('selected named, untagged and all tracking tags survive fresh renderer sessions and missing tags fall back to all',async t=>{
+ const h=fixture(t,{},['eLearning']);await flush();h.window.everythingTrackingUI.activate(true);await flush();const active=instance=>instance.$('everything-tracking-tags').children.find(button=>button.getAttribute('aria-pressed')==='true');
+ await h.$('everything-tracking-tags').children.find(button=>button.textContent.startsWith('eLearning')).dispatch('click');await flush();assert.equal(h.window.settingsUI.get().everythingSelectedTag,'elearning');const restored=fixture(t,JSON.parse(JSON.stringify(h.window.settingsUI.get())),['eLearning']);await flush();assert.match(active(restored).textContent,/eLearning/);assert.equal(restored.$('everything-tracking-rules').children.length,1);
+ const missing=fixture(t,h.window.settingsUI.get(),['Other']);await flush();assert.match(active(missing).textContent,/全部追蹤/);assert.equal(missing.window.settingsUI.get().everythingSelectedTag,null);
+ await restored.$('everything-tracking-tags').children.find(button=>button.textContent.startsWith('未加標籤')).dispatch('click');await flush();assert.equal(restored.window.settingsUI.get().everythingSelectedTag,'');const untagged=fixture(t,restored.window.settingsUI.get(),[]);await flush();assert.match(active(untagged).textContent,/未加標籤/);
+ await untagged.$('everything-tracking-tags').children[0].dispatch('click');await flush();assert.equal(untagged.window.settingsUI.get().everythingSelectedTag,null);const all=fixture(t,untagged.window.settingsUI.get());await flush();assert.match(active(all).textContent,/全部追蹤/);
+});
+
+test('restoring tag preferences and removing a selected tag reconcile the displayed search and persist the fallback',async t=>{
+ const h=fixture(t);await flush();const other=h.service.save({name:'Learning',text:'ext:txt',type:'file',mode:'syntax',tags:['eLearning'],enabled:true});h.changed();await flush();h.window.settingsUI.update({everythingSelectedTag:'elearning'});h.window.everythingTrackingUI.settingsChanged();await flush();assert.equal(h.$('everything-tracking-rules').children.length,1);assert.match(h.$('everything-tracking-rules').textContent,/Learning/);
+ h.service.save({...other,tags:['Other']});h.changed();await flush();assert.equal(h.window.settingsUI.get().everythingSelectedTag,null);assert.equal(h.$('everything-tracking-rules').children.length,2);
+});
+
+test('inline folder rename selects the full dotted folder name and multi-selection keeps using the batch action',async t=>{
+ const h=fixture(t),folder=path.join(path.dirname(h.file),'folder.with.dots');fs.mkdirSync(folder);h.bridge.search=async()=>({rows:[{path:folder,name:'folder.with.dots'},{path:h.file,name:'report.txt'}]});await flush();h.window.everythingTrackingUI.activate(true);await flush();const create=h.document.createElement.bind(h.document),ranges=[];h.document.createElement=tag=>{const node=create(tag);if(tag==='input')node.setSelectionRange=(a,b)=>ranges.push([a,b]);return node;};
+ const rows=h.$('everything-tracking-body').querySelectorAll('tr[data-index]');await rows[0].dispatch('click');await h.$('everything-tracking-rename-item').dispatch('click');assert.deepEqual(ranges,[[0,'folder.with.dots'.length]]);await h.$('everything-inline-rename-name').dispatch('keydown',{key:'Escape'});await h.$('everything-tracking-select-all').dispatch('click');await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});assert.equal(h.$('everything-inline-rename-name'),null);assert.match(h.toasts.at(-1),/只選取一個/);assert.equal(h.$('everything-tracking-rename-item').disabled,true);
+});
+
+test('editing a matching query keeps the remembered tag while explicitly opening a newly tracked query makes it visible',async t=>{
+ const h=fixture(t,{everythingSelectedTag:'elearning'},['eLearning']);await flush();h.window.everythingTrackingUI.activate(true);await flush();await h.$('everything-tracking-edit').dispatch('click');h.$('everything-rule-name').value='Renamed learning search';await h.$('everything-rule-form').dispatch('submit');await flush();assert.equal(h.window.settingsUI.get().everythingSelectedTag,'elearning');assert.equal(h.$('everything-tracking-rules').children.length,1);
+ const other=h.service.save({name:'Different',text:'ext:pdf',type:'file',mode:'syntax',tags:['Work'],enabled:true});h.window.everythingTrackingUI.select(other.id);h.changed();await flush();assert.equal(h.window.settingsUI.get().everythingSelectedTag,null);assert.match(h.$('everything-tracking-title').textContent,/Different/);assert.equal(h.$('everything-tracking-rules').children.length,2);
 });

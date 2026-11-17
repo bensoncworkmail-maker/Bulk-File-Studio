@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.119.0。以 `npm run audit:functions` 重新產生。
+版本：v1.120.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 195 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 260 個介面／桌面偏好。
+讀取 src 全部 195 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 262 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -109,7 +109,7 @@
 | [everything-result-columns.js](../src/everything-result-columns.js) | `display`、`formatSize`、`location`、`normalizeColumns`、`normalizeSizeUnit`、`value`、`widths` |
 | [everything-result-paths.js](../src/everything-result-paths.js) | `accessReason`、`directory`、`resultPath`、`sharedInspector` |
 | [everything-tracking-actions.js](../src/everything-tracking-actions.js) | `cell`、`pathAPI`、`trackingAction`、`trackingBatchStore`、`trackingTrashStore` |
-| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`loadIcons`、`node`、`open`、`ordered`、`paintIcons`、`paintSelection`、`ready`、`refresh`、`rememberedSort`、`remove`、`renameItem`、`render`、`renderControls`、`resultFilter`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`showCopy`、`showHint`、`shownColumns`、`sizeUnit`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
+| [everything-tracking-ui.js](../src/everything-tracking-ui.js) | `$`、`action`、`activate`、`blocked`、`button`、`cancelInlineRename`、`changeSort`、`chooseColumns`、`columnMenu`、`copyQuery`、`current`、`editor`、`filtered`、`init`、`interval`、`keydown`、`load`、`loadIcons`、`node`、`open`、`ordered`、`paintIcons`、`paintSelection`、`ready`、`refresh`、`rememberTag`、`rememberedSort`、`remove`、`renameItem`、`renameMode`、`render`、`renderControls`、`resultFilter`、`rowMenu`、`save`、`saveItemName`、`schedule`、`selectResults`、`setColumns`、`showCopy`、`showHint`、`shownColumns`、`sizeUnit`、`sorting`、`syncStartQuery`、`toggleTracking`、`updateView`、`visible` |
 | [everything-tracking-view.js](../src/everything-tracking-view.js) | `filterRows`、`sortedRows`、`value` |
 | [everything-tracking.js](../src/everything-tracking.js) | `apiFor`、`configure`、`entries`、`failed`、`invalidate`、`key`、`list`、`normalizeRules`、`query`、`queryKey`、`read`、`refresh`、`remove`、`removeFileType`、`removePaths`、`save`、`saveFileType`、`selection`、`snapshot` |
 | [everything-view-settings.js](../src/everything-view-settings.js) | `direction`、`effective`、`normalize`、`select`、`sort` |

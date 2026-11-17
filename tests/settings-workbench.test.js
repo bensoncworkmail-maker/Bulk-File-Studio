@@ -162,3 +162,10 @@ test('Everything display controls are searchable, remember units and icons and r
  h.$('settings-everything-size-unit').value='GB';await h.$('settings-everything-size-unit').dispatch('change');for(const id of ['settings-everything-file-icons','settings-everything-show-copy']){h.$(id).checked=false;await h.$(id).dispatch('change');}assert.equal(h.ui.get().everythingSizeUnit,'GB');assert.equal(h.ui.get().everythingFileIcons,false);assert.equal(h.ui.get().everythingShowCopy,false);
  const exported=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.116.0');assert.equal(Settings.normalize(exported.settings).everythingSizeUnit,'GB');await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');await flush();assert.equal(h.ui.get().everythingSizeUnit,'auto');assert.equal(h.ui.get().everythingFileIcons,true);assert.equal(h.ui.get().everythingShowCopy,true);
 });
+
+test('tracking rename mode is searchable, persists, exports and resets with the remembered tag',async()=>{
+ const h=setup({settingsTab:'favorites',everythingRenameMode:'inline',everythingSelectedTag:'elearning'});await flush();assert.equal(h.$('settings-everything-rename-mode').value,'inline');h.$('settings-query').value='單項 重新命名';await h.$('settings-query').dispatch('input');assert.match(h.$('settings-query-results').textContent,/單項重新命名方式/);
+ h.$('settings-everything-rename-mode').value='dialog';await h.$('settings-everything-rename-mode').dispatch('change');assert.equal(h.ui.get().everythingRenameMode,'dialog');assert.equal(JSON.parse(h.saved[Settings.KEY]).everythingSelectedTag,'elearning');
+ const exported=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.120.0');assert.equal(exported.settings.everythingRenameMode,'dialog');assert.equal(exported.settings.everythingSelectedTag,'elearning');
+ await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');assert.equal(h.ui.get().everythingRenameMode,'inline');assert.equal(h.ui.get().everythingSelectedTag,null);
+});
