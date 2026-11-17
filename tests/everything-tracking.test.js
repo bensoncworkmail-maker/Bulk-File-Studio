@@ -29,6 +29,51 @@ test('Windows rename cache matching ignores case, updates extensions and does no
  const h=fixture(t),query=h.save(),paths=['C:\\Work\\OLD.txt','C:\\Work\\OLD.txt.bak','D:\\Work\\OLD.txt'];h.bridge.search=async()=>({rows:paths.map(value=>({path:value,name:path.win32.basename(value)}))});h.tracking.inspect=()=>({type:'file',identity:{dev:'1',ino:'2',birthtimeNs:'3'},size:4});await h.tracking.refresh(query.id);
  h.tracking.applyMoves([{source:'c:\\work\\old.txt',destination:'C:\\Work\\New.pdf'}]);const snapshot=h.tracking.list().queries[0].snapshot;assert.deepEqual(snapshot.rows.map(row=>row.path),['C:\\Work\\New.pdf',...paths.slice(1)]);assert.equal(require('../src/everything-result-columns').value(snapshot.rows[0],'extension'),'pdf');
 });
+
+test('tracking tag rename and merge update matching searches atomically while preserving result rows, commands and ordinary favorites',async t=>{
+ const h=fixture(t);h.favorites.addPaths([h.a],['Work']);const one=h.save({tags:['Work','Other']}),two=h.save({text:'*',tags:['work','Existing']}),untouched=h.save({text:'ext:txt',tags:['Other']});
+ for(const query of [one,two,untouched])await h.tracking.refresh(query.id);
+ const before=h.tracking.list(),favorite=h.favorites.read().items;
+ const result=h.tracking.manageTag({name:'WORK',replacement:'Existing',expected:[two,one]});assert.equal(result.updated,2);
+ const after=h.tracking.list();assert.deepEqual(after.queries.map(query=>query.tags),[['Existing','Other'],['Existing'],['Other']]);
+ for(const [index,query] of after.queries.entries()){
+  assert.equal(query.text,before.queries[index].text);assert.deepEqual(query.snapshot.rows,before.queries[index].snapshot.rows);assert.equal(query.snapshot.checkedAt,before.queries[index].snapshot.checkedAt);
+  if(index<2){assert.equal(query.revision,before.queries[index].revision+1);assert.throws(()=>h.tracking.selection(query.id,before.queries[index].snapshot.token,[0]),/已更新/);assert.deepEqual(h.tracking.selection(query.id,query.snapshot.token,[0]).tags,query.tags);}else assert.deepEqual(query,before.queries[index]);
+ }
+ assert.deepEqual(h.favorites.read().items,favorite);assert.equal(fs.readFileSync(h.a,'utf8'),'A');
+ assert.deepEqual(new EverythingTracking({favorites:h.favorites,bridge:h.bridge}).read().queries.map(query=>query.tags),after.queries.map(query=>query.tags));
+});
+
+test('deleting a tracking tag preserves searches and files and permits a case-only rename or an unchanged name',async t=>{
+ const h=fixture(t),one=h.save({tags:['Work']}),two=h.save({text:'*',tags:['Work','Keep']});
+ let result=h.tracking.manageTag({name:'work',replacement:'WORK',expected:[one,two]});assert.equal(result.updated,2);
+ let queries=h.tracking.read().queries;assert.deepEqual(queries.map(query=>query.tags),[['WORK'],['WORK','Keep']]);const unchanged=h.favorites.read();
+ assert.equal(h.tracking.manageTag({name:'WORK',replacement:'WORK',expected:queries}).updated,0);assert.deepEqual(h.favorites.read(),unchanged);
+ result=h.tracking.manageTag({name:'work',replacement:null,expected:queries});assert.equal(result.updated,2);queries=h.tracking.read().queries;assert.equal(queries.length,2);assert.deepEqual(queries.map(query=>query.tags),[[],['Keep']]);assert.ok(fs.existsSync(h.a)&&fs.existsSync(h.b));
+});
+
+test('stale, invalid and failed tracking tag changes do not partially modify searches or cached snapshots',async t=>{
+ const h=fixture(t),one=h.save({tags:['Work']}),two=h.save({text:'*',tags:['Work']});await h.tracking.refresh(one.id);
+ const before=h.favorites.read(),snapshot=h.tracking.list().queries[0].snapshot;
+ for(const input of [
+  {name:'',replacement:null,expected:[one,two]},
+  {name:'Work',replacement:'',expected:[one,two]},
+  {name:'Work',replacement:'x'.repeat(33),expected:[one,two]},
+  {name:'Work',replacement:'bad\nname',expected:[one,two]},
+  {name:'Work',replacement:'Work, personal',expected:[one,two]},
+  {name:'Work',replacement:'Work，personal',expected:[one,two]},
+  {name:'Work',replacement:null,expected:[one]},
+  {name:'Work',replacement:null,expected:[one,one]},
+  {name:'Work',replacement:null,expected:[{...one,revision:2},two]},
+  {name:'Work',replacement:null,expected:null}
+ ]){assert.throws(()=>h.tracking.manageTag(input));assert.deepEqual(h.favorites.read(),before);assert.deepEqual(h.tracking.list().queries[0].snapshot,snapshot);}
+ t.mock.method(h.favorites,'write',()=>{throw Error('disk full');});assert.throws(()=>h.tracking.manageTag({name:'Work',replacement:'New',expected:[one,two]}),/disk full/);assert.deepEqual(h.favorites.read(),before);assert.deepEqual(h.tracking.list().queries[0].snapshot,snapshot);
+});
+
+test('a query pending before a tag edit cannot restore old tags or overwrite the rebased cache',async t=>{
+ const h=fixture(t),query=h.save({tags:['Work']});await h.tracking.refresh(query.id);const before=h.tracking.list().queries[0].snapshot;let finish;h.pending(new Promise(resolve=>finish=resolve));const pending=h.tracking.refresh(query.id);
+ h.tracking.manageTag({name:'Work',replacement:'New',expected:[query]});finish({rows:[]});await pending;const after=h.tracking.list().queries[0];assert.deepEqual(after.tags,['New']);assert.deepEqual(after.snapshot.rows,before.rows);assert.notEqual(after.snapshot.token,before.token);
+});
 test('file categories survive saved-rule reload, validation, refresh and editing without changing query text',async t=>{
  const h=fixture(t),{FILE_TYPES}=require('../src/everything-query');
  for(const type of Object.keys(FILE_TYPES))h.save({name:type,type});

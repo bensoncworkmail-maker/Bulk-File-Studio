@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns,views=window.everythingViewSettings;
- let updatingView=false,iconState,pendingLoad=false;
+ let updatingView=false,iconState,pendingLoad=false,tagEditing=null;
  const resultFilters=new Map();
  const resultFilter=()=>resultFilters.get(currentId)||'';
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
@@ -14,6 +14,40 @@
  const renameMode=()=>window.settingsUI?.get().everythingRenameMode==='dialog'?'dialog':'inline';
  function rememberTag(value){tag=value;updateView({everythingSelectedTag:value},true);}
  function rememberQuery(value){currentId=value;if(window.settingsUI?.get().everythingLastQuery!==(value||''))updateView({everythingLastQuery:value||''},true);}
+ function selectTag(value){if(blocked())return;rememberTag(value);rememberQuery(filtered().some(query=>query.id===currentId)?currentId:filtered()[0]?.id||null);selected.clear();anchor=null;render();void refresh();}
+ function tagMenu(event,item){
+  event.preventDefault();event.stopPropagation();if(blocked())return;
+  window.favoritesUI?.showMenu(event,[
+   {label:'查看'+(item.key===null?'全部追蹤':item.key===''?'未加標籤的追蹤':'此標籤的追蹤搜尋'),run:()=>selectTag(item.key)},
+   {label:'新增追蹤搜尋…',run:()=>{if(blocked())return;editor();if(item.key!==null)$('everything-rule-tags').value=item.key===''?'':item.name;}},
+   ...(item.key===null||item.key===''?[]:[{label:'重新命名標籤…',run:()=>editTag(item,false)},{label:'刪除標籤…',run:()=>editTag(item,true)}])
+  ]);
+ }
+ function tagNote(){
+  if(!tagEditing)return;const value=$('everything-tag-name').value.trim(),key=value.toLocaleLowerCase(),merge=!tagEditing.remove&&key!==tagEditing.key&&data.queries.some(query=>query.tags.some(tag=>tag.toLocaleLowerCase()===key));
+  $('everything-tag-note').textContent=tagEditing.remove?'保留追蹤搜尋、搜尋命令、實際檔案及一般收藏的標籤。':merge?'此標籤已存在；儲存後會合併標籤，並保留所有追蹤搜尋。':'最多 32 個字元，不可包含半形或全形逗號；同步更新使用此標籤的所有追蹤搜尋。';
+  $('everything-tag-save').textContent=tagEditing.remove?'刪除標籤':merge?'合併標籤':'儲存';
+ }
+ function editTag(item,remove){
+  if(blocked()||item.key===null||item.key==='')return;
+  const queries=data.queries.filter(query=>query.tags.some(tag=>tag.toLocaleLowerCase()===item.key));
+  if(!queries.length)return;
+  tagEditing={name:item.name,key:item.key,remove,expected:queries.map(({id,revision})=>({id,revision}))};
+  $('everything-tag-title').textContent=remove?'刪除追蹤標籤':'重新命名追蹤標籤';
+  $('everything-tag-description').textContent=(remove?'將從 ':'將更新 ')+queries.length+' 個追蹤搜尋'+(remove?'移除':'中的')+'「'+item.name+'」標籤。';
+  $('everything-tag-name-field').classList.toggle('hidden',remove);const input=$('everything-tag-name');input.value=item.name;input.required=!remove;input.disabled=remove;$('everything-tag-error').textContent='';tagNote();$('everything-tag-dialog').showModal();
+  (remove?$('everything-tag-cancel'):input).focus();if(!remove)input.select?.();
+ }
+ async function saveTag(){
+  if(!tagEditing||busy)return;const target=tagEditing;busy=true;
+  for(const id of ['name','save','cancel'])$('everything-tag-'+id).disabled=true;renderControls();
+  try{
+   const result=await api.trackingManageTag({name:target.name,replacement:target.remove?null:$('everything-tag-name').value,expected:target.expected});
+   if(tag===target.key)rememberTag(result.replacement===null?null:result.replacement.toLocaleLowerCase());
+   $('everything-tag-dialog').close();pendingLoad=false;busy=false;await load(false);callbacks.showToast((target.remove?'已刪除標籤；更新 ':'已儲存標籤；更新 ')+result.updated+' 個追蹤搜尋');
+  }catch(error){$('everything-tag-error').textContent=String(error.message||error);}
+  finally{busy=false;for(const id of ['name','save','cancel'])$('everything-tag-'+id).disabled=id==='name'&&Boolean(tagEditing?.remove);renderControls();if(pendingLoad)void load(false);}
+ }
  const sizeUnit=()=>columns.normalizeSizeUnit(window.settingsUI?.get().everythingSizeUnit);
  const showCopy=()=>window.settingsUI?.get().everythingShowCopy!==false;
  const shownColumns=()=>columns.normalizeColumns(window.settingsUI?.get().everythingColumns);
@@ -31,7 +65,7 @@
  function visible(){return active&&!$('favorites-page').classList.contains('hidden')&&!document.hidden;}
  function schedule(){clearInterval(timer);if(active&&data.refreshSeconds)timer=setInterval(()=>{if(visible()&&!busy&&!loading&&!renaming&&!selected.size&&!document.querySelector('dialog[open]')&&current()?.enabled&&ready())void refresh();},data.refreshSeconds*1000);}
  async function load(update=false){
-  if(renaming?.mode==='inline'){pendingLoad=true;return;}
+  if(renaming?.mode==='inline'||tagEditing&&busy){pendingLoad=true;return;}
   pendingLoad=false;
   const id=++request;loading=true;
   try{const value=await api.trackingList();if(id!==request)return;data=value;window.everythingWorkbench?.syncProfiles(data.fileTypes);selected.clear();anchor=null;
@@ -79,7 +113,7 @@
   if(!callbacks)return;if(renaming?.mode==='inline'){renderControls();return;}
   const tags=new Map();for(const query of data.queries)for(const name of query.tags){const key=name.toLocaleLowerCase(),prior=tags.get(key);tags.set(key,{key,name:prior?.name||name,count:(prior?.count||0)+1});}
   $('everything-tracking-tags').replaceChildren(...[{key:null,name:'全部追蹤',count:data.queries.length},{key:'',name:'未加標籤',count:data.queries.filter(item=>!item.tags.length).length},...[...tags.values()].sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'))].map(item=>{
-   const control=button('',()=>{if(blocked())return;rememberTag(item.key);rememberQuery(filtered()[0]?.id||null);selected.clear();anchor=null;render();void refresh();},'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.title=item.count+' 個追蹤搜尋';return control;
+   const control=button('',()=>selectTag(item.key),'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.setAttribute('aria-haspopup','menu');control.title=item.count+' 個追蹤搜尋；右鍵開啟標籤選單';control.addEventListener('contextmenu',event=>tagMenu(event,item));control.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')tagMenu(event,item);});return control;
   }));
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
    const control=button('',()=>{if(blocked())return;rememberQuery(query.id);selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
@@ -319,6 +353,11 @@
   for(const name of ['everything-tracking-interval','settings-everything-tracking-refresh'])$(name).addEventListener('change',()=>interval($(name)));
   $('everything-rule-form').addEventListener('submit',event=>{event.preventDefault();void save();});$('everything-rule-cancel').addEventListener('click',()=>{if(!busy)$('everything-tracking-dialog').close();});$('everything-tracking-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});$('everything-tracking-dialog').addEventListener('close',()=>{editing=null;});
   $('everything-tracking-pause').addEventListener('click',toggleTracking);
+  $('everything-tag-form').addEventListener('submit',event=>{event.preventDefault();void saveTag();});
+  $('everything-tag-name').addEventListener('input',()=>{$('everything-tag-error').textContent='';tagNote();});
+  $('everything-tag-cancel').addEventListener('click',()=>{if(!busy)$('everything-tag-dialog').close();});
+  $('everything-tag-dialog').addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+  $('everything-tag-dialog').addEventListener('close',()=>{tagEditing=null;});
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
  window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);selected.clear();},render};

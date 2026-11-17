@@ -2256,6 +2256,16 @@
         <p id="everything-item-rename-error" role="status"></p><div class="modal-buttons"><button id="everything-item-rename-cancel" type="button" class="btn btn-ghost">取消</button><button id="everything-item-rename-save" type="submit" class="btn btn-primary">確認改名</button></div>
       </form>
     </dialog>
+    <dialog id="everything-tag-dialog" class="modal everything-rule-dialog" aria-labelledby="everything-tag-title" aria-describedby="everything-tag-description">
+      <form id="everything-tag-form">
+        <h2 id="everything-tag-title">重新命名追蹤標籤</h2>
+        <p id="everything-tag-description" class="rule-hint"></p>
+        <label id="everything-tag-name-field" class="field"><span>新標籤名稱</span><input id="everything-tag-name" type="text" maxlength="32" autocomplete="off"></label>
+        <p id="everything-tag-note" class="rule-hint"></p>
+        <p id="everything-tag-error" class="error" role="alert"></p>
+        <div class="modal-buttons"><button id="everything-tag-cancel" type="button" class="btn btn-ghost">取消</button><button id="everything-tag-save" type="submit" class="btn btn-primary">儲存</button></div>
+      </form>
+    </dialog>
     <dialog id="everything-tracking-dialog" class="modal everything-rule-dialog" aria-labelledby="everything-rule-title">
       <form id="everything-rule-form"><h2 id="everything-rule-title">追蹤 Everything 搜尋</h2>
         <label class="field"><span>名稱</span><input id="everything-rule-name" maxlength="100" required></label>
