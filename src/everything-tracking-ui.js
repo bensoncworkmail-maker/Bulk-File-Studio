@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns,views=window.everythingViewSettings;
- let updatingView=false,iconState;
+ let updatingView=false,iconState,pendingLoad=false;
  const resultFilters=new Map();
  const resultFilter=()=>resultFilters.get(currentId)||'';
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
@@ -10,14 +10,16 @@
  const current=()=>data.queries.find(item=>item.id===currentId);
  const ready=()=>data.engine.supported&&data.engine.enabled&&data.engine.configured;
  const filtered=()=>data.queries.filter(item=>tag===null||(tag===''?!item.tags.length:item.tags.some(name=>name.toLocaleLowerCase()===tag)));
- const blocked=()=>busy||loading||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
+ const blocked=()=>busy||loading||renaming?.mode==='inline'||callbacks?.isBusy?.()||Boolean(document.querySelector('dialog[open]'));
+ const renameMode=()=>window.settingsUI?.get().everythingRenameMode==='dialog'?'dialog':'inline';
+ function rememberTag(value){tag=value;updateView({everythingSelectedTag:value},true);}
  const sizeUnit=()=>columns.normalizeSizeUnit(window.settingsUI?.get().everythingSizeUnit);
  const showCopy=()=>window.settingsUI?.get().everythingShowCopy!==false;
  const shownColumns=()=>columns.normalizeColumns(window.settingsUI?.get().everythingColumns);
  const rememberedSort=()=>views.sort(window.settingsUI?.get().everythingSortStates?.[currentId]);
  const sorting=()=>views.effective(rememberedSort(),shownColumns());
  const ordered=()=>{const sort=sorting();return view.filterRows(view.sortedRows(current()?.snapshot?.rows||[],sort.key,sort.direction),resultFilter());};
- function updateView(patch,controlsOnly=false){updatingView=true;try{window.settingsUI?.update(patch);}finally{updatingView=false;}controlsOnly?renderControls():render();}
+ function updateView(patch,controlsOnly=false){updatingView=true;try{window.settingsUI?.update?.(patch);}finally{updatingView=false;}controlsOnly?renderControls():render();}
  function changeSort(key,direction){if(!currentId||blocked())return;const states=window.settingsUI?.get().everythingSortStates||{},remembered=rememberedSort(),active=sorting();if(direction===undefined&&active.key===key&&remembered.key!==key)direction=active.direction==='asc'?'desc':'asc';updateView({everythingSortStates:{...states,[currentId]:views.select(remembered,key,direction)}});}
  function paintSelection(){
   for(const row of $('everything-tracking-body').querySelectorAll('tr[data-index]')){
@@ -26,11 +28,13 @@
   renderControls();
  }
  function visible(){return active&&!$('favorites-page').classList.contains('hidden')&&!document.hidden;}
- function schedule(){clearInterval(timer);if(active&&data.refreshSeconds)timer=setInterval(()=>{if(visible()&&!busy&&!loading&&!selected.size&&!document.querySelector('dialog[open]')&&current()?.enabled&&ready())void refresh();},data.refreshSeconds*1000);}
+ function schedule(){clearInterval(timer);if(active&&data.refreshSeconds)timer=setInterval(()=>{if(visible()&&!busy&&!loading&&!renaming&&!selected.size&&!document.querySelector('dialog[open]')&&current()?.enabled&&ready())void refresh();},data.refreshSeconds*1000);}
  async function load(update=false){
+  if(renaming?.mode==='inline'){pendingLoad=true;return;}
+  pendingLoad=false;
   const id=++request;loading=true;
   try{const value=await api.trackingList();if(id!==request)return;data=value;window.everythingWorkbench?.syncProfiles(data.fileTypes);selected.clear();anchor=null;
-   if(tag&&!data.queries.some(item=>item.tags.some(name=>name.toLocaleLowerCase()===tag)))tag=null;
+   if(tag&&!data.queries.some(item=>item.tags.some(name=>name.toLocaleLowerCase()===tag)))rememberTag(null);
    if(!currentId){const preferred=window.settingsUI?.get().everythingStartQuery;if(filtered().some(item=>item.id===preferred))currentId=preferred;}
    if(!filtered().some(item=>item.id===currentId))currentId=filtered()[0]?.id||null;
    syncStartQuery();
@@ -40,7 +44,7 @@
   finally{if(id===request){loading=false;renderControls();}}
  }
  async function refresh(){
-  const query=current();if(!query||busy||!ready()||!query.enabled)return;
+  const query=current();if(!query||busy||renaming?.mode==='inline'||!ready()||!query.enabled)return;
   const id=++refreshRequest;let failure='';busy=true;selected.clear();anchor=null;render();$('everything-tracking-status').textContent='正在查詢 Everything…';
   try{const value=await api.trackingRefresh(query.id);if(id===refreshRequest&&currentId===query.id){request++;loading=false;data=value;render();}}
   catch(error){failure=String(error.message||error);}
@@ -51,32 +55,33 @@
   }
  }
  function renderControls(){
-  const query=current(),rows=ordered(),has=query&&ready();
-  const filter=$('everything-tracking-filter');if(filter.value!==resultFilter())filter.value=resultFilter();filter.disabled=busy||loading||!query;
-  $('everything-tracking-size-unit').value=sizeUnit();$('everything-tracking-size-unit').disabled=busy||loading;
-  $('everything-tracking-filter-clear').disabled=busy||loading||!resultFilter();
-  $('everything-tracking-copy-query').disabled=busy||loading||!query;
-  const pause=$('everything-tracking-pause');pause.disabled=busy||loading||!query;pause.textContent=query?.enabled===false?'恢復追蹤':'暫停追蹤';
-  for(const name of ['refresh','edit','delete'])$('everything-tracking-'+name).disabled=busy||!query||(name==='refresh'&&(!has||!query.enabled));
-  for(const name of ['select-all','select-none','select-invert'])$('everything-tracking-'+name).disabled=busy||loading||!rows.length;
-  for(const name of ['favorite','copy','copy-names','copy-folders','copy-table','rename','move','bulk-open','bulk-locations','trash'])$('everything-tracking-'+name).disabled=busy||loading||!selected.size;
-  $('everything-tracking-rename-item').disabled=busy||loading||selected.size!==1;
-  $('everything-tracking-interval').value=String(data.refreshSeconds);$('everything-tracking-interval').disabled=busy;
+  const query=current(),rows=ordered(),has=query&&ready(),locked=busy||loading||renaming?.mode==='inline';
+  for(const check of $('everything-tracking-body').querySelectorAll('input[type=checkbox]'))check.disabled=locked;
+  const filter=$('everything-tracking-filter');if(filter.value!==resultFilter())filter.value=resultFilter();filter.disabled=locked||!query;
+  $('everything-tracking-size-unit').value=sizeUnit();$('everything-tracking-size-unit').disabled=locked;
+  $('everything-tracking-filter-clear').disabled=locked||!resultFilter();
+  $('everything-tracking-copy-query').disabled=locked||!query;
+  const pause=$('everything-tracking-pause');pause.disabled=locked||!query;pause.textContent=query?.enabled===false?'恢復追蹤':'暫停追蹤';
+  for(const name of ['refresh','edit','delete'])$('everything-tracking-'+name).disabled=locked||!query||(name==='refresh'&&(!has||!query.enabled));
+  for(const name of ['select-all','select-none','select-invert'])$('everything-tracking-'+name).disabled=locked||!rows.length;
+  for(const name of ['favorite','copy','copy-names','copy-folders','copy-table','rename','move','bulk-open','bulk-locations','trash'])$('everything-tracking-'+name).disabled=locked||!selected.size;
+  $('everything-tracking-rename-item').disabled=locked||selected.size!==1;
+  $('everything-tracking-interval').value=String(data.refreshSeconds);$('everything-tracking-interval').disabled=locked;
   $('settings-everything-tracking-refresh').value=String(data.refreshSeconds);
-  $('everything-tracking-selected-menu').disabled=busy||loading||!selected.size;
+  $('everything-tracking-selected-menu').disabled=locked||!selected.size;
   const expanded=window.settingsUI?.get().everythingToolsExpanded!==false,toggle=$('everything-tracking-toggle-tools'),tools=$('everything-tracking-tools');
   if(!expanded&&tools.contains(document.activeElement))toggle.focus();tools.hidden=!expanded;toggle.setAttribute('aria-expanded',String(expanded));toggle.textContent=expanded?'▾ 收合操作工具':'▸ 展開操作工具';
   const summary=$('everything-tracking-update-summary');summary.hidden=expanded;summary.textContent=!query?'尚無追蹤搜尋':!query.enabled?'追蹤已暫停':!ready()?'Everything 未就緒':!data.refreshSeconds?'定時更新已關閉':selected.size?'定時更新暫停（已選取結果）':'定時更新：'+({60:'每分鐘',300:'每 5 分鐘',900:'每 15 分鐘'}[data.refreshSeconds]||data.refreshSeconds+' 秒');
   $('everything-tracking-selected').textContent='已選 '+selected.size+' 項';
  }
  function render(){
-  if(!callbacks)return;
+  if(!callbacks)return;if(renaming?.mode==='inline'){renderControls();return;}
   const tags=new Map();for(const query of data.queries)for(const name of query.tags){const key=name.toLocaleLowerCase(),prior=tags.get(key);tags.set(key,{key,name:prior?.name||name,count:(prior?.count||0)+1});}
   $('everything-tracking-tags').replaceChildren(...[{key:null,name:'全部追蹤',count:data.queries.length},{key:'',name:'未加標籤',count:data.queries.filter(item=>!item.tags.length).length},...[...tags.values()].sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'))].map(item=>{
-   const control=button('',()=>{if(busy)return;tag=item.key;currentId=filtered()[0]?.id||null;selected.clear();render();void refresh();},'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.title=item.count+' 個追蹤搜尋';return control;
+   const control=button('',()=>{if(blocked())return;rememberTag(item.key);currentId=filtered()[0]?.id||null;selected.clear();anchor=null;render();void refresh();},'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.title=item.count+' 個追蹤搜尋';return control;
   }));
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
-   const control=button('',()=>{if(busy)return;currentId=query.id;selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
+   const control=button('',()=>{if(blocked())return;currentId=query.id;selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
   }));
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns(),entries=ordered();
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
@@ -180,7 +185,7 @@
   window.favoritesUI?.showMenu(event,items);
  }
  function open(id=null){
-  if(!window.favoritesUI?.show('favorites'))return false;if(id){currentId=id;tag=null;selected.clear();}window.workspaceFavoritesUI?.showEverything();return true;
+  if(!window.favoritesUI?.show('favorites'))return false;if(id){cancelInlineRename(false,false);currentId=id;rememberTag(null);selected.clear();}window.workspaceFavoritesUI?.showEverything();return true;
  }
  function selectResults(kind){
   if(blocked())return;
@@ -209,24 +214,44 @@
   catch(error){callbacks.showFailure('無法切換追蹤狀態',error);}
   finally{busy=false;render();}
  }
+ function cancelInlineRename(focus=true,reload=true){
+  if(renaming?.mode!=='inline'||busy)return;
+  const target=renaming;renaming=null;target.text.hidden=false;
+  target.label.replaceChildren(...Array.from(target.label.children).filter(child=>child!==target.input));
+  target.cell.replaceChildren(...Array.from(target.cell.children).filter(child=>child!==target.error));
+  renderControls();if(focus)$('everything-tracking-results').focus();
+  if(pendingLoad&&reload){pendingLoad=false;void load(false);}
+ }
  function renameItem(){
   if(blocked())return;if(selected.size!==1){callbacks.showToast('請只選取一個項目；多個檔案請使用「批次改名」。');return;}
   const query=current(),index=[...selected][0],item=query?.snapshot?.rows[index];if(!item)return;
-  renaming={id:query.id,token:query.snapshot.token,index};
-  const name=item.path.split(/[\\/]/).at(-1);$('everything-item-rename-source').textContent=item.path;
-  $('everything-item-rename-name').value=name;$('everything-item-rename-error').textContent='';
-  $('everything-item-rename-dialog').showModal();const input=$('everything-item-rename-name');input.focus();const end=item.type==='file'&&name.lastIndexOf('.')>0?name.lastIndexOf('.'):name.length;input.setSelectionRange?.(0,end);
+  const name=item.name,mode=renameMode();renaming={id:query.id,token:query.snapshot.token,index,mode};
+  let input;
+  if(mode==='inline'){
+   const row=Array.from($('everything-tracking-body').querySelectorAll('tr[data-index]')).find(row=>Number(row.getAttribute('data-index'))===index),cell=row?.querySelector('.everything-tracking-name'),label=cell?.querySelector('.everything-tracking-file-label'),text=label?.querySelector('.everything-tracking-file-text');
+   if(!cell||!label||!text){renaming=null;return;}
+   input=node('input',undefined,'everything-inline-rename');input.type='text';input.id='everything-inline-rename-name';input.maxLength=255;input.spellcheck=false;input.value=name;input.setAttribute('aria-label','重新命名 '+name);input.title='Enter 確認；Esc 或離開欄位取消。檔案請包含副檔名。';
+   const error=node('span',undefined,'everything-inline-rename-error');error.id='everything-inline-rename-error';error.setAttribute('role','alert');input.setAttribute('aria-describedby',error.id);
+   Object.assign(renaming,{input,error,cell,label,text});text.hidden=true;label.append(input);cell.append(error);
+   input.addEventListener('input',()=>{error.textContent='';input.removeAttribute('aria-invalid');});
+   input.addEventListener('keydown',event=>{event.stopPropagation();if(event.isComposing||event.repeat||event.keyCode===229)return;if(event.key==='Enter'){event.preventDefault();void saveItemName();}else if(event.key==='Escape'){event.preventDefault();cancelInlineRename();}});
+   input.addEventListener('blur',()=>cancelInlineRename(false));renderControls();
+  }else{
+   $('everything-item-rename-source').textContent=item.path;$('everything-item-rename-name').value=name;$('everything-item-rename-error').textContent='';$('everything-item-rename-dialog').showModal();input=$('everything-item-rename-name');
+  }
+  input.focus();const end=item.type==='file'&&name.lastIndexOf('.')>0?name.lastIndexOf('.'):name.length;input.setSelectionRange?.(0,end);
  }
  async function saveItemName(){
-  if(!renaming||busy)return;const target=renaming;busy=true;renderControls();
-  for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=true;
+  if(!renaming||busy)return;const target=renaming,inline=target.mode==='inline',input=inline?target.input:$('everything-item-rename-name');let failed=false;busy=true;renderControls();
+  if(inline)input.disabled=true;else for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=true;
   try{
-   const result=await api.trackingAction(target.id,target.token,[target.index],'rename-item',{name:$('everything-item-rename-name').value});
-   $('everything-item-rename-dialog').close();callbacks.showToast(result.changed?'已重新命名':'名稱未變更');
+   const result=await api.trackingAction(target.id,target.token,[target.index],'rename-item',{name:input.value});
+   if(inline)renaming=null;else $('everything-item-rename-dialog').close();pendingLoad=false;callbacks.showToast(result.changed?'已重新命名':'名稱未變更');
    if(result.warning)callbacks.showFailure('改名完成，請留意',result.warning);busy=false;await load(true);
-  }catch(error){$('everything-item-rename-error').textContent=String(error.message||error);}
-  finally{busy=false;for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=false;renderControls();}
+  }catch(error){failed=true;(inline?target.error:$('everything-item-rename-error')).textContent=String(error.message||error);if(inline)input.setAttribute('aria-invalid','true');}
+  finally{busy=false;if(inline){input.disabled=false;if(failed&&renaming===target)input.focus();}else for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=false;renderControls();}
  }
+
  function editor(query=null){
   if(busy||editing||document.querySelector('dialog[open]'))return;
   editing={id:query?.id||null};$('everything-rule-title').textContent=query?'編輯追蹤搜尋':'追蹤 Everything 搜尋';
@@ -236,13 +261,13 @@
  async function save(){
   if(!editing||busy)return;
   busy=true;for(const control of $('everything-tracking-dialog').querySelectorAll('input,textarea,select,button'))control.disabled=true;
-  try{const query=await api.trackingSave({...editing,...window.everythingWorkbench?.get('everything-rule'),name:$('everything-rule-name').value,text:$('everything-rule-text').value,mode:$('everything-rule-mode').value,type:$('everything-rule-type').value,tags:$('everything-rule-tags').value.split(/[,，\n]/).map(value=>value.trim()).filter(Boolean),enabled:$('everything-rule-enabled').checked});currentId=query.id;tag=null;selected.clear();$('everything-tracking-dialog').close();busy=false;await load(true);}
+  try{const query=await api.trackingSave({...editing,...window.everythingWorkbench?.get('everything-rule'),name:$('everything-rule-name').value,text:$('everything-rule-text').value,mode:$('everything-rule-mode').value,type:$('everything-rule-type').value,tags:$('everything-rule-tags').value.split(/[,，\n]/).map(value=>value.trim()).filter(Boolean),enabled:$('everything-rule-enabled').checked});currentId=query.id;if(tag!==null&&(tag===''?query.tags.length:!query.tags.some(name=>name.toLocaleLowerCase()===tag)))rememberTag(null);selected.clear();$('everything-tracking-dialog').close();busy=false;await load(true);}
   catch(error){$('everything-rule-error').textContent=String(error.message||error);}
   finally{busy=false;for(const control of $('everything-tracking-dialog').querySelectorAll('input,textarea,select,button'))control.disabled=false;render();}
  }
  async function remove(){const query=current();if(!query||busy||!window.confirm('移除「'+query.name+'」追蹤？實際檔案與一般收藏會保留。'))return;busy=true;try{data=await api.trackingRemove(query.id);currentId=null;selected.clear();}catch(error){callbacks.showFailure('無法移除追蹤',error);}finally{busy=false;await load(true);}}
  async function interval(control){try{data=await api.trackingConfigure(Number(control.value));schedule();renderControls();}catch(error){callbacks.showFailure('無法儲存更新間隔',error);renderControls();}}
- function activate(value){active=value;if(!value){request++;refreshRequest++;clearInterval(timer);return;}if(callbacks)void load(true);}
+ function activate(value){active=value;if(!value){cancelInlineRename(false,false);pendingLoad=false;request++;refreshRequest++;clearInterval(timer);return;}if(callbacks)void load(true);}
  function keydown(event){
   if(event.defaultPrevented||event.isComposing||event.repeat||event.altKey||!visible()||blocked())return;
   const ctrl=event.ctrlKey||event.metaKey,key=event.key.toLowerCase();
@@ -262,7 +287,7 @@
   if(run){event.preventDefault();event.stopPropagation();void run();}
  }
  function init(options){
-  callbacks=options;window.everythingWorkbench?.setup({key:'everything-rule',text:'everything-rule-text',mode:'everything-rule-mode',type:'everything-rule-type',blocked:()=>busy});window.everythingLayout?.init();$('everything-tracking-new').addEventListener('click',()=>editor());$('everything-tracking-edit').addEventListener('click',()=>editor(current()));$('everything-tracking-delete').addEventListener('click',remove);$('everything-tracking-refresh').addEventListener('click',refresh);
+  callbacks=options;tag=window.settingsUI?.get().everythingSelectedTag??null;window.everythingWorkbench?.setup({key:'everything-rule',text:'everything-rule-text',mode:'everything-rule-mode',type:'everything-rule-type',blocked:()=>busy});window.everythingLayout?.init();$('everything-tracking-new').addEventListener('click',()=>editor());$('everything-tracking-edit').addEventListener('click',()=>editor(current()));$('everything-tracking-delete').addEventListener('click',remove);$('everything-tracking-refresh').addEventListener('click',refresh);
   for(const name of ['all','none','invert'])$('everything-tracking-select-'+name).addEventListener('click',()=>selectResults(name));
   for(const name of ['copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations','trash'])$('everything-tracking-'+name).addEventListener('click',()=>action(name));
   $('everything-tracking-toggle-tools').addEventListener('click',()=>{if(callbacks?.isBusy?.())return;updateView({everythingToolsExpanded:window.settingsUI?.get().everythingToolsExpanded===false},true);});
@@ -295,5 +320,5 @@
   $('everything-tracking-pause').addEventListener('click',toggleTracking);
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(!updatingView)render();},select:id=>{currentId=id;selected.clear();},render};
+ window.everythingTrackingUI={init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;rememberTag(null);selected.clear();},render};
 })();
