@@ -1,4 +1,4 @@
-# 查看紀錄與功能搜尋設計（v1.115.0）
+# 查看紀錄與功能搜尋設計（v1.116.0）
 
 參考日期：2026-11-17。這次選擇四種有代表性的資料／任務工具，對照適用的互動模式，並保留本機 app 既有資料及安全流程；不是市面全部產品的完整清單。
 
@@ -37,6 +37,9 @@
 主頁標題比照工具箱採用標題與說明兩行。日曆／看板以主題的 panel、surface-2 與邊框區分容器、內容及卡片，保留日期選取與焦點樣式。實際 Windows 視窗、縮放比例及各主題的視覺效果仍需桌面驗證；DOM 測試僅確認結構與互動。
 
 
-浮窗在有主紀錄選單時，窄視窗讓搜尋獨立一列、兩個選單並排；560 px 以上三項同列。沒有主紀錄選單時，維持搜尋與表格並排。表格名稱、檢視標示與清除篩選共用摘要列，筆數或錯誤內容仍可換行；只看釘選的隱藏規則保留，主頁摘要結構不變。
+浮窗在有主紀錄選單時，各視窗寬度均讓搜尋、表格及主紀錄三項同列，以可收縮欄位節省高度；選單可展開查看完整選項。沒有主紀錄選單時，維持搜尋與表格並排。表格名稱、檢視標示與清除篩選共用摘要列，筆數或錯誤內容仍可換行；只看釘選的隱藏規則保留，主頁摘要結構不變。
 
 追蹤篩選說明改為絕對定位提示，不佔版面高度；懸停或聚焦開啟、Esc 可關閉，並由 aria-describedby 提供說明關聯。參考 [W3C Tooltip Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/)。
+
+
+Windows 追蹤圖示讀取參考 [Microsoft SHGetFileInfoW](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shgetfileinfow) 與 [Electron ShortcutDetails](https://www.electronjs.org/docs/latest/api/structures/shortcut-details)。一般檔案使用完整本機路徑，捷徑依明確資源索引或本機目標讀取；原生圖示 handle 在轉為 PNG 後釋放。背景程序受並行、大小與時間限制，失敗保留一般圖示。自動測試使用程序與原生 API 替身驗證資料流；無法取代 Windows 端的 Win32／PowerShell 執行與外觀驗證。

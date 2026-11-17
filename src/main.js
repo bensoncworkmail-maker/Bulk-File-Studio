@@ -66,7 +66,7 @@ function popupFloatingMenu(template,options){
 const pendingTagIds=new Set();
 let queuedFilter=null,pendingImportRequest=null;
 const mainDefaults={width:1520,height:930,minWidth:920,minHeight:650};
-let favorites,everything,everythingTracking,trackingIcons;
+let favorites,everything,everythingTracking,trackingIcons,nativeFileIcons;
 let notesImportReadVersion=0;
 let notes,notesImportDocument,notesImportName='',notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
 function invalidateNotesImport(){notesImportReadVersion++;notesImportDocument=null;notesImportName='';sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;}
@@ -550,7 +550,8 @@ app.whenReady().then(() => {
   handle('everything-to-rename',(_,token,indices)=>{const paths=everything.selection(token,indices);for(const file of paths)if(inspectPath(file).type!=='file')throw new Error('加入改名只接受一般檔案，資料夾可先加入收藏');return listPaths(paths,false);});
   favorites = new FavoritesStore(path.join(app.getPath('userData'), 'favorites.json'));
   everythingTracking=new(require('./everything-tracking').EverythingTracking)({favorites,bridge:everything});
-  trackingIcons=new(require('./everything-file-icons').TrackingIcons)(everythingTracking,(filepath,options)=>app.getFileIcon(filepath,options));
+  nativeFileIcons=new(require('./windows-file-icons').WindowsFileIcons)({getFileIcon:(filepath,options)=>app.getFileIcon(filepath,options),readShortcutLink:filepath=>shell.readShortcutLink(filepath)});
+  trackingIcons=new(require('./everything-file-icons').TrackingIcons)(everythingTracking,(filepath,options)=>nativeFileIcons.get(filepath,options));
   contextMenu = new WindowsContextMenu({packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE)});
   handle('favorites-list', event => {
     if(event.sender===floating?.webContents)return {items:favorites.list()};
@@ -1073,7 +1074,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy||trashing){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(drafts?.requestClose(true)){event?.preventDefault();return;}recordReminders?.close();recordAttention?.close();if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{nativeFileIcons?.close();snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

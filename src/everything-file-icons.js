@@ -21,7 +21,7 @@ class TrackingIcons{
    const job=this.queue.shift();this.running++;
    void (async()=>{
     let dataURL='';
-    try{const icon=await this.getIcon(job.path,{size:'small'});if(!icon.isEmpty())dataURL=icon.toDataURL();if(!/^data:image\/png;base64,/.test(dataURL)||dataURL.length>262144)dataURL='';}catch{/* Keep the generic file/folder icon. */}
+    try{const icon=await this.getIcon(job.path,{size:'small'});if(typeof icon==='string')dataURL=icon;else if(!icon.isEmpty())dataURL=icon.toDataURL();if(!/^data:image\/png;base64,/.test(dataURL)||dataURL.length>262144)dataURL='';}catch{/* Keep the generic file/folder icon. */}
     if(dataURL){this.cache.set(job.key,dataURL);while(this.cache.size>256)this.cache.delete(this.cache.keys().next().value);}
     this.pending.delete(job.key);this.running--;job.resolve(dataURL);this.pump();
    })();
