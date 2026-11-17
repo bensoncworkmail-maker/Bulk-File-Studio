@@ -164,6 +164,7 @@
      reloadField('query');
     });
     const tools=node('div',undefined,'tool-view-log-status');
+    if(floatingLogs)tools.append(logContext);
     tools.append(status,clearButton);root.insertBefore(tools,pinsPanel||results);
     applyPinnedOnly();updateFilterSummary();
     advanced.addEventListener('toggle',()=>{

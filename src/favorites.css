@@ -197,3 +197,8 @@
 .everything-tracking-file-label{display:flex;align-items:center;gap:7px;min-width:0}.everything-tracking-file-icon,.everything-tracking-file-label img{width:16px;height:16px;flex:0 0 16px;object-fit:contain;line-height:16px;font-size:14px}.everything-tracking-file-label [hidden]{display:none!important}.everything-tracking-file-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .everything-tracking-result-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border-block:1px solid var(--line);background:var(--panel)}.everything-tracking-result-filter label{font-size:12px;flex:none}.everything-tracking-result-filter input{flex:1 1 220px;min-width:100px;height:34px}.everything-tracking-result-filter .btn{height:32px;min-height:32px;padding:4px 10px}.everything-tracking-result-filter :is(small,span){font-size:11px;color:var(--muted)}.everything-tracking-result-filter small{flex:1 1 100%}
+
+.everything-tracking-result-filter .everything-filter-help{position:relative;display:inline-flex;flex:none;align-items:center}
+.everything-tracking-result-filter .everything-filter-help>.btn{width:24px;height:24px;min-height:24px;padding:0;font-size:15px;line-height:1}
+.everything-tracking-result-filter .everything-filter-help>small{position:absolute;top:calc(100% + 6px);inset-inline-start:0;z-index:5;width:min(280px,70vw);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);box-shadow:var(--shadow);line-height:1.6;white-space:normal}
+.everything-tracking-result-filter .everything-filter-help>small[hidden]{display:none!important}

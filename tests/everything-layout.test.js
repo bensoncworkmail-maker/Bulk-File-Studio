@@ -16,3 +16,9 @@ test('favorites startup, query and geometry settings validate, export and reset 
  const reset=require('../src/settings-catalog').resetPatch('renderer','favorites',Settings.DEFAULTS);assert.equal(reset.everythingStartQuery,'');assert.equal(reset.everythingSidebarWidth,240);assert.deepEqual(reset.everythingColumnWidths,Settings.DEFAULTS.everythingColumnWidths);
  assert.equal(Settings.normalize({everythingStartQuery:'forged',favoriteLastKind:'invalid'}).everythingStartQuery,'');
 });
+
+test('copy column preference is normalized, exported and restored with favorites settings',()=>{
+ assert.equal(Settings.normalize({}).everythingShowCopy,true);const value=Settings.normalize({everythingShowCopy:false});assert.equal(value.everythingShowCopy,false);
+ const exported=require('../src/settings-export').createSettingsExport({settings:value,rules:{}},{},'1.115.0');assert.equal(exported.settings.everythingShowCopy,false);assert.equal(Settings.normalize(exported.settings).everythingShowCopy,false);
+ const reset=require('../src/settings-catalog').resetPatch('renderer','favorites',Settings.DEFAULTS);assert.equal(reset.everythingShowCopy,true);
+});

@@ -321,7 +321,7 @@ const config={
     "tagPanelWidth": "favorites",
     "showTips": "appearance",
     "favoriteView": "favorites",
-    "favoriteStartKind":"favorites","favoriteRememberLastTab":"favorites","everythingColumns":"favorites","everythingSortStates":"favorites","everythingToolsExpanded":"favorites","favoriteLastKind":"favorites","everythingStartQuery":"favorites","everythingSidebarWidth":"favorites","everythingColumnWidths":"favorites",
+    "favoriteStartKind":"favorites","favoriteRememberLastTab":"favorites","everythingColumns":"favorites","everythingShowCopy":"favorites","everythingSortStates":"favorites","everythingToolsExpanded":"favorites","favoriteLastKind":"favorites","everythingStartQuery":"favorites","everythingSidebarWidth":"favorites","everythingColumnWidths":"favorites",
     "favoriteIncludeLogPins":"favorites",
     "favoriteTableDefaultFollow":"favorites","favoriteShowTableRecords":"favorites","favoriteShowFollowedTables":"favorites","favoriteTableInheritTags":"favorites",
     "favoriteOpenMode": "favorites",
