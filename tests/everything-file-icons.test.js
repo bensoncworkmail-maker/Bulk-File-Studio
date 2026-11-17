@@ -23,3 +23,9 @@ test('native icon failures, empty images and unexpected data keep a generic fall
  const {service}=fixture(async filepath=>{if(filepath.endsWith('/0'))throw Error('missing');if(filepath.endsWith('/1'))return {isEmpty:()=>true};return {isEmpty:()=>false,toDataURL:()=>'<script>unsafe</script>'};});
  const rows=await service.read('query','token',[0,1,2]);assert.deepEqual(rows.map(row=>row.dataURL),['','','']);assert.equal(service.cache.size,0);
 });
+
+
+test('folder types never use extensionless native shell icons',async()=>{
+ let calls=0;const {service,rows}=fixture(async()=>{calls++;return native();});rows[0].type='folder';rows[1].type='file';
+ const icons=await service.read('query','token',[0,1]);assert.equal(icons[0].dataURL,'');assert.equal(icons[1].dataURL,png);assert.equal(calls,1);
+});

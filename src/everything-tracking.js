@@ -21,6 +21,20 @@ function normalizeRules(data){
 class EverythingTracking{
  constructor({favorites,bridge,inspect=inspectPath,now=Date.now}){Object.assign(this,{favorites,bridge,inspect,now});this.cache=new Map();this.epoch=0;}
  invalidate(){this.epoch++;this.cache.clear();}
+ removePaths(paths){
+  if(!paths.length)return;
+  // Revoke in-flight queries and old indices, while keeping unaffected rows visible.
+  const apiFor=value=>/^[a-z]:[\\/]|^\\\\/i.test(value)?path.win32:path;
+  const key=(value,api)=>{const clean=api.resolve(value);return api===path.win32?clean.toLowerCase():clean;};
+  const roots=paths.map(value=>{const api=apiFor(value);return {api,root:key(value,api)};});
+  this.epoch++;
+  for(const [id,snapshot] of this.cache){
+   const rows=snapshot.rows.filter(item=>!roots.some(({api,root})=>{
+    const relative=api.relative(root,key(item.path,api));return relative===''||relative!=='..'&&!relative.startsWith('..'+api.sep)&&!api.isAbsolute(relative);
+   }));
+   this.cache.set(id,{...snapshot,rows,token:crypto.randomUUID(),pruned:snapshot.pruned||rows.length!==snapshot.rows.length});
+  }
+ }
  read(){return normalizeRules(this.favorites.read());}
  list(){
   const data=this.read(),ids=new Set(data.queries.map(item=>item.id));for(const id of this.cache.keys())if(!ids.has(id))this.cache.delete(id);

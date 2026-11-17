@@ -79,3 +79,22 @@ test('tracked metadata stays bound to the inspected path and never replaces loca
  const h=fixture(t),query=h.save();h.bridge.search=async(input,options)=>{assert.equal(options.metadata,true);return {rows:[{path:h.a,name:'a.txt',createdMs:1000,accessedMs:2000,runCount:7,attributes:'A',identity:{dev:'forged'},type:'folder'}],truncated:false};};
  const snapshot=(await h.tracking.refresh(query.id)).queries[0].snapshot;assert.equal(snapshot.rows[0].createdMs,1000);assert.equal(snapshot.rows[0].type,'file');assert.notEqual(snapshot.rows[0].identity.dev,'forged');assert.deepEqual(h.tracking.selection(query.id,snapshot.token,[0]).paths,[h.a]);
 });
+
+
+test('recycled paths prune all cached searches, preserve other results and reject their old source indices',async t=>{
+ const h=fixture(t),folder=path.join(h.dir,'album'),child=path.join(folder,'child.txt'),neighbor=path.join(h.dir,'album-old');fs.mkdirSync(folder);fs.writeFileSync(child,'child');fs.mkdirSync(neighbor);h.paths([folder,child,neighbor,h.b]);const one=h.save({type:'all'}),two=h.save({text:'*',type:'all'});
+ const first=await h.tracking.refresh(one.id);await h.tracking.refresh(two.id);const token=first.queries.find(query=>query.id===one.id).snapshot.token;
+ const before=h.tracking.list();h.tracking.removePaths([folder]);const list=h.tracking.list();for(const query of list.queries){assert.deepEqual(query.snapshot.rows.map(row=>row.path),[neighbor,h.b]);assert.equal(query.snapshot.pruned,true);assert.equal(query.snapshot.checkedAt,before.queries.find(item=>item.id===query.id).snapshot.checkedAt);assert.notEqual(query.snapshot.token,token);}
+ assert.throws(()=>h.tracking.selection(one.id,token,[0]),/已更新/);const query=list.queries[0];assert.deepEqual(h.tracking.selection(query.id,query.snapshot.token,[1]).paths,[h.b]);
+ h.fail('ES temporarily unavailable');const failed=await h.tracking.refresh(one.id);assert.deepEqual(failed.queries[0].snapshot.rows.map(row=>row.path),[neighbor,h.b]);assert.match(failed.queries[0].snapshot.error,/unavailable/);
+});
+
+test('a query started before recycling cannot reintroduce removed rows or clear the pruned snapshot',async t=>{
+ const h=fixture(t),query=h.save();await h.tracking.refresh(query.id);let resolve;h.pending(new Promise(done=>resolve=done));const pending=h.tracking.refresh(query.id);h.tracking.removePaths([h.a]);resolve({rows:[{path:h.a,name:'a.txt'},{path:h.b,name:'b.txt'}],truncated:false});await pending;
+ assert.deepEqual(h.tracking.list().queries[0].snapshot.rows.map(row=>row.path),[h.b]);
+});
+
+
+test('pruning Windows paths ignores case and preserves sibling prefixes and other drives',async t=>{
+ const h=fixture(t),query=h.save(),paths=['C:\\Album','C:\\Album\\child.txt','C:\\Album-old\\keep.txt','D:\\Album\\keep.txt'];h.bridge.search=async()=>({rows:paths.map(location=>({path:location,name:location})),truncated:false});h.tracking.inspect=()=>({type:'file',identity:{dev:'1',ino:'1',birthtimeNs:'1'}});await h.tracking.refresh(query.id);h.tracking.removePaths(['c:\\ALBUM']);assert.deepEqual(h.tracking.list().queries[0].snapshot.rows.map(row=>row.path),paths.slice(2));
+});

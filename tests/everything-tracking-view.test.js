@@ -17,3 +17,9 @@ test('optional columns normalize, format and sort dates, extension, type and run
  assert.equal(M.value(rows[0],'extension'),'mp4');assert.equal(M.value(rows[2],'extension'),'');assert.equal(M.value(rows[1],'fullPath'),'C:\\a.pdf');assert.equal(M.display(rows[2],'created'),'—');assert.equal(M.display({runCount:0},'runCount'),'0');assert.equal(M.display(rows[2],'type'),'資料夾');
  assert.deepEqual(sortedRows(rows,'created','desc').map(row=>row.index),[0,1,2]);assert.deepEqual(sortedRows(rows,'runCount','asc').map(row=>row.index),[1,0,2]);
 });
+
+
+test('result filter matches literal name/path terms without changing rows or their source indices',()=>{
+ const {filterRows}=require('../src/everything-tracking-view'),rows=[{name:'Report[1].PDF',path:'C:\\Work\\Report[1].PDF'},{name:'report2.pdf',path:'C:\\Other\\report2.pdf'},{name:'Work',path:'C:\\Work',type:'folder'}],entries=sortedRows(rows),before=structuredClone(rows);
+ assert.deepEqual(filterRows(entries,'WORK report[1]').map(row=>row.index),[0]);assert.deepEqual(filterRows(entries,'REPORT').map(row=>row.index),[0,1]);assert.deepEqual(filterRows(entries,'not-found'),[]);assert.deepEqual(filterRows(entries,'   '),entries);assert.deepEqual(rows,before);
+});

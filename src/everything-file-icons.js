@@ -8,6 +8,8 @@ class TrackingIcons{
   return Promise.all(rows.map((row,i)=>this.icon(row).then(dataURL=>({index:unique[i],dataURL}))));
  }
  icon(row){
+  // Folder rows use the bundled folder icon; avoid extensionless shell drive icons.
+  if(row.type==='folder')return Promise.resolve('');
   const key=JSON.stringify([row.path,row.identity,row.modifiedMs,row.size]);
   if(this.cache.has(key))return Promise.resolve(this.cache.get(key));
   if(this.pending.has(key))return this.pending.get(key);
