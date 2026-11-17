@@ -1,6 +1,6 @@
 # 應用程式功能與模組盤點
 
-版本：v1.117.0。以 `npm run audit:functions` 重新產生。
+版本：v1.118.0。以 `npm run audit:functions` 重新產生。
 
 讀取 src 全部 195 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 260 個介面／桌面偏好。
 
