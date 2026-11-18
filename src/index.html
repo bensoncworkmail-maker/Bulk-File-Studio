@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="productivity.css">
     <link rel="stylesheet" href="planning-view.css">
     <link rel="stylesheet" href="tool-views.css">
-    <link rel="stylesheet" href="operation-ui.css"><link rel="stylesheet" href="workflow-hub.css">
+    <link rel="stylesheet" href="operation-ui.css"><link rel="stylesheet" href="workflow-hub.css"><link rel="stylesheet" href="context-ui.css">
     <script src="operation-ui.js" defer></script>
   <link rel="stylesheet" href="graphite-theme.css"><link rel="stylesheet" href="record-browser.css"></head>
   <body>
@@ -59,6 +59,14 @@
           <button id="btn-floating" class="btn btn-secondary" title="叫出浮動工具，可在設定更改全域快捷鍵">▣ 浮動工具</button>
         </div>
       </header>
+      <section id="context-bar" class="context-bar" aria-label="目前工作情境">
+        <label class="context-picker" for="context-select"><span>目前情境</span><select id="context-select" aria-describedby="context-scope-hint" disabled><option value="">載入情境…</option></select></label>
+        <span id="context-current" class="context-current"></span>
+        <div class="context-actions"><button id="context-open-master" class="btn btn-secondary" disabled>開啟主紀錄</button><button id="context-resources-toggle" class="btn btn-secondary" aria-expanded="false" aria-controls="context-resources" disabled>常用資源 ▾</button><button id="context-manage" class="btn btn-ghost">管理情境</button><button id="context-refresh" class="btn btn-ghost" aria-label="重新整理情境" title="重新整理情境">↻</button></div>
+        <span id="context-scope-hint" class="context-help">只預選資料；搜尋／日曆範圍由你選擇</span>
+        <p id="context-status" class="context-status" role="status" aria-live="polite"></p>
+        <section id="context-resources" class="context-resources" aria-labelledby="context-resources-title" hidden><div class="context-resources-heading"><h2 id="context-resources-title">情境常用資源</h2><button id="context-resources-close" class="btn btn-ghost" aria-label="關閉常用資源">關閉</button></div><div id="context-resource-list" class="context-resource-list"></div></section>
+      </section>
       <aside id="share-update-banner" class="share-update-banner" role="status" hidden><div><strong>共享資料有待處理更新</strong><p id="share-update-message"></p></div><button id="share-update-open" class="btn btn-secondary">檢視更新</button><button id="share-update-ignore" class="btn btn-ghost">忽略這一份</button></aside>
       <section id="home-page" class="home-page hidden" aria-labelledby="home-title">
         <div class="home-heading">
@@ -2797,7 +2805,7 @@
     <script src="app-search.js" defer></script>
     <script src="workflow-model.js" defer></script><script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="snippet-picker-model.js" defer></script><script src="snippet-picker-settings.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="calendar-scope.js" defer></script><script src="calendar-scope-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
     <script src="layout-editor.js" defer></script><script src="function-directory.js" defer></script><script src="home.js" defer></script><script src="user-guide-model.js" defer></script><script src="user-guide-ui.js" defer></script><script src="app-help.js" defer></script>
-    <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
+    <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="context-model.js" defer></script><script src="context-ui.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul><button id="operation-cancel-move" hidden type="button" class="btn btn-ghost">取消尚未套用的搬移</button><small>開始套用路徑後會完成整批；取消會在安全檢查點生效。</small></dialog>
 <script src="workflow-guide-model.js" defer></script><script src="workflow-hub.js" defer></script></body>
 </html>

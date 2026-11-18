@@ -30,7 +30,7 @@
   }
  }
  async function load(){const request=++refreshRequest,data=await api.get();if(request!==refreshRequest)return;state=data;loaded=true;dirty=false;render();}
- function canSwitch(value){if(busy)return false;if(value===section)return true;if(window.workflowHub?.canLeave?.()===false)return false;const kind={rules:'rules',worksets:'worksets',snippets:'snippets'}[section];return !kind||discard(kind);}
+ function canSwitch(value){if(busy||window.contextUI?.isSwitching?.())return false;if(value===section)return true;if(window.workflowHub?.canLeave?.()===false)return false;const kind={rules:'rules',worksets:'worksets',snippets:'snippets'}[section];return !kind||discard(kind);}
  function show(value,source){
   if(value==='calendar'||value==='logs')return window.favoritesUI.show(value==='calendar'?'planning':'logs');
   const route=T.get(value);if(!route||!canSwitch(value))return false;const wasWorkflow=Boolean(T.get(section)?.workflow);section=value;const parent=T.parent(value);
@@ -204,5 +204,5 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
    if(!busy&&$('planning-page')&&!$('planning-page').classList.contains('hidden'))run(load);
   };window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
  }
- window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
+ window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,canChangeContext:()=>!busy&&window.workflowHub?.canChangeContext?.()!==false,activate:()=>{if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();
