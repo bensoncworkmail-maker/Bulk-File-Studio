@@ -148,3 +148,17 @@ Everything 追蹤名稱欄載入系統圖示；Delete、工具列及右鍵選單
 追蹤頁按 Ctrl+F 聚焦並選取結果篩選，對話框、忙碌或其他頁面不攔截。大小單位以 everythingSizeUnit 保存（auto／bytes／KB／MB／GB），KB／MB／GB 每級 1024；結果與複製表格同步格式化，排序仍讀原始 bytes。設定 → 收藏提供此單位、everythingFileIcons 系統檔案圖示及複製欄的控制，支援設定搜尋、匯出與分類還原。
 
 WindowsFileIcons 透過可重用的背景 PowerShell／Win32 程序讀取 PNG 圖示，不改動來源檔案。捷徑只讀 metadata、指定 iconIndex 與本機目標，從不執行 target 或 args；網路／URI 圖示來源不送至讀取程序。請求採 JSON stdin、並行上限與逾時回退，離開 app 關閉程序。原生檔案圖示及 `.lnk` 的實際 Windows 外觀仍需實機驗證。
+
+## 工作流程中心（v1.123.0）
+
+頂端「工作流程」／Ctrl+Shift+K；有檔案選取時 Ctrl+K 帶入動作面板。新增能力與既有功能共用工作區、收藏、整理規則、草稿、提醒及預覽服務。
+
+| 資料 | 保存位置／歸屬 |
+| --- | --- |
+| 情境包、公式、自動流程、來源標籤、執行紀錄、最近目的地 | `workflow-state.json`；納入完整備份 |
+| 草稿及轉入防重收據 | 工作區 SQLite；與紀錄轉入同一交易 |
+| 檔案操作歷程及搬移佇列 | `file-operation-journal.json`；本機檔案身分綁定，不跨機還原 |
+| Everything 差異與背景監控清單 | `tracking-snapshots.json`；搜尋快照，不當作檔案操作授權 |
+| 原始文件 | 原磁碟；僅明確執行搬移／回收時更動，備份附件限量選配 |
+
+[完整操作與範圍](workflow-center-zh-Hant.md) · [N01–N14 驗收清單](workflow-implementation-checklist.md)

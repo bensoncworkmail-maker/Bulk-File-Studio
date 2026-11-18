@@ -6,6 +6,7 @@
  function button(text,action,cls='btn btn-ghost'){const element=node('button',text,cls);element.type='button';element.addEventListener('click',()=>Promise.resolve().then(()=>{if(callbacks.isBusy())return;return action();}).catch(error=>callbacks.showFailure('首頁操作未完成',error)));return element;}
  const target=(kind,id)=>window.notesUI.openSearchTarget(kind,id),page=view=>window.favoritesUI.show(view);
  function openFeature(item){
+  if(item.workflow)return window.workflowHub?.open(item.workflow);
   if(item.tracking)return window.everythingTrackingUI?.open();
   if(item.tool)return window.productivityUI.openSection(item.tool);
   if(item.settings)return window.settingsUI.openCategory(item.settings);
