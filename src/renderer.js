@@ -666,6 +666,7 @@ async function init() {
   const favoriteReady=window.favoritesUI.init({isBusy:()=>busy,onTrashed:paths=>{files=files.filter(file=>!paths.some(p=>norm(file)===norm(p)||norm(file).startsWith(norm(p).replace(/[\\/]$/,'')+(p.includes('\\')?'\\':'/'))));selected=new Set([...selected].filter(p=>files.some(file=>norm(file)===p)));enqueuePreview();},getSelectedPaths:()=>files.filter(p=>selected.has(norm(p))),addToRename:addFromResult,showToast,showFailure});
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;
+  window.contextUI?.init({isBusy:()=>busy});
   window.everythingUI.init({isBusy:()=>busy,showToast,showFailure,onFavorite:async()=>{await window.favoritesUI.refresh();window.favoritesUI.show('favorites');},onRename:result=>{addFromResult(result);window.favoritesUI.show('rename');}});
 }
 init();

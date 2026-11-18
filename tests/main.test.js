@@ -1273,3 +1273,12 @@ test('OCR image source chooser filters supported formats and permits one file on
  const selected=await h.handlers.get('workflow-select')(null,{kind:'image'});assert.deepEqual(options.properties,['openFile']);assert.deepEqual(options.filters[0].extensions,['png','jpg','jpeg','bmp','gif','webp']);assert.equal(selected.rows.length,1);assert.equal(selected.rows[0].path,file);
  h.dialog.showOpenDialog=async()=>({canceled:true,filePaths:[]});assert.deepEqual(await h.handlers.get('workflow-select')(null,{kind:'image'}),{canceled:true});
 });
+
+test('context IPC broadcasts selection changes, supports clearing and restricts access to the main renderer',t=>{
+ const h=harness(t),context=h.handlers.get('workflow-save')(null,'contexts',{name:'專案 A'}),snapshot=h.handlers.get('workflow-context-state')();assert.ok(h.messages.some(row=>row[0]==='workflow-context-changed'));assert.equal(snapshot.contexts[0].name,'專案 A');h.messages.length=0;
+ const selected=h.handlers.get('workflow-context')(null,context.id,snapshot.revision);assert.equal(selected.activeContextId,context.id);assert.equal(h.messages.filter(row=>row[0]==='workflow-context-changed').length,1);assert.throws(()=>h.handlers.get('workflow-context')(null,null,snapshot.revision),/已變更/);const cleared=h.handlers.get('workflow-context')(null,null,selected.revision);assert.equal(cleared.activeContextId,null);assert.equal(h.handlers.get('workflow-state')().data.activeContextId,null);
+ h.handlers.get('floating-show')();const mini=h.windows.at(-1),event={sender:mini.webContents,senderFrame:{url:mini.url}};for(const name of ['workflow-context','workflow-context-state'])assert.throws(()=>h.rawHandlers.get(name)(event,context.id),/不受信任/);
+});
+test('workflow metadata changes outside the context editor also notify the header of its new revision',t=>{
+ const h=harness(t),context=h.handlers.get('workflow-save')(null,'contexts',{name:'專案'}),before=h.handlers.get('workflow-context-state')();h.messages.length=0;h.handlers.get('workflow-dismiss')(null,'unused-draft');const after=h.handlers.get('workflow-context-state')();assert.ok(after.revision>before.revision);assert.equal(h.messages.filter(row=>row[0]==='workflow-context-changed').length,1);assert.equal(h.handlers.get('workflow-context')(null,context.id,after.revision).activeContextId,context.id);
+});

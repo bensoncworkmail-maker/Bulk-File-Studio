@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.125.0。以 `npm run audit:functions` 重新產生。
+版本：v1.126.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 213 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 216 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -64,6 +64,9 @@
 | [app-navigation.js](../src/app-navigation.js) | `create` |
 | [bounded-file-read.js](../src/bounded-file-read.js) | `readStableBytes`、`readStableBytesAsync`、`same` |
 | [checkbox-migration.js](../src/checkbox-migration.js) | `convertCheckboxes` |
+| [context-model.js](../src/context-model.js) | `current`、`defaults`、`resources`、`snapshot` |
+| [context-ui.css](../src/context-ui.css) | 版面、主題與互動狀態樣式 |
+| [context-ui.js](../src/context-ui.js) | `$`、`action`、`close`、`current`、`guard`、`init`、`message`、`openResource`、`publish`、`refresh`、`render`、`schedule`、`switchTo` |
 | [diagnostic-log.js](../src/diagnostic-log.js) | `clear`、`entries`、`escape`、`exportData`、`files`、`masked`、`prepareFolder`、`prune`、`record`、`scrub`、`settings`、`status`、`text` |
 | [diagnostics-runtime.js](../src/diagnostics-runtime.js) | `report` |
 | [diagnostics-settings.js](../src/diagnostics-settings.js) | `$`、`init`、`refresh`、`render`、`run` |
@@ -105,11 +108,11 @@
 | [web-link-model.js](../src/web-link-model.js) | `links`、`normalize`、`valid` |
 | [workflow-guide-model.js](../src/workflow-guide-model.js) | 宣告、設定或共用模型 |
 | [workflow-hub.css](../src/workflow-hub.css) | 版面、主題與互動狀態樣式 |
-| [workflow-hub.js](../src/workflow-hub.js) | `actionFields`、`args`、`automations`、`button`、`canLeave`、`changeSheet`、`choose`、`chosen`、`conditions`、`contexts`、`destination`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`getValue`、`go`、`inbox`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`operations`、`output`、`paint`、`parentField`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`setting`、`sheets`、`snippets`、`sourceTools`、`tracking`、`triggerState`、`update`、`values` |
+| [workflow-hub.js](../src/workflow-hub.js) | `actionFields`、`args`、`automations`、`button`、`canChangeContext`、`canLeave`、`changeSheet`、`choose`、`chosen`、`conditions`、`contextChanged`、`contexts`、`destination`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`getValue`、`go`、`inbox`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`openSnippet`、`operations`、`output`、`paint`、`parentField`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`setting`、`sheets`、`snippets`、`sourceTools`、`syncContextDefaults`、`trackEditor`、`tracking`、`triggerState`、`update`、`values`、`watch` |
 | [workflow-ipc.js](../src/workflow-ipc.js) | `ensure`、`registerWorkflow` |
 | [workflow-model.js](../src/workflow-model.js) | `aggregate`、`automationPlan`、`condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
-| [workflow-service.js](../src/workflow-service.js) | `analyze`、`close`、`constructor`、`convert`、`planAutomation`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`summary`、`take`、`token`、`trashDuplicates`、`validateDefinition` |
-| [workflow-store.js](../src/workflow-store.js) | `change`、`constructor`、`empty`、`normalize`、`read`、`remove`、`save` |
+| [workflow-service.js](../src/workflow-service.js) | `activateContext`、`analyze`、`close`、`constructor`、`contextState`、`convert`、`planAutomation`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`summary`、`take`、`token`、`trashDuplicates`、`validateDefinition` |
+| [workflow-store.js](../src/workflow-store.js) | `change`、`empty`、`normalize`、`read`、`remove`、`save` |
 | [workspace.css](../src/workspace.css) | 版面、主題與互動狀態樣式 |
 ### 收藏與 Everything
 
