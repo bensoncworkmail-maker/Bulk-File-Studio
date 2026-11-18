@@ -19,10 +19,15 @@ function inspect(){
  fail(JSON.stringify(Object.keys(nav).sort())===JSON.stringify(Object.keys(quick.PAGES).sort()),'navigation and quick-action page registries diverge');
  for(const [name,page] of Object.entries(nav))for(const id of [page.tab,...page.sections])fail(Boolean(document.getElementById(id)),name+': missing page element '+id);
  for(const tool of Object.keys(quick.TOOLS))fail(Boolean(document.getElementById('productivity-'+tool)),'missing toolbox destination '+tool);
+ const toolbox=require('../src/toolbox-model'),toolNav=document.getElementById('productivity-nav'),primaryButtons=toolNav.children.filter(el=>el.tagName==='BUTTON');
+ fail(JSON.stringify(primaryButtons.map(el=>el.getAttribute('data-productivity')))===JSON.stringify(toolbox.primary.map(item=>item.id)),'toolbox primary navigation differs from its route model');
+ fail(!document.getElementById('workflow-open'),'obsolete standalone workflow entry');
+ for(const entry of toolbox.extra)fail(Boolean(document.getElementById('toolbox-advanced').querySelector('[data-productivity='+entry.id+']')),'advanced tool outside collapsed navigation '+entry.id);
+ for(const [alias,id]of Object.entries(toolbox.workflowRoutes))fail(Boolean(toolbox.get(id)),'unknown workflow compatibility route '+alias);
  const groups=new Set(catalog.groups.map(group=>group.id));
  for(const item of directory.entries){
   fail(['page','tool','settings','tracking','draft','reminders','workflow'].filter(key=>Boolean(item[key])).length===1,'ambiguous directory destination '+item.title);
-  if(item.page)fail(Object.hasOwn(nav,item.page),'unknown directory page '+item.page);if(item.tool)fail(Object.hasOwn(quick.TOOLS,item.tool),'unknown directory tool '+item.tool);if(item.settings)fail(groups.has(item.settings),'unknown settings destination '+item.settings);
+  if(item.workflow)fail(Object.hasOwn(toolbox.workflowRoutes,item.workflow),'unknown workflow destination '+item.workflow);if(item.page)fail(Object.hasOwn(nav,item.page),'unknown directory page '+item.page);if(item.tool)fail(Object.hasOwn(quick.TOOLS,item.tool),'unknown directory tool '+item.tool);if(item.settings)fail(groups.has(item.settings),'unknown settings destination '+item.settings);
  }
  for(const [store,bindings,defaults] of [['renderer',catalog.controls,settings.DEFAULTS],['native',catalog.nativeControls,desktop.DEFAULTS]]){
   for(const [key,id] of Object.entries(bindings)){const element=document.getElementById(id);fail(Object.hasOwn(defaults,key),store+': binding has no default '+key);fail(Boolean(element),store+': missing control '+id);let panel=element;while(panel&&!panel.id.startsWith('settings-panel-'))panel=panel.parentElement;fail(panel?.id==='settings-panel-'+catalog.groupsByKey[key],store+': control outside its settings category '+key);}
