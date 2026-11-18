@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.127.0。以 `npm run audit:functions` 重新產生。
+版本：v1.128.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 216 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 223 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -66,7 +66,7 @@
 | [checkbox-migration.js](../src/checkbox-migration.js) | `convertCheckboxes` |
 | [context-model.js](../src/context-model.js) | `current`、`defaults`、`resources`、`snapshot` |
 | [context-ui.css](../src/context-ui.css) | 版面、主題與互動狀態樣式 |
-| [context-ui.js](../src/context-ui.js) | `$`、`action`、`close`、`current`、`guard`、`init`、`message`、`open`、`openResource`、`position`、`publish`、`refresh`、`render`、`schedule`、`switchTo` |
+| [context-ui.js](../src/context-ui.js) | `$`、`action`、`current`、`externalQuery`、`guard`、`init`、`message`、`openResource`、`publish`、`refresh`、`releaseExternal`、`render`、`schedule`、`switchTo` |
 | [diagnostic-log.js](../src/diagnostic-log.js) | `clear`、`entries`、`escape`、`exportData`、`files`、`masked`、`prepareFolder`、`prune`、`record`、`scrub`、`settings`、`status`、`text` |
 | [diagnostics-runtime.js](../src/diagnostics-runtime.js) | `report` |
 | [diagnostics-settings.js](../src/diagnostics-settings.js) | `$`、`init`、`refresh`、`render`、`run` |
@@ -79,7 +79,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`contextInvoke`、`contextLease`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showDesktopContext`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [offline-policy.js](../src/offline-policy.js) | `allowedRequest`、`assertLocalPath`、`assertSafeOpen`、`installOfflinePolicy` |
 | [open-file-input.js](../src/open-file-input.js) | `openFileInput` |
@@ -167,8 +167,15 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
+| [desktop-context-actions.js](../src/desktop-context-actions.js) | `authorize`、`constructor`、`file`、`listRecord`、`resource`、`snippet`、`state`、`take`、`token` |
+| [desktop-context-preload.js](../src/desktop-context-preload.js) | `handler`、`listen` |
+| [desktop-context-state.js](../src/desktop-context-state.js) | `normalize` |
+| [desktop-context-ui.js](../src/desktop-context-ui.js) | `$`、`back`、`button`、`current`、`discard`、`hold`、`node`、`receive`、`renderShell`、`resources`、`run`、`showDetail`、`status`、`values` |
+| [desktop-context.css](../src/desktop-context.css) | 版面、主題與互動狀態樣式 |
+| [desktop-context.html](../src/desktop-context.html) | 視窗／頁面結構及本機資源引用 |
+| [desktop-context.js](../src/desktop-context.js) | `close`、`constructor`、`control`、`ensure`、`hide`、`hover`、`owns`、`payload`、`perform`、`persist`、`place`、`record`、`refresh`、`scheduleCollapse`、`show` |
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`registerShortcuts`、`setLogin` |
-| [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`snippetPickerGroups`、`update`、`validBounds`、`write` |
+| [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`contextDesktop`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`snippetPickerGroups`、`update`、`updateContextDesktop`、`validBounds`、`write` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
 | [floating-capture-ui.js](../src/floating-capture-ui.js) | `$`、`collect`、`field`、`init`、`invalidate`、`lock`、`node`、`refreshChoices`、`renderAttachments`、`renderFavorites`、`renderTags`、`status` |
