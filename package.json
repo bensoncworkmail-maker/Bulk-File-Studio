@@ -1,6 +1,6 @@
 {
   "name": "bulk-rename-studio",
-  "version": "1.126.0",
+  "version": "1.127.0",
   "description": "\u96e2\u7dda\u6536\u85cf\u3001\u6a19\u7c64\u3001\u81ea\u8a02\u8cc7\u6599\u5de5\u4f5c\u5340\u3001\u6279\u6b21\u91cd\u65b0\u547d\u540d\u8207\u6a94\u6848\u642c\u79fb\u5de5\u5177",
   "main": "src/main.js",
   "author": "Bulk File Studio",

@@ -1,6 +1,6 @@
 # 應用程式功能與模組盤點
 
-版本：v1.126.0。以 `npm run audit:functions` 重新產生。
+版本：v1.127.0。以 `npm run audit:functions` 重新產生。
 
 讀取 src 全部 216 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
@@ -66,7 +66,7 @@
 | [checkbox-migration.js](../src/checkbox-migration.js) | `convertCheckboxes` |
 | [context-model.js](../src/context-model.js) | `current`、`defaults`、`resources`、`snapshot` |
 | [context-ui.css](../src/context-ui.css) | 版面、主題與互動狀態樣式 |
-| [context-ui.js](../src/context-ui.js) | `$`、`action`、`close`、`current`、`guard`、`init`、`message`、`openResource`、`publish`、`refresh`、`render`、`schedule`、`switchTo` |
+| [context-ui.js](../src/context-ui.js) | `$`、`action`、`close`、`current`、`guard`、`init`、`message`、`open`、`openResource`、`position`、`publish`、`refresh`、`render`、`schedule`、`switchTo` |
 | [diagnostic-log.js](../src/diagnostic-log.js) | `clear`、`entries`、`escape`、`exportData`、`files`、`masked`、`prepareFolder`、`prune`、`record`、`scrub`、`settings`、`status`、`text` |
 | [diagnostics-runtime.js](../src/diagnostics-runtime.js) | `report` |
 | [diagnostics-settings.js](../src/diagnostics-settings.js) | `$`、`init`、`refresh`、`render`、`run` |

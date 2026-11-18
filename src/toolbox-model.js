@@ -2,7 +2,7 @@
 (() => {
  const primary=Object.freeze([
   {id:'inbox',title:'收件匣',hint:'先記下，稍後整理',workflow:'inbox',steps:['記下文字','加入附件（選填）','存成草稿或轉入紀錄']},
-  {id:'contexts',title:'情境包',hint:'設定資源，頂端快速切換',workflow:'contexts',steps:['設定主紀錄與資源','儲存情境包','從頂端直接切換']},
+  {id:'contexts',title:'情境包',hint:'設定資源，浮層快速切換',workflow:'contexts',steps:['設定主紀錄與資源','儲存情境包','點「情境」浮層切換']},
   {id:'parameters',title:'參數範本',hint:'填寫、預覽與複製文字',workflow:'snippets',steps:['選文字範本','填寫參數','預覽後複製']},
   {id:'tracking',title:'追蹤變更',hint:'查看文件清單的變化',workflow:'tracking',steps:['選追蹤搜尋','檢查變更','核對後標示已讀']},
   {id:'ocr',title:'離線 OCR',hint:'圖片文字轉成草稿',workflow:'ocr',steps:['選一張圖片','辨識並校正','存入收件匣']},
