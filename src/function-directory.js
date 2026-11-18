@@ -3,7 +3,7 @@
  // User tasks and their canonical entry points; shared by the homepage and its tests.
  const entries=Object.freeze([
   {group:'工具箱',title:'工具箱收件匣',description:'先記文字、加入檔案、存成草稿，再整理到工作區；原工作流程中心',workflow:'inbox'},
-  {group:'工具箱',title:'情境包',description:'工具列情境浮層，切換客戶或專案，預選紀錄、追蹤與範本，直接開常用資源',workflow:'contexts'},
+  {group:'工具箱',title:'情境包',description:'獨立桌面情境，釘選或圖示懸停展開，切換客戶、查看紀錄、開檔案與複製範本',workflow:'contexts'},
   {group:'工具箱',title:'主表彙總計算',description:'關聯筆數、合計、最早日期、剩餘天數',workflow:'formulas'},
   {group:'工具箱',title:'參數化文字範本',description:'範本參數、紀錄、剪貼簿、預覽與貼上',workflow:'snippets'},
   {group:'工具箱',title:'檔案作業中心',description:'背景搬移、持久佇列、多步復原與安全取消',workflow:'operations'},

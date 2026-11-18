@@ -1,0 +1,33 @@
+'use strict';
+const crypto=require('node:crypto'),path=require('node:path'),M=require('./notes-model'),W=require('./workflow-model');
+class DesktopContextActions{
+ constructor(options){Object.assign(this,options);this.tokens=new Map();}
+ state(){return this.workflow().contextState();}
+ authorize(kind,id,contextId){const state=this.state(),context=state.contexts.find(row=>row.id===state.activeContextId);if(!context||context.id!==contextId||!context.resources.some(row=>row.kind===kind&&row.id===id&&row.available))throw Error('情境或資源已變更，請重新選擇');return {state,context};}
+ token(value){for(const [key,row]of this.tokens)if(row.expires<Date.now())this.tokens.delete(key);if(this.tokens.size>=30)this.tokens.delete(this.tokens.keys().next().value);const token=crypto.randomUUID();this.tokens.set(token,{...value,expires:Date.now()+600000});return token;}
+ take(token){const value=this.tokens.get(token);if(!value||value.expires<Date.now()||this.state().activeContextId!==value.contextId)throw Error('檢視已過期或情境已切換，請重新開啟');if(value.resourceKind)this.authorize(value.resourceKind,value.resourceId,value.contextId);return value;}
+ record(id,contextId,origin={kind:'record',id}){const document=this.notes().get().document,record=document.records.find(row=>row.id===id&&M.live(document,row));if(!record)throw Error('紀錄已移除');const sheet=document.sheets.find(row=>row.id===record.sheetId);return {kind:'record',title:record.title,notes:record.notes,fields:sheet.fields.map(field=>({label:field.label,value:M.cell(document,field,record.values[field.id])})),links:record.fileLinks.map((link,index)=>({index,label:link.label||path.basename(link.path),path:link.path})),token:this.token({kind:'record',recordId:id,version:record.version,contextId,resourceKind:origin.kind,resourceId:origin.id})};}
+ async resource(kind,id,contextId){
+  const {context,state}=this.authorize(kind,id,contextId);
+  if(kind==='record')return this.record(id,contextId);
+  if(kind==='snippet'){const row=this.productivity.store.get().snippets.find(row=>row.id===id);return {kind,id,title:row.name,contextId,revision:state.revision,masterTitle:context.masterTitle,parameters:W.parameters(row.body).filter(key=>!['today','time','year','month','day','clipboard','record.title','record.notes'].includes(key)&&!key.startsWith('field.'))};}
+  if(kind==='tracking'){await this.tracking.refresh(id);this.trackingChanged();const query=this.tracking.read().queries.find(row=>row.id===id),snapshot=query&&this.tracking.snapshot(query);if(!snapshot)throw Error('追蹤沒有可用結果');return {kind,title:query.name,token:this.token({kind,contextId,id,snapshotToken:snapshot.token,resourceKind:kind,resourceId:id}),rows:snapshot.rows.slice(0,200).map((row,index)=>({index,name:row.name||path.basename(row.path),path:row.path,type:row.type})),total:snapshot.rows.length,partial:snapshot.truncated===true,error:snapshot.error||'',checkedAt:snapshot.checkedAt||null,skipped:snapshot.skipped||0};}
+  if(kind==='view'){const view=this.tools().get().views.find(row=>row.id===id),document=this.notes().get().document,v=view.state,sheet=document.sheets.find(row=>row.id===v.sheetId);let rows=M.sortRecords(document,M.filterDue(document,M.searchRecords(document,{...v}),v.dateField,v.due),v.sortKey||(v.sort==='title'?'title':'updatedAt'),v.sortDirection||(v.sort==='title'?'asc':'desc'));if(v.scope==='sheet'&&sheet)rows=require('./notes-table-state').filter(rows,sheet,v.statusFilter);return {kind,title:view.name,token:this.token({kind:'list',contextId,resourceKind:kind,resourceId:id,ids:rows.slice(0,200).map(row=>row.id)}),rows:rows.slice(0,200).map(row=>({id:row.id,title:row.title})),total:rows.length};}
+  if(kind==='workset'){const result=await this.productivity.openWorkset(id,this.owner());if(result.canceled)return result;const value=this.productivity.store.get().worksets.find(row=>row.id===id),document=this.notes().get().document,rows=document.records.filter(row=>value.recordIds.includes(row.id)&&M.live(document,row));return {kind,title:value.name,...result,token:this.token({kind:'list',contextId,resourceKind:kind,resourceId:id,ids:rows.slice(0,200).map(row=>row.id)}),rows:rows.slice(0,200).map(row=>({id:row.id,title:row.title})),total:rows.length};}
+  throw Error('不支援的資源類型');
+ }
+ listRecord(token,id){const value=this.take(token);if(value.kind!=='list'||!value.ids.includes(id))throw Error('紀錄不在目前檢視');return this.record(id,value.contextId,{kind:value.resourceKind,id:value.resourceId});}
+ snippet(id,contextId,values,copy,revision){const {context,state}=this.authorize('snippet',id,contextId);if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).length>50||Object.values(values).some(value=>typeof value!=='string'||value.length>20000))throw Error('參數格式無效');const digest=crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex'),workspaceRevision=this.notes().get().revision,body=this.productivity.store.get().snippets.find(row=>row.id===id).body;
+  if(copy){const plan=this.take(revision);if(plan.kind!=='snippet'||plan.id!==id||plan.digest!==digest||plan.revision!==state.revision||plan.workspaceRevision!==workspaceRevision||plan.body!==body)throw Error('情境、參數或紀錄已更新，請重新預覽');this.clipboard.writeText(plan.text);return {text:plan.text,revision};}
+  const result=this.workflow().snippet(id,values,context.masterId,false);return {...result,revision:this.token({kind:'snippet',id,contextId,resourceKind:'snippet',resourceId:id,digest,revision:state.revision,workspaceRevision,body,text:result.text})};
+ }
+
+ async file(token,index,action){
+  const value=this.take(token);if(!Number.isSafeInteger(index)||index<0||!['open','show','copy'].includes(action))throw Error('檔案操作無效');
+  if(value.kind==='tracking')return require('./everything-tracking-actions').trackingAction({tracking:this.tracking,id:value.id,token:value.snapshotToken,indices:[index],action,clipboard:this.clipboard,shell:this.shell});
+  if(value.kind!=='record')throw Error('來源無效');const document=this.notes().get().document,record=document.records.find(row=>row.id===value.recordId&&M.live(document,row));if(!record||record.version!==value.version||!record.fileLinks[index])throw Error('紀錄連結已更新，請重新開啟');
+  await require('./notes-location-links').openRecordLink({document,favorites:this.favorites,recordId:record.id,index,action,shell:this.shell,clipboard:this.clipboard});return {[{open:'opened',show:'shown',copy:'copied'}[action]]:true};
+ }
+
+}
+module.exports={DesktopContextActions};

@@ -16,7 +16,7 @@ function registerWorkflow(options){
  });
  handle('workflow-folder',async(_,choice)=>{ensure();const state=service.store.read();let folder;if(choice?.kind==='recent'){if(!state.recentFolders.includes(choice.path))throw Error('最近位置已變更');folder=choice.path;}else if(choice?.kind==='favorite'){const row=favorites.get(choice.id,true);if(row.type!=='folder')throw Error('請選取資料夾收藏');folder=row.path;}else{const value=await dialog.showOpenDialog(parent(),{title:'選取輸出／搬移資料夾',defaultPath:state.recentFolders[0],properties:['openDirectory']});if(value.canceled)return null;folder=value.filePaths[0];}return service.remember(folder);});
  handle('workflow-summary',(_,id,masterId)=>service.summary(id,masterId));
- handle('workflow-context',(_,id,revision)=>{ensure();return service.activateContext(id,revision);});
+ handle('workflow-context',(_,id,revision)=>{ensure();if(options.contextCanSwitch?.()===false)throw Error('桌面工作情境仍有未儲存內容或正在處理，請先完成');return service.activateContext(id,revision);});
  handle('workflow-snippet',(_,id,values,recordId,copy)=>service.snippet(id,values,recordId,copy===true));
  handle('workflow-snippet-paste',async(_,id,values,recordId)=>{ensure();service.snippet(id,values,recordId,true);if(process.platform!=='win32')throw Error('文字已複製；立即貼上需要 Windows');const paste=require('./snippet-paste');await paste.warm();parent().hide();await new Promise(resolve=>setTimeout(resolve,250));const target=await paste.capture();if(!target){parent().show();throw Error('文字已複製，無法確定前一視窗；請切換至目標後手動貼上');}try{return await paste.paste({target:{...target,noActivate:true}});}catch(error){parent().show();throw error;}});
  handle('workflow-clipboard',()=>clipboard.readText().slice(0,100000));
