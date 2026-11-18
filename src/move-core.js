@@ -120,13 +120,13 @@ function stageFile(source,destination,expected){
   // Keep the original signature even if an external write happens immediately after linking.
   return {...expected};
 }
-function executeRelocation(moves,{onPrepared=()=>{}}={}){
-  validate(moves);const staged=[],restored=new Map();
+function executeRelocation(moves,{onPrepared=()=>{},onCheckpoint=()=>{},onProgress=()=>{}}={}){
+  onCheckpoint();validate(moves);const staged=[],restored=new Map();
   try{
-    for(const move of directories(moves)){assertLocalPath(move.destination);fs.mkdirSync(move.destination);move.destinationFingerprint=directoryFingerprint(move.destination);staged.push(move);}
-    for(const move of moves.filter(move=>!isFolder(move))){move.destinationFingerprint=stageFile(move.source,move.destination,move.expectedFingerprint);staged.push(move);assertExpected(move.destination,move.destinationFingerprint,false);}
+    for(const move of directories(moves)){onCheckpoint();assertLocalPath(move.destination);fs.mkdirSync(move.destination);move.destinationFingerprint=directoryFingerprint(move.destination);staged.push(move);}
+    for(const move of moves.filter(move=>!isFolder(move))){onCheckpoint();onProgress({phase:'staging',name:path.basename(move.source)});move.destinationFingerprint=stageFile(move.source,move.destination,move.expectedFingerprint);staged.push(move);assertExpected(move.destination,move.destinationFingerprint,false);}
     for(const move of moves)assertExpected(move.source,move.expectedFingerprint,isFolder(move));
-    assertSourceTrees(moves);onPrepared(moves);
+    assertSourceTrees(moves);onCheckpoint();onPrepared(moves);
     for(const move of moves.filter(move=>!isFolder(move))){assertExpected(move.destination,move.destinationFingerprint,false);assertExpected(move.source,move.expectedFingerprint,false);fs.unlinkSync(move.source);}
     for(const move of directories(moves).reverse()){assertExpected(move.source,move.expectedFingerprint,true);fs.rmdirSync(move.source);}
     for(const move of moves)assertExpected(move.destination,move.destinationFingerprint,isFolder(move));
@@ -151,7 +151,7 @@ function executeRelocation(moves,{onPrepared=()=>{}}={}){
       assertExpected(move.source,restored.get(key(move.source))||move.expectedFingerprint,true);assertExpected(move.destination,move.destinationFingerprint,true);fs.rmdirSync(move.destination);
     }catch(rollback){issues.push(move.destination+'：'+rollback.message);}
     const failure=new Error('搬移失敗：'+e.message+(issues.length?'；需手動核對（保留可用資料）：'+issues.join('；'):'；已還原來源位置'));
-    failure.recoveryMoves=recoveryMoves;throw failure;
+    failure.code=e.code;failure.rollbackIncomplete=Boolean(issues.length);failure.recoveryMoves=recoveryMoves;throw failure;
   }
 }
 function prepareMoveUndo(history){

@@ -20,7 +20,7 @@ function normalizeRules(data){
  });return {queries,refreshSeconds,fileTypes};
 }
 class EverythingTracking{
- constructor({favorites,bridge,inspect=inspectPath,inspectShared,withPaths=network.withIntranetPaths,now=Date.now}){Object.assign(this,{favorites,bridge,inspect,inspectShared,withPaths,now});this.cache=new Map();this.epoch=0;}
+ constructor({favorites,bridge,inspect=inspectPath,inspectShared,withPaths=network.withIntranetPaths,now=Date.now}){Object.assign(this,{favorites,bridge,inspect,inspectShared,withPaths,now});this.cache=new Map();this.epoch=0;this.changes=favorites.filename?new(require('./tracking-changes').TrackingChanges)(path.join(path.dirname(favorites.filename),'tracking-snapshots.json')):null;}
  invalidate(){this.epoch++;this.cache.clear();}
  applyMoves(moves){
   if(!moves.length)return;
@@ -74,7 +74,7 @@ class EverythingTracking{
   if(!prior&&state.queries.length>=MAX_RULES)throw Error('最多追蹤 20 個 Everything 搜尋');
   data.everythingSearches=prior?state.queries.map(item=>item.id===query.id?query:item):[...state.queries,query];this.favorites.write(data);this.cache.delete(query.id);return query;
  }
- remove(id){const data=this.favorites.read(),state=normalizeRules(data);if(!state.queries.some(item=>item.id===id))throw Error('追蹤搜尋已移除');data.everythingSearches=state.queries.filter(item=>item.id!==id);this.favorites.write(data);this.cache.delete(id);return {removed:true};}
+ remove(id){const data=this.favorites.read(),state=normalizeRules(data);if(!state.queries.some(item=>item.id===id))throw Error('追蹤搜尋已移除');data.everythingSearches=state.queries.filter(item=>item.id!==id);this.favorites.write(data);this.cache.delete(id);this.changes?.remove(id);return {removed:true};}
  manageTag(input){
   const name=cleanTags([input?.name])[0],replacement=input?.replacement===null?null:cleanTags([input?.replacement])[0];
   if(!name||replacement===undefined)throw Error('請輸入有效標籤名稱');
@@ -128,6 +128,7 @@ class EverythingTracking{
    }
    if(epoch!==this.epoch||queryKey(this.read().queries.find(item=>item.id===id))!==queryKey(query))throw Error('追蹤搜尋已變更，請重新查詢');
    this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:crypto.randomUUID(),rows,metadataUnavailable:found.metadataUnavailable===true,truncated:found.truncated,skipped,skippedReasons,checkedAt:new Date(this.now()).toISOString(),error:''});
+   if(this.changes){const snapshot=this.cache.get(id);try{snapshot.changes=this.changes.update(query,snapshot);}catch(error){snapshot.changesError=error.message;}}
   }catch(error){
    if(epoch===this.epoch&&queryKey(this.read().queries.find(item=>item.id===id))===queryKey(query))this.cache.set(id,{queryKey:queryKey(query),revision:query.revision,token:previous?.token||crypto.randomUUID(),rows:previous?.rows||[],metadataUnavailable:previous?.metadataUnavailable===true,checkedAt:previous?.checkedAt||null,truncated:previous?.truncated||false,skipped:previous?.skipped||0,skippedReasons:previous?.skippedReasons||[],error:String(error.message||error)});
   }

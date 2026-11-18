@@ -77,11 +77,11 @@ function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(ap
 function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});floatingSearch?.invalidate();return result;}
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
-function notesChanged(result){try{if(notesShare?.reconcile())notesShare.emit();}catch(error){diagnostics.record('main','share-profiles-reconcile',error);}send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(floating,'floating-panel-changed','planning');send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();toolOverlay?.invalidate();recordAttention?.sync();return result;}
+function notesChanged(result,trigger=true){try{workflow?.onNotes(result,{trigger});if(workflow){const fresh=notesStore().get();if(fresh.revision>result.revision)result={...fresh,result:result.result};}}catch(error){diagnostics.record('main','workflow-event',error);}try{if(notesShare?.reconcile())notesShare.emit();}catch(error){diagnostics.record('main','share-profiles-reconcile',error);}send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(floating,'floating-panel-changed','planning');send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();toolOverlay?.invalidate();recordAttention?.sync();return result;}
 let fileOperationBusy=false;
 function fileOperation(task){if(fileOperationBusy||trashing)throw new Error('另一項改名、搬移、回收或復原仍在執行，請稍候');fileOperationBusy=true;try{const result=task();if(result&&typeof result.then==='function')return result.finally(()=>{fileOperationBusy=false;});fileOperationBusy=false;return result;}catch(error){fileOperationBusy=false;throw error;}}
 function renameProgress(event,context){return value=>{if(event.sender!==win?.webContents||!Number.isSafeInteger(context?.operationId)||context.operationId<=0)return;const labels={snapshot:'建立內容校驗（第 1／2 遍）',verify:'執行前複核（第 2／2 遍）','undo-verify':'復原內容檢查（第 1／2 遍）',staging:'暫存檔名',renaming:'套用檔名'},title=labels[value.phase]||'處理改名';const bytes=n=>n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';const detail=typeof value.totalBytes==='number'?`第 ${value.fileIndex}／${value.totalFiles} 個：${value.name}；已讀取 ${bytes(value.completedBytes)}／${bytes(value.totalBytes)}（本階段）`:`${value.fileIndex}／${value.totalFiles} 個：${value.name}`;send(win,'rename-progress',{id:context.operationId,title,detail});};}
-function finishRenameJob(result){const warning=syncFavoriteMoves(result.moves);return {...result,warning:[result.warning,warning].filter(Boolean).join('\n')};}
+function finishRenameJob(result){const warnings=[result.warning];try{if(result.history){const h=readHistory();if(h?.state==='completed'){const id=journal().begin(h.kind||'rename',h.moves);journal().complete(id,h);}}else{const last=journal().list().find(item=>item.state==='completed'&&item.history);if(last&&result.moves?.every(move=>last.moves.some(old=>old.source===move.destination&&old.destination===move.source)))journal().markUndone(last.id);}}catch(error){warnings.push('檔案已處理，但作業歷程無法保存：'+error.message);}warnings.push(syncFavoriteMoves(result.moves));everythingTracking?.applyMoves(result.moves);send(win,'everything-tracking-changed');return {...result,warning:warnings.filter(Boolean).join('；')};}
 let trashing=false;
 async function confirmTrash(ids,validateScope=()=>{}){
  if(fileOperationBusy)throw new Error('檔案操作仍在執行，請完成後再回收檔案');
@@ -127,14 +127,28 @@ async function confirmTrackedTrash({id,token,indices}){
  if(result.trashedPaths.length){everythingTracking.removePaths(result.trashedPaths);notifyFavorites({trashedPaths:result.trashedPaths});send(win,'everything-tracking-changed');}
  return result;
 }
-function performMovePlan(moves){
+let workflow;let relocationJob=null,operationJournal;
+const journal=()=>operationJournal??=new(require('./operation-journal').OperationJournal)(path.join(app.getPath('userData'),'file-operation-journal.json'));
+async function performMovePlan(moves,queuedId){
  if(!moves.length)return {changed:0,moves:[],history:Boolean(readHistory())};
- const record={version:3,kind:'move',state:'pending',createdAt:new Date().toISOString(),moves};saveHistory(record);
- try{executeRelocation(moves,{onPrepared:()=>saveHistory(record)});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}
- const warning=syncFavoriteMoves(moves);
- try{saveHistory({...record,state:'completed'});}catch(e){return {changed:moves.length,moves,history:false,warning:warning+' 操作成功，但復原紀錄無法儲存：'+e.message};}
- return {changed:moves.length,moves,history:true,warning};
+ const id=queuedId||journal().begin('move',moves);if(queuedId)journal().update(id,{state:'running'});
+ try{send(win,'workflow-move-state',{running:true});relocationJob=require('./relocation-job').run({moves,historyPath:historyFile()},value=>send(win,'workflow-operation-progress',value));const result=await relocationJob.result;const warnings=[result.warning,syncFavoriteMoves(result.moves)].filter(Boolean);try{if(result.history)journal().complete(id,readHistory());else journal().update(id,{state:'completed',warning:result.warning});}catch(error){warnings.push('檔案已搬移，但作業歷程無法保存：'+error.message);}everythingTracking?.applyMoves(result.moves);send(win,'everything-tracking-changed');return {...result,warning:warnings.join('；')};}
+ catch(error){if(error.recoveryMoves?.length)syncFavoriteMoves(error.recoveryMoves);try{journal().update(id,{state:error.code==='CANCELED'&&!error.rollbackIncomplete?'canceled':'failed',error:error.message});if(error.code==='CANCELED'&&!error.rollbackIncomplete)saveHistory(journal().list().find(item=>item.state==='completed')?.history||null);}catch{}throw error;}
+ finally{relocationJob=null;send(win,'workflow-move-state',{running:false});}
+
 }
+async function undoJournalOperation(id,confirm){
+ const history=journal().undoable(id);
+ if(confirm){const choice=await dialog.showMessageBox(win,{type:'warning',message:'復原這批 '+history.moves.length+' 個項目？',detail:'將核對內容與目的位置，依序復原較新的作業。',buttons:['取消','復原'],defaultId:0,cancelId:0});if(choice.response!==1)return {canceled:true};}
+ journal().update(id,{state:'undoing'});let result;
+ try{if(history.kind==='move'){const reversed=prepareMoveUndo(history);send(win,'workflow-move-state',{running:true});relocationJob=require('./relocation-job').run({moves:reversed,historyPath:historyFile()},value=>send(win,'workflow-operation-progress',value));try{result=await relocationJob.result;}finally{relocationJob=null;send(win,'workflow-move-state',{running:false});}}else result=await renameJobs.run({kind:'undo',history,historyPath:historyFile()});}
+ catch(error){if(error.recoveryMoves?.length)syncFavoriteMoves(error.recoveryMoves);if(error.code==='CANCELED'&&!error.rollbackIncomplete){journal().update(id,{state:'completed',error:'已取消復原，原作業仍保留'});saveHistory(history);return {canceled:true,changed:0,moves:[]};}journal().update(id,{state:'interrupted',error:error.message});throw error;}
+ const warnings=[result.warning,syncFavoriteMoves(result.moves)].filter(Boolean);try{journal().markUndone(id);journal().rebase(history,result.moves);const next=journal().list().find(item=>item.state==='completed');saveHistory(next?.history||null);}catch(error){warnings.push('檔案已復原，但歷程未能更新：'+error.message);}
+ everythingTracking.applyMoves(result.moves);send(win,'everything-tracking-changed');return {...result,warning:warnings.join('；')};
+}
+
+async function outputDialog(parent,options){let recent;try{recent=workflow?.store.read().recentFolders[0];}catch{}const value=await dialog.showSaveDialog(parent,{...options,...(recent&&options.defaultPath&&!path.isAbsolute(options.defaultPath)?{defaultPath:path.join(recent,options.defaultPath)}:{})});if(!value.canceled&&workflow)try{workflow.remember(path.dirname(value.filePath));}catch(error){diagnostics.record('main','recent-output-folder',error);}return value;}
+
 let contextMenu;
 let queuedFavorites = favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
@@ -309,7 +323,7 @@ app.whenReady().then(() => {
     try{
      const result=notesStore().importShared(data,revision,context);
      if(result.deferred)return result;
-     notesChanged(result);return {revision:result.revision,backup:result.result.backup};
+     notesChanged(result,false);return {revision:result.revision,backup:result.result.backup};
     }catch(error){
      if(error instanceof require('./notes-shared-merge').MergeConflict)return {deferred:true,reason:error.message};
      throw error;
@@ -347,7 +361,7 @@ app.whenReady().then(() => {
     if(state.revision!==revision)throw new Error('資料工作區已變更，請重新整理後再匯出');
     const rows=require('./notes-model').tabularExport(state.document,sheetId,ids);
     const buffer=await require('./notes-xlsx').writeXlsx(rows);
-    const result=await dialog.showSaveDialog(win,{title:'匯出目前表格的篩選結果',
+    const result=await outputDialog(win,{title:'匯出目前表格的篩選結果',
       defaultPath:'BulkFileStudio-紀錄.xlsx',filters:[{name:'Excel 活頁簿',extensions:['xlsx']}]});
     if(result.canceled||!result.filePath)return {canceled:true};
     const extension=path.extname(result.filePath);
@@ -519,7 +533,7 @@ app.whenReady().then(() => {
   handle('notes-open-link',(_,recordId,index,action)=>require('./notes-location-links').openRecordLink({document:notesStore().get().document,favorites,recordId,index,action,shell,clipboard}));
   handle('notes-export-preview',(_,options)=>notesStore().exportPreview(options));
   handle('notes-export-save',async(_,token)=>{
-    notesStore().takePreview(token,'export');const result=await dialog.showSaveDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});
+    notesStore().takePreview(token,'export');const result=await outputDialog(win,{title:'匯出 Studio 資料包',defaultPath:'BulkFileStudio-Workspace.bfs-workspace.json',filters:[{name:'Studio 資料包',extensions:['json']}]});
     if(result.canceled||!result.filePath)return {canceled:true};const pending=notesStore().takePreview(token,'export');writePackageFile(result.filePath,pending.data);return {canceled:false,path:result.filePath};
   });
   handle('notes-import-choose',async(_,dropped)=>{sharedImport=null;sharedImportToken=null;notesImportReadVersion++;notesImportDocument=null;const readVersion=notesImportReadVersion;if(notes)notes.pending=null;const filepath=await openFileInput(dialog,win,{title:'選取 Studio 資料包（不執行檔案內容）',filters:[{name:'Studio 資料包',extensions:['json']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const input=await readImportPackageFile(filepath);if(readVersion!==notesImportReadVersion)throw new Error('已選取另一份資料包，請使用最新選擇');notesImportDocument=input;notesImportName=packageImportName(filepath);return {canceled:false,name:notesImportName};});
@@ -527,14 +541,17 @@ app.whenReady().then(() => {
   handle('notes-import-details',(_,token,key)=>notesStore().importDetails(token,key));
   handle('notes-import-preview',(_,mode,resolution)=>{if(!notesImportDocument)throw new Error('請先選取資料包');const context=sharedImport?{source:sharedImport.sharing?.source||'未提供來源',sourceRevision:sharedImport.sharing?.revision??null,sourceVersion:sharedImport.sharing?.version??null,sourceCommit:sharedImport.sharing?.commit?.id,scope:sharedImport.scope,profileId:sharedImport.profileId,packageName:sharedImport.name}:{source:'手動選取資料包',packageName:notesImportName};const result=notesStore().importPreview(notesImportDocument,mode,context,{reviewConflicts:Boolean(sharedImport),resolution});sharedImportToken=sharedImport?{token:result.token,mode}:null;return result;});
   handle('notes-backup-choose',async(_,dropped)=>{invalidateNotesImport();const readVersion=notesImportReadVersion;const filepath=await openFileInput(dialog,win,{title:'選取本程式的匯入前／還原前／升級前備份',defaultPath:path.join(app.getPath('userData'),'workspace-backups'),filters:[{name:'Studio 工作區備份',extensions:['sqlite']}],properties:['openFile']},dropped);if(readVersion!==notesImportReadVersion)throw new Error('匯入或還原來源已變更，請使用最新選擇');if(!filepath)return {canceled:true};return notesStore().restorePreview(filepath);});
-  handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token)));
-  handle('notes-import-commit',(_,token,options)=>{const result=notesChanged(notesStore().importCommit(token,options));if(sharedImportToken?.token===token&&sharedImport){try{notesShare.completeImport(sharedImport,result.revision,sharedImportToken.mode);if(notesShare.rollbackNotice)result.result.shareNotice=notesShare.rollbackNotice;}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
+  handle('notes-backup-restore',(_,token)=>notesChanged(notesStore().restoreCommit(token),false));
+  handle('notes-import-commit',(_,token,options)=>{const result=notesChanged(notesStore().importCommit(token,options),false);if(sharedImportToken?.token===token&&sharedImport){try{notesShare.completeImport(sharedImport,result.revision,sharedImportToken.mode);if(notesShare.rollbackNotice)result.result.shareNotice=notesShare.rollbackNotice;}catch(error){diagnostics.record('main','share-baseline',error);result.result.shareWarning='資料已匯入，但接收基準未能保存，請重新手動匯入後再自動接收。';}}sharedImport=null;sharedImportToken=null;return result;});
   handle('everything-status',()=>everything.status());
   handle('everything-configure',(_,enabled,instance)=>{const value=everything.configure(enabled,instance);everythingTracking.invalidate();send(win,'everything-tracking-changed');return value;});
   handle('everything-choose',async(_,dropped)=>{if(process.platform!=='win32')throw new Error('Everything 整合僅適用於 Windows');const filepath=await openFileInput(dialog,win,{title:'選取官方 ES 命令列工具 es.exe（不是 Everything.exe）',filters:[{name:'ES 命令列工具',extensions:['exe']}],properties:['openFile']},dropped);if(!filepath)return {canceled:true};const value=everything.choose(filepath);everythingTracking.invalidate();send(win,'everything-tracking-changed');return value;});
   handle('everything-file-type-save',(_,input)=>{const value=everythingTracking.saveFileType(input);send(win,'everything-tracking-changed');return value;});
   handle('everything-file-type-remove',(_,name)=>{const value=everythingTracking.removeFileType(name);send(win,'everything-tracking-changed');return value;});
   handle('everything-copy-query',(_,id)=>{clipboard.writeText(require('./everything-query').searchExpression(everythingTracking.query(id)));return {copied:1};});
+  handle('workflow-operation-cancel',()=>{if(!relocationJob)return {canceled:false};relocationJob.cancel();return {requested:true};});
+  handle('workflow-operation-list',()=>journal().list());
+  handle('workflow-operation-undo',async(_,id)=>fileOperation(()=>undoJournalOperation(id,true)));
   handle('everything-tracking-list',()=>everythingTracking.list());
   handle('everything-tracking-manage-tag',(_,input)=>{const result=everythingTracking.manageTag(input);send(win,'everything-tracking-changed');return result;});
   handle('everything-tracking-save',(_,input)=>{const value=everythingTracking.save(input);send(win,'everything-tracking-changed');return value;});
@@ -574,7 +591,7 @@ app.whenReady().then(() => {
   handle('favorites-tags-ack',(_,ids)=>{if(Array.isArray(ids))for(const id of ids)pendingTagIds.delete(id);});
   handle('export-settings',async(_,input)=>{
     const data=createSettingsExport(input,desktop.settings,app.getVersion());
-    const result=await dialog.showSaveDialog(win,{title:'匯出設定 JSON',defaultPath:`BulkFileStudio-settings-${app.getVersion()}.json`,filters:[{name:'JSON 設定檔',extensions:['json']}]});
+    const result=await outputDialog(win,{title:'匯出設定 JSON',defaultPath:`BulkFileStudio-settings-${app.getVersion()}.json`,filters:[{name:'JSON 設定檔',extensions:['json']}]});
     if(result.canceled||!result.filePath)return {canceled:true};
     writeSettingsExport(result.filePath,data);return {canceled:false,path:result.filePath};
   });
@@ -590,7 +607,7 @@ app.whenReady().then(() => {
   handle('diagnostics-status',(_,recent=false)=>{if(typeof recent!=='boolean')throw new Error('紀錄查詢無效');return diagnostics.status(recent);});
   handle('diagnostics-open',async()=>{const error=await shell.openPath(diagnostics.prepareFolder());if(error)throw new Error(error);return {opened:true};});
   handle('diagnostics-export',async()=>{
-    const data=diagnostics.exportData(),result=await dialog.showSaveDialog(win,{title:'匯出本機錯誤紀錄',defaultPath:'BulkFileStudio-diagnostics-'+new Date().toISOString().slice(0,10)+'.json',filters:[{name:'JSON',extensions:['json']}]});
+    const data=diagnostics.exportData(),result=await outputDialog(win,{title:'匯出本機錯誤紀錄',defaultPath:'BulkFileStudio-diagnostics-'+new Date().toISOString().slice(0,10)+'.json',filters:[{name:'JSON',extensions:['json']}]});
     if(result.canceled||!result.filePath)return {canceled:true};writeSettingsExport(result.filePath,data);return {canceled:false,path:result.filePath,count:data.entries.length};
   });
   handle('diagnostics-clear',async()=>{
@@ -840,25 +857,21 @@ app.whenReady().then(() => {
     saveHistory(record);
     executeMoves(moves);
     const favoriteWarning=syncFavoriteMoves(moves);
-    try { saveHistory({ ...record, state: 'completed' }); }
+    try { saveHistory({ ...record, state: 'completed' });const id=journal().begin('rename',moves);journal().complete(id,{...record,state:'completed'}); }
     catch (e) {
       // Files were renamed; report success but make undo unavailability explicit.
       return { changed: moves.length, moves, history: false, warning: [favoriteWarning,`重新命名成功，但無法完成復原紀錄；自動復原已停用。請手動核對檔案：${e.message}`].filter(Boolean).join('\n') };
     }
     return { changed: moves.length, moves, history: true, warning:favoriteWarning };
   }));
-  handle('undo', (event,context) => fileOperation(()=> {
-    const h = readHistory();
-    if (!h) throw new Error('沒有可復原的上一批操作紀錄');
+  handle('undo', (event,context) => fileOperation(async()=> {
+    const h=readHistory();if(!h)throw Error('沒有可復原的上一批操作紀錄');
+    const item=journal().list().find(item=>item.state==='completed'&&item.history&&JSON.stringify(item.history.moves)===JSON.stringify(h.moves));
+    if(item)return undoJournalOperation(item.id,false);
     if(h.kind!=='move'&&h.version===2)return renameJobs.run({kind:'undo',history:h,historyPath:historyFile()},renameProgress(event,context)).then(finishRenameJob);
-    const reversed = h.kind==='move'?prepareMoveUndo(h):prepareUndo(h);
-    // Keep interrupted undo from being replayed against a partially restored batch.
-    saveHistory({ ...h, state: 'undoing' });
-    if(h.kind==='move'){try{executeRelocation(reversed,{onPrepared:()=>saveHistory({...h,state:'undoing',undoMoves:reversed})});}catch(e){if(e.recoveryMoves?.length){const warning=syncFavoriteMoves(e.recoveryMoves);if(warning)e.message+='；'+warning;}throw e;}}else executeMoves(reversed);
-    const favoriteWarning=syncFavoriteMoves(reversed);
-    try { saveHistory(null); }
-    catch (e) { return { changed: reversed.length, moves: reversed, warning: [favoriteWarning,`檔案已還原，但清除復原紀錄時發生錯誤：${e.message}`].filter(Boolean).join('\n') }; }
-    return { changed: reversed.length, moves: reversed, warning:favoriteWarning };
+    const reversed=h.kind==='move'?prepareMoveUndo(h):prepareUndo(h);saveHistory({...h,state:'undoing'});let result;
+    if(h.kind==='move'){relocationJob=require('./relocation-job').run({moves:reversed,historyPath:historyFile()});try{result=await relocationJob.result;}finally{relocationJob=null;send(win,'workflow-move-state',{running:false});}}else{executeMoves(reversed);result={changed:reversed.length,moves:reversed};}
+    const warning=syncFavoriteMoves(reversed);saveHistory(null);everythingTracking.applyMoves(reversed);send(win,'everything-tracking-changed');return {...result,warning};
   }));
   handle('history', () => {
     const h = readHistory();
@@ -867,7 +880,7 @@ app.whenReady().then(() => {
   handle('export-csv', async (_, paths, rules) => {
     const preview = createPreview(paths, rules);
     if (!preview.rows.length) throw new Error('請先加入檔案');
-    const d = await dialog.showSaveDialog(win, {
+    const d = await outputDialog(win, {
       title: '匯出預覽 CSV', defaultPath: 'rename-preview.csv',
       filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }]
     });
@@ -1064,7 +1077,9 @@ app.whenReady().then(() => {
   }));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
-  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();toolOverlay.invalidate('logs');send(win,'record-reminders-changed',recordReminders.list());}});
+  productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{if(workflow)workflow.previous=notesStore().get();notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();toolOverlay.invalidate('logs');send(win,'record-reminders-changed',recordReminders.list());}});
+  try{journal().recover();}catch(error){diagnostics.record('main','operation-journal-recovery',error);}
+  workflow=require('./workflow-ipc').registerWorkflow({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,reminders:()=>recordReminders,productivity,tracking:everythingTracking,journal,move:performMovePlan,fileOperation,dialog,parent:()=>win,clipboard,changed:notesChanged,notifyFavorites,trash:filepath=>shell.trashItem(filepath),trackingChanged:()=>send(win,'everything-tracking-changed'),progress:value=>send(win,'workflow-analysis-progress',value),blocked:()=>Boolean(fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),onError:error=>diagnostics.record('main','workflow-monitor',error)});
   const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
   if(desktop.settings.closeToTray)desktopShell.ensureTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));
@@ -1075,7 +1090,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy||trashing){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(drafts?.requestClose(true)){event?.preventDefault();return;}recordReminders?.close();recordAttention?.close();if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{nativeFileIcons?.close();snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{workflow?.close();nativeFileIcons?.close();snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();

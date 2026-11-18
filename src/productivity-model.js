@@ -15,13 +15,13 @@
   for(const key of ['after','before'])if(input[key]&&(!/^\d{4}-\d{2}-\d{2}$/.test(input[key])||!Number.isFinite(Date.parse(input[key]+'T00:00:00Z'))||new Date(input[key]+'T00:00:00Z').toISOString().slice(0,10)!==input[key]))throw new Error('日期無效');
   if(input.after&&input.before&&input.after>input.before)throw new Error('日期範圍無效');
   const prefix=text(input.prefix||'',100,'檔名前綴');if(/[<>:"/\\|?*\x00-\x1f]/.test(prefix))throw new Error('檔名前綴包含不允許的字元');
-  return {...out,extensions:[...new Set(extensions)].join(','),contains:text(input.contains||'',100,'名稱條件'),after:input.after||'',before:input.before||'',prefix,tags:[...new Set(tags)],folder:text(input.folder||'',4096,'目標資料夾')};
+  return {...out,...(input.conditions?{conditions:(typeof module!=='undefined'&&module.exports?require('./workflow-model'):window.workflowModel).condition(input.conditions)}:{}),extensions:[...new Set(extensions)].join(','),contains:text(input.contains||'',100,'名稱條件'),after:input.after||'',before:input.before||'',prefix,tags:[...new Set(tags)],folder:text(input.folder||'',4096,'目標資料夾')};
  }
  function normalize(input){
   if(!input||input.version!==1)throw new Error('工具箱資料格式無效');const out={version:1};
   for(const kind of ['rules','worksets','snippets']){if(!Array.isArray(input[kind])||input[kind].length>(kind==='snippets'?500:100))throw new Error('工具數量超過上限');out[kind]=input[kind].map(value=>entry(kind,value));if(new Set(out[kind].map(value=>value.id)).size!==out[kind].length)throw new Error('工具識別碼重複');}const keys=out.snippets.map(item=>item.shortcut).filter(Boolean);if(new Set(keys).size!==keys.length)throw new Error('文字片段快捷鍵重複');return out;
  }
- function matches(rule,file){const extension=file.name.includes('.')?file.name.split('.').pop().toLowerCase():'';return (!rule.extensions||rule.extensions.split(',').includes(extension))&&(!rule.contains||file.name.toLocaleLowerCase().includes(rule.contains.toLocaleLowerCase()))&&(!rule.after||file.date>=rule.after)&&(!rule.before||file.date<=rule.before);}
+ function matches(rule,file){if(rule.conditions){const W=typeof module!=='undefined'&&module.exports?require('./workflow-model'):window.workflowModel;return W.evaluate(rule.conditions,{...file,extension:file.name.includes('.')?file.name.split('.').pop().toLowerCase():''}).matched;}const extension=file.name.includes('.')?file.name.split('.').pop().toLowerCase():'';return (!rule.extensions||rule.extensions.split(',').includes(extension))&&(!rule.contains||file.name.toLocaleLowerCase().includes(rule.contains.toLocaleLowerCase()))&&(!rule.after||file.date>=rule.after)&&(!rule.before||file.date<=rule.before);}
  function expandSnippet(body,{today,customer}={}){return body.replace(/\{\{(today|customer)\}\}/g,(_,key)=>key==='today'?today||new Date().toLocaleDateString('sv-SE'):customer||'');}
  function masterLabels(doc){
   const sheets=new Map(doc.sheets.filter(sheet=>!sheet.deletedAt).map(sheet=>[sheet.id,sheet]));

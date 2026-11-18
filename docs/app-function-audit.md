@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.122.0。以 `npm run audit:functions` 重新產生。
+版本：v1.123.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 195 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、24 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 211 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -11,7 +11,7 @@
 - 一般收藏既有排序由 favoriteSort／favoriteDirection 保存；工作區由 notes-table-state 管理表格版面與篩選；查看紀錄由 log-view-settings-model 管理各範圍篩選／排序歷史，沒有另建平行資料來源。
 - Everything 僅建立可見結果欄的 DOM 與格式文字；局部偏好更新避免重複重建結果，隱藏欄資料仍保留於同一快取。
 - 查看紀錄主視窗／浮窗共用標題與空白處展開／收合行為，提醒與前往工作區置於詳情內，保留文字選取；追蹤暫停沿用 trackingSave，表格複製沿用結果版本與檔案身分核對，不新增平行資料來源。
-- 新手指南共用 17 章內容來源，六項學習進度獨立保存；Ctrl+K 功能搜尋沿用首頁功能導覽與原有入口，F1 開啟指南，兩個按鈕位於資訊頁以精簡頂端；紀錄瀏覽將搜尋、篩選與檢視分開，條件標籤及快速日期共用原查詢與記憶。check:app 同時驗證指南版本、目標及離線產物。
+- 新手指南共用 18 章內容來源，六項學習進度獨立保存；Ctrl+K 功能搜尋沿用首頁功能導覽與原有入口，F1 開啟指南，兩個按鈕位於資訊頁以精簡頂端；紀錄瀏覽將搜尋、篩選與檢視分開，條件標籤及快速日期共用原查詢與記憶。check:app 同時驗證指南版本、目標及離線產物。
 - check:app 檢查頁面與快捷入口、功能目錄、工具目標、設定預設／分類／控制項、DOM ID、aria-controls 與本機依賴，錯誤會令命令失敗。
 
 ## 界線與後續驗證
@@ -58,6 +58,7 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
+| [analysis-job.js](../src/analysis-job.js) | `finish`、`run` |
 | [app-help.js](../src/app-help.js) | `$`、`blocked`、`close`、`init`、`navigate`、`open`、`render`、`showFinder`、`showGuide` |
 | [app-layout.css](../src/app-layout.css) | 版面、主題與互動狀態樣式 |
 | [app-navigation.js](../src/app-navigation.js) | `create` |
@@ -75,10 +76,11 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`updateSharedNotification`、`validatedLinkPaths` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [offline-policy.js](../src/offline-policy.js) | `allowedRequest`、`assertLocalPath`、`assertSafeOpen`、`installOfflinePolicy` |
 | [open-file-input.js](../src/open-file-input.js) | `openFileInput` |
+| [operation-journal.js](../src/operation-journal.js) | `begin`、`complete`、`constructor`、`enqueue`、`list`、`markUndone`、`read`、`rebase`、`recover`、`undoable`、`update`、`write` |
 | [operation-ui.css](../src/operation-ui.css) | 版面、主題與互動狀態樣式 |
 | [operation-ui.js](../src/operation-ui.js) | `$`、`close`、`create`、`receive`、`render`、`show`、`visibilityChanged` |
 | [preload.js](../src/preload.js) | `invoke`、`listener`、`notifyOperation` |
@@ -86,16 +88,26 @@
 | [quick-actions-settings.js](../src/quick-actions-settings.js) | `$`、`actionButton`、`appendOptions`、`displayFields`、`dropOptions`、`edit`、`fields`、`formFields`、`init`、`masters`、`move`、`node`、`persist`、`refresh`、`render`、`renderTagChecks`、`sheet` |
 | [record-browser.css](../src/record-browser.css) | 版面、主題與互動狀態樣式 |
 | [release-history.js](../src/release-history.js) | 宣告、設定或共用模型 |
+| [relocation-job-worker.js](../src/relocation-job-worker.js) | 宣告、設定或共用模型 |
+| [relocation-job.js](../src/relocation-job.js) | `done`、`run` |
+| [relocation-perform.js](../src/relocation-perform.js) | `perform` |
 | [renderer.js](../src/renderer.js) | `$`、`addFromResult`、`append`、`applyFontSize`、`applyRules`、`applyTheme`、`basename`、`bind`、`chooseFiles`、`chooseFolder`、`clearFiles`、`confirmRename`、`describe`、`dirname`、`dragOver`、`dropTarget`、`element`、`enqueuePreview`、`executeRename`、`executeUndo`、`expandGroups`、`exportCSV`、`filterFiles`、`getRules`、`groupHeader`、`grouped`、`init`、`initPresets`、`isFileDrag`、`moveListedSelection`、`norm`、`render`、`renderFiles`、`renderSavedPresets`、`renderTable`、`renderWorkspaceControls`、`saveCollapsedLocations`、`saveRulePreferences`、`selectFiltered`、`selectOne`、`setBusy`、`setRuleTab`、`shortDir`、`showDrop`、`showFailure`、`showToast`、`single`、`storeSavedPresets`、`undo`、`updatePreview`、`updateRuleControls`、`visibleGroupRows`、`wireEvents`、`withoutPrefix` |
 | [scheduled-backup.js](../src/scheduled-backup.js) | `tick` |
 | [style.css](../src/style.css) | 版面、主題與互動狀態樣式 |
 | [theme.js](../src/theme.js) | 宣告、設定或共用模型 |
 | [themes.css](../src/themes.css) | 版面、主題與互動狀態樣式 |
+| [tracking-changes.js](../src/tracking-changes.js) | `compare`、`constructor`、`identity`、`key`、`monitor`、`read`、`remove`、`seen`、`signature`、`update`、`write` |
 | [upgrades.css](../src/upgrades.css) | 版面、主題與互動狀態樣式 |
 | [user-guide-model.js](../src/user-guide-model.js) | `progress`、`search` |
 | [user-guide-ui.js](../src/user-guide-ui.js) | `button`、`filter`、`mount`、`persist`、`update` |
 | [user-guide.css](../src/user-guide.css) | 版面、主題與互動狀態樣式 |
 | [web-link-model.js](../src/web-link-model.js) | `links`、`normalize`、`valid` |
+| [workflow-hub.css](../src/workflow-hub.css) | 版面、主題與互動狀態樣式 |
+| [workflow-hub.js](../src/workflow-hub.js) | `actions`、`args`、`automations`、`button`、`canLeave`、`choose`、`chosen`、`conditions`、`contexts`、`destination`、`detail`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`inbox`、`input`、`message`、`ocr`、`open`、`operations`、`output`、`paint`、`render`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`tracking`、`values` |
+| [workflow-ipc.js](../src/workflow-ipc.js) | `ensure`、`registerWorkflow` |
+| [workflow-model.js](../src/workflow-model.js) | `aggregate`、`automationPlan`、`condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
+| [workflow-service.js](../src/workflow-service.js) | `analyze`、`close`、`constructor`、`convert`、`planAutomation`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`summary`、`take`、`token`、`trashDuplicates`、`validateDefinition` |
+| [workflow-store.js](../src/workflow-store.js) | `change`、`constructor`、`empty`、`normalize`、`read`、`remove`、`save` |
 | [workspace.css](../src/workspace.css) | 版面、主題與互動狀態樣式 |
 ### 收藏與 Everything
 
@@ -198,6 +210,7 @@
 | [tool-views.css](../src/tool-views.css) | 版面、主題與互動狀態樣式 |
 | [windows-context-menu.js](../src/windows-context-menu.js) | `command`、`favoriteArguments`、`invoke`、`setEnabled`、`status`、`supported`、`validFavoritePaths` |
 | [windows-file-icons.js](../src/windows-file-icons.js) | `close`、`fail`、`get`、`local`、`request`、`start` |
+| [windows-ocr.js](../src/windows-ocr.js) | `Await`、`recognize` |
 ### 搜尋與規劃
 
 | 原始檔 | 函式索引／用途 |
@@ -229,6 +242,8 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
+| [file-analysis-worker.js](../src/file-analysis-worker.js) | `checkpoint` |
+| [file-analysis.js](../src/file-analysis.js) | `compare`、`diffLines`、`duplicates`、`filesUnder`、`hashFile`、`signature`、`walk` |
 | [file-location-groups.js](../src/file-location-groups.js) | `arrange`、`collapseKey`、`location`、`members`、`normalize`、`visibleRows` |
 | [file-rules.js](../src/file-rules.js) | `preview`、`selected`、`tag` |
 | [move-core.js](../src/move-core.js) | `add`、`assertExpected`、`assertSourceTrees`、`copyExclusive`、`depth`、`destinationFor`、`directories`、`directoryFingerprint`、`equal`、`executeRelocation`、`exists`、`fingerprint`、`inside`、`isFolder`、`key`、`planMove`、`planRename`、`prepareMoveUndo`、`resolveMoveSources`、`stageFile`、`validate` |
@@ -237,12 +252,13 @@
 | [path-import.js](../src/path-import.js) | `$`、`attempt`、`check`、`commit`、`init`、`invalidate`、`lock`、`open`、`queue`、`showPreview`、`tags` |
 | [path-repair.js](../src/path-repair.js) | `add`、`apply`、`constructor`、`flavor`、`key`、`planRepair`、`preview`、`roots`、`translate`、`windows` |
 | [presets.js](../src/presets.js) | `presetRules`、`sanitizeSavedPresets`、`todayISO` |
-| [productivity-ipc.js](../src/productivity-ipc.js) | `backupNames`、`copySnippet`、`ensure`、`openWorkset`、`pasteSnippet`、`previewFile`、`registerProductivity`、`snippetText`、`state`、`viewData` |
+| [productivity-ipc.js](../src/productivity-ipc.js) | `backupNames`、`copySnippet`、`ensure`、`openWorkset`、`pasteSnippet`、`previewFile`、`recent`、`registerProductivity`、`remember`、`snippetText`、`state`、`viewData` |
 | [productivity-model.js](../src/productivity-model.js) | `agenda`、`board`、`entry`、`expandSnippet`、`ids`、`masterLabels`、`matches`、`normalize`、`text` |
 | [productivity-store.js](../src/productivity-store.js) | `constructor`、`get`、`reload`、`remove`、`replace`、`save`、`writeJSON` |
 | [productivity.css](../src/productivity.css) | 版面、主題與互動狀態樣式 |
 | [productivity.js](../src/productivity.js) | `$`、`apply`、`applyRestored`、`button`、`changed`、`clearRule`、`clearSnippet`、`clearWorkset`、`configuration`、`discard`、`editRule`、`empty`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`moveCard`、`node`、`openLogs`、`openRecord`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectSnippet`、`selectWorkset`、`setFolder`、`setupToolSplits`、`show`、`showPreview`、`snippetPicker`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetBulk`、`updateWorkCounts` |
-| [profile-service.js](../src/profile-service.js) | `backup`、`captureFiles`、`cleanUI`、`deleteHistory`、`hash`、`history`、`historyPath`、`normalizeBundle`、`preview`、`readJSON`、`recoverProfile`、`restore`、`restoreFiles`、`signature`、`snapshot`、`take`、`transaction` |
+| [profile-extra.js](../src/profile-extra.js) | `exportAuxiliary`、`normalize`、`normalizeAssets`、`packAssets`、`replaceAuxiliary`、`sha`、`unpackAssets` |
+| [profile-service.js](../src/profile-service.js) | `captureFiles`、`cleanUI`、`deleteHistory`、`hash`、`history`、`historyPath`、`normalizeBundle`、`preview`、`readJSON`、`recoverProfile`、`restore`、`restoreFiles`、`signature`、`take`、`trial` |
 | [rename-core.js](../src/rename-core.js) | `assertFingerprint`、`createPreview`、`emit`、`executeMoves`、`fileIdentity`、`filenameProblem`、`fingerprintFile`、`formatDate`、`hashReporter`、`key`、`listPaths`、`localDate`、`normalizeOptions`、`pathExists`、`prepareUndo`、`renameOne`、`reportProgress`、`safe`、`sameIdentity`、`snapshotMoves`、`splitName`、`validateMoves`、`visit` |
 | [rename-history.js](../src/rename-history.js) | `writeHistory` |
 | [rename-job-worker.js](../src/rename-job-worker.js) | 宣告、設定或共用模型 |

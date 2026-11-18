@@ -62,7 +62,7 @@ class NotesStore {
     this.db.exec('COMMIT');this.pending=null;return {...state,result};
    }
    const beforeView=Audit.view(beforeDocument),afterView=Audit.view(doc);
-   for(const record of doc.records)if(before.has(record.id)&&before.get(record.id)!==JSON.stringify(record)){
+   for(const record of doc.records)if(!context.skipHistory&&before.has(record.id)&&before.get(record.id)!==JSON.stringify(record)){
     const id=crypto.randomUUID(),previous=JSON.parse(before.get(record.id));this.db.prepare('INSERT INTO record_history VALUES (?,?,?,?)').run(id,record.id,new Date().toISOString(),before.get(record.id));
     const metadata={operation:context.operation||'工作區操作',source:context.source||'本機',sourceRevision:context.sourceRevision??null,sourceVersion:context.sourceVersion??null,sourceCommit:context.sourceCommit??null,scope:context.scope||null,packageName:context.packageName||'',workspaceRevision:state.revision+1,versionFrom:previous.version,versionTo:record.version,changes:Audit.recordChanges(previous,record,beforeView,afterView)};
     this.db.prepare('INSERT INTO record_history_details VALUES (?,?)').run(id,JSON.stringify(metadata));
@@ -130,7 +130,7 @@ class NotesStore {
    const parent=model.parentField(doc,sheet),parents=parent?input.values?.[parent.id]:null;if(parent&&(!Array.isArray(parents)||parents.length!==1||!doc.records.some(record=>record.id===parents[0]&&record.sheetId===parent.targetSheetId&&model.live(doc,record)))&&(!old||JSON.stringify(parents)!==JSON.stringify(old.values[parent.id])))throw new Error('明細必須關聯一筆可用的主紀錄；請先選擇客戶或其他主紀錄');
    const now=new Date().toISOString(),record={id:old?.id||crypto.randomUUID(),sheetId:sheet.id,title:input.title,notes:input.notes,tags:input.tags,values:input.values,fileLinks:input.fileLinks,favoriteTagLinks:input.favoriteTagLinks??old?.favoriteTagLinks??[],createdAt:old?.createdAt||now,updatedAt:now,deletedAt:null,version:(old?.version||0)+1};
    if(old)doc.records[doc.records.indexOf(old)]=record;else doc.records.push(record);
-   if(draft)this.deleteDraft(draft.id,draft.version);
+   if(draft)this.deleteDraft(draft.id,draft.version);if(context.receiptDraftId){this.db.exec('CREATE TABLE IF NOT EXISTS workflow_receipts (draft_id TEXT PRIMARY KEY, record_id TEXT NOT NULL)');this.db.prepare('INSERT INTO workflow_receipts VALUES (?,?)').run(model.id(context.receiptDraftId),record.id);}
    return {id:record.id};
   },undefined,context);
  }
