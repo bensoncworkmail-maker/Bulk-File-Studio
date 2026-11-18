@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.123.0。以 `npm run audit:functions` 重新產生。
+版本：v1.124.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 211 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 212 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -102,8 +102,9 @@
 | [user-guide-ui.js](../src/user-guide-ui.js) | `button`、`filter`、`mount`、`persist`、`update` |
 | [user-guide.css](../src/user-guide.css) | 版面、主題與互動狀態樣式 |
 | [web-link-model.js](../src/web-link-model.js) | `links`、`normalize`、`valid` |
+| [workflow-guide-model.js](../src/workflow-guide-model.js) | 宣告、設定或共用模型 |
 | [workflow-hub.css](../src/workflow-hub.css) | 版面、主題與互動狀態樣式 |
-| [workflow-hub.js](../src/workflow-hub.js) | `actions`、`args`、`automations`、`button`、`canLeave`、`choose`、`chosen`、`conditions`、`contexts`、`destination`、`detail`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`inbox`、`input`、`message`、`ocr`、`open`、`operations`、`output`、`paint`、`render`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`tracking`、`values` |
+| [workflow-hub.js](../src/workflow-hub.js) | `actions`、`args`、`automations`、`button`、`canLeave`、`choose`、`chosen`、`conditions`、`contexts`、`destination`、`detail`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`inbox`、`input`、`message`、`ocr`、`open`、`operations`、`output`、`paint`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`tracking`、`values` |
 | [workflow-ipc.js](../src/workflow-ipc.js) | `ensure`、`registerWorkflow` |
 | [workflow-model.js](../src/workflow-model.js) | `aggregate`、`automationPlan`、`condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
 | [workflow-service.js](../src/workflow-service.js) | `analyze`、`close`、`constructor`、`convert`、`planAutomation`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`summary`、`take`、`token`、`trashDuplicates`、`validateDefinition` |
