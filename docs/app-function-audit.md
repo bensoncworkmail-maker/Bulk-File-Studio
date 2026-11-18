@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.124.0。以 `npm run audit:functions` 重新產生。
+版本：v1.125.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 212 個 JS／HTML／CSS 檔案；核對 10 個頁面、6 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 213 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -96,6 +96,7 @@
 | [style.css](../src/style.css) | 版面、主題與互動狀態樣式 |
 | [theme.js](../src/theme.js) | 宣告、設定或共用模型 |
 | [themes.css](../src/themes.css) | 版面、主題與互動狀態樣式 |
+| [toolbox-model.js](../src/toolbox-model.js) | `get` |
 | [tracking-changes.js](../src/tracking-changes.js) | `compare`、`constructor`、`identity`、`key`、`monitor`、`read`、`remove`、`seen`、`signature`、`update`、`write` |
 | [upgrades.css](../src/upgrades.css) | 版面、主題與互動狀態樣式 |
 | [user-guide-model.js](../src/user-guide-model.js) | `progress`、`search` |
@@ -104,7 +105,7 @@
 | [web-link-model.js](../src/web-link-model.js) | `links`、`normalize`、`valid` |
 | [workflow-guide-model.js](../src/workflow-guide-model.js) | 宣告、設定或共用模型 |
 | [workflow-hub.css](../src/workflow-hub.css) | 版面、主題與互動狀態樣式 |
-| [workflow-hub.js](../src/workflow-hub.js) | `actions`、`args`、`automations`、`button`、`canLeave`、`choose`、`chosen`、`conditions`、`contexts`、`destination`、`detail`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`inbox`、`input`、`message`、`ocr`、`open`、`operations`、`output`、`paint`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`tracking`、`values` |
+| [workflow-hub.js](../src/workflow-hub.js) | `actionFields`、`args`、`automations`、`button`、`canLeave`、`changeSheet`、`choose`、`chosen`、`conditions`、`contexts`、`destination`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`getValue`、`go`、`inbox`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`operations`、`output`、`paint`、`parentField`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`setting`、`sheets`、`snippets`、`sourceTools`、`tracking`、`triggerState`、`update`、`values` |
 | [workflow-ipc.js](../src/workflow-ipc.js) | `ensure`、`registerWorkflow` |
 | [workflow-model.js](../src/workflow-model.js) | `aggregate`、`automationPlan`、`condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
 | [workflow-service.js](../src/workflow-service.js) | `analyze`、`close`、`constructor`、`convert`、`planAutomation`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`summary`、`take`、`token`、`trashDuplicates`、`validateDefinition` |
@@ -257,7 +258,7 @@
 | [productivity-model.js](../src/productivity-model.js) | `agenda`、`board`、`entry`、`expandSnippet`、`ids`、`masterLabels`、`matches`、`normalize`、`text` |
 | [productivity-store.js](../src/productivity-store.js) | `constructor`、`get`、`reload`、`remove`、`replace`、`save`、`writeJSON` |
 | [productivity.css](../src/productivity.css) | 版面、主題與互動狀態樣式 |
-| [productivity.js](../src/productivity.js) | `$`、`apply`、`applyRestored`、`button`、`changed`、`clearRule`、`clearSnippet`、`clearWorkset`、`configuration`、`discard`、`editRule`、`empty`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`moveCard`、`node`、`openLogs`、`openRecord`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectSnippet`、`selectWorkset`、`setFolder`、`setupToolSplits`、`show`、`showPreview`、`snippetPicker`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetBulk`、`updateWorkCounts` |
+| [productivity.js](../src/productivity.js) | `$`、`apply`、`applyRestored`、`button`、`canSwitch`、`changed`、`clearRule`、`clearSnippet`、`clearWorkset`、`configuration`、`discard`、`editRule`、`empty`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`moveCard`、`node`、`openLogs`、`openRecord`、`openSection`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectSnippet`、`selectWorkset`、`setFolder`、`setupToolSplits`、`show`、`showPreview`、`snippetPicker`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetBulk`、`updateWorkCounts` |
 | [profile-extra.js](../src/profile-extra.js) | `exportAuxiliary`、`normalize`、`normalizeAssets`、`packAssets`、`replaceAuxiliary`、`sha`、`unpackAssets` |
 | [profile-service.js](../src/profile-service.js) | `captureFiles`、`cleanUI`、`deleteHistory`、`hash`、`history`、`historyPath`、`normalizeBundle`、`preview`、`readJSON`、`recoverProfile`、`restore`、`restoreFiles`、`signature`、`take`、`trial` |
 | [rename-core.js](../src/rename-core.js) | `assertFingerprint`、`createPreview`、`emit`、`executeMoves`、`fileIdentity`、`filenameProblem`、`fingerprintFile`、`formatDate`、`hashReporter`、`key`、`listPaths`、`localDate`、`normalizeOptions`、`pathExists`、`prepareUndo`、`renameOne`、`reportProgress`、`safe`、`sameIdentity`、`snapshotMoves`、`splitName`、`validateMoves`、`visit` |

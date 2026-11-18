@@ -1,9 +1,9 @@
 'use strict';
 (() => {
- const $=id=>document.getElementById(id),api=window.productivityAPI,M=window.studioProductivity;
+ const $=id=>document.getElementById(id),api=window.productivityAPI,M=window.studioProductivity,T=window.toolboxModel;
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
  const button=(label,task,cls='btn btn-ghost')=>{const el=node('button',label,cls);el.type='button';el.addEventListener('click',()=>{if(!busy)task();});return el;};
- let callbacks,busy=false,dirty=true,loaded=false,section='repair',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),refreshRequest=0,planning;
+ let callbacks,busy=false,dirty=true,loaded=false,section='inbox',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),refreshRequest=0,planning,pendingSource;
  const selectedTools={rules:null,worksets:null,snippets:null},snippetSelection=new Set(),backupSelection=new Set();const splitControls=[];let advancedConditions;let nativePreferences={toolSplitWidths:{}};
  const liveRecords=()=>state?.workspace.document.records.filter(record=>!record.deletedAt&&state.workspace.document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt))||[];
  const configuration=()=>({settings:window.settingsUI.get(),shortcuts:window.studioShortcuts.getBindings(),...callbacks.configuration()});
@@ -30,15 +30,18 @@
   }
  }
  async function load(){const request=++refreshRequest,data=await api.get();if(request!==refreshRequest)return;state=data;loaded=true;dirty=false;render();}
- function show(value){
-  if(value==='calendar'||value==='logs'){
-   window.favoritesUI.show(value==='calendar'?'planning':'logs');
-   return;
-  }
-  section=value;
-  for(const item of $('productivity-nav').querySelectorAll('button'))item.setAttribute('aria-pressed',String(item.dataset.productivity===value));
+ function canSwitch(value){if(busy)return false;if(value===section)return true;if(window.workflowHub?.canLeave?.()===false)return false;const kind={rules:'rules',worksets:'worksets',snippets:'snippets'}[section];return !kind||discard(kind);}
+ function show(value,source){
+  if(value==='calendar'||value==='logs')return window.favoritesUI.show(value==='calendar'?'planning':'logs');
+  const route=T.get(value);if(!route||!canSwitch(value))return false;const wasWorkflow=Boolean(T.get(section)?.workflow);section=value;const parent=T.parent(value);
+  for(const item of $('productivity-nav').querySelectorAll('[data-productivity]')){const active=item.dataset.productivity===parent;item.setAttribute('aria-pressed',String(active));if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
+  if(T.extra.some(item=>item.id===parent))$('toolbox-advanced').open=true;
   for(const panel of $('productivity-page').querySelectorAll('.productivity-panel'))panel.hidden=panel.id!=='productivity-'+value;
+  const sub=$('toolbox-subnav');sub.replaceChildren();const ids=parent==='contexts'?['contexts','worksets']:parent==='parameters'?['parameters','snippets']:parent==='rules'?['rules','conditions']:[];sub.hidden=!ids.length;
+  for(const id of ids){const entry=T.get(id),control=button(entry.title,()=>show(id));control.setAttribute('aria-pressed',String(value===id));sub.append(control);}
+  if(route.workflow)void window.workflowHub?.mount?.(route.workflow,source);else{window.workflowHub?.deactivate?.();if(wasWorkflow&&loaded)void run(load).then(()=>{if(value==='rules'){const rule=state.data.rules.find(row=>row.id===selectedTools.rules);if(rule)editRule(rule);}});}return true;
  }
+ function openSection(tool,options={}){if(!T.get(tool))return false;if(!$('productivity-page').classList.contains('hidden'))return show(tool,options.source);if(!canSwitch(tool))return false;const previous=section;section=tool;pendingSource=options.source;if(window.favoritesUI.show('productivity')===false){section=previous;pendingSource=undefined;return false;}if(busy)return true;const source=pendingSource;pendingSource=undefined;return show(tool,source);}
 
  function options(id,items,empty='請選擇'){const select=$(id),old=select.value;select.replaceChildren();if(empty!==null){const option=node('option',empty);option.value='';select.append(option);}for(const item of items){const option=node('option',item.label);option.value=item.id;select.append(option);}if(items.some(item=>item.id===old))select.value=old;}
  function empty(root,text){if(!root.children.length)root.append(node('p',text,'productivity-empty'));}
@@ -155,16 +158,16 @@
    $(id)?.addEventListener('click',()=>window.desktopAPI.openFloatingPanel(kind).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
   }
   api.onToolOpen?.(config=>{
-   const page=config.kind==='snippets'?'productivity':config.kind;
+   if(config.kind==='snippets'){if(!openSection('snippets'))callbacks.showFailure('請先完成目前操作','原有輸入已保留');return;}
+   const page=config.kind;
    if(config.kind==='logs')pendingLogs=config;
    if(!window.favoritesUI.show(page)){
     pendingLogs=null;
     callbacks.showFailure('請先完成目前操作','原有輸入已保留');
     return;
    }
-   if(config.kind==='snippets')show('snippets');
   });
-$('tab-productivity').addEventListener('click',()=>window.favoritesUI.show('productivity'));$('productivity-nav').addEventListener('click',event=>{const target=event.target.closest('[data-productivity]');if(target)show(target.dataset.productivity);});$('productivity-refresh').addEventListener('click',()=>run(load,'已重新整理。'));
+$('tab-productivity').addEventListener('click',()=>openSection(section));$('productivity-nav').addEventListener('click',event=>{const target=event.target.closest('[data-productivity]');if(target)show(target.dataset.productivity);});$('productivity-refresh').addEventListener('click',()=>{if(!canSwitch('__refresh'))return;window.workflowHub?.deactivate?.();run(load,'已重新整理。').then(()=>show(section));});
   const drop=window.studioFileDrop;
   const setFolder=id=>paths=>run(async()=>{
    $(id).value=await api.folder(drop.single(paths));
@@ -201,5 +204,5 @@ $('tab-productivity').addEventListener('click',()=>window.favoritesUI.show('prod
    if(!busy&&$('planning-page')&&!$('planning-page').classList.contains('hidden'))run(load);
   };window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
  }
- window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection:tool=>{if(Object.hasOwn(window.quickActionsModel.TOOLS,tool)&&window.favoritesUI.show('productivity'))show(tool);},canLeave:()=>!busy,activate:()=>{if(!loaded||dirty)return run(load);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
+ window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();
