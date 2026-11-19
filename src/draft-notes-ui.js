@@ -2,6 +2,7 @@
 (() => {
  const api=window.draftAPI,structured=window.structuredNoteModel,$=id=>document.getElementById(id);
  const type=$('draft-type');
+ let pendingSelection=null,initialized=false;api.onSelect?.(id=>{pendingSelection=id;if(initialized)void run(async()=>{showDraft(await api.read(pendingSelection));pendingSelection=null;});});
  let itemsEditor;
  const title=$('title'),body=$('body'),sheet=$('sheet'),master=$('master'),status=$('status');
  let current=null,summaries=[],sheets=[],timer,writing,busy=false,closeRequested=false,closing=false;
@@ -334,9 +335,10 @@
   draftSplit=window.resizableSplit.attach($('draft-layout'),{width:preferences.draftListWidth||170,min:110,max:600,label:'調整草稿清單寬度',save:width=>api.configure({draftListWidth:width})});
   const localDate=new Date(Date.now()+3600000);$('reminder-at').value=new Date(localDate.getTime()-localDate.getTimezoneOffset()*60000).toISOString().slice(0,16);
   summaries=data.drafts;
-  const draft=summaries.length?await api.read(summaries[0].id):await api.newDraft();
+  const draft=pendingSelection?await api.read(pendingSelection):summaries.length?await api.read(summaries[0].id):await api.newDraft();pendingSelection=null;
   showDraft(draft);remember(draft);
   await refreshTargets(data);
+  initialized=true;if(pendingSelection){showDraft(await api.read(pendingSelection));pendingSelection=null;}
   report('草稿儲存在本機');
   setBusy(false);body.focus();
  });

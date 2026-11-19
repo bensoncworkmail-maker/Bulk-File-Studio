@@ -77,7 +77,7 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
   }
 }));
 
-contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({workspace:(action,value)=>invoke('floating-workspace',action,value),captureShortcuts:enabled=>invoke('shortcuts-recording',enabled),
+contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({retryShortcuts:()=>invoke('shortcuts-retry'),workspace:(action,value)=>invoke('floating-workspace',action,value),toolData:(kind,filters)=>invoke('floating-tool-data',kind,filters),toolAction:(kind,action,value)=>invoke('floating-tool-action',kind,action,value),onMainTool:callback=>ipcRenderer.on('floating-main-tool-open',(_,kind)=>callback(kind)),captureShortcuts:enabled=>invoke('shortcuts-recording',enabled),
  dropFiles:(paths,tag)=>invoke('floating-drop',paths,tag),
  toggleFloatingSearch:(query,anchor)=>invoke('floating-search-toggle',query,anchor),prepareFloatingSearch:(query,key)=>invoke('floating-search-prepare',query,key),previewFloatingSearch:(query,key,activate)=>invoke('floating-search-preview',query,key,activate),cancelFloatingSearch:key=>invoke('floating-search-cancel',key),openFloatingSearch:query=>invoke('floating-search-open',query),bulkPreview:(input,revision)=>invoke('notes-bulk-preview',input,revision),bulkCommit:token=>invoke('notes-bulk-commit',token),openDrafts:()=>invoke('draft-open'),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:(id,anchor)=>invoke('floating-quick-action',id,anchor),
  defaults:()=>invoke('desktop-settings-defaults'),
