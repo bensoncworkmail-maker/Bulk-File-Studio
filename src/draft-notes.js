@@ -126,7 +126,7 @@ class DraftNotes{
    if(draft.attachments.length+sources.length>MAX_ATTACHMENTS)throw new Error('每份草稿最多 48 個附件');
    const dataRoot=path.dirname(this.imageDir);
    for(const item of additions)if(item.path===path.parse(item.path).root||inside(dataRoot,item.path)||inside(item.path,dataRoot))throw new Error('請選擇程式資料目錄以外的檔案／資料夾，不能搬移磁碟根目錄');
-   const folder=assertLocalPath(path.join(this.imageDir,draft.id,'files'));
+   const folder=assertLocalPath(path.join(this.imageDir,draft.id));
    if(mode==='move'){
     const result=await this.dialog.showMessageBox(this.window,{type:'question',title:'移動附件到草稿',message:'移動 '+sources.length+' 個檔案／資料夾到草稿儲存區？',detail:'完整複製校驗並儲存附件後，會移除原位置的檔案。\n\n來源：\n'+sources.slice(0,8).join('\n')+(sources.length>8?'\n另有 '+(sources.length-8)+' 個來源':'')+'\n\n目的位置：\n'+folder,buttons:['取消','移動到草稿'],defaultId:0,cancelId:0,noLink:true});
     if(result.response!==1)return {...draft,attachmentCanceled:true};
@@ -149,14 +149,13 @@ class DraftNotes{
   const png=pngBytes(image.toPNG());
   const folder=assertLocalPath(path.join(this.imageDir,draft.id));
   fs.mkdirSync(folder,{recursive:true});
-  const filepath=assertLocalPath(path.join(folder,randomUUID()+'.png'));
-  fs.writeFileSync(filepath,png,{flag:'wx',mode:0o600});
+  const numbers=fs.readdirSync(folder).map(name=>/^貼上的圖片 ([1-9]\d{0,5})\.png$/.exec(name)).filter(Boolean).map(match=>Number(match[1]));let number=Math.max(draft.attachments.filter(item=>item.image).length,...numbers,0)+1;let filepath;for(;;){filepath=assertLocalPath(path.join(folder,'貼上的圖片 '+number+'.png'));try{fs.writeFileSync(filepath,png,{flag:'wx',mode:0o600});break;}catch(error){if(error.code!=='EEXIST')throw error;if(++number>999999)throw Error('圖片編號已達上限');}}
   try{return store.saveDraft(id,version,{attachments:[...draft.attachments,{path:filepath,type:'file',image:true}]});}
   catch(error){fs.rmSync(filepath,{force:true});throw error;}
  }
  image(id,index){
   const draft=this.store().draft(id),item=draft.attachments[index];
-  if(!Number.isSafeInteger(index)||!item?.image||path.extname(item.path)!=='.png'||!M.ID.test(path.basename(item.path,'.png'))||
+  if(!Number.isSafeInteger(index)||!item?.image||path.extname(item.path)!=='.png'||!(M.ID.test(path.basename(item.path,'.png'))||/^貼上的圖片 [1-9]\d{0,5}\.png$/.test(path.basename(item.path)))||
    ![this.imageDir,path.join(this.imageDir,draft.id)].includes(path.dirname(item.path)))throw new Error('圖片附件不存在');
   assertLocalPath(item.path);
   const bytes=pngBytes(readStableBytes(item.path,{maxBytes:MAX_IMAGE,label:'草稿圖片'}));

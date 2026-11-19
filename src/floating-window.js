@@ -39,6 +39,7 @@ class FloatingWindow {
   }
   this.opacity();
  }
+ ensureVisible(){const bounds=this.liveBounds(),defaults=this.collapsed?{width:this.desktop.settings.floatingCollapsedWidth,height:40,minWidth:collapsedMinimumWidth(this.desktop.settings),minHeight:40}:windowDefaults(this.desktop.settings);this.place(bounds,defaults);this.captureExpanded();this.record();}
  saveDefaultSize(){this.captureExpanded();const settings=this.desktop.update({floatingDefaultWidth:this.expanded.width,floatingDefaultHeight:this.expanded.height,floatingCollapsed:false});this.apply();this.record();return settings;}
  restoreDefaultSize(){this.desktop.update({floatingCollapsed:false});this.apply();const defaults=windowDefaults(this.desktop.settings);this.expanded={...this.liveBounds(),width:defaults.width,height:defaults.height};this.place(this.expanded,defaults);this.captureExpanded();this.record();return this.desktop.settings;}
  compactSize(){this.expanded={...this.liveBounds(),width:260,height:300};this.transitioning=true;try{this.place({...this.expanded,width:this.collapsed?this.desktop.settings.floatingCollapsedWidth:260,height:this.collapsed?40:300},this.collapsed?{width:this.desktop.settings.floatingCollapsedWidth,minWidth:collapsedMinimumWidth(this.desktop.settings),height:40,minHeight:40}:windowDefaults(this.desktop.settings));}finally{this.transitioning=false;}this.captureExpanded();this.record();}
