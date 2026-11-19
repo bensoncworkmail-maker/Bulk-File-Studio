@@ -3,6 +3,7 @@
  const {PANELS,FILES_LABEL,normalize,enabledPanels}=window.floatingPanelsModel;
  // Each factory owns its view and per-session filters. The host owns placement and lifecycle.
  const builtins={
+  clipboard:{mount:(root,api)=>window.floatingClipboardUI.mount(root,api)},
   planning:{preferences:['planningMode'],mount:(root,api,prefs)=>mountTool(root,api,'planning',{mode:prefs.planningMode})},
   snippets:{preferences:['snippetQuery','snippetLayout'],mount:(root,api,prefs)=>mountTool(root,api,'snippets',{query:prefs.snippetQuery,layout:prefs.snippetLayout})}
  };
@@ -30,7 +31,7 @@
   function select(id,focus=false){
    if(!prefs){queued=id;return;}
    if(id!=='files'&&(!prefs.enabled.includes(id)||!Object.hasOwn(components,id)))return;
-   const changed=active!==id;
+   const changed=active!==id;if(changed&&focus)api?.workspace?.('panel',id).catch(()=>{});
    active=id;
    if(!collapsed&&id!=='files'&&!views.has(id)){
     const area=document.createElement('section');
@@ -55,7 +56,7 @@
      const {preferences=[]}=components[id];
      if(!prefs.enabled.includes(id)||preferences.some(key=>previous[key]!==prefs[key]))remove(id);
     }
-    if(!previous||previous.defaultPanel!==prefs.defaultPanel)active=prefs.defaultPanel;
+    if(!previous||previous.defaultPanel!==prefs.defaultPanel)active=settings.floatingRememberPanel!==false&&['files',...prefs.enabled].includes(settings.floatingLastPanel)?settings.floatingLastPanel:prefs.defaultPanel;
     if(!prefs.enabled.includes(active))active='files';
     tabs.replaceChildren();
     for(const id of ['files',...enabledPanels(prefs)]){
@@ -74,7 +75,7 @@
   function refresh(kind){
    if(!collapsed&&(!kind||kind===active))views.get(active)?.view.refresh();
   }
-  return {sync,select,refresh};
+  return {sync,select,refresh,current:()=>active};
  }
  window.floatingPanels={create};
 })();

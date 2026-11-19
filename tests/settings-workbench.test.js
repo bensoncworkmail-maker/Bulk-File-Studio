@@ -152,7 +152,7 @@ test('draft thumbnail height and floating search close behavior can be configure
 
 test('remember-last-tab is on for existing settings and exposes the fixed startup choice only after opt-out',async()=>{
  const h=setup({favoriteStartKind:'workspace',favoriteLastKind:'everything'});await flush();assert.equal(h.$('settings-favorite-remember-last-tab').checked,true);assert.equal(h.$('settings-favorite-start-kind').disabled,true);
- h.$('settings-favorite-remember-last-tab').checked=false;await h.$('settings-favorite-remember-last-tab').dispatch('change');assert.equal(h.$('settings-favorite-start-kind').disabled,false);assert.equal(h.ui.get().favoriteStartKind,'workspace');assert.equal(h.ui.get().favoriteLastKind,'everything');
+ h.$('settings-favorite-remember-last-tab').checked=false;await h.$('settings-favorite-remember-last-tab').dispatch('change');assert.equal(h.$('settings-favorite-start-kind').disabled,false);assert.equal(h.ui.get().favoriteStartKind,'workspace');assert.equal(h.ui.get().favoriteLastKind,'files');
  const data=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.107.0');assert.equal(data.settings.favoriteRememberLastTab,false);
  h.ui.openCategory('favorites');await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');assert.equal(h.ui.get().favoriteRememberLastTab,true);assert.equal(h.$('settings-favorite-start-kind').disabled,true);
 });

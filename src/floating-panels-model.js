@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const PANELS=Object.freeze({planning:'日曆／看板',snippets:'常用文字片段'});
+ const PANELS=Object.freeze({clipboard:'剪貼簿',planning:'日曆／看板',snippets:'常用文字片段'});
  const FILES_LABEL='收藏／工作區';
  const keys=Object.keys(PANELS);
  const known=id=>typeof id==='string'&&Object.hasOwn(PANELS,id);

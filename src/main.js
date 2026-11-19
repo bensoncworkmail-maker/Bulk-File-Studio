@@ -292,7 +292,7 @@ app.whenReady().then(() => {
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
     const main=win&&event?.sender===win.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
     const mini=floating&&event?.sender===floating.webContents&&event?.senderFrame?.url===pathToFileURL(path.join(__dirname,'floating.html')).href;
-    const floatingAllowed=['draft-open','floating-panel-data','floating-panel-action','floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','focus-mode-toggle','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu','context-desktop-open'];
+    const floatingAllowed=['floating-workspace','draft-open','floating-panel-data','floating-panel-action','floating-layout-order','floating-search-toggle','floating-search-prepare','floating-search-preview','floating-search-cancel','floating-search-open','diagnostics-report','floating-drop','floating-quick-action','floating-workspace-new','floating-workspace-list','floating-workspace-open','favorites-list','favorites-open','favorites-show','favorites-copy','desktop-settings-get','focus-mode-toggle','floating-hide','floating-main','floating-pin','floating-view','floating-tools','floating-collect','floating-import','floating-collapse','floating-copy-paths','floating-tag-menu','floating-item-menu','floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end','floating-header-menu','context-desktop-open'];
     return loggedInvocation(main?'main-renderer':mini?'floating':'untrusted',channel,()=>{
       if(!main&&!(mini&&floatingAllowed.includes(channel))&&!(channel==='diagnostics-report'&&(capture?.owns(event)||recordAttention?.owns(event)||floatingSearch?.owns(event))))throw new Error('不受信任的操作來源');
       if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json'))&&!['diagnostics-report','diagnostics-status','app-info'].includes(channel))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
@@ -670,6 +670,7 @@ app.whenReady().then(() => {
   handle('focus-mode-toggle',()=>configureDesktop({focusMode:!desktop.settings.focusMode}));
   handle('snippet-picker-reset-groups',()=>desktop.replaceSnippetPickerGroups([]));
   handle('desktop-reset-window',()=>applyMainBounds(null));
+  require('./floating-workspace').register({handle,clipboard,configure:patch=>configureDesktop(patch),openPage:page=>{focusMain();const target=win,open=()=>send(target,'open-app-page',page);if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();},openTool:kind=>openToolOverlay(kind),idleCollapse:()=>floating?.nativeMenuOpen||fileOperationBusy||trashing?{skipped:true}:setFloatingCollapsed(true)});
   handle('floating-show',()=>showFloating());
   handle('floating-hide',()=>{floatingSearch?.destroy();floating?.hide();});
   handle('floating-compact-size',()=>{showFloating();floatingWindow.compactSize();});
@@ -683,6 +684,7 @@ app.whenReady().then(() => {
     const command=task=>floatingAction(async()=>{await task();publish();});
     popupFloatingMenu([
       {label:settings.floatingCollapsed?'展開浮動工具':'收合浮動工具',click:command(()=>setFloatingCollapsed(!desktop.settings.floatingCollapsed))},
+      {label:'入口模式',submenu:[['classic','傳統工具列'],['bar','側邊工具列'],['dock','Dock 工具列'],['bubble','懸浮球']].map(([mode,label])=>({label,type:'radio',checked:settings.floatingLauncher===mode,click:command(()=>configureDesktop({floatingLauncher:mode}))}))},
       {label:'專注模式',type:'checkbox',checked:settings.focusMode===true,click:command(()=>configureDesktop({focusMode:!desktop.settings.focusMode}))},
       {label:'桌面工作情境',click:command(()=>showDesktopContext())},
       {label:'保持置頂',type:'checkbox',checked:settings.floatingOnTop,click:command(()=>{const next=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});floating.setAlwaysOnTop(next.floatingOnTop);toolOverlay?.updateSettings();})},

@@ -55,7 +55,7 @@
   images.replaceChildren();images.hidden=true;
   if(!current)return;
   for(const [index,item] of current.attachments.entries()){
-   const numbered=item.image&&/貼上的圖片 [1-9]\d{0,5}\.png$/.exec(item.path);const name=item.image?(numbered?numbered[0].slice(0,-4):'貼上的圖片 '+(images.children.length+1)):item.path;
+   const numbered=item.image&&/(?:貼上的圖片 |[0-9a-f-]{36}-)([0-9]{1,6})\.png$/.exec(item.path);const name=item.image?(numbered?'貼上的圖片 '+Number(numbered[1]):'貼上的圖片 '+(images.children.length+1)):item.path;
    const remove=el('button','移除');remove.type='button';remove.setAttribute('aria-label','移除 '+name);
    remove.addEventListener('click',()=>changeAttachments(()=>api.remove(current.id,current.version,index)));
    if(item.image){

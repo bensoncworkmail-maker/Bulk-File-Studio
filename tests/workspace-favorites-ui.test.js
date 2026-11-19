@@ -172,24 +172,12 @@ test('tag management includes manual bookmarks hidden by table-tracked recycling
  h.$('workspace-favorite-manage-name').value='Renamed';await h.$('workspace-favorite-manage-form').dispatch('submit');await flush();assert.equal(h.$('workspace-favorite-manage-dialog').open,false);assert.ok(h.tools.get().bookmarks.every(item=>item.tags.join()==='Renamed'));assert.deepEqual(h.errors,[]);
 });
 
-test('favorite source tabs include Everything tracking with independent panels and keyboard navigation',async t=>{
- const h=fixture(t);await flush();await h.$('favorite-kind-workspace').dispatch('keydown',{key:'ArrowRight'});assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(h.$('workspace-favorites-panel').hidden,true);assert.equal(h.$('favorite-files-layout').hidden,true);assert.equal(h.window.workspaceFavoritesUI.isFiles(),false);
- await h.$('favorite-kind-everything').dispatch('keydown',{key:'Home'});assert.equal(h.$('favorite-files-layout').hidden,false);assert.equal(h.$('everything-tracking-panel').hidden,true);
+test('favorites have two tabs and legacy Everything preference falls back without changing tracking visibility',async t=>{
+ const h=fixture(t);await flush();const tracking=h.$('tracking-page');assert.equal(tracking.classList.contains('hidden'),true);assert.equal(h.$('favorite-kind-everything'),null);
+ await h.$('favorite-kind-workspace').dispatch('keydown',{key:'ArrowRight'});assert.equal(h.$('favorite-files-layout').hidden,false);
+ await h.$('favorite-kind-files').dispatch('keydown',{key:'End'});assert.equal(h.$('workspace-favorites-panel').hidden,false);assert.equal(tracking.classList.contains('hidden'),true);
+ h.settings.favoriteStartKind='last';h.settings.favoriteLastKind='everything';h.window.workspaceFavoritesUI.activate();assert.equal(h.$('favorite-files-layout').hidden,false);
 });
-
-test('favorites can initialize from the last tab, remember explicit tab selections and keep the startup choice separate',async t=>{
- const h=fixture(t);await flush();h.window.settingsUI.update=patch=>Object.assign(h.settings,patch);h.settings.favoriteStartKind='last';h.settings.favoriteLastKind='everything';const visits=[];h.window.everythingTrackingUI={activate:value=>visits.push(value)};
- h.window.workspaceFavoritesUI.activate();assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(visits.at(-1),true);
- await h.$('favorite-kind-files').dispatch('click');assert.equal(h.settings.favoriteLastKind,'files');assert.equal(h.settings.favoriteStartKind,'last');
- h.window.workspaceFavoritesUI.activate();assert.equal(h.$('favorite-files-layout').hidden,false);
- h.settings.favoriteStartKind='everything';h.window.workspaceFavoritesUI.activate();assert.equal(h.$('everything-tracking-panel').hidden,false);assert.equal(h.settings.favoriteLastKind,'files');
-});
-
-test('the remember-last-tab default overrides old fixed-tab settings and survives a fresh app session for each source',async t=>{
- assert.equal(require('../src/settings-model').normalize({favoriteStartKind:'files'}).favoriteRememberLastTab,true);
- let prefs={favoriteRememberLastTab:true,favoriteStartKind:'files'};
- for(const kind of ['everything','workspace','files']){
-  const first=fixture(t,prefs);await flush();await first.$('favorite-kind-'+kind).dispatch('click');prefs=JSON.parse(JSON.stringify(first.settings));
-  const restarted=fixture(t,prefs);await flush();assert.equal(restarted.$('favorite-kind-'+kind).getAttribute('aria-selected'),'true');assert.equal(restarted.settings.favoriteStartKind,'files');
- }
+test('both favorite tabs retain their selection across restart independently of the tracking page',async t=>{
+ let prefs={favoriteRememberLastTab:true};for(const kind of ['workspace','files']){const h=fixture(t,prefs);await flush();await h.$('favorite-kind-'+kind).dispatch('click');prefs=JSON.parse(JSON.stringify(h.settings));const next=fixture(t,prefs);await flush();next.window.workspaceFavoritesUI.activate();assert.equal(next.$('favorite-kind-'+kind).getAttribute('aria-selected'),'true');}
 });

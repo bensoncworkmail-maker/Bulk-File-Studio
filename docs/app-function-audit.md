@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.131.0。以 `npm run audit:functions` 重新產生。
+版本：v1.132.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 223 個 JS／HTML／CSS 檔案；核對 10 個頁面、11 個工具入口、29 項功能導覽與 264 個介面／桌面偏好。
+讀取 src 全部 227 個 JS／HTML／CSS 檔案；核對 11 個頁面、11 個工具入口、29 項功能導覽與 268 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -184,6 +184,7 @@
 | [floating-capture.css](../src/floating-capture.css) | 版面、主題與互動狀態樣式 |
 | [floating-capture.html](../src/floating-capture.html) | 視窗／頁面結構及本機資源引用 |
 | [floating-capture.js](../src/floating-capture.js) | `addAttachments`、`assertAvailable`、`captureBounds`、`checkedPaths`、`choose`、`clearAttachments`、`close`、`commit`、`constructor`、`data`、`destroy`、`key`、`open`、`owns`、`pathsUnchanged`、`preview`、`save`、`target` |
+| [floating-clipboard-ui.js](../src/floating-clipboard-ui.js) | `mount`、`node`、`refresh`、`render`、`run` |
 | [floating-date-settings.js](../src/floating-date-settings.js) | `$`、`apply`、`changed`、`control`、`field`、`init`、`load`、`node`、`render`、`status` |
 | [floating-header.js](../src/floating-header.js) | `control`、`finish`、`init`、`menu`、`move`、`queue` |
 | [floating-live-search.js](../src/floating-live-search.js) | `activate`、`cancel`、`clear`、`create`、`enabled`、`fail`、`input`、`prepare`、`settingsChanged` |
@@ -194,7 +195,10 @@
 | [floating-pin.js](../src/floating-pin.js) | `recover`、`refresh` |
 | [floating-render-guard.js](../src/floating-render-guard.js) | `begin`、`create`、`finish`、`request` |
 | [floating-tag-menu.js](../src/floating-tag-menu.js) | `entry`、`escape`、`tagListMenu`、`tagMenu` |
-| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`ensureVisible`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`startDrag`、`windowDefaults` |
+| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`ensureVisible`、`launcherBounds`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`startDrag`、`windowDefaults` |
+| [floating-workspace-ui.js](../src/floating-workspace-ui.js) | `cancel`、`mount`、`run`、`sync` |
+| [floating-workspace.css](../src/floating-workspace.css) | 版面、主題與互動狀態樣式 |
+| [floating-workspace.js](../src/floating-workspace.js) | `register` |
 | [floating.css](../src/floating.css) | 版面、主題與互動狀態樣式 |
 | [floating.html](../src/floating.html) | 視窗／頁面結構及本機資源引用 |
 | [floating.js](../src/floating.js) | `$`、`action`、`activate`、`buttonSearch`、`copyPaths`、`hideDrop`、`makeCopy`、`makeShow`、`menu`、`node`、`open`、`openButtonSearch`、`paint`、`quickFeedback`、`quickLabel`、`refresh`、`refreshWorkspace`、`render`、`renderCollapsed`、`renderMixed`、`renderQuickActions`、`renderWorkspace`、`runQuickAction`、`section`、`showMenu`、`showTagMenu` |
