@@ -13,7 +13,7 @@ class FloatingMenu{
  release(entry){
   if(this.current!==entry)return;this.current=null;
   entry.owner.nativeMenuOpen=false;
-  if(!entry.owner.isDestroyed())try{entry.owner.pinController?.sync();}catch(error){this.onError(error);}
+  if(!entry.owner.isDestroyed())try{entry.owner.pinController?.sync({force:true});}catch(error){this.onError(error);}
  }
  closeAndWait(){
   const entry=this.current;if(!entry)return Promise.resolve();

@@ -4,11 +4,9 @@
  const entries=Object.freeze([
   {group:'工具箱',title:'情境包',description:'獨立桌面工作情境，自訂圖示大小、懸停展開，表格找檔案、切換客戶與複製範本',workflow:'contexts'},
   {group:'工具箱',title:'參數化文字範本',description:'範本參數、紀錄、剪貼簿、預覽與貼上',workflow:'snippets'},
-  {group:'工具箱',title:'檔案作業中心',description:'背景搬移、持久佇列、多步復原與安全取消',workflow:'operations'},
   {group:'工具箱',title:'Windows 離線 OCR',description:'本機圖片文字辨識、校正後儲存草稿',workflow:'ocr'},
   {group:'工具箱',title:'追蹤變更紀錄',description:'Everything 快照差異、改名偵測、可選背景監控',workflow:'tracking'},
   {group:'工具箱',title:'整理條件與衝突',description:'巢狀 AND OR、逐條解釋、目的地衝突總覽',workflow:'rules'},
-  {group:'工具箱',title:'最近與收藏目的地',description:'作業中心內選擇搬移資料夾，匯出時沿用最近位置',workflow:'folders'},
   {group:'檔案與收藏',title:'檔案／資料夾收藏',description:'位置收藏、標籤、批次開啟、複製路徑、圖示／清單、遺失位置',page:'favorites',favorite:'files'},
   {group:'檔案與收藏',title:'工作區紀錄與表格收藏',description:'單筆／整表同步收藏、標籤繼承、紀錄詳情、釘選',page:'favorites',favorite:'workspace'},
   {group:'檔案與收藏',title:'Everything 追蹤',description:'本機索引、搜尋預設、自訂副檔名、日期／大小、排序、右鍵選單',tracking:true},

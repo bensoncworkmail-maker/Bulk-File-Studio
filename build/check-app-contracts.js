@@ -24,7 +24,7 @@ function inspect(){
  fail(!document.getElementById('workflow-open'),'obsolete standalone workflow entry');
  for(const entry of toolbox.extra)fail(Boolean(document.getElementById('toolbox-advanced').querySelector('[data-productivity='+entry.id+']')),'advanced tool outside collapsed navigation '+entry.id);
  for(const [alias,id]of Object.entries(toolbox.workflowRoutes))fail(Boolean(toolbox.get(id)),'unknown workflow compatibility route '+alias);
- for(const id of ['inbox','automations','formulas','duplicates','compare']){fail(!toolbox.get(id),'removed tool route '+id);fail(!document.getElementById('productivity-'+id),'removed tool panel '+id);}
+ for(const id of ['inbox','automations','formulas','duplicates','compare','operations']){fail(!toolbox.get(id),'removed tool route '+id);fail(!document.getElementById('productivity-'+id),'removed tool panel '+id);}
  const groups=new Set(catalog.groups.map(group=>group.id));
  for(const item of directory.entries){
   fail(['page','tool','settings','tracking','draft','reminders','workflow'].filter(key=>Boolean(item[key])).length===1,'ambiguous directory destination '+item.title);

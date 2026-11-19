@@ -15,7 +15,7 @@ test('drag defaults to retaining paths; copies preserve files, nested folders an
  const h=fixture(t),draft=h.store.createDraft(),linked=await h.drafts.attach(draft.id,draft.version,[h.file]);assert.equal(linked.attachments[0].path,h.file);
  const copied=await h.drafts.attach(linked.id,linked.version,[h.file,h.folder,path.join(h.folder,'nested.txt')],'copy');
  assert.equal(copied.attachments.length,3);assert.ok(fs.existsSync(h.file)&&fs.existsSync(h.folder));
- for(const item of copied.attachments.slice(1)){assert.equal(item.managed,true);assert.ok(item.path.startsWith(path.join(h.data,'draft-images',draft.id,'files')));assert.equal(path.basename(item.path),path.basename(item.originalPath));}
+ for(const item of copied.attachments.slice(1)){assert.equal(item.managed,true);assert.ok(item.path.startsWith(path.join(h.data,'draft-images',draft.id)));assert.equal(path.basename(item.path),path.basename(item.originalPath));}
  assert.equal(fs.readFileSync(copied.attachments[1].path,'utf8'),'original');assert.equal(fs.readFileSync(path.join(copied.attachments[2].path,'nested.txt'),'utf8'),'nested');assert.notEqual(fs.statSync(h.file).ino,fs.statSync(copied.attachments[1].path).ino);
  h.drafts.removeAttachment(copied.id,copied.version,1);assert.ok(fs.existsSync(copied.attachments[1].path));
 });
@@ -28,7 +28,7 @@ test('cancel, invalid mode, stale draft, unsafe sources and failed metadata writ
  await assert.rejects(h.drafts.attach(draft.id,draft.version,[h.file],'delete'),/加入方式/);
  await assert.rejects(h.drafts.attach(draft.id,draft.version,[h.data],'copy'),/資料目錄/);
  const link=path.join(h.source,'symlink');try{fs.symlinkSync(h.file,link);}catch(error){if(error.code!=='EPERM')throw error;}if(fs.existsSync(link))await assert.rejects(h.drafts.attach(draft.id,draft.version,[link],'copy'),/連結/);
- const mock=t.mock.method(h.store,'saveDraft',()=>{throw Error('disk full');});await assert.rejects(h.drafts.attach(draft.id,draft.version,[h.file],'copy'),/disk full/);mock.mock.restore();assert.equal(h.store.draft(draft.id).attachments.length,0);assert.equal(fs.readFileSync(h.file,'utf8'),'original');assert.deepEqual(fs.readdirSync(path.join(h.data,'draft-images',draft.id,'files')),[]);
+ const mock=t.mock.method(h.store,'saveDraft',()=>{throw Error('disk full');});await assert.rejects(h.drafts.attach(draft.id,draft.version,[h.file],'copy'),/disk full/);mock.mock.restore();assert.equal(h.store.draft(draft.id).attachments.length,0);assert.equal(fs.readFileSync(h.file,'utf8'),'original');assert.deepEqual(fs.readdirSync(path.join(h.data,'draft-images',draft.id)),[]);
  const saved=h.store.saveDraft(draft.id,draft.version,{title:'new'});await assert.rejects(h.drafts.attach(draft.id,draft.version,[h.file],'move'),/已變更/);assert.equal(h.store.draft(saved.id).attachments.length,0);
 });
 test('source deletion failure keeps a complete managed attachment and reports a warning',async t=>{
@@ -47,7 +47,7 @@ test('same-named files from different directories keep distinct copies',async t=
 test('files and folders are direct siblings in the draft attachment directory',async t=>{
  const h=fixture(t),second=path.join(h.source,'second.txt');fs.writeFileSync(second,'second');const draft=h.store.createDraft();
  const result=await h.drafts.attach(draft.id,draft.version,[h.file,second,h.folder],'copy'),parents=result.attachments.map(item=>path.dirname(item.path));
- assert.equal(new Set(parents).size,1);assert.equal(parents[0],path.join(h.data,'draft-images',draft.id,'files'));assert.equal(fs.readFileSync(path.join(parents[0],'documents','nested.txt'),'utf8'),'nested');assert.equal(fs.readFileSync(path.join(parents[0],'second.txt'),'utf8'),'second');
+ assert.equal(new Set(parents).size,1);assert.equal(parents[0],path.join(h.data,'draft-images',draft.id));assert.equal(fs.readFileSync(path.join(parents[0],'documents','nested.txt'),'utf8'),'nested');assert.equal(fs.readFileSync(path.join(parents[0],'second.txt'),'utf8'),'second');
 });
 test('same-named files from different source folders become numbered siblings without overwriting',async t=>{
  const h=fixture(t),one=path.join(h.source,'one','test'),two=path.join(h.source,'two','test');fs.mkdirSync(one,{recursive:true});fs.mkdirSync(two,{recursive:true});const a=path.join(one,'file.txt'),b=path.join(two,'file.txt');fs.writeFileSync(a,'one');fs.writeFileSync(b,'two');const draft=h.store.createDraft();
@@ -56,11 +56,11 @@ test('same-named files from different source folders become numbered siblings wi
 
 
 test('three PNGs and subsequent drops share the draft directory while legacy managed paths stay valid',async t=>{
- const h=fixture(t),draft=h.store.createDraft(),legacy=path.join(h.data,'draft-images',draft.id,'files',require('node:crypto').randomUUID(),require('node:crypto').randomUUID(),'legacy.png');fs.mkdirSync(path.dirname(legacy),{recursive:true});fs.writeFileSync(legacy,'legacy bytes');
+ const h=fixture(t),draft=h.store.createDraft(),legacy=path.join(h.data,'draft-images',draft.id,require('node:crypto').randomUUID(),require('node:crypto').randomUUID(),'legacy.png');fs.mkdirSync(path.dirname(legacy),{recursive:true});fs.writeFileSync(legacy,'legacy bytes');
  const previous=h.store.saveDraft(draft.id,draft.version,{attachments:[{path:legacy,type:'file',managed:true,originalPath:path.join(h.source,'legacy.png')}]});
  const files=['one.png','two.png','three.png'].map(name=>{const file=path.join(h.source,name);fs.writeFileSync(file,Buffer.from('89504e470d0a1a0a','hex'));return file;});
  const result=await h.drafts.attach(draft.id,previous.version,files,'copy'),added=result.attachments.slice(1),group=path.dirname(added[0].path);
- assert.equal(new Set(added.map(item=>path.dirname(item.path))).size,1);assert.equal(group,path.join(h.data,'draft-images',draft.id,'files'));assert.deepEqual(fs.readdirSync(group).filter(name=>name.endsWith('.png')).sort(),['one.png','three.png','two.png']);assert.equal(result.attachments[0].path,legacy);assert.equal(fs.readFileSync(legacy,'utf8'),'legacy bytes');
+ assert.equal(new Set(added.map(item=>path.dirname(item.path))).size,1);assert.equal(group,path.join(h.data,'draft-images',draft.id));assert.deepEqual(fs.readdirSync(group).filter(name=>name.endsWith('.png')).sort(),['one.png','three.png','two.png']);assert.equal(result.attachments[0].path,legacy);assert.equal(fs.readFileSync(legacy,'utf8'),'legacy bytes');
  const moved=await h.drafts.attach(draft.id,result.version,files,'move'),movedGroup=path.dirname(moved.attachments.at(-1).path);assert.equal(movedGroup,group);assert.ok(moved.attachments.slice(-3).every(item=>path.dirname(item.path)===group));assert.deepEqual(moved.attachments.slice(-3).map(item=>path.basename(item.path)),['one (2).png','two (2).png','three (2).png']);assert.ok(files.every(file=>!fs.existsSync(file)));assert.ok(fs.existsSync(legacy));assert.ok(added.every(item=>fs.existsSync(item.path)));
 });
 
@@ -69,7 +69,7 @@ test('different sources added in separate drops share one parent and keep dragge
  const h=fixture(t),other=path.join(h.root,'another-drive','eLearning'),reference=path.join(other,'reference');fs.mkdirSync(reference,{recursive:true});
  const second=path.join(other,'second.png'),third=path.join(reference,'third.png');fs.writeFileSync(second,'second');fs.writeFileSync(third,'third');
  let draft=h.store.createDraft();draft=await h.drafts.attach(draft.id,draft.version,[h.file],'copy');draft=await h.drafts.attach(draft.id,draft.version,[second],'move');draft=await h.drafts.attach(draft.id,draft.version,[third,h.folder],'copy');
- const folder=path.join(h.data,'draft-images',draft.id,'files');assert.ok(draft.attachments.every(item=>path.dirname(item.path)===folder));assert.deepEqual(fs.readdirSync(folder).sort(),['documents','note.txt','second.png','third.png']);assert.equal(fs.readFileSync(path.join(folder,'documents','nested.txt'),'utf8'),'nested');assert.ok(!fs.existsSync(second));assert.ok(fs.existsSync(third));assert.equal(h.prompts[0].detail.split('目的位置：\n')[1],folder);
+ const folder=path.join(h.data,'draft-images',draft.id);assert.ok(draft.attachments.every(item=>path.dirname(item.path)===folder));assert.deepEqual(fs.readdirSync(folder).sort(),['documents','note.txt','second.png','third.png']);assert.equal(fs.readFileSync(path.join(folder,'documents','nested.txt'),'utf8'),'nested');assert.ok(!fs.existsSync(second));assert.ok(fs.existsSync(third));assert.equal(h.prompts[0].detail.split('目的位置：\n')[1],folder);
 });
 test('file and folder name collisions across drops preserve earlier attachments and both contents',async t=>{
  const h=fixture(t),other=path.join(h.source,'other');fs.mkdirSync(other);const directory=path.join(other,'NOTE.txt');fs.mkdirSync(directory);fs.writeFileSync(path.join(directory,'child.txt'),'folder contents');
@@ -82,7 +82,7 @@ test('failed commit removes only newly copied roots and preserves previous attac
  assert.deepEqual(fs.readdirSync(folder),['note.txt']);assert.equal(fs.readFileSync(first.attachments[0].path,'utf8'),'original');assert.equal(fs.readFileSync(second,'utf8'),'second');assert.equal(fs.readFileSync(path.join(h.folder,'nested.txt'),'utf8'),'nested');assert.equal(h.store.draft(draft.id).attachments.length,1);
 });
 test('a destination created during transfer is never overwritten or removed during rollback',async t=>{
- const h=fixture(t),draft=h.store.createDraft(),second=path.join(h.source,'second.txt');fs.writeFileSync(second,'second');const folder=path.join(h.data,'draft-images',draft.id,'files'),destination=path.join(folder,'second.txt'),open=fs.promises.open.bind(fs.promises);
+ const h=fixture(t),draft=h.store.createDraft(),second=path.join(h.source,'second.txt');fs.writeFileSync(second,'second');const folder=path.join(h.data,'draft-images',draft.id),destination=path.join(folder,'second.txt'),open=fs.promises.open.bind(fs.promises);
  const mock=t.mock.method(fs.promises,'open',async(filename,flags,...args)=>{if(filename===destination&&flags==='wx')fs.writeFileSync(destination,'external content');return open(filename,flags,...args);});
  await assert.rejects(h.drafts.attach(draft.id,draft.version,[h.file,second],'copy'),/EEXIST/);mock.mock.restore();assert.deepEqual(fs.readdirSync(folder),['second.txt']);assert.equal(fs.readFileSync(destination,'utf8'),'external content');assert.equal(h.store.draft(draft.id).attachments.length,0);assert.equal(fs.readFileSync(h.file,'utf8'),'original');
 });
@@ -97,3 +97,4 @@ test('an interrupted copy removes its partial file without changing existing att
  const open=fs.promises.open.bind(fs.promises),mock=t.mock.method(fs.promises,'open',async(filename,flags,...args)=>{const handle=await open(filename,flags,...args);if(filename===destination&&flags==='wx')handle.write=async()=>{throw Error('interrupted write');};return handle;});
  await assert.rejects(h.drafts.attach(draft.id,first.version,[source],'move'),/interrupted write/);mock.mock.restore();assert.deepEqual(fs.readdirSync(folder),['note.txt']);assert.equal(fs.readFileSync(source,'utf8'),'second content');assert.equal(fs.readFileSync(first.attachments[0].path,'utf8'),'original');assert.equal(h.store.draft(draft.id).attachments.length,1);
 });
+test('pasted PNG names match stable image numbers and share the root with copied attachments',async t=>{const h=fixture(t),png=Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000b49444154789c636000020000050001a5f645400000000049454e44ae426082','hex');h.drafts.nativeImage={createFromBuffer:()=>({isEmpty:()=>false,toPNG:()=>png})};let draft=h.store.createDraft();for(let i=1;i<=3;i++){draft=h.drafts.paste(draft.id,draft.version,png);assert.equal(path.basename(draft.attachments.at(-1).path),'貼上的圖片 '+i+'.png');assert.ok(h.drafts.image(draft.id,i-1).startsWith('data:image/png;base64,'));}draft=h.drafts.removeAttachment(draft.id,draft.version,0);draft=h.drafts.paste(draft.id,draft.version,png);assert.equal(path.basename(draft.attachments.at(-1).path),'貼上的圖片 4.png');draft=await h.drafts.attach(draft.id,draft.version,[h.file,h.folder],'copy');const root=path.join(h.data,'draft-images',draft.id);assert.ok(draft.attachments.every(row=>path.dirname(row.path)===root));assert.equal(fs.existsSync(path.join(root,'files')),false);assert.equal(fs.readFileSync(path.join(root,'note.txt'),'utf8'),'original');});

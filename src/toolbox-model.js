@@ -11,7 +11,6 @@
   {id:'repair',title:'批次修復路徑',panel:'repair'},
   {id:'rules',title:'檔案整理規則',panel:'rules'},
   {id:'preview',title:'文件預覽',panel:'preview'},
-  {id:'operations',title:'作業中心',workflow:'operations'},
  ].map(Object.freeze));
  const secondary=Object.freeze([
   {id:'worksets',title:'工作集管理',panel:'worksets',parent:'contexts'},
@@ -19,7 +18,7 @@
   {id:'conditions',title:'條件與衝突',workflow:'rules',parent:'rules'}
  ].map(Object.freeze));
  const routes=Object.freeze(Object.fromEntries([...primary,...extra,...secondary].map(item=>[item.id,item])));
- const workflowRoutes=Object.freeze({contexts:'contexts',snippets:'parameters',tracking:'tracking',ocr:'ocr',backup:'backup',folders:'operations',rules:'conditions',operations:'operations'});
+ const workflowRoutes=Object.freeze({contexts:'contexts',snippets:'parameters',tracking:'tracking',ocr:'ocr',backup:'backup',rules:'conditions'});
  const tools=Object.freeze(Object.fromEntries(Object.values(routes).map(item=>[item.id,item.title])));
  const get=id=>routes[id]||null,fromWorkflow=id=>workflowRoutes[id]||'contexts',parent=id=>get(id)?.parent||id;
  const api=Object.freeze({primary,extra,secondary,routes,workflowRoutes,tools,get,fromWorkflow,parent});if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.toolboxModel=api;

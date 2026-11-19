@@ -12,14 +12,10 @@ test('new global shortcuts default to disabled and collide with both quick actio
  assert.equal(D.normalize({draftBodyLimit:0,draftListWidth:300,calendarWeekStart:1}).draftBodyLimit,0);
  assert.equal(D.normalize({draftBodyLimit:-1,calendarWeekStart:4}).calendarWeekStart,0);
 });
-test('pinned window reapplies topmost band on blur and watchdog without taking focus',()=>{
- const handlers={},calls=[];let settings={floatingOnTop:true},destroyed=false,visible=true,poll,cleared=false;
- const window={on:(name,callback)=>handlers[name]=callback,isDestroyed:()=>destroyed,isVisible:()=>visible,isAlwaysOnTop:()=>true,setAlwaysOnTop:(...args)=>calls.push(args),focus:()=>assert.fail('must not steal focus')};
- const pin=new FloatingPin(window,()=>settings,{setIntervalFn:callback=>(poll=callback,1),clearIntervalFn:()=>cleared=true});
- handlers.blur();poll();assert.deepEqual(calls,[[true,'floating'],[true,'floating'],[true,'floating']]);
- settings={floatingOnTop:false};pin.sync();assert.deepEqual(calls.at(-1),[false]);
- visible=false;settings={floatingOnTop:true};const count=calls.length;poll();assert.equal(calls.length,count);
- destroyed=true;handlers.closed();poll();assert.equal(cleared,true);
+test('topmost maintenance does not reorder healthy windows and recovery rebuilds the band without focus',()=>{
+ const handlers={},calls=[];let settings={floatingOnTop:true},destroyed=false,visible=true,topmost=true,poll,cleared=false,moves=0;
+ const window={on:(name,callback)=>handlers[name]=callback,isDestroyed:()=>destroyed,isVisible:()=>visible,isAlwaysOnTop:()=>topmost,setAlwaysOnTop:(flag,...args)=>{calls.push([flag,...args]);topmost=flag;handlers['always-on-top-changed']?.();},moveTop:()=>moves++,focus:()=>assert.fail('must not steal focus')};
+ const pin=new FloatingPin(window,()=>settings,{setIntervalFn:callback=>(poll=callback,1),clearIntervalFn:()=>cleared=true});handlers.blur();poll();assert.deepEqual(calls,[]);topmost=false;poll();assert.deepEqual(calls,[[true,'floating']]);pin.sync({force:true});assert.deepEqual(calls.slice(-2),[[false],[true,'floating']]);assert.equal(moves,1);const before=calls.length;poll();assert.equal(calls.length,before);settings={floatingOnTop:false};pin.sync();assert.deepEqual(calls.at(-1),[false]);visible=false;settings={floatingOnTop:true};const count=calls.length;poll();assert.equal(calls.length,count);destroyed=true;handlers.closed();poll();assert.equal(cleared,true);
 });
 test('scheduled backups coalesce missed intervals, survive restart and retry failed writes',async t=>{
  const {root}=workspace(t),filename=path.join(root,'schedule.json');let clock=20*3600000,count=0,fail=false,settings={backupIntervalHours:6};

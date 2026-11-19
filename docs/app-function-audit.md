@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.130.0。以 `npm run audit:functions` 重新產生。
+版本：v1.131.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 222 個 JS／HTML／CSS 檔案；核對 10 個頁面、12 個工具入口、31 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 223 個 JS／HTML／CSS 檔案；核對 10 個頁面、11 個工具入口、29 項功能導覽與 264 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -58,6 +58,7 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
+| [app-context-host.js](../src/app-context-host.js) | `close` |
 | [app-help.js](../src/app-help.js) | `$`、`blocked`、`close`、`init`、`navigate`、`open`、`render`、`showFinder`、`showGuide` |
 | [app-layout.css](../src/app-layout.css) | 版面、主題與互動狀態樣式 |
 | [app-navigation.js](../src/app-navigation.js) | `create` |
@@ -78,14 +79,14 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`contextInvoke`、`contextLease`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showDesktopContext`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`contextInvoke`、`contextLease`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`isAppContext`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`searchLocalData`、`secureWindow`、`send`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showDesktopContext`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [offline-policy.js](../src/offline-policy.js) | `allowedRequest`、`assertLocalPath`、`assertSafeOpen`、`installOfflinePolicy` |
 | [open-file-input.js](../src/open-file-input.js) | `openFileInput` |
 | [operation-journal.js](../src/operation-journal.js) | `begin`、`complete`、`constructor`、`enqueue`、`list`、`markUndone`、`read`、`rebase`、`recover`、`undoable`、`update`、`write` |
 | [operation-ui.css](../src/operation-ui.css) | 版面、主題與互動狀態樣式 |
 | [operation-ui.js](../src/operation-ui.js) | `$`、`close`、`create`、`receive`、`render`、`show`、`visibilityChanged` |
-| [preload.js](../src/preload.js) | `invoke`、`listener`、`notifyOperation` |
+| [preload.js](../src/preload.js) | `handler`、`invoke`、`listen`、`listener`、`notifyOperation` |
 | [quick-actions-model.js](../src/quick-actions-model.js) | `displayOptions`、`entry`、`form`、`normalize` |
 | [quick-actions-settings.js](../src/quick-actions-settings.js) | `$`、`actionButton`、`appendOptions`、`displayFields`、`dropOptions`、`edit`、`fields`、`formFields`、`init`、`masters`、`move`、`node`、`persist`、`refresh`、`render`、`renderTagChecks`、`sheet` |
 | [record-browser.css](../src/record-browser.css) | 版面、主題與互動狀態樣式 |
@@ -107,7 +108,7 @@
 | [web-link-model.js](../src/web-link-model.js) | `links`、`normalize`、`valid` |
 | [workflow-guide-model.js](../src/workflow-guide-model.js) | 宣告、設定或共用模型 |
 | [workflow-hub.css](../src/workflow-hub.css) | 版面、主題與互動狀態樣式 |
-| [workflow-hub.js](../src/workflow-hub.js) | `args`、`button`、`canChangeContext`、`canLeave`、`choose`、`chosen`、`conditions`、`contextChanged`、`contexts`、`destination`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`go`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`openSnippet`、`operations`、`output`、`paint`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`syncContextDefaults`、`trackEditor`、`tracking`、`values`、`watch` |
+| [workflow-hub.js](../src/workflow-hub.js) | `args`、`button`、`canChangeContext`、`canLeave`、`chosen`、`conditions`、`contextChanged`、`contexts`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`go`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`openSnippet`、`output`、`paint`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`syncContextDefaults`、`trackEditor`、`tracking`、`values`、`watch` |
 | [workflow-ipc.js](../src/workflow-ipc.js) | `ensure`、`registerWorkflow` |
 | [workflow-model.js](../src/workflow-model.js) | `condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
 | [workflow-service.js](../src/workflow-service.js) | `activateContext`、`close`、`constructor`、`contextState`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`take`、`token`、`validateDefinition` |
@@ -167,10 +168,10 @@
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
 | [desktop-context-actions.js](../src/desktop-context-actions.js) | `authorize`、`constructor`、`file`、`files`、`listRecord`、`resource`、`snippet`、`state`、`take`、`token` |
+| [desktop-context-app.css](../src/desktop-context-app.css) | 版面、主題與互動狀態樣式 |
+| [desktop-context-files.js](../src/desktop-context-files.js) | `mount`、`node`、`render` |
 | [desktop-context-preload.js](../src/desktop-context-preload.js) | `handler`、`listen` |
 | [desktop-context-state.js](../src/desktop-context-state.js) | `normalize` |
-| [desktop-context-table.css](../src/desktop-context-table.css) | 版面、主題與互動狀態樣式 |
-| [desktop-context-table.js](../src/desktop-context-table.js) | `mount`、`node`、`render`、`selection` |
 | [desktop-context-ui.js](../src/desktop-context-ui.js) | `$`、`back`、`button`、`current`、`discard`、`hold`、`mount`、`node`、`receive`、`renderShell`、`resources`、`run`、`showDetail`、`status`、`values` |
 | [desktop-context.css](../src/desktop-context.css) | 版面、主題與互動狀態樣式 |
 | [desktop-context.html](../src/desktop-context.html) | 視窗／頁面結構及本機資源引用 |
@@ -190,10 +191,10 @@
 | [floating-panels-model.js](../src/floating-panels-model.js) | `enabledPanels`、`ids`、`known`、`normalize` |
 | [floating-panels-settings.js](../src/floating-panels-settings.js) | `$`、`edit`、`init`、`receive`、`rows`、`selectOptions` |
 | [floating-panels.js](../src/floating-panels.js) | `create`、`display`、`mountTool`、`refresh`、`remove`、`select`、`sync` |
-| [floating-pin.js](../src/floating-pin.js) | `refresh`、`sync` |
+| [floating-pin.js](../src/floating-pin.js) | `recover`、`refresh` |
 | [floating-render-guard.js](../src/floating-render-guard.js) | `begin`、`create`、`finish`、`request` |
 | [floating-tag-menu.js](../src/floating-tag-menu.js) | `entry`、`escape`、`tagListMenu`、`tagMenu` |
-| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`startDrag`、`windowDefaults` |
+| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`ensureVisible`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`startDrag`、`windowDefaults` |
 | [floating.css](../src/floating.css) | 版面、主題與互動狀態樣式 |
 | [floating.html](../src/floating.html) | 視窗／頁面結構及本機資源引用 |
 | [floating.js](../src/floating.js) | `$`、`action`、`activate`、`buttonSearch`、`copyPaths`、`hideDrop`、`makeCopy`、`makeShow`、`menu`、`node`、`open`、`openButtonSearch`、`paint`、`quickFeedback`、`quickLabel`、`refresh`、`refreshWorkspace`、`render`、`renderCollapsed`、`renderMixed`、`renderQuickActions`、`renderWorkspace`、`runQuickAction`、`section`、`showMenu`、`showTagMenu` |

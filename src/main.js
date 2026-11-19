@@ -74,7 +74,7 @@ function invalidateSharedImport(profileId){if(sharedImport?.profileId===profileI
 const contextLeaseRequests=new Map();
 function contextLease(){if(!win||win.isDestroyed())return Promise.resolve({id:null,allowed:true});return new Promise(resolve=>{const id=require('node:crypto').randomUUID(),timer=setTimeout(()=>{contextLeaseRequests.delete(id);send(win,'context-external-finished',id);resolve({id,allowed:false});},1500);contextLeaseRequests.set(id,allowed=>{clearTimeout(timer);contextLeaseRequests.delete(id);resolve({id,allowed:allowed===true});});send(win,'context-external-query',id);});}
 function trackingChanged(){send(win,'everything-tracking-changed');desktopContext?.refresh();}
-function showDesktopContext(){if(!desktopContext)throw Error('桌面情境尚未就緒');return desktopContext.show(true);}
+function showDesktopContext(){if(!desktopContext)throw Error('桌面情境尚未就緒');if(desktop.settings.contextDisplayMode==='app'){focusMain();const target=win,open=()=>send(target,'context-app-open');if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();return {opened:true,app:true};}return desktopContext.show(true);}
 const shareIdleRequests=new Map();
 function shareIdle(){if(!win||win.isDestroyed())return Promise.resolve(false);return new Promise(resolve=>{const id=require('node:crypto').randomUUID(),timer=setTimeout(()=>{shareIdleRequests.delete(id);resolve(false);},1500);shareIdleRequests.set(id,value=>{clearTimeout(timer);shareIdleRequests.delete(id);resolve(value===true);});send(win,'notes-share-idle-query',id);});}
 function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(app.getPath('userData'),'workspace-tools.json'));return notesTools;}
@@ -270,7 +270,7 @@ function secureWindow(window){
 function showFloating(toggle=false){
   if(floating&&!floating.isDestroyed()){
     if(toggle&&floating.isVisible()){floating.hide();return;}
-    floating.show();floating.focus();return;
+    closeFloatingMenu();floating.nativeMenuOpen=false;try{floatingWindow?.ensureVisible();}catch(error){diagnostics.record('floating','recover-placement',error);}floating.show();floating.pinController?.sync({force:true});floating.focus();return;
   }
   floating=new BrowserWindow({...desktop.bounds('floating',screen.getAllDisplays(),windowDefaults(desktop.settings)),frame:false,maximizable:false,minimizable:false,fullscreenable:false,title:'Bulk File Studio · '+(desktop.settings.floatingTitle||'浮動工具'),autoHideMenuBar:true,skipTaskbar:true,alwaysOnTop:desktop.settings.floatingOnTop,backgroundColor:desktop.settings.theme==='light'?'#f4f6fb':'#090e1b',webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false,devTools:!app.isPackaged}});
   secureWindow(floating);floating.pinController=new(require('./floating-pin').FloatingPin)(floating,()=>desktop.settings,{onError:error=>diagnostics.record('floating','pin-state',error)});floatingWindow=new FloatingWindow(floating,desktop,screen);
@@ -556,8 +556,6 @@ app.whenReady().then(() => {
   handle('everything-file-type-remove',(_,name)=>{const value=everythingTracking.removeFileType(name);trackingChanged();return value;});
   handle('everything-copy-query',(_,id)=>{clipboard.writeText(require('./everything-query').searchExpression(everythingTracking.query(id)));return {copied:1};});
   handle('workflow-operation-cancel',()=>{if(!relocationJob)return {canceled:false};relocationJob.cancel();return {requested:true};});
-  handle('workflow-operation-list',()=>journal().list());
-  handle('workflow-operation-undo',async(_,id)=>fileOperation(()=>undoJournalOperation(id,true)));
   handle('everything-tracking-list',()=>everythingTracking.list());
   handle('everything-tracking-manage-tag',(_,input)=>{const result=everythingTracking.manageTag(input);trackingChanged();return result;});
   handle('everything-tracking-save',(_,input)=>{const value=everythingTracking.save(input);trackingChanged();return value;});
@@ -651,7 +649,7 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'floatingQuickActions'))quickActions.normalize(patch.floatingQuickActions,true);
     if(Object.hasOwn(patch,'floatingDropActionId')&&patch.floatingDropActionId!==''&&!quickActions.ID.test(patch.floatingDropActionId))throw new Error('拖放目標無效');
     if(Object.hasOwn(patch,'globalSearchCriteria'))floatingSearch?.invalidate();
-    const candidate=normalizeDesktop({...previous,...patch});if(globalShortcuts.KEYS.some(key=>Object.hasOwn(patch,key))||Object.hasOwn(patch,'floatingQuickActions')||Object.hasOwn(patch,'favoriteShortcuts')||Object.hasOwn(patch,'draftLocalShortcuts'))globalShortcuts.validatePair(candidate,productivity?.store.get().snippets||[]);closeFloatingMenu();
+    if(Object.hasOwn(patch,'contextDisplayMode')&&!['desktop','app'].includes(patch.contextDisplayMode))throw Error('工作情境顯示方式無效');if(Object.hasOwn(patch,'contextDisplayMode')&&patch.contextDisplayMode!==previous.contextDisplayMode&&(desktopContext?.held||desktopContext?.busy))throw Error('請先完成或取消工作情境編輯');const candidate=normalizeDesktop({...previous,...patch});if(globalShortcuts.KEYS.some(key=>Object.hasOwn(patch,key))||Object.hasOwn(patch,'floatingQuickActions')||Object.hasOwn(patch,'favoriteShortcuts')||Object.hasOwn(patch,'draftLocalShortcuts'))globalShortcuts.validatePair(candidate,productivity?.store.get().snippets||[]);closeFloatingMenu();
     const bindingsChanged=globalShortcuts.KEYS.some(key=>previous[key]!==candidate[key])||JSON.stringify(previous.floatingQuickActions)!==JSON.stringify(candidate.floatingQuickActions);
     const focusChanged=previous.focusMode!==candidate.focusMode||candidate.focusMode&&JSON.stringify(previous.focusShortcutIds)!==JSON.stringify(candidate.focusShortcutIds);
     const changed=bindingsChanged||focusChanged;
@@ -662,10 +660,10 @@ app.whenReady().then(() => {
      if(shortcutRecording)globalShortcut.unregisterAll();
     }
     let settings;try{settings=desktop.update(patch);preparePasteWorker();}catch(e){if(changed){shortcutWarning=desktopShell.registerShortcuts(previous);if(shortcutRecording)globalShortcut.unregisterAll();}throw e;}
-    if(!settings.explorerTagPrompt)pendingTagIds.clear();
+    if(settings.contextDisplayMode!==previous.contextDisplayMode){if(desktopContext?.window)desktopContext.hide();send(win,'context-app-close');}if(!settings.explorerTagPrompt)pendingTagIds.clear();
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
-    if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.setAlwaysOnTop(settings.floatingOnTop);floatingWindow.apply();}
+    if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.pinController?.sync();floatingWindow.apply();}
     drafts?.updateSettings();floatingSearch?.updateSettings();desktopContext?.refresh();desktopContext?.pinController?.sync();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   };
   handle('desktop-settings-set',(_,patch)=>configureDesktop(patch));
@@ -749,7 +747,7 @@ app.whenReady().then(() => {
     const settings=desktop.update({floatingCompact:compact}),result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-pin',()=>{
-    const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed())floating.setAlwaysOnTop(settings.floatingOnTop);toolOverlay?.updateSettings();floatingSearch?.updateSettings();
+    const settings=desktop.update({floatingOnTop:!desktop.settings.floatingOnTop});if(floating&&!floating.isDestroyed()){closeFloatingMenu();floating.nativeMenuOpen=false;floating.pinController?.sync({force:true});}toolOverlay?.updateSettings();floatingSearch?.updateSettings();
     const result={settings,warning:shortcutWarning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   });
   handle('floating-collect',(_,paths,tag)=>{const result=favorites.addPaths(paths,floatingTags(tag));notifyFavorites();return result;});
@@ -1088,20 +1086,21 @@ app.whenReady().then(() => {
   try{journal().recover();}catch(error){diagnostics.record('main','operation-journal-recovery',error);}
   workflow=require('./workflow-ipc').registerWorkflow({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,reminders:()=>recordReminders,productivity,tracking:everythingTracking,journal,move:performMovePlan,fileOperation,dialog,parent:()=>win,clipboard,changed:notesChanged,notifyFavorites,trash:filepath=>shell.trashItem(filepath),trackingChanged,contextChanged:()=>{send(win,'workflow-context-changed');desktopContext?.refresh();},contextCanSwitch:()=>!desktopContext?.held&&!desktopContext?.busy,progress:value=>send(win,'workflow-analysis-progress',value),blocked:()=>Boolean(fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),onError:error=>diagnostics.record('main','workflow-monitor',error)});
   desktopContextActions=new(require('./desktop-context-actions').DesktopContextActions)({workflow:()=>workflow,notes:notesStore,tools:toolsStore,tracking:everythingTracking,productivity,favorites,clipboard,shell,owner:()=>desktopContext.window,trackingChanged});
-  desktopContext=new(require('./desktop-context').DesktopContext)({BrowserWindow,screen,secureWindow,getState:()=>desktop.contextDesktop(),saveState:patch=>desktop.updateContextDesktop(patch),settings:()=>desktop.settings,snapshot:()=>workflow.contextState(),onError:error=>diagnostics.record('desktop-context','window',error)});
-  const contextInvoke=(event,task)=>loggedInvocation('desktop-context','desktop-context-operation',()=>{if(!desktopContext.owns(event))throw Error('不受信任的桌面情境來源');if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw Error('資料更新尚未完成，請重新啟動程式');return task();});
-  ipcMain.handle('desktop-context-get',event=>contextInvoke(event,()=>desktopContext.payload()));
-  ipcMain.handle('desktop-context-control',(event,action,value)=>contextInvoke(event,()=>desktopContext.control(action,value)));
+  desktopContext=new(require('./desktop-context').DesktopContext)({BrowserWindow,screen,secureWindow,broadcast:()=>{if(desktop.settings.contextDisplayMode==='app'&&win)send(win,'desktop-context-changed',{...desktopContext.payload(),expanded:true,presentation:'app'});},getState:()=>desktop.contextDesktop(),saveState:patch=>desktop.updateContextDesktop(patch),settings:()=>desktop.settings,snapshot:()=>workflow.contextState(),onError:error=>diagnostics.record('desktop-context','window',error)});
+  const isAppContext=event=>desktop.settings.contextDisplayMode==='app'&&win&&event?.sender===win.webContents&&event.senderFrame?.url===pathToFileURL(path.join(__dirname,'index.html')).href;
+  const contextInvoke=(event,task)=>loggedInvocation('desktop-context','desktop-context-operation',()=>{if(!desktopContext.owns(event)&&!isAppContext(event))throw Error('不受信任的桌面情境來源');if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw Error('資料更新尚未完成，請重新啟動程式');return task();});
+  ipcMain.handle('desktop-context-get',event=>contextInvoke(event,()=>isAppContext(event)?{...desktopContext.payload(),expanded:true,presentation:'app'}:desktopContext.payload()));
+  ipcMain.handle('desktop-context-control',(event,action,value)=>contextInvoke(event,()=>{if(isAppContext(event)&&action!=='hold')throw Error('程式內面板不提供桌面視窗操作');return desktopContext.control(action,value);}));
   ipcMain.handle('desktop-context-select',(event,id,revision)=>contextInvoke(event,()=>desktopContext.perform(async()=>{if(desktopContext.held)throw Error('請先完成或取消桌面參數編輯');const lease=await contextLease();try{if(!lease.allowed)throw Error('主視窗有未儲存內容或仍在處理，請先完成；目前情境保持不變');if(workflow.blocked())throw Error('另一項操作仍在處理');return workflow.activateContext(id,revision);}finally{if(lease.id)send(win,'context-external-finished',lease.id);}})));
   for(const [channel,method]of [['desktop-context-resource','resource'],['desktop-context-record','listRecord'],['desktop-context-snippet','snippet'],['desktop-context-file','file'],['desktop-context-files','files']])ipcMain.handle(channel,(event,...args)=>contextInvoke(event,()=>desktopContext.perform(()=>{if(workflow.blocked())throw Error('另一項操作仍在處理');return desktopContextActions[method](...args);})));
-  ipcMain.handle('desktop-context-manage',event=>contextInvoke(event,()=>{focusMain();const target=win,open=()=>send(target,'open-app-page',{tool:'contexts'});if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();return {opened:true,main:true};}));
+  ipcMain.handle('desktop-context-manage',event=>contextInvoke(event,()=>{if(desktopContext.held)throw Error('請先完成工作情境編輯');if(isAppContext(event))send(win,'context-app-close');focusMain();const target=win,open=()=>send(target,'open-app-page',{tool:'contexts'});if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();return {opened:true,main:true};}));
   const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
   if(desktop.settings.closeToTray)desktopShell.ensureTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));
   if(queuedFavorites.length)receiveFavorites([]);
   shortcutWarning=registerShortcut();if(shortcutWarning)send(win,'desktop-settings-changed',{warning:shortcutWarning});
   if(desktop.settings.floatingStartup)showFloating();
-  if(desktop.contextDesktop().visible)desktopContext.show(desktop.contextDesktop().pinned);
+  if(desktop.settings.contextDisplayMode==='desktop'&&desktop.contextDesktop().visible)desktopContext.show(desktop.contextDesktop().pinned);
   Promise.resolve().then(()=>{return notesShare.tick();}).catch(error=>diagnostics.record('main','share-startup',error));
   app.on('activate',focusMain);
 });
