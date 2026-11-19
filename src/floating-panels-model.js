@@ -1,13 +1,13 @@
 'use strict';
 (() => {
- const PANELS=Object.freeze({clipboard:'剪貼簿',planning:'日曆／看板',snippets:'常用文字片段'});
+ const PANELS=Object.freeze({contexts:'工作情境',drafts:'草稿',clipboard:'剪貼簿',planning:'日曆／看板',snippets:'常用文字片段'});
  const FILES_LABEL='收藏／工作區';
  const keys=Object.keys(PANELS);
  const known=id=>typeof id==='string'&&Object.hasOwn(PANELS,id);
  const ids=value=>Array.isArray(value)?[...new Set(value.filter(known))]:[];
  function normalize(input,strict=false){
   const value=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
-  const enabled=Array.isArray(value.enabled)?ids(value.enabled):keys.slice();
+  const enabled=Array.isArray(value.enabled)?ids(value.enabled):keys.slice();if(!strict&&value.version!==2&&Array.isArray(value.enabled)&&value.enabled.length)for(const id of ['contexts','drafts'])if(!enabled.includes(id))enabled.push(id);
   const order=ids(value.order);
   if(strict&&(value!==input||!Array.isArray(value.enabled)||enabled.length!==value.enabled.length||
    !Array.isArray(value.order)||order.length!==value.order.length||
@@ -19,7 +19,7 @@
    throw new Error('浮動內容設定無效');
   }
   return {
-   enabled,order:[...new Set([...order,...keys])],
+   version:2,enabled,order:[...new Set([...order,...keys])],
    defaultPanel:enabled.includes(value.defaultPanel)?value.defaultPanel:'files',
    collapsedMenu:value.collapsedMenu!==false,
    planningMode:['list','board'].includes(value.planningMode)?value.planningMode:'calendar',

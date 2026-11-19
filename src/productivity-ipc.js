@@ -38,8 +38,8 @@ function registerProductivity(options){
   const model=require('./productivity-model'),name=model.text(customer||'',200,'客戶名稱');
   return model.expandSnippet(snippet.body,{customer:name});
  }
- function copySnippet(id,customer){
-  clipboard.writeText(snippetText(id,customer));
+ async function copySnippet(id,customer){
+  await clipboard.writeText(snippetText(id,customer));
   return {copied:true};
  }
  function viewData(config,filters,logPins){
@@ -53,7 +53,7 @@ function registerProductivity(options){
  handle('productivity-snippet-import-preview',(_,input)=>{ensure();snippetPending=null;const before=store.get().snippets,result=require('./snippet-import').preview(typeof input==='string'?require('./snippet-import').csv(input):input,before),token=require('node:crypto').randomUUID();if(!result.errors.length&&result.items.length)snippetPending={token,before:JSON.stringify(before),items:result.items,expires:Date.now()+600000};return {token:snippetPending?token:null,count:result.items.length,skipped:result.skipped,errors:result.errors,rows:result.items.slice(0,50).map(({name,category,body})=>({name,category,body:body.slice(0,200)}))};});
  handle('productivity-snippet-import-commit',(_,token)=>{ensure();const pending=snippetPending;snippetPending=null;const before=store.get();if(!pending||pending.token!==token||pending.expires<Date.now()||pending.before!==JSON.stringify(before.snippets))throw new Error('片段或預覽已變更，請重新預覽');const folder=path.join(root,'snippet-import-backups');fs.mkdirSync(folder,{recursive:true});writeJSON(path.join(folder,require('node:crypto').randomUUID()+'.json'),before);store.replace({...before,snippets:[...before.snippets,...pending.items]});options.overlayChanged?.();return {count:pending.items.length};});
  let snippetPasting=false;
- async function pasteSnippet(id,target){if(snippetPasting)throw new Error('上一個貼上仍在處理，請稍後再試');snippetPasting=true;try{copySnippet(id,'');return await require('./snippet-paste').paste({target});}finally{snippetPasting=false;}}
+ async function pasteSnippet(id,target,customer=''){if(snippetPasting)throw new Error('上一個貼上仍在處理，請稍後再試');snippetPasting=true;let copied=false;try{await clipboard.writeText(snippetText(id,customer));copied=true;return {copied:true,...await require('./snippet-paste').paste({target})};}catch(error){if(!copied){error.copied=false;throw error;}const failure=new Error('文字已複製；自動貼上未完成：'+error.message+'。請在目標欄位按 Ctrl+V。');failure.copied=true;throw failure;}finally{snippetPasting=false;}}
 
  handle('productivity-snippet-copy',(_,id,customer)=>copySnippet(id,customer));
  handle('productivity-snippet-list',()=>store.get().snippets.map(({id,name,category,shortcut})=>({id,name,category,shortcut:shortcut||''})));

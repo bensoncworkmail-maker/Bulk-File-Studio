@@ -7,11 +7,11 @@ test('floating panel order is normalized and unknown components are rejected on 
  const old=require('../src/desktop-state').normalize({floatingHiddenButtons:['planning']});
  assert.deepEqual(old.floatingPanels.enabled,[]);
  const value=model.normalize({order:['snippets','snippets','unknown'],enabled:['snippets']});
- assert.deepEqual(value.order,['snippets','clipboard','planning']);
+ assert.deepEqual(value.order,['snippets','contexts','drafts','clipboard','planning']);
  assert.equal(value.planningDayMarker,'dot');
  assert.equal(model.normalize({...value,planningDayMarker:'count'},true).planningDayMarker,'count');
  assert.throws(()=>model.normalize({...value,planningDayMarker:'invalid'},true),/設定無效/);
- assert.deepEqual(model.enabledPanels(value),['snippets']);
+ assert.deepEqual(model.enabledPanels(value),['snippets','contexts','drafts']);
  assert.throws(()=>model.normalize({...value,enabled:['external-script']},true),/設定無效/);
 });
 
@@ -20,7 +20,7 @@ test('component host preserves each mounted view across switching and collapse',
  const window={floatingPanelsModel:model};
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/floating-panels.js'),'utf8'),{window,document});
  const tabs=document.getElementById('tabs'),root=document.getElementById('content'),calls=[];
- const components=Object.fromEntries(['planning','snippets','clipboard'].map(id=>[id,{
+ const components=Object.fromEntries(['contexts','drafts','planning','snippets','clipboard'].map(id=>[id,{
   mount(area){
    calls.push(['mount',id]);
    area.remove=()=>root.replaceChildren(...root.children.filter(child=>child!==area));
@@ -30,7 +30,7 @@ test('component host preserves each mounted view across switching and collapse',
  const host=window.floatingPanels.create({tabs,root,components,onSelect(){}});
  const prefs=model.normalize({order:['snippets','planning','clipboard']});
  host.sync({floatingPanels:prefs});
- assert.deepEqual(tabs.children.map(button=>button.dataset.panel),['files','snippets','planning','clipboard']);
+ assert.deepEqual(tabs.children.map(button=>button.dataset.panel),['snippets','clipboard','contexts','files','planning','drafts']);
  host.select('planning');
  host.select('snippets');
  host.select('planning');

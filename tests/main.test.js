@@ -546,7 +546,7 @@ test('closing or quitting during an in-flight OS recycle operation is deferred u
  assert.equal(h.handlers.get('favorites-list')().items.length,0);
 });
 
-test('floating calendar and snippets share one window and its size with restricted IPC',async t=>{
+test('floating calendar and snippets keep independent windows and sizes with restricted IPC',async t=>{
  const h=harness(t);
  h.handlers.get('productivity-save')(null,'snippets',{name:'回覆',body:'您好 {{customer}}',category:'工作'});
  const id=h.handlers.get('productivity-snippet-list')()[0].id;
@@ -559,17 +559,18 @@ test('floating calendar and snippets share one window and its size with restrict
  h.rawHandlers.get('tool-overlay-action')(event,'snippets','copy',id,'陳先生');
  assert.equal(h.getCopied(),'您好 陳先生');
  h.rawHandlers.get('tool-overlay-switch')(event,'planning');
- assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,'planning');
- assert.throws(()=>h.rawHandlers.get('tool-overlay-action')(event,'snippets','copy',id),/已切換/);
+ assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,'snippets');
+ const calendar=h.windows.at(-1);assert.notEqual(calendar,overlay);assert.match(calendar.url,/tool-overlay.html$/);
+ await h.rawHandlers.get('tool-overlay-action')(event,'snippets','copy',id);
  assert.throws(()=>h.rawHandlers.get('tool-overlay-switch')(event,'logs'),/沒有該分頁/);
  h.handlers.get('tool-view-open')(null,{kind:'snippets'});
- assert.equal(h.windows.at(-1),overlay);
+ assert.equal(overlay.isVisible(),true);
  h.handlers.get('tool-view-open')(null,{kind:'logs'});
  const logs=h.windows.at(-1);
  assert.notEqual(logs,overlay);
  assert.notEqual(logs.options.x,overlay.options.x);
  overlay.setBounds({...overlay.getNormalBounds(),width:675,height:590});overlay.emit('resized');
- assert.deepEqual(h.handlers.get('desktop-settings-get')().toolWindowSizes.planning,{width:675,height:590});
+ assert.deepEqual(h.handlers.get('desktop-settings-get')().toolWindowSizes.snippets,{width:675,height:590});
  overlay.destroy();
  h.handlers.get('tool-view-open')(null,{kind:'snippets'});
  assert.equal(h.windows.at(-1).options.width,675);
@@ -980,7 +981,7 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  assert.equal(h.handlers.get('notes-navigation')().editRecord,true);
  assert.equal(call('log-window',logContext,true),true);
  assert.equal(owner.parent,null);
- assert.equal(owner.onTop,true);
+ assert.equal(owner.onTop,false);
  floating.emit('hide');
  assert.equal(owner.isDestroyed(),false);
  call('log-window',logContext,false);
@@ -1307,3 +1308,22 @@ test('context worksets use the active presentation window for confirmation befor
 });
 
 test('floating workspace sends the standalone tracking page and protects idle collapse while native menus are open',async t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),event={sender:floating.webContents,senderFrame:{url:floating.url}};await h.rawHandlers.get('floating-workspace')(event,'page','tracking');assert.ok(h.messages.some(row=>row[0]==='open-app-page'&&row[1]==='tracking'));await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'page','unknown'),/頁面/);assert.throws(()=>h.rawHandlers.get('floating-workspace')({sender:{},senderFrame:{url:floating.url}},'list'),/不受信任/);floating.nativeMenuOpen=true;assert.equal((await h.rawHandlers.get('floating-workspace')(event,'idle-collapse')).skipped,true);assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,false);floating.nativeMenuOpen=false;await h.rawHandlers.get('floating-workspace')(event,'idle-collapse');assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,true);});
+
+test('all six tool panes reuse canonical records, drafts and favorites with owned IPC and independent topmost',async t=>{
+ const h=harness(t),source=path.join(h.dir,'reference.txt');fs.writeFileSync(source,'keep');h.handlers.get('favorites-add')(null,[source],[]);h.handlers.get('productivity-save')(null,'snippets',{name:'Reply',body:'Existing reply',category:'Work'});
+ const context=h.handlers.get('workflow-save')(null,'contexts',{name:'Client A'});h.handlers.get('workflow-context')(null,context.id);
+ await h.handlers.get('floating-tool-action')(null,'drafts','new');assert.equal(h.handlers.get('floating-tool-data')(null,'drafts').rows.length,1);assert.equal(h.handlers.get('floating-tool-data')(null,'files').rows[0].path,source);assert.equal(h.handlers.get('floating-tool-data')(null,'snippets',{}).rows[0].title,'Reply');assert.equal(h.handlers.get('floating-tool-data')(null,'contexts').state.activeContextId,context.id);
+ const owned=new Map();for(const kind of ['snippets','planning','contexts','files','drafts','clipboard']){await h.handlers.get('floating-workspace')(null,'tool',kind);const owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}};owned.set(kind,{owner,event});assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,kind);}
+ const count=h.windows.length,{owner,event}=owned.get('snippets');await h.handlers.get('floating-workspace')(null,'tool','snippets');assert.equal(h.windows.length,count);h.rawHandlers.get('tool-overlay-control')(event,'topmost',false);assert.equal(owner.onTop,false);assert.equal(h.rawHandlers.get('tool-overlay-get')(event).pinnedWindow,true);const calendar=owned.get('planning').owner,before={...calendar.getNormalBounds()};h.handlers.get('desktop-settings-set')(null,{floatingLauncher:'dock',floatingDockEdge:'bottom'});assert.deepEqual(calendar.getNormalBounds(),before);assert.equal(calendar.destroyed,false);
+ assert.throws(()=>h.rawHandlers.get('floating-tool-data')(owned.get('clipboard').event,'contexts'),/來源不符/);assert.throws(()=>h.rawHandlers.get('floating-tool-data')({sender:{},senderFrame:{url:owner.url}},'files'),/不受信任/);
+ h.rawHandlers.get('tool-overlay-control')(event,'close');assert.equal(owner.isDestroyed(),true);await h.handlers.get('floating-workspace')(null,'tool','snippets');assert.equal(h.windows.length,count+1);assert.equal(h.windows.at(-1).isVisible(),true);
+});
+test('panel settings preserve existing layout and reject writes outside the narrow floating allowlist',async t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),event={sender:floating.webContents,senderFrame:{url:floating.url}};await h.rawHandlers.get('floating-workspace')(event,'options',{floatingDockEdge:'left',floatingDockReveal:'hover',floatingRestorePanels:true});const settings=h.handlers.get('desktop-settings-get')();assert.equal(settings.floatingDockEdge,'left');assert.equal(settings.floatingRestorePanels,true);await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'options',{theme:'light'}),/浮動設定/);await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'options',{floatingOpacity:1}),/浮動設定/);});
+
+test('paste waits for the clipboard write, separates copy/paste failures and rejects rapid duplicate requests',async t=>{
+ const main=path.resolve(__dirname,'../src/productivity-ipc.js'),actual=createRequire(main),module={exports:{}},pasteCalls=[];let failPaste=false;
+ vm.runInNewContext(fs.readFileSync(main,'utf8'),{module,require:name=>name==='./snippet-paste'?{paste:async input=>{pasteCalls.push(input);if(failPaste)throw Error('target closed');return {pasted:true};}}:actual(name)},{filename:main});
+ const h=harness(t,{'./productivity-ipc':module.exports});h.handlers.get('productivity-save')(null,'snippets',{name:'Async paste',body:'clipboard content',category:''});const id=h.handlers.get('productivity-snippet-list')()[0].id;let finish,writes=0;h.clipboard.writeText=text=>{writes++;assert.equal(text,'clipboard content');return new Promise(resolve=>finish=resolve);};
+ const pending=h.handlers.get('floating-panel-action')(null,'snippets','paste',id);assert.equal(writes,1);assert.equal(pasteCalls.length,0);await assert.rejects(h.handlers.get('floating-panel-action')(null,'snippets','paste',id),/上一個貼上/);finish();const result=await pending;assert.equal(result.copied,true);assert.equal(result.pasted,true);assert.equal(pasteCalls.length,1);
+ failPaste=true;h.clipboard.writeText=async()=>{};await assert.rejects(h.handlers.get('floating-panel-action')(null,'snippets','paste',id),error=>error.copied===true&&/Ctrl\+V/.test(error.message));const before=pasteCalls.length;h.clipboard.writeText=async()=>{throw Error('clipboard locked');};await assert.rejects(h.handlers.get('floating-panel-action')(null,'snippets','paste',id),error=>error.copied===false&&/clipboard locked/.test(error.message));assert.equal(pasteCalls.length,before);
+});

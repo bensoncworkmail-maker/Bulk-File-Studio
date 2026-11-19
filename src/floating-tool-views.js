@@ -1,0 +1,17 @@
+'use strict';
+(()=>{
+ function mount(root,api,kind){
+  if(kind==='clipboard')return window.floatingClipboardUI.mount(root,{workspace:(action,value)=>action==='list'?api.toolData('clipboard'):api.toolAction('clipboard',action,value)});
+  if(kind==='contexts'){
+   const template=document.getElementById('floating-context-template');if(!template)throw Error('缺少情境面板');template.hidden=false;root.append(template);
+   const call=(action,...args)=>api.toolAction('contexts',action,args),view=window.desktopContextView.mount(template,{get:()=>api.toolData('contexts'),select:(id,revision)=>api.toolAction('contexts','select',{id,revision}),control:(action,value)=>api.toolAction('contexts','control',{action,value}),resource:(...args)=>call('resource',...args),record:(...args)=>call('record',...args),snippet:(...args)=>call('snippet',...args),file:(...args)=>call('file',...args),files:(...args)=>call('files',...args),manage:()=>api.toolAction('contexts','manage'),onChanged(){}},{inApp:true});return view;
+  }
+  const node=(tag,text)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;return el;},controls=node('div'),search=node('input'),status=node('p'),list=node('div');controls.className='workspace-actions';search.type='search';search.placeholder=kind==='drafts'?'搜尋草稿…':'搜尋檔案收藏…';search.setAttribute('aria-label',search.placeholder);status.setAttribute('role','status');root.append(controls,search,status,list);let rows=[],request=0,busy=false,query='',disposed=false;
+  const button=(label,task,parent)=>{const el=node('button',label);el.type='button';el.addEventListener('click',async()=>{if(busy)return;busy=true;try{await task();}catch(error){status.textContent=error.message;}finally{busy=false;}});parent.append(el);return el;};
+  button('重新整理',refresh,controls);if(kind==='drafts')button('＋ 新草稿',()=>api.toolAction(kind,'new'),controls);if(kind==='files')button('Everything 追蹤',()=>api.toolAction(kind,'tracking'),controls);
+  function render(){list.replaceChildren();const filtered=rows.filter(row=>[row.title,row.summary,row.label,row.path,...(row.tags||[])].join(' ').toLocaleLowerCase().includes(query));status.textContent='共 '+filtered.length+' 項'+(filtered.length>100?'，顯示前 100 項':'');for(const row of filtered.slice(0,100)){const card=node('article');card.className='workspace-card';const title=row.title||row.label||row.path?.split(/[\\/]/).pop()||'未命名草稿',actions=node('div');actions.className='workspace-actions';card.append(node('strong',title),node('p',kind==='drafts'?row.summary||'尚無文字':row.path),actions);button(kind==='drafts'?'開啟編輯':'開啟',()=>api.toolAction(kind,'open',row.id),actions);if(kind==='files'){button('所在位置',()=>api.toolAction(kind,'show',row.id),actions);button('複製路徑',async()=>{await api.toolAction(kind,'copy',row.id);status.textContent='路徑已複製';},actions);}list.append(card);}}
+  async function refresh(){const id=++request;status.textContent='載入中…';root.setAttribute('aria-busy','true');try{const data=await api.toolData(kind);if(disposed||id!==request)return;rows=data.rows;render();}catch(error){if(!disposed&&id===request)status.textContent=error.message;}finally{if(!disposed&&id===request)root.setAttribute('aria-busy','false');}}
+  search.addEventListener('input',()=>{query=search.value.toLocaleLowerCase();render();});void refresh();return {refresh,dispose(){disposed=true;request++;}};
+ }
+ window.floatingToolViews={mount};
+})();

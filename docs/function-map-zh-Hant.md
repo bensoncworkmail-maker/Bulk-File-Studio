@@ -1,4 +1,4 @@
-# 功能導覽與整合對照（v1.132.0）
+# 功能導覽與整合對照（v1.133.0）
 
 本文件依目前頁面、設定目錄、資料服務及操作入口重新整理功能。完整來源與具名函式索引見 [應用程式功能盤點](app-function-audit.md)，可執行 `npm run check:app` 核對入口／設定／頁面引用。首頁「功能導覽」可搜尋下列任務並前往既有操作頁；首頁提供工作區、Everything 追蹤與浮動快捷三個工作流程入口。這是功能與模組盤點，不代表每個 Windows 原生功能均已完成實機驗證。
 
@@ -168,3 +168,5 @@ WindowsFileIcons 透過可重用的背景 PowerShell／Win32 程序讀取 PNG �
 目前頁面分類評估與後續導覽建議見 [桌面工具改善報告](desktop-usability-v1.131.0-zh-Hant.md)。作業中心已移除；舊版歷程不再提供操作入口。
 
 Everything 追蹤自 v1.132.0 起為獨立頁；浮動工具原型升級與設定見 [操作說明](floating-workspace-v1.132.0-zh-Hant.md)。
+
+Floating Tools 2.0 的六個工具仍共用原有服務與資料。顯示位置、獨立視窗及 P0 驗證見 [實作報告](floating-tools-p0-v1.133.0-zh-Hant.md)。

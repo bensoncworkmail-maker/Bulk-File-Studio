@@ -2,6 +2,7 @@
 const {contextBridge,ipcRenderer,webUtils}=require('electron');
 const invoke=(name,...args)=>ipcRenderer.invoke('draft-'+name,...args);
 contextBridge.exposeInMainWorld('draftAPI',{
+ onSelect:callback=>ipcRenderer.on('draft-select',(_,id)=>callback(id)),
  data:()=>invoke('data'),configure:patch=>invoke('configure',patch),export:(id,version,extension)=>invoke('export',id,version,extension),preview:(id,index)=>invoke('preview',id,index),remind:(id,version,input)=>invoke('remind',id,version,input),
  read:id=>invoke('read',id),
  newDraft:()=>invoke('new'),

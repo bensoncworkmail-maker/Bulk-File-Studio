@@ -261,7 +261,8 @@
   }
   async function act(action,value){
    try{
-    await api.action(action,value,inputs.customer?.value||'');
+    const outcome=await api.action(action,value,inputs.customer?.value||'');
+    if(action==='paste')status.textContent=outcome?.pasted?'文字已複製並送出貼上；請核對目標欄位。':'文字已複製；請在目標欄位按 Ctrl+V。';
     if(action==='copy')status.textContent='已複製文字片段。';
    }catch(error){status.textContent=error.message;}
   }
@@ -387,7 +388,7 @@
     copy.setAttribute('aria-label',copy.title);
     const mark=node('span','⧉','tool-view-copy-mark');
     mark.setAttribute('aria-hidden','true');
-    copy.append(mark,body);item.append(copy);
+    copy.append(mark,body);item.append(copy);if(config.embedded||api.close)item.append(button('貼上',()=>act('paste',row.id)));
    }else item.append(body,button('開啟紀錄',()=>act('visit',row.id)));
    if(row.eventKind)item.dataset.eventKind=row.eventKind;
    return item;
@@ -505,11 +506,12 @@
    tabs.append(tabButtons[kind]);
   }
   const viewRoot=node('section');
-  header.append(tabs,button('關閉',api.close),notice);
+  const toggles={};let presentation={};for(const [key,label]of [['pin','固定'],['topmost','置頂'],['collapse','收合']]){const control=button(label,()=>api.control?.(key,!({pin:presentation.pinnedWindow,topmost:presentation.topmost,collapse:presentation.collapsed})[key]).catch(error=>notice.textContent=error.message));toggles[key]=control;header.append(control);}
+  header.append(tabs,button('最小化',()=>api.control?.('minimize')),button('關閉',api.close),notice);
   overlay.append(header,viewRoot);
   let view,last;
   const states=new Map();
-  const render=({config,theme,fontSize,logFilters,logContext,pinnedWindow})=>{
+  const render=payload=>{const {config,theme,fontSize,logFilters,logContext,pinnedWindow}=payload;presentation=payload;for(const [key,control]of Object.entries(toggles))control.setAttribute('aria-pressed',String(Boolean(({pin:pinnedWindow,topmost:payload.topmost,collapse:payload.collapsed})[key])));viewRoot.hidden=payload.collapsed===true;
    document.documentElement.dataset.theme=theme;
    document.documentElement.dataset.fontSize=fontSize;
    const signature=JSON.stringify(config);
