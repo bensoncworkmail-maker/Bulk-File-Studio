@@ -21,6 +21,7 @@ function harness(t, overrides = {}) {
     constructor(options) { this.options=options;this.bounds={x:options.x||0,y:options.y||0,width:options.width,height:options.height};this.events=new Map();this.visible=true;this.destroyed=false;windows.push(this);this.webContents = contents = { on:(name,callback)=>network[name]=callback,setWindowOpenHandler:callback=>network.windowOpen=callback,send(...args){messages.push(args);},session:{webRequest:{onBeforeRequest:callback=>network.request=callback},setPermissionRequestHandler:callback=>network.permission=callback,setPermissionCheckHandler:callback=>network.check=callback,on:(name,callback)=>network[name]=callback} }; }
     loadFile(filepath) {this.url=require('node:url').pathToFileURL(filepath).href;}
     on(name,callback){const callbacks=this.events.get(name)||[];callbacks.push(callback);this.events.set(name,callbacks);return this;}
+    once(name,callback){let called=false;return this.on(name,(...args)=>{if(!called){called=true;callback(...args);}});}
     emit(name,...args){for(const callback of this.events.get(name)||[])callback(...args);}
     close(){let canceled=false;this.emit('close',{preventDefault(){canceled=true;}});if(!canceled)this.destroy();}
     isDestroyed(){return this.destroyed;}isVisible(){return this.visible;}hide(){this.visible=false;}destroy(){this.destroyed=true;this.emit('closed');}

@@ -1,8 +1,8 @@
 'use strict';
 (() => {
- function init({header,api,getSettings,onError,now=Date.now}){
+ function init({header,api,getSettings,onError,now=Date.now,dragControl=()=>false}){
   let active=null,lastDrag=-Infinity,finished=Promise.resolve();
-  const control=event=>Boolean(event.target?.closest?.('button'));
+  const control=event=>Boolean(event.target?.closest?.('button'))&&!dragControl(event);
   const queue=(session,task)=>{session.queue=session.queue.then(()=>session.failed?undefined:task()).catch(error=>{session.failed=true;onError(error);});};
   const move=(session,event)=>{
    const dx=event.screenX-session.x,dy=event.screenY-session.y;
@@ -26,8 +26,9 @@
   header.addEventListener('pointermove',event=>{if(active&&event.pointerId===active.id)move(active,event);});
   header.addEventListener('pointerup',event=>finish(event,true));
   for(const event of ['pointercancel','lostpointercapture'])header.addEventListener(event,value=>finish(value));
+  header.addEventListener('click',event=>{if(now()-lastDrag<350&&dragControl(event)){event.preventDefault();event.stopImmediatePropagation?.();event.stopPropagation();}},true);
   header.addEventListener('dblclick',event=>{
-   if(event.target?.closest?.('[data-resize]')?.dataset?.resize||control(event)||getSettings().floatingHeaderDoubleClick===false||now()-lastDrag<350)return;
+   if(dragControl(event)||event.target?.closest?.('[data-resize]')?.dataset?.resize||control(event)||getSettings().floatingHeaderDoubleClick===false||now()-lastDrag<350)return;
    event.preventDefault();api.headerDoubleClick().catch(onError);
   });
   const menu=event=>{if(control(event))return;event.preventDefault();event.stopPropagation();finish();return finished.then(()=>api.openFloatingHeaderMenu()).catch(onError);};

@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {init}=require('../src/floating-header');
-function setup(){
+function setup(options={}){
  const events={},calls=[],errors=[];let settings={floatingHeaderDoubleClick:true},clock=1000,sequence=0;
  const header={addEventListener:(event,callback)=>events[event]=callback,setPointerCapture:id=>calls.push(['capture',id]),releasePointerCapture:id=>calls.push(['release',id])};
  const api={openFloatingHeaderMenu:async()=>calls.push(['menu']),headerDoubleClick:async()=>calls.push(['double']),beginFloatingDrag:async()=>{const token=String(++sequence);calls.push(['start',token]);return {token};},moveFloatingDrag:async(...args)=>calls.push(['move',...args]),endFloatingDrag:async token=>calls.push(['end',token])};
- const controller=init({header,api,getSettings:()=>settings,onError:error=>errors.push(error.message),now:()=>clock});
+ const controller=init({header,api,getSettings:()=>settings,onError:error=>errors.push(error.message),now:()=>clock,...options});
  const event=(extra={})=>({button:0,isPrimary:true,pointerId:1,screenX:100,screenY:200,target:{closest:()=>false},preventDefault(){},stopPropagation(){},...extra});
  return {api,events,calls,errors,controller,event,settings:value=>settings=value,advance:()=>clock+=400};
 }
@@ -20,3 +20,5 @@ test('tool name, contextual caption and quick controls share the single floating
  const fs=require('node:fs'),path=require('node:path'),{documentFromHTML}=require('./helpers/dom'),document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/floating.html'),'utf8'));
  for(const id of ['mini-title','mini-heading','mini-caption-bar','mini-main','mini-tools-toggle'])assert.equal(document.getElementById(id).closest('header').id,'mini-header');assert.equal(document.getElementById('mini-title').textContent,'浮動工具');assert.equal(document.querySelectorAll('#mini-caption-bar').length,1);
 });
+
+ test('orb appmark drags through the shared header controller and suppresses the synthetic click after moving',async()=>{const h=setup({dragControl:event=>Boolean(event.target?.appmark)}),target={appmark:true,closest:selector=>selector==='button'?{}:null};h.events.pointerdown(h.event({target}));h.events.pointermove(h.event({target,screenX:160}));h.events.pointerup(h.event({target,screenX:160}));await h.controller.settled();assert.ok(h.calls.some(call=>call[0]==='move'));let prevented=false,stopped=false;h.events.click(h.event({target,preventDefault(){prevented=true;},stopImmediatePropagation(){stopped=true;}}));assert.equal(prevented,true);assert.equal(stopped,true);h.advance();prevented=false;h.events.click(h.event({target,preventDefault(){prevented=true;}}));assert.equal(prevented,false);});
