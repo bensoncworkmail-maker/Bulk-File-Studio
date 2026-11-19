@@ -81,36 +81,36 @@
         <div id="home-widgets" class="home-widgets"></div>
       </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
-        <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>先收集資料，再按需要使用範本、追蹤、自動流程或備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
+        <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>按需要使用情境、範本、追蹤、OCR 或備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
         <p id="productivity-status" class="productivity-status" role="status" aria-live="polite"></p>
         <div class="productivity-layout">
           <nav id="productivity-nav" class="productivity-nav" aria-label="工具箱功能">
-            <button type="button" class="btn btn-secondary" data-productivity="inbox" aria-pressed="true"><strong>收件匣</strong><small>先記下，稍後整理</small></button>
+
             <button type="button" class="btn btn-secondary" data-productivity="contexts" aria-pressed="false"><strong>情境包</strong><small>集中客戶與專案資源</small></button>
             <button type="button" class="btn btn-secondary" data-productivity="parameters" aria-pressed="false"><strong>參數範本</strong><small>填寫、預覽與複製文字</small></button>
             <button type="button" class="btn btn-secondary" data-productivity="tracking" aria-pressed="false"><strong>追蹤變更</strong><small>查看文件清單的變化</small></button>
             <button type="button" class="btn btn-secondary" data-productivity="ocr" aria-pressed="false"><strong>離線 OCR</strong><small>圖片文字轉成草稿</small></button>
-            <button type="button" class="btn btn-secondary" data-productivity="automations" aria-pressed="false"><strong>自動流程</strong><small>先試跑，再啟用規則</small></button>
+
             <button type="button" class="btn btn-secondary" data-productivity="backup" aria-pressed="false"><strong>備份</strong><small>保存與還原資料</small></button>
             <details id="toolbox-advanced"><summary>其他工具</summary><div class="toolbox-extra-nav">
 <button type="button" class="btn btn-ghost" data-productivity="repair" aria-pressed="false">批次修復路徑</button>
 <button type="button" class="btn btn-ghost" data-productivity="rules" aria-pressed="false">檔案整理規則</button>
 <button type="button" class="btn btn-ghost" data-productivity="preview" aria-pressed="false">文件預覽</button>
 <button type="button" class="btn btn-ghost" data-productivity="operations" aria-pressed="false">作業中心</button>
-<button type="button" class="btn btn-ghost" data-productivity="duplicates" aria-pressed="false">重複檔分析</button>
-<button type="button" class="btn btn-ghost" data-productivity="compare" aria-pressed="false">檔案比較</button>
-<button type="button" class="btn btn-ghost" data-productivity="formulas" aria-pressed="false">主表彙總</button>
+
+
+
 </div></details></nav><div class="productivity-content"><nav id="toolbox-subnav" class="toolbox-subnav" aria-label="工具內功能" hidden></nav>
-          <section id="productivity-inbox" class="productivity-panel" hidden></section>
+
 <section id="productivity-contexts" class="productivity-panel" hidden></section>
 <section id="productivity-parameters" class="productivity-panel" hidden></section>
 <section id="productivity-tracking" class="productivity-panel" hidden></section>
 <section id="productivity-ocr" class="productivity-panel" hidden></section>
-<section id="productivity-automations" class="productivity-panel" hidden></section>
+
 <section id="productivity-operations" class="productivity-panel" hidden></section>
-<section id="productivity-duplicates" class="productivity-panel" hidden></section>
-<section id="productivity-compare" class="productivity-panel" hidden></section>
-<section id="productivity-formulas" class="productivity-panel" hidden></section>
+
+
+
 <section id="productivity-conditions" class="productivity-panel" hidden></section>
 <section id="productivity-repair" class="productivity-panel" hidden><h2>批次修復路徑</h2><p>更新收藏／標籤位置、紀錄檔案連結及獨立路徑文字欄位。支援磁碟代號轉內網 UNC；舊位置可已失效，新位置須可存取。只改路徑，不搬移檔案。</p><p class="notes-hint">共享建議：舊根路徑輸入 <code>R:\</code>，新根路徑輸入 <code>\\10.10.2.60\temp\</code>；<code>R:\testing\testingA.txt</code> 會轉為 <code>\\10.10.2.60\temp\testing\testingA.txt</code>。確認修復後，請再發佈共享來源；接收者仍須有共享資料夾存取權。只含一個完整路徑的文字欄位才會列入，不改筆記內文或網址。</p><form id="repair-form"><label class="field"><span>舊根路徑</span><input id="repair-from" required maxlength="4096" placeholder="例如 D:\舊資料"></label><label class="field"><span>新根路徑</span><input id="repair-to" required maxlength="4096" placeholder="例如 E:\資料"></label><div class="productivity-actions"><button id="repair-folder" class="btn btn-secondary" type="button">選擇新位置</button><button class="btn btn-primary" type="submit">預覽修復</button></div></form><div class="productivity-actions"><button id="repair-select" class="btn btn-ghost" disabled>全選可修復項目</button><button id="repair-apply" class="btn btn-primary" disabled>確認修復所選連結</button></div><p id="repair-summary" role="status" class="notes-hint"></p><div id="repair-list" class="productivity-list"></div></section>
           <section id="productivity-backup" class="productivity-panel" hidden><h2>備份與還原</h2><ol class="toolbox-steps"><li>建立備份</li><li>試還原核對</li><li>需要時預覽並還原</li></ol><p>大量匯入或修改前，先建立一份備份。還原會取代目前資料，請先預覽。</p><details class="toolbox-options"><summary>備份會包含什麼？</summary><p>例如：匯入客戶 Excel 前，建立一份完整備份，先試還原核對；之後需要還原時，先預覽資料數量再確認。保存工作區、收藏、提醒、檢視、範本、設定與本頁工具；保留每次備份的歷史版本。草稿檔案自動嘗試封裝，紀錄文件可選封裝；資料夾內容、共享授權、檔案作業歷程與系統登記另行管理。</p></details><details class="toolbox-options"><summary>備份內容（選填設定）</summary><div class="productivity-actions"><label class="check-row"><input id="backup-include-history" type="checkbox" checked> 包含紀錄歷史（草稿一律包含，草稿檔案自動嘗試封裝）</label><label class="check-row"><input id="backup-include-files" type="checkbox"> 另封裝紀錄連結的文件（單檔 8 MB／合計 24 MB；未能封裝項目會列出）</label></div></details><div class="productivity-actions"><button id="backup-create" class="btn btn-primary">建立完整備份</button><button id="backup-import" class="btn btn-secondary">匯入備份，先預覽</button></div><button id="backup-open-folder" class="btn btn-ghost">開啟備份資料夾</button><p id="backup-location" class="notes-hint"></p><details class="toolbox-options"><summary>批次匯出／清理備份</summary><div class="productivity-actions"><label><input id="backup-select-all" type="checkbox"> 選取全部</label><button id="backup-export-selected" class="btn btn-secondary">匯出所選</button><button id="backup-delete-selected" class="btn btn-ghost">刪除所選</button><span id="backup-selection-count" role="status"></span></div></details><div id="backup-list" class="productivity-list"></div><div id="backup-preview" class="productivity-card" hidden><h3>還原預覽</h3><p id="backup-summary"></p><div id="backup-counts"></div><button id="backup-trial-preview" class="btn btn-secondary">試還原並比對</button><button id="backup-restore" class="btn btn-primary">確認還原</button><button id="backup-cancel" class="btn btn-ghost">取消預覽</button></div></section>

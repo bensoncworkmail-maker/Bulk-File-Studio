@@ -3,7 +3,6 @@
  const {PANELS,FILES_LABEL,normalize,enabledPanels}=window.floatingPanelsModel;
  // Each factory owns its view and per-session filters. The host owns placement and lifecycle.
  const builtins={
-  context:{mount:root=>{root.append(document.getElementById('desktop-context-panel'));return window.desktopContextUI.mount(root,window.desktopContextAPI,{embedded:true});}},
   planning:{preferences:['planningMode'],mount:(root,api,prefs)=>mountTool(root,api,'planning',{mode:prefs.planningMode})},
   snippets:{preferences:['snippetQuery','snippetLayout'],mount:(root,api,prefs)=>mountTool(root,api,'snippets',{query:prefs.snippetQuery,layout:prefs.snippetLayout})}
  };
@@ -22,7 +21,7 @@
    entry.view.dispose();entry.root.remove();views.delete(id);
   }
   function display(){
-   tabs.hidden=collapsed||!prefs?.enabled.length&&!components.context;
+   tabs.hidden=collapsed||!prefs?.enabled.length;
    root.hidden=collapsed||active==='files';
    for(const tab of tabs.children)tab.setAttribute('aria-pressed',String(tab.dataset.panel===active));
    for(const [id,entry] of views)entry.root.hidden=id!==active;
@@ -30,7 +29,7 @@
   }
   function select(id,focus=false){
    if(!prefs){queued=id;return;}
-   if(id!=='files'&&(id!=='context'&&!prefs.enabled.includes(id)||!Object.hasOwn(components,id)))return;
+   if(id!=='files'&&(!prefs.enabled.includes(id)||!Object.hasOwn(components,id)))return;
    const changed=active!==id;
    active=id;
    if(!collapsed&&id!=='files'&&!views.has(id)){
@@ -54,18 +53,18 @@
     prefs=next;signature=key;
     for(const id of views.keys()){
      const {preferences=[]}=components[id];
-     if(id!=='context'&&(!prefs.enabled.includes(id)||preferences.some(key=>previous[key]!==prefs[key])))remove(id);
+     if(!prefs.enabled.includes(id)||preferences.some(key=>previous[key]!==prefs[key]))remove(id);
     }
     if(!previous||previous.defaultPanel!==prefs.defaultPanel)active=prefs.defaultPanel;
-    if(active!=='context'&&!prefs.enabled.includes(active))active='files';
+    if(!prefs.enabled.includes(active))active='files';
     tabs.replaceChildren();
-    for(const id of ['files',...(components.context?['context']:[]),...enabledPanels(prefs)]){
+    for(const id of ['files',...enabledPanels(prefs)]){
      const button=document.createElement('button');button.type='button';button.dataset.panel=id;
-     button.textContent=id==='files'?FILES_LABEL:id==='context'?'工作情境':PANELS[id];
+     button.textContent=id==='files'?FILES_LABEL:PANELS[id];
      button.addEventListener('click',()=>select(id,true));
      tabs.append(button);
     }
-    select(queued&&(queued==='context'||prefs.enabled.includes(queued))?queued:active);
+    select(queued&&prefs.enabled.includes(queued)?queued:active);
     queued=undefined;
    }else if(wasCollapsed!==collapsed){
     if(!collapsed)views.get(active)?.view.refresh();

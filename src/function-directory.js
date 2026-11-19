@@ -2,15 +2,10 @@
 (() => {
  // User tasks and their canonical entry points; shared by the homepage and its tests.
  const entries=Object.freeze([
-  {group:'工具箱',title:'工具箱收件匣',description:'先記文字、加入檔案、存成草稿，再整理到工作區；原工作流程中心',workflow:'inbox'},
-  {group:'工具箱',title:'情境包',description:'浮動工具工作情境分頁，自訂圖示大小、懸停展開，表格找檔案、切換客戶與複製範本',workflow:'contexts'},
-  {group:'工具箱',title:'主表彙總計算',description:'關聯筆數、合計、最早日期、剩餘天數',workflow:'formulas'},
+  {group:'工具箱',title:'情境包',description:'獨立桌面工作情境，自訂圖示大小、懸停展開，表格找檔案、切換客戶與複製範本',workflow:'contexts'},
   {group:'工具箱',title:'參數化文字範本',description:'範本參數、紀錄、剪貼簿、預覽與貼上',workflow:'snippets'},
   {group:'工具箱',title:'檔案作業中心',description:'背景搬移、持久佇列、多步復原與安全取消',workflow:'operations'},
-  {group:'工具箱',title:'內容重複檔分析',description:'SHA-256 內容校驗、保留副本、資源回收筒',workflow:'duplicates'},
-  {group:'工具箱',title:'文字與資料夾比較',description:'唯讀逐行差異、資料夾內容比較',workflow:'compare'},
   {group:'工具箱',title:'Windows 離線 OCR',description:'本機圖片文字辨識、校正後儲存草稿',workflow:'ocr'},
-  {group:'工具箱',title:'本機自動流程',description:'新增與更新事件、AND OR 條件、手動預覽與執行歷程',workflow:'automations'},
   {group:'工具箱',title:'追蹤變更紀錄',description:'Everything 快照差異、改名偵測、可選背景監控',workflow:'tracking'},
   {group:'工具箱',title:'整理條件與衝突',description:'巢狀 AND OR、逐條解釋、目的地衝突總覽',workflow:'rules'},
   {group:'工具箱',title:'最近與收藏目的地',description:'作業中心內選擇搬移資料夾，匯出時沿用最近位置',workflow:'folders'},

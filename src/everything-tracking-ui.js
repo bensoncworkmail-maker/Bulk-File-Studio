@@ -212,7 +212,7 @@
   event.preventDefault();if(blocked())return;
   if(!selected.has(index)){selected=new Set([index]);anchor=index;paintSelection();}
   const count=selected.size,one=count===1;
-  const items=[{label:'加入工具箱收件匣…',run:()=>window.workflowHub?.open('inbox',window.everythingTrackingUI.selection())},{label:'開啟檔案／資料夾'+(one?'':'（'+count+' 項，先確認）'),run:()=>action(one?'open':'bulk-open')},
+  const items=[{label:'開啟檔案／資料夾'+(one?'':'（'+count+' 項，先確認）'),run:()=>action(one?'open':'bulk-open')},
    {label:'開啟所在資料夾'+(one?'':'（先確認）'),run:()=>action(one?'show':'bulk-locations')},
    {label:'複製完整路徑 · Ctrl+C',run:()=>action('copy')},{label:'複製檔名 · Ctrl+Shift+C',run:()=>action('copy-names')},{label:'複製所在資料夾',run:()=>action('copy-folders')},{label:'複製所選表格（可貼到試算表）',run:()=>action('copy-table')},
    {label:'重新命名… · F2',disabled:!one,run:renameItem},{label:'批次改名…',run:()=>action('rename')},{label:'批次搬移… · Ctrl+Shift+M',run:()=>action('move')},{label:'保留為一般收藏',run:()=>action('favorite')},{label:'移至資源回收筒… · Delete',run:()=>action('trash')},

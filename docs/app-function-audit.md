@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.129.0。以 `npm run audit:functions` 重新產生。
+版本：v1.130.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 226 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 222 個 JS／HTML／CSS 檔案；核對 10 個頁面、12 個工具入口、31 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -58,7 +58,6 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
-| [analysis-job.js](../src/analysis-job.js) | `finish`、`run` |
 | [app-help.js](../src/app-help.js) | `$`、`blocked`、`close`、`init`、`navigate`、`open`、`render`、`showFinder`、`showGuide` |
 | [app-layout.css](../src/app-layout.css) | 版面、主題與互動狀態樣式 |
 | [app-navigation.js](../src/app-navigation.js) | `create` |
@@ -86,7 +85,7 @@
 | [operation-journal.js](../src/operation-journal.js) | `begin`、`complete`、`constructor`、`enqueue`、`list`、`markUndone`、`read`、`rebase`、`recover`、`undoable`、`update`、`write` |
 | [operation-ui.css](../src/operation-ui.css) | 版面、主題與互動狀態樣式 |
 | [operation-ui.js](../src/operation-ui.js) | `$`、`close`、`create`、`receive`、`render`、`show`、`visibilityChanged` |
-| [preload.js](../src/preload.js) | `handler`、`invoke`、`listen`、`listener`、`notifyOperation` |
+| [preload.js](../src/preload.js) | `invoke`、`listener`、`notifyOperation` |
 | [quick-actions-model.js](../src/quick-actions-model.js) | `displayOptions`、`entry`、`form`、`normalize` |
 | [quick-actions-settings.js](../src/quick-actions-settings.js) | `$`、`actionButton`、`appendOptions`、`displayFields`、`dropOptions`、`edit`、`fields`、`formFields`、`init`、`masters`、`move`、`node`、`persist`、`refresh`、`render`、`renderTagChecks`、`sheet` |
 | [record-browser.css](../src/record-browser.css) | 版面、主題與互動狀態樣式 |
@@ -108,10 +107,10 @@
 | [web-link-model.js](../src/web-link-model.js) | `links`、`normalize`、`valid` |
 | [workflow-guide-model.js](../src/workflow-guide-model.js) | 宣告、設定或共用模型 |
 | [workflow-hub.css](../src/workflow-hub.css) | 版面、主題與互動狀態樣式 |
-| [workflow-hub.js](../src/workflow-hub.js) | `actionFields`、`args`、`automations`、`button`、`canChangeContext`、`canLeave`、`changeSheet`、`choose`、`chosen`、`conditions`、`contextChanged`、`contexts`、`destination`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`files`、`formulas`、`getValue`、`go`、`inbox`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`openSnippet`、`operations`、`output`、`paint`、`parentField`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`setting`、`sheets`、`snippets`、`sourceTools`、`syncContextDefaults`、`trackEditor`、`tracking`、`triggerState`、`update`、`values`、`watch` |
+| [workflow-hub.js](../src/workflow-hub.js) | `args`、`button`、`canChangeContext`、`canLeave`、`choose`、`chosen`、`conditions`、`contextChanged`、`contexts`、`destination`、`detail`、`discardChanges`、`disclosure`、`doc`、`draw`、`el`、`explanations`、`fields`、`go`、`input`、`invalidate`、`isVisible`、`message`、`mount`、`ocr`、`open`、`openSnippet`、`operations`、`output`、`paint`、`render`、`renderGuide`、`route`、`rules`、`run`、`saved`、`section`、`select`、`selectionContext`、`sheets`、`snippets`、`sourceTools`、`syncContextDefaults`、`trackEditor`、`tracking`、`values`、`watch` |
 | [workflow-ipc.js](../src/workflow-ipc.js) | `ensure`、`registerWorkflow` |
-| [workflow-model.js](../src/workflow-model.js) | `aggregate`、`automationPlan`、`condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
-| [workflow-service.js](../src/workflow-service.js) | `activateContext`、`analyze`、`close`、`constructor`、`contextState`、`convert`、`planAutomation`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`summary`、`take`、`token`、`trashDuplicates`、`validateDefinition` |
+| [workflow-model.js](../src/workflow-model.js) | `condition`、`definition`、`evaluate`、`expand`、`id`、`ids`、`legacyRule`、`parameters`、`text`、`values` |
+| [workflow-service.js](../src/workflow-service.js) | `activateContext`、`close`、`constructor`、`contextState`、`remember`、`save`、`select`、`selection`、`snippet`、`state`、`take`、`token`、`validateDefinition` |
 | [workflow-store.js](../src/workflow-store.js) | `change`、`empty`、`normalize`、`read`、`remove`、`save` |
 | [workspace.css](../src/workspace.css) | 版面、主題與互動狀態樣式 |
 ### 收藏與 Everything
@@ -168,7 +167,6 @@
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
 | [desktop-context-actions.js](../src/desktop-context-actions.js) | `authorize`、`constructor`、`file`、`files`、`listRecord`、`resource`、`snippet`、`state`、`take`、`token` |
-| [desktop-context-embedded.css](../src/desktop-context-embedded.css) | 版面、主題與互動狀態樣式 |
 | [desktop-context-preload.js](../src/desktop-context-preload.js) | `handler`、`listen` |
 | [desktop-context-state.js](../src/desktop-context-state.js) | `normalize` |
 | [desktop-context-table.css](../src/desktop-context-table.css) | 版面、主題與互動狀態樣式 |
@@ -257,8 +255,6 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
-| [file-analysis-worker.js](../src/file-analysis-worker.js) | `checkpoint` |
-| [file-analysis.js](../src/file-analysis.js) | `compare`、`diffLines`、`duplicates`、`filesUnder`、`hashFile`、`signature`、`walk` |
 | [file-location-groups.js](../src/file-location-groups.js) | `arrange`、`collapseKey`、`location`、`members`、`normalize`、`visibleRows` |
 | [file-rules.js](../src/file-rules.js) | `preview`、`selected`、`tag` |
 | [move-core.js](../src/move-core.js) | `add`、`assertExpected`、`assertSourceTrees`、`copyExclusive`、`depth`、`destinationFor`、`directories`、`directoryFingerprint`、`equal`、`executeRelocation`、`exists`、`fingerprint`、`inside`、`isFolder`、`key`、`planMove`、`planRename`、`prepareMoveUndo`、`resolveMoveSources`、`stageFile`、`validate` |
