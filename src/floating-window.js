@@ -1,24 +1,26 @@
 'use strict';
 const {fitBounds,validBounds}=require('./desktop-state');
 const {randomUUID}=require('node:crypto');
+const layout=require('./floating-layout');
 const DEFAULTS={width:320,height:400,minWidth:220,minHeight:120};
 function collapsedMinimumWidth(settings){const items=settings.floatingCollapsedItems||['pin','close'];return Math.max(92,8+27*(1+['pin','close','main','search','draft','focus'].filter(key=>items.includes(key)&&(key!=='search'||settings.floatingGlobalSearch!==false)).length)+(items.includes('focus')?30:0)+(items.includes('caption')?30:0)+(items.includes('quick-actions')?50:0));}
-function launcherBounds(settings){const mode=settings.floatingLauncher,vertical=mode==='bar'||mode==='dock'&&['left','right'].includes(settings.floatingDockEdge);return mode==='bubble'?{width:56,height:56,minWidth:56,minHeight:56}:['bar','dock'].includes(mode)?vertical?{width:60,height:420,minWidth:60,minHeight:420}:{width:420,height:60,minWidth:420,minHeight:60}:null;}
-function windowDefaults(settings={}){const modern=settings.floatingLauncher&&settings.floatingLauncher!=='classic';return {...DEFAULTS,width:Math.max(modern?480:160,settings.floatingDefaultWidth||320),height:Math.max(modern?580:80,settings.floatingDefaultHeight||400),minWidth:Math.max(modern?380:160,settings.floatingMinWidth||220),minHeight:Math.max(modern?300:80,settings.floatingMinHeight||120)};}
+function launcherBounds(settings){const size=layout.capsule(settings.floatingLauncher,settings.floatingDockEdge);return size?{...size,minWidth:size.width,minHeight:size.height}:null;}
+function windowDefaults(settings={}){const mode=settings.floatingLauncher,edge=settings.floatingDockEdge,modern=layout.modern(mode),size=layout.defaults(mode,edge),minimum=layout.minimum(mode,edge);return {...DEFAULTS,width:Math.max(size?.width||160,settings.floatingDefaultWidth||320),height:Math.max(size?.height||80,settings.floatingDefaultHeight||400),minWidth:Math.max(modern?minimum.width:160,settings.floatingMinWidth||220),minHeight:Math.max(modern?minimum.height:80,settings.floatingMinHeight||120)};}
 class FloatingWindow {
  constructor(window,desktop,screen){
   this.window=window;this.desktop=desktop;this.screen=screen;this.collapsed=false;this.transitioning=false;this.expanded=this.liveBounds();this.drag=null;
-  this.facade={on:(...args)=>window.on(...args),isDestroyed:()=>window.isDestroyed(),isMinimized:()=>window.isMinimized(),isMaximized:()=>false,getNormalBounds:()=>this.savedBounds()};
+  this.facade={on:(...args)=>window.on(...args),isDestroyed:()=>window.isDestroyed(),isMinimized:()=>window.isMinimized(),isMaximized:()=>false,getNormalBounds:()=>this.savedBounds(),getLauncherBounds:()=>this.launcherPosition()};
   for(const event of ['resize','move'])window.on(event,()=>this.captureExpanded());
   desktop.attach('floating',this.facade);
   window.on('focus',()=>this.opacity(true));window.on('blur',()=>this.opacity(false));window.on('hide',()=>{this.drag=null;});
   this.apply();
  }
- liveBounds(){const bounds=this.window.getBounds?.()||this.window.getNormalBounds();return {...bounds};}
+ liveBounds(){const bounds=this.window.getContentBounds?.()||this.window.getBounds?.()||this.window.getNormalBounds();return {...bounds};}
  captureExpanded(){if(this.collapsed||this.transitioning)return;const bounds=this.liveBounds();if(validBounds(bounds)&&bounds.width>=160&&bounds.height>=80)this.expanded=bounds;}
- savedBounds(){this.captureExpanded();const bounds=this.liveBounds();return {...bounds,width:this.expanded.width,height:this.expanded.height};}
+ launcherPosition(){if(!layout.modern(this.launcherMode))return null;const bounds=this.liveBounds(),box=layout.surfaces(this.launcherMode,this.dockEdge,this.collapsed,bounds.width,bounds.height).launcher,size=launcherBounds(this.desktop.settings),inset=this.launcherMode==='bubble'?3:4;return {x:bounds.x+box.x-inset,y:bounds.y+box.y-inset,width:size.width,height:size.height};}
+ savedBounds(){this.captureExpanded();const bounds=this.liveBounds(),expanded={...bounds,width:this.expanded.width,height:this.expanded.height};if(this.collapsed&&layout.modern(this.launcherMode)){const current=layout.surfaces(this.launcherMode,this.dockEdge,true,bounds.width,bounds.height).launcher,next=layout.surfaces(this.launcherMode,this.dockEdge,false,expanded.width,expanded.height).launcher;expanded.x+=current.x-next.x;expanded.y+=current.y-next.y;}return expanded;}
  record(){if(this.collapsed&&this.drag&&this.drag.mode!=='move'){this.desktop.update({floatingCollapsedWidth:this.liveBounds().width});this.appliedCollapsedWidth=this.desktop.settings.floatingCollapsedWidth;}this.desktop.record('floating',this.facade);}
- place(bounds,defaults){const displays=this.screen.getAllDisplays(),fitted=fitBounds(bounds,displays,defaults);if(this.desktop.settings.floatingLauncher==='dock'){const area=displays.find(d=>fitted.x>=d.workArea.x&&fitted.x<d.workArea.x+d.workArea.width&&fitted.y>=d.workArea.y&&fitted.y<d.workArea.y+d.workArea.height)?.workArea||displays[0]?.workArea;if(area){const edge=this.desktop.settings.floatingDockEdge;if(edge==='left')fitted.x=area.x;if(edge==='right')fitted.x=area.x+area.width-fitted.width;if(edge==='top')fitted.y=area.y;if(edge==='bottom')fitted.y=area.y+area.height-fitted.height;}}const minimum=[fitted.minWidth,fitted.minHeight],transitioning=this.transitioning;this.transitioning=true;try{if(String(minimum)!==String(this.nativeMinimum)){this.window.setMinimumSize(...minimum);this.nativeMinimum=minimum;}this.window.setBounds(fitted);}finally{this.transitioning=transitioning;}}
+ place(bounds,defaults){const displays=this.screen.getAllDisplays(),fitted=fitBounds(bounds,displays,defaults);if(this.desktop.settings.floatingLauncher==='dock'){const area=displays.find(d=>fitted.x>=d.workArea.x&&fitted.x<d.workArea.x+d.workArea.width&&fitted.y>=d.workArea.y&&fitted.y<d.workArea.y+d.workArea.height)?.workArea||displays[0]?.workArea;if(area){const edge=this.desktop.settings.floatingDockEdge;if(edge==='left')fitted.x=area.x;if(edge==='right')fitted.x=area.x+area.width-fitted.width;if(edge==='top')fitted.y=area.y;if(edge==='bottom')fitted.y=area.y+area.height-fitted.height;}}const minimum=[fitted.minWidth,fitted.minHeight],transitioning=this.transitioning;this.transitioning=true;try{if(String(minimum)!==String(this.nativeMinimum)){this.window.setMinimumSize(...minimum);this.nativeMinimum=minimum;}if(this.window.setContentBounds)this.window.setContentBounds({x:fitted.x,y:fitted.y,width:fitted.width,height:fitted.height});else this.window.setBounds(fitted);}finally{this.transitioning=transitioning;}}
  opacity(focused=this.window.isFocused?.()||false){const settings=this.desktop.settings;this.window.setOpacity(settings.floatingOpaqueOnFocus&&focused?1:settings.floatingOpacity/100);}
  startDrag(mode='move'){if(mode!=='move'&&launcherBounds(this.desktop.settings))throw new Error('入口大小由顯示模式決定');if(!['move','resize-left','resize-right'].includes(mode)||mode!=='move'&&!this.collapsed)throw new Error('不支援的拖曳操作');if(this.window.isDestroyed()||this.window.isVisible?.()===false)throw new Error('浮動工具未顯示');this.drag={token:randomUUID(),bounds:this.liveBounds(),mode};return {token:this.drag.token};}
  moveDrag(token,dx,dy){
@@ -32,7 +34,14 @@ class FloatingWindow {
  apply(){
   const launcher=launcherBounds(this.desktop.settings),collapsed=this.desktop.settings.floatingCollapsed,defaults=windowDefaults(this.desktop.settings),minimum=collapsed?(launcher?[launcher.minWidth,launcher.minHeight]:[collapsedMinimumWidth(this.desktop.settings),40]):[defaults.minWidth,defaults.minHeight],width=this.desktop.settings.floatingCollapsedWidth,changed=collapsed!==this.collapsed;
   if(changed||this.launcherMode!==this.desktop.settings.floatingLauncher||this.dockEdge!==this.desktop.settings.floatingDockEdge||collapsed&&this.appliedCollapsedWidth!==width||String(minimum)!==String(this.minimum)){
-   this.captureExpanded();const current=this.liveBounds(),target=collapsed?{...current,width:launcher?.width||width,height:launcher?.height||40}:changed?{...current,width:this.expanded.width,height:this.expanded.height}:current;
+   this.captureExpanded();const current=this.liveBounds(),mode=this.desktop.settings.floatingLauncher,edge=this.desktop.settings.floatingDockEdge,modeChanged=mode!==this.launcherMode;
+   const target=collapsed?{...current,width:launcher?.width||width,height:launcher?.height||40}:changed||modeChanged?{...current,width:Math.max(this.expanded.width,this.launcherMode==='classic'&&layout.modern(mode)?defaults.width:defaults.minWidth),height:Math.max(this.expanded.height,this.launcherMode==='classic'&&layout.modern(mode)?defaults.height:defaults.minHeight)}:current;
+   const oldMode=this.launcherMode||mode,oldEdge=this.dockEdge||edge;
+   if(layout.modern(oldMode)&&layout.modern(mode)){
+    const old=layout.surfaces(oldMode,oldEdge,this.collapsed,current.width,current.height).launcher,next=layout.surfaces(mode,edge,collapsed,target.width,target.height).launcher;
+    target.x+=old.x-next.x;target.y+=old.y-next.y;
+   }
+   const remembered=this.desktop.data.windows.floating?.launcherBounds;if(this.launcherMode===undefined&&collapsed&&launcher&&this.desktop.settings.rememberWindow&&validBounds(remembered)){target.x=remembered.x;target.y=remembered.y;}
    this.transitioning=true;this.drag=null;
    try{this.window.setResizable(!collapsed);this.place(target,collapsed?(launcher||{width,minWidth:collapsedMinimumWidth(this.desktop.settings),height:40,minHeight:40}):defaults);this.collapsed=collapsed;this.launcherMode=this.desktop.settings.floatingLauncher;this.dockEdge=this.desktop.settings.floatingDockEdge;this.minimum=minimum;this.appliedCollapsedWidth=width;}
    finally{this.transitioning=false;}

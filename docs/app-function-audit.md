@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.133.0。以 `npm run audit:functions` 重新產生。
+版本：v1.134.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 236 個 JS／HTML／CSS 檔案；核對 11 個頁面、11 個工具入口、29 項功能導覽與 273 個介面／桌面偏好。
+讀取 src 全部 237 個 JS／HTML／CSS 檔案；核對 11 個頁面、11 個工具入口、29 項功能導覽與 273 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -190,6 +190,7 @@
 | [floating-date-settings.js](../src/floating-date-settings.js) | `$`、`apply`、`changed`、`control`、`field`、`init`、`load`、`node`、`render`、`status` |
 | [floating-displays.js](../src/floating-displays.js) | `close`、`recover` |
 | [floating-header.js](../src/floating-header.js) | `control`、`finish`、`init`、`menu`、`move`、`queue` |
+| [floating-layout.js](../src/floating-layout.js) | `capsule`、`defaults`、`horizontal`、`minimum`、`modern`、`surfaces`、`visibleSlots` |
 | [floating-live-search.js](../src/floating-live-search.js) | `activate`、`cancel`、`clear`、`create`、`enabled`、`fail`、`input`、`prepare`、`settingsChanged` |
 | [floating-main-tool.js](../src/floating-main-tool.js) | 宣告、設定或共用模型 |
 | [floating-menu.js](../src/floating-menu.js) | `bind`、`close`、`closeAndWait`、`done`、`release` |
@@ -204,8 +205,8 @@
 | [floating-tool-panel.js](../src/floating-tool-panel.js) | `render` |
 | [floating-tool-views.js](../src/floating-tool-views.js) | `button`、`call`、`mount`、`node`、`refresh`、`render` |
 | [floating-tools-settings.js](../src/floating-tools-settings.js) | `mount`、`node`、`save`、`select`、`sync` |
-| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`ensureVisible`、`launcherBounds`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`startDrag`、`windowDefaults` |
-| [floating-workspace-ui.js](../src/floating-workspace-ui.js) | `button`、`cancel`、`mount`、`node`、`openSettings`、`sync` |
+| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`ensureVisible`、`launcherBounds`、`launcherPosition`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`startDrag`、`windowDefaults` |
+| [floating-workspace-ui.js](../src/floating-workspace-ui.js) | `button`、`cancel`、`geometry`、`mount`、`node`、`openCommands`、`openSettings`、`openTool`、`sync` |
 | [floating-workspace.css](../src/floating-workspace.css) | 版面、主題與互動狀態樣式 |
 | [floating-workspace.js](../src/floating-workspace.js) | `register` |
 | [floating.css](../src/floating.css) | 版面、主題與互動狀態樣式 |

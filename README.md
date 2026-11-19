@@ -10,6 +10,8 @@ Bulk File Studio 是繁體中文 Windows 桌面工具，將檔案收藏、標籤
 
 ## 近期更新
 
+- **Floating Tools UI 修復（v1.134.0）**：修正懸浮球尺寸與拖曳、側邊列／Dock 間距、舊捷徑擠迫、收合重啟位置及情境重複初始化。[實際截圖與 UI-01 至 UI-12 驗收](docs/floating-tools-ui-v3-zh-Hant.md)。
+
 - **Floating Tools 2.0 P0（v1.133.0）**：六個真實工具分頁、浮窗內設定、各工具顯示位置與獨立面板、Pin／置頂分離、四邊 Dock、有限次置頂修復及貼上時序保護。[實作與逐項驗收](docs/floating-tools-p0-v1.133.0-zh-Hant.md)。
 - **浮動工作台與獨立追蹤頁（v1.132.0）**：新增側邊、Dock、懸浮球入口、分頁記憶與手動剪貼文字面板；Everything 追蹤獨立成頁。草稿圖片改用草稿 UUID＋排序流水號。[使用與原型對照](docs/floating-workspace-v1.132.0-zh-Hant.md)。
 - **桌面工具與草稿改善（v1.131.0）**：重新叫出浮動工具會修復置頂及畫面外位置；工作情境可選桌面浮動或程式內精簡面板。草稿圖片按顯示編號命名，新附件直接存同一根目錄。移除作業中心。[操作與分類建議](docs/desktop-usability-v1.131.0-zh-Hant.md)。
