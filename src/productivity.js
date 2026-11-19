@@ -3,7 +3,7 @@
  const $=id=>document.getElementById(id),api=window.productivityAPI,M=window.studioProductivity,T=window.toolboxModel;
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
  const button=(label,task,cls='btn btn-ghost')=>{const el=node('button',label,cls);el.type='button';el.addEventListener('click',()=>{if(!busy)task();});return el;};
- let callbacks,busy=false,dirty=true,loaded=false,section='inbox',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),refreshRequest=0,planning,pendingSource;
+ let callbacks,busy=false,dirty=true,loaded=false,section='contexts',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),refreshRequest=0,planning,pendingSource;
  const selectedTools={rules:null,worksets:null,snippets:null},snippetSelection=new Set(),backupSelection=new Set();const splitControls=[];let advancedConditions;let nativePreferences={toolSplitWidths:{}};
  const liveRecords=()=>state?.workspace.document.records.filter(record=>!record.deletedAt&&state.workspace.document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt))||[];
  const configuration=()=>({settings:window.settingsUI.get(),shortcuts:window.studioShortcuts.getBindings(),...callbacks.configuration()});

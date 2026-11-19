@@ -32,17 +32,6 @@
   throw Error('設定類型無效');
  }
  function values(record){return {title:record.title,notes:record.notes,...record.values};}
- function aggregate(doc,formula,masterId,now=new Date()){
-  const master=doc.records.find(item=>item.id===masterId&&!item.deletedAt&&item.sheetId===formula.masterSheetId);if(!master)throw Error('主紀錄已移除');
-  const rows=doc.records.filter(item=>!item.deletedAt&&item.sheetId===formula.sourceSheetId&&(formula.relationFieldId?(item.values[formula.relationFieldId]||[]).includes(masterId):item.id===masterId)&&evaluate(formula.filter,values(item)).matched);
-  const raw=rows.map(item=>item.values[formula.valueFieldId]).filter(value=>value!==undefined&&value!==null&&value!=='');let result;
-  if(formula.op==='count')result=rows.length;
-  else if(['earliest','latest','daysUntil'].includes(formula.op)){const dates=raw.filter(value=>/^\d{4}-\d{2}-\d{2}$/.test(value)).sort();result=dates.length?(formula.op==='latest'?dates.at(-1):dates[0]):null;if(formula.op==='daysUntil'&&result)result=Math.round((Date.parse(result+'T12:00:00')-Date.parse(now.toLocaleDateString('sv-SE')+'T12:00:00'))/86400000);}
-  else {const numbers=raw.filter(value=>typeof value==='number'&&Number.isFinite(value));result=formula.op==='sum'?numbers.reduce((a,b)=>a+b,0):numbers.length?(formula.op==='min'?Math.min(...numbers):Math.max(...numbers)):null;}
-  return {value:result,records:rows.length,recordIds:rows.map(item=>item.id)};
- }
- function automationPlan(doc,rule,recordIds){
-  return doc.records.filter(record=>recordIds.includes(record.id)&&!record.deletedAt&&record.sheetId===rule.sheetId).map(record=>({recordId:record.id,title:record.title,version:record.version,matched:evaluate(rule.filter,values(record)).matched,action:rule.action,fieldId:rule.fieldId,value:rule.value,minutes:rule.minutes}));
- }
- const api={ID,text,id,condition,evaluate,legacyRule,parameters,expand,definition,values,aggregate,automationPlan};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.workflowModel=Object.freeze(api);
+
+ const api={ID,text,id,condition,evaluate,legacyRule,parameters,expand,definition,values};if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.workflowModel=Object.freeze(api);
 })();

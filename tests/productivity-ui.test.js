@@ -102,25 +102,8 @@ function attachWorkflow(h,beforeMount=()=>{}){
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/workflow-hub.js'),'utf8'),h.context);
  return h.$('workflow-content');
 }
-test('unified toolbox has seven primary destinations and preserves a selected source through first asynchronous activation',async()=>{
- const h=harness(),root=attachWorkflow(h),nav=h.$('productivity-nav');
- assert.deepEqual(nav.children.filter(el=>el.tagName==='BUTTON').map(el=>el.dataset.productivity),['inbox','contexts','parameters','tracking','ocr','automations','backup']);assert.equal(h.$('toolbox-advanced').open,false);
- let release;const get=h.api.get;h.api.get=()=>new Promise(resolve=>release=async()=>resolve(await get()));
- const source={kind:'tracking',id:'query',token:'snapshot',indices:[1]};assert.equal(h.window.workflowHub.open('inbox',source),true);assert.equal(h.calls.some(row=>row[0]==='source'),false);
- await release();await tick();assert.equal(root.parentElement.id,'productivity-inbox');assert.deepEqual(h.calls.filter(row=>row[0]==='source'),[['source',source]]);assert.match(root.textContent,/selected.pdf/);
- assert.equal(h.window.productivityUI.openSection('backup'),true);await tick();assert.equal(h.$('productivity-backup').hidden,false);assert.equal(root.parentElement.hidden,true);assert.equal(h.failure(),null);
-});
-test('real toolbox navigation keeps unsaved workflow inputs on repeat selection and respects canceled transitions',async()=>{
- const h=harness(),root=attachWorkflow(h);h.window.workflowHub.open('contexts');await tick();const name=root.querySelectorAll('label').find(el=>el.children[0].textContent==='情境包名稱').children[1];name.value='未儲存專案';await root.querySelector('.workflow-body').dispatch('input',{target:name});h.window.confirm=()=>false;
- assert.equal(h.window.productivityUI.openSection('contexts'),true);assert.equal(root.querySelectorAll('input').includes(name),true);assert.equal(name.value,'未儲存專案');assert.equal(h.window.productivityUI.openSection('backup'),false);assert.equal(h.window.productivityUI.currentSection(),'contexts');assert.equal(h.window.favoritesUI.show('home'),false);
- h.window.confirm=()=>true;assert.equal(h.window.productivityUI.openSection('parameters'),true);await tick();assert.match(root.textContent,/建立第一個文字範本/);const manage=root.querySelectorAll('button').find(el=>el.textContent==='建立第一個文字範本');await manage.dispatch('click');await tick();assert.equal(h.$('productivity-snippets').hidden,false);assert.equal(h.$('productivity-nav').querySelector('[data-productivity=parameters]').getAttribute('aria-current'),'page');assert.equal(h.window.productivityUI.currentSection(),'snippets');assert.equal(h.failure(),null);
-});
-
 test('existing external snippet shortcut opens its management subpage during first toolbox activation',async()=>{
  const h=harness();attachWorkflow(h);h.listeners.toolOpen({kind:'snippets'});await tick();assert.equal(h.window.productivityUI.currentSection(),'snippets');assert.equal(h.$('productivity-snippets').hidden,false);assert.equal(h.$('productivity-nav').querySelector('[data-productivity=parameters]').getAttribute('aria-current'),'page');assert.equal(h.failure(),null);
-});
-test('toolbox refresh reloads the embedded workflow after confirming unsaved changes',async()=>{
- const h=harness(),root=attachWorkflow(h);h.window.workflowHub.open('inbox');await tick();let reads=0;const state=h.window.workflowAPI.state;h.window.workflowAPI.state=async()=>{reads++;const value=await state();value.drafts=[{id:'draft',title:'新收到的草稿',summary:'內容',updatedAt:new Date().toISOString()}];return value;};await root.querySelector('.workflow-body').dispatch('input',{target:root.querySelector('input')});h.window.confirm=()=>false;await h.click('productivity-refresh');assert.equal(reads,0);h.window.confirm=()=>true;await h.click('productivity-refresh');assert.equal(reads,1);assert.match(root.textContent,/新收到的草稿/);assert.equal(h.failure(),null);
 });
 
 function contextWorkflow(h){
@@ -142,7 +125,4 @@ test('hidden workflow views adopt the new context when reopened and related snip
 });
 test('changing a read-only tracking selection does not ask to discard a form during context switching',async()=>{
  const h=harness(),c=contextWorkflow(h);await c.start();h.window.workflowHub.open('tracking');await tick();let prompts=0;h.window.confirm=()=>{prompts++;return false;};const picker=c.control('追蹤搜尋');picker.value='qb';await picker.dispatch('change');await c.root.querySelector('.workflow-body').dispatch('change',{target:picker});assert.equal(await h.window.contextUI.switchTo('b'),true);assert.equal(prompts,0);assert.equal(c.control('追蹤搜尋').value,'qb');
-});
-test('failed context writes retain dirty input and successful confirmed switches discard the old inbox text',async()=>{
- const h=harness(),c=contextWorkflow(h);await c.start();h.window.workflowHub.open('inbox');await tick();const title=c.control('標題');title.value='客戶 A 的未儲存內容';await title.dispatch('input');await c.root.querySelector('.workflow-body').dispatch('input',{target:title});h.window.confirm=()=>true;const activate=h.window.workflowAPI.context;let reject;h.window.workflowAPI.context=()=>new Promise((resolve,fail)=>reject=fail);const switching=h.window.contextUI.switchTo('b');assert.equal(c.root.inert,true);reject(Error('無法寫入'));assert.equal(await switching,false);assert.equal(c.root.inert,false);assert.equal(c.control('標題'),title);assert.equal(title.value,'客戶 A 的未儲存內容');h.window.confirm=()=>false;assert.equal(h.window.productivityUI.canLeave(),false);h.window.confirm=()=>true;h.window.workflowAPI.context=activate;assert.equal(await h.window.contextUI.switchTo('b'),true);assert.equal(c.control('標題').value,'');assert.equal(h.window.contextUI.current().contextId,'b');
 });

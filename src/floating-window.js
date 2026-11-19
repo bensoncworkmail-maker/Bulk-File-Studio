@@ -14,7 +14,7 @@ class FloatingWindow {
   this.apply();
  }
  liveBounds(){const bounds=this.window.getBounds?.()||this.window.getNormalBounds();return {...bounds};}
- captureExpanded(){if(this.contextIcon||this.collapsed||this.transitioning)return;const bounds=this.liveBounds();if(validBounds(bounds)&&bounds.width>=160&&bounds.height>=80)this.expanded=bounds;}
+ captureExpanded(){if(this.collapsed||this.transitioning)return;const bounds=this.liveBounds();if(validBounds(bounds)&&bounds.width>=160&&bounds.height>=80)this.expanded=bounds;}
  savedBounds(){this.captureExpanded();const bounds=this.liveBounds();return {...bounds,width:this.expanded.width,height:this.expanded.height};}
  record(){if(this.collapsed&&this.drag&&this.drag.mode!=='move'){this.desktop.update({floatingCollapsedWidth:this.liveBounds().width});this.appliedCollapsedWidth=this.desktop.settings.floatingCollapsedWidth;}this.desktop.record('floating',this.facade);}
  place(bounds,defaults){const fitted=fitBounds(bounds,this.screen.getAllDisplays(),defaults),minimum=[fitted.minWidth,fitted.minHeight],transitioning=this.transitioning;this.transitioning=true;try{if(String(minimum)!==String(this.nativeMinimum)){this.window.setMinimumSize(...minimum);this.nativeMinimum=minimum;}this.window.setBounds(fitted);}finally{this.transitioning=transitioning;}}
@@ -29,7 +29,6 @@ class FloatingWindow {
  }
  endDrag(token){if(!this.drag||token!==this.drag.token)return;const resizing=this.drag.mode!=='move';this.record();this.drag=null;if(resizing){this.appliedCollapsedWidth=this.desktop.settings.floatingCollapsedWidth;return {settings:this.desktop.settings};}}
  apply(){
-  if(this.contextIcon){this.opacity();return;}
   const collapsed=this.desktop.settings.floatingCollapsed,defaults=windowDefaults(this.desktop.settings),minimum=collapsed?[collapsedMinimumWidth(this.desktop.settings),40]:[defaults.minWidth,defaults.minHeight],width=this.desktop.settings.floatingCollapsedWidth,changed=collapsed!==this.collapsed;
   if(changed||collapsed&&this.appliedCollapsedWidth!==width||String(minimum)!==String(this.minimum)){
    this.captureExpanded();const current=this.liveBounds(),target=collapsed?{...current,width,height:40}:changed?{...current,width:this.expanded.width,height:this.expanded.height}:current;
