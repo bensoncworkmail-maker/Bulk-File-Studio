@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.128.0。以 `npm run audit:functions` 重新產生。
+版本：v1.129.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 223 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
+讀取 src 全部 226 個 JS／HTML／CSS 檔案；核對 10 個頁面、17 個工具入口、36 項功能導覽與 263 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -86,7 +86,7 @@
 | [operation-journal.js](../src/operation-journal.js) | `begin`、`complete`、`constructor`、`enqueue`、`list`、`markUndone`、`read`、`rebase`、`recover`、`undoable`、`update`、`write` |
 | [operation-ui.css](../src/operation-ui.css) | 版面、主題與互動狀態樣式 |
 | [operation-ui.js](../src/operation-ui.js) | `$`、`close`、`create`、`receive`、`render`、`show`、`visibilityChanged` |
-| [preload.js](../src/preload.js) | `invoke`、`listener`、`notifyOperation` |
+| [preload.js](../src/preload.js) | `handler`、`invoke`、`listen`、`listener`、`notifyOperation` |
 | [quick-actions-model.js](../src/quick-actions-model.js) | `displayOptions`、`entry`、`form`、`normalize` |
 | [quick-actions-settings.js](../src/quick-actions-settings.js) | `$`、`actionButton`、`appendOptions`、`displayFields`、`dropOptions`、`edit`、`fields`、`formFields`、`init`、`masters`、`move`、`node`、`persist`、`refresh`、`render`、`renderTagChecks`、`sheet` |
 | [record-browser.css](../src/record-browser.css) | 版面、主題與互動狀態樣式 |
@@ -167,10 +167,13 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
-| [desktop-context-actions.js](../src/desktop-context-actions.js) | `authorize`、`constructor`、`file`、`listRecord`、`resource`、`snippet`、`state`、`take`、`token` |
+| [desktop-context-actions.js](../src/desktop-context-actions.js) | `authorize`、`constructor`、`file`、`files`、`listRecord`、`resource`、`snippet`、`state`、`take`、`token` |
+| [desktop-context-embedded.css](../src/desktop-context-embedded.css) | 版面、主題與互動狀態樣式 |
 | [desktop-context-preload.js](../src/desktop-context-preload.js) | `handler`、`listen` |
 | [desktop-context-state.js](../src/desktop-context-state.js) | `normalize` |
-| [desktop-context-ui.js](../src/desktop-context-ui.js) | `$`、`back`、`button`、`current`、`discard`、`hold`、`node`、`receive`、`renderShell`、`resources`、`run`、`showDetail`、`status`、`values` |
+| [desktop-context-table.css](../src/desktop-context-table.css) | 版面、主題與互動狀態樣式 |
+| [desktop-context-table.js](../src/desktop-context-table.js) | `mount`、`node`、`render`、`selection` |
+| [desktop-context-ui.js](../src/desktop-context-ui.js) | `$`、`back`、`button`、`current`、`discard`、`hold`、`mount`、`node`、`receive`、`renderShell`、`resources`、`run`、`showDetail`、`status`、`values` |
 | [desktop-context.css](../src/desktop-context.css) | 版面、主題與互動狀態樣式 |
 | [desktop-context.html](../src/desktop-context.html) | 視窗／頁面結構及本機資源引用 |
 | [desktop-context.js](../src/desktop-context.js) | `close`、`constructor`、`control`、`ensure`、`hide`、`hover`、`owns`、`payload`、`perform`、`persist`、`place`、`record`、`refresh`、`scheduleCollapse`、`show` |

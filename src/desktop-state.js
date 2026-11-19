@@ -45,7 +45,7 @@ class DesktopState {
  write(){fs.mkdirSync(path.dirname(this.filename),{recursive:true});if(this.readError&&fs.existsSync(this.filename)){fs.copyFileSync(this.filename,this.filename+'.invalid-backup');this.readError=null;}const temp=this.filename+'.new';fs.writeFileSync(temp,JSON.stringify(this.data,null,2),{mode:0o600});fs.renameSync(temp,this.filename);}
  update(patch){const next=normalize({...this.data.settings,...patch});if(JSON.stringify(next)!==JSON.stringify(this.data.settings)){const previous=this.data.settings;this.data.settings=next;try{this.write();}catch(e){this.data.settings=previous;throw e;}}return this.settings;}
  contextDesktop(){return require('./desktop-context-state').normalize(this.data.contextDesktop);}
- updateContextDesktop(patch){const previous=this.data.contextDesktop;this.data.contextDesktop=require('./desktop-context-state').normalize({...previous,...patch});try{this.write();}catch(error){this.data.contextDesktop=previous;throw error;}return this.contextDesktop();}
+ updateContextDesktop(patch){const previous=this.data.contextDesktop;this.data.contextDesktop=require('./desktop-context-state').normalize({...previous,...patch});if(JSON.stringify(previous)===JSON.stringify(this.data.contextDesktop))return this.contextDesktop();try{this.write();}catch(error){this.data.contextDesktop=previous;throw error;}return this.contextDesktop();}
  logFilters(config){return this.data.logFilters[logMemory.logFilterKey(config)]||null;}
  saveLogFilters(config,filters){
   const key=logMemory.logFilterKey(config),previous=this.data.logFilters,next=logMemory.normalizeFilters(filters);
