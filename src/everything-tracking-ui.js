@@ -62,7 +62,7 @@
   }
   renderControls();
  }
- function visible(){return active&&!$('favorites-page').classList.contains('hidden')&&!document.hidden;}
+ function visible(){return active&&!$('tracking-page').classList.contains('hidden')&&!document.hidden;}
  function schedule(){clearInterval(timer);if(active&&data.refreshSeconds)timer=setInterval(()=>{if(visible()&&!busy&&!loading&&!renaming&&!selected.size&&!document.querySelector('dialog[open]')&&current()?.enabled&&ready())void refresh();},data.refreshSeconds*1000);}
  async function load(update=false){
   if(renaming?.mode==='inline'||tagEditing&&busy){pendingLoad=true;return;}
@@ -220,7 +220,7 @@
   window.favoritesUI?.showMenu(event,items);
  }
  function open(id=null){
-  if(!window.favoritesUI?.show('favorites'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);selected.clear();}window.workspaceFavoritesUI?.showEverything();return true;
+  if(!window.favoritesUI?.show('tracking'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);selected.clear();}return true;
  }
  function selectResults(kind){
   if(blocked())return;

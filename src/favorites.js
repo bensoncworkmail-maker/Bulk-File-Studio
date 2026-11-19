@@ -229,7 +229,7 @@
   async function init(options) {
     callbacks=options;
     window.workspaceFavoritesUI?.init(options);
-    navigation=window.studioNavigation.create({document,canNavigate:()=>!callbacks.isBusy()&&!window.contextUI?.isSwitching?.()&&window.productivityUI?.canLeave?.()!==false&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),onShow:view=>{active=view==='favorites';if(active)window.workspaceFavoritesUI?.activate();settingsActive=!['rename','favorites'].includes(view);closeMenu();if(view==='home')window.homeUI?.activate();if(view==='notes')window.notesUI?.activate();if(view==='search')window.appSearchUI?.activate();if(view==='productivity'||view==='planning')window.productivityUI?.activate();if(view==='logs')window.productivityUI?.openLogs();if(['settings','info'].includes(view))window.settingsUI.refreshInfo();$('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';}});
+    navigation=window.studioNavigation.create({document,canNavigate:()=>!callbacks.isBusy()&&!window.contextUI?.isSwitching?.()&&window.productivityUI?.canLeave?.()!==false&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),onShow:view=>{window.everythingTrackingUI?.activate(view==='tracking');active=view==='favorites';if(active)window.workspaceFavoritesUI?.activate();settingsActive=!['rename','favorites'].includes(view);closeMenu();if(view==='home')window.homeUI?.activate();if(view==='notes')window.notesUI?.activate();if(view==='search')window.appSearchUI?.activate();if(view==='productivity'||view==='planning')window.productivityUI?.activate();if(view==='logs')window.productivityUI?.openLogs();if(['settings','info'].includes(view))window.settingsUI.refreshInfo();$('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';}});
     window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
     window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
     $('btn-tag-manage-cancel').addEventListener('click',()=>$('tag-manage-dialog').close());
@@ -265,6 +265,7 @@
       const actions={selectAll:()=>{for(const item of visibleItems())selected.add(item.id);render();},clear:()=>{selected.clear();render();},search:()=>$('favorite-search').focus(),open:requestBulkOpen,copy:()=>$('btn-fav-copy').click(),edit:()=>edit(),remove:()=>requestRemove(),refresh,add:()=>$('btn-fav-add-files').click(),rename:importSelected,move:moveSelected,undo:()=>$('btn-undo').click(),quickTag:()=>quickTag(),importPaths:()=>window.pathImportUI.open()};actions[action]?.();
     });
     $('tab-rename').addEventListener('click',()=>setView('rename'));
+    $('tab-tracking').addEventListener('click',()=>setView('tracking'));
     $('tab-favorites').addEventListener('click',()=>{setView('favorites');refresh();});
     $('tab-settings').addEventListener('click',()=>setView('settings'));
     $('btn-fav-settings').addEventListener('click',()=>window.settingsUI.openCategory('favorites'));

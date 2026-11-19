@@ -149,13 +149,13 @@ class DraftNotes{
   const png=pngBytes(image.toPNG());
   const folder=assertLocalPath(path.join(this.imageDir,draft.id));
   fs.mkdirSync(folder,{recursive:true});
-  const numbers=fs.readdirSync(folder).map(name=>/^貼上的圖片 ([1-9]\d{0,5})\.png$/.exec(name)).filter(Boolean).map(match=>Number(match[1]));let number=Math.max(draft.attachments.filter(item=>item.image).length,...numbers,0)+1;let filepath;for(;;){filepath=assertLocalPath(path.join(folder,'貼上的圖片 '+number+'.png'));try{fs.writeFileSync(filepath,png,{flag:'wx',mode:0o600});break;}catch(error){if(error.code!=='EEXIST')throw error;if(++number>999999)throw Error('圖片編號已達上限');}}
+  const numbers=fs.readdirSync(folder).map(name=>/^(?:貼上的圖片 |[0-9a-f-]{36}-)([0-9]{1,6})\.png$/.exec(name)).filter(Boolean).map(match=>Number(match[1]));let number=Math.max(draft.attachments.filter(item=>item.image).length,...numbers,0)+1;if(number>999999)throw Error('圖片編號已達上限');let filepath;for(;;){filepath=assertLocalPath(path.join(folder,draft.id+'-'+String(number).padStart(6,'0')+'.png'));try{fs.writeFileSync(filepath,png,{flag:'wx',mode:0o600});break;}catch(error){if(error.code!=='EEXIST')throw error;if(++number>999999)throw Error('圖片編號已達上限');}}
   try{return store.saveDraft(id,version,{attachments:[...draft.attachments,{path:filepath,type:'file',image:true}]});}
   catch(error){fs.rmSync(filepath,{force:true});throw error;}
  }
  image(id,index){
   const draft=this.store().draft(id),item=draft.attachments[index];
-  if(!Number.isSafeInteger(index)||!item?.image||path.extname(item.path)!=='.png'||!(M.ID.test(path.basename(item.path,'.png'))||/^貼上的圖片 [1-9]\d{0,5}\.png$/.test(path.basename(item.path)))||
+  if(!Number.isSafeInteger(index)||!item?.image||path.extname(item.path)!=='.png'||!(M.ID.test(path.basename(item.path,'.png'))||/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}-[0-9]{6}\.png$/.test(path.basename(item.path))||/^貼上的圖片 [1-9]\d{0,5}\.png$/.test(path.basename(item.path)))||
    ![this.imageDir,path.join(this.imageDir,draft.id)].includes(path.dirname(item.path)))throw new Error('圖片附件不存在');
   assertLocalPath(item.path);
   const bytes=pngBytes(readStableBytes(item.path,{maxBytes:MAX_IMAGE,label:'草稿圖片'}));

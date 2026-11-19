@@ -6,7 +6,7 @@ function fixture(t,initial={},ruleTags=['工作'],savedRules){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-ui-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'report.txt');fs.writeFileSync(file,'data');
  const favorites=new FavoritesStore(path.join(dir,'favorites.json')),calls=[],toasts=[],errors=[],intervals=new Map();let tickId=0,failure='',changed=()=>{},documentKey=()=>{};
  const bridge={status:()=>({supported:true,enabled:true,configured:true}),search:async input=>{calls.push(input);if(failure)throw Error(failure);return {rows:[{path:file,name:'report.txt'}],skipped:0,truncated:false};}},service=new EverythingTracking({favorites,bridge}),rule=savedRules?(favorites.write({...favorites.read(),everythingSearches:savedRules}),savedRules[0]):service.save({name:'Recent large files',text:'dm:last7days size:>200mb',type:'file',mode:'syntax',tags:ruleTags,enabled:true});
- const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('favorites-page').classList.remove('hidden');document.hidden=false;document.addEventListener=(name,handler)=>{if(name==='keydown')documentKey=handler;};
+ const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.getElementById('tracking-page').classList.remove('hidden');document.hidden=false;document.addEventListener=(name,handler)=>{if(name==='keydown')documentKey=handler;};
  const actions=[],api={trackingList:async()=>service.list(),trackingManageTag:async input=>{const result=service.manageTag(input);changed();return result;},trackingRefresh:id=>service.refresh(id),trackingSave:async input=>service.save(input),trackingRemove:async id=>{service.remove(id);return service.list();},trackingConfigure:async value=>service.configure(value),onTrackingChanged:callback=>{changed=callback;},trackingAction:async(id,token,indices,action,input)=>{const result=service.selection(id,token,indices);actions.push({action,input,...result});if(action==='favorite')return favorites.addPaths(result.paths,result.tags);return {copied:result.paths.length};}};
  let prefs=require('../src/settings-model').normalize(initial);
  const renamed=[],moved=[],window={everythingViewSettings:require('../src/everything-view-settings'),everythingResultColumns:require('../src/everything-result-columns'),everythingTrackingView:require('../src/everything-tracking-view'),everythingAPI:api,confirm:()=>true,movingUI:{start:async(paths,options)=>moved.push({paths,options})}};
@@ -124,8 +124,8 @@ test('tracked searches refresh on entry, filter tags and provide validated file 
 });
 test('periodic tracking runs only for the active visible view and skips open dialogs',async t=>{
  const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const first=h.calls.length;
- h.$('favorites-page').classList.add('hidden');[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first);
- h.$('favorites-page').classList.remove('hidden');h.$('everything-tracking-dialog').showModal();[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first);h.$('everything-tracking-dialog').close();[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first+1);
+ h.$('tracking-page').classList.add('hidden');[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first);
+ h.$('tracking-page').classList.remove('hidden');h.$('everything-tracking-dialog').showModal();[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first);h.$('everything-tracking-dialog').close();[...h.intervals.values()][0]();await flush();assert.equal(h.calls.length,first+1);
  h.window.everythingTrackingUI.activate(false);assert.equal(h.intervals.size,0);
 });
 test('failed updates visibly retain old results and editing can pause, tag, and remove a rule',async t=>{
@@ -319,7 +319,7 @@ test('empty result rows span only the data and action columns currently displaye
 });
 
 test('Ctrl+F focuses and selects the filter only in the active tracking page with no dialog or busy operation',async t=>{
- const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const filter=h.$('everything-tracking-filter');let selected=0,prevented=0;filter.select=()=>selected++;const event=extra=>({key:'f',ctrlKey:true,target:h.$('favorite-kind-everything'),preventDefault(){prevented++;},stopPropagation(){},...extra});
+ const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();const filter=h.$('everything-tracking-filter');let selected=0,prevented=0;filter.select=()=>selected++;const event=extra=>({key:'f',ctrlKey:true,target:h.$('tab-tracking'),preventDefault(){prevented++;},stopPropagation(){},...extra});
  h.documentKey(event());assert.equal(h.document.activeElement,filter);assert.equal(selected,1);h.$('everything-tracking-filter-clear').focus();h.documentKey(event({target:filter}));assert.equal(selected,2);
  const before=prevented;for(const extra of [{shiftKey:true},{altKey:true},{isComposing:true},{repeat:true},{defaultPrevented:true}])h.documentKey(event(extra));h.$('everything-tracking-dialog').showModal();h.documentKey(event());h.$('everything-tracking-dialog').close();h.callbacks.isBusy=()=>true;h.documentKey(event());h.callbacks.isBusy=()=>false;h.window.everythingTrackingUI.activate(false);h.documentKey(event());assert.equal(prevented,before);
 });
