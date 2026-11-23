@@ -7,6 +7,7 @@ function register({handle,clipboard,configure,openPage,openTool,idleCollapse,set
   if(action==='idle-collapse')return idleCollapse();
   if(action==='modal')return setModal(value);
   if(action==='panel-size')return selectPanel(value);
+  if(action==='enable-panel'){if(!Object.hasOwn(require('./floating-tool-layout').TOOLS,value)||value==='files')throw Error('工具無效');const current=settings().floatingPanels;return configure({floatingPanels:{...current,enabled:[...new Set([...current.enabled,value])]}});}
   if(action==='panel'){if(!['files','planning','snippets','clipboard','contexts','drafts'].includes(value))throw Error('浮動分頁無效');return configure({floatingLastPanel:value});}
   if(action==='mode'){if(!['classic','bar','dock','bubble'].includes(value))throw Error('入口模式無效');return configure({floatingLauncher:value});}
   if(action==='page'){if(!['tracking','settings'].includes(value))throw Error('頁面無效');openPage(value);return {opened:true};}

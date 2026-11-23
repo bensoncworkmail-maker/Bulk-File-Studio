@@ -146,3 +146,9 @@ contextBridge.exposeInMainWorld('workflowAPI',Object.freeze({
 
 const listen=(channel,callback)=>{const handler=(_,value)=>callback(value);ipcRenderer.on(channel,handler);return ()=>ipcRenderer.removeListener(channel,handler);};
 contextBridge.exposeInMainWorld('desktopContextAPI',Object.freeze({get:()=>ipcRenderer.invoke('desktop-context-get'),control:(action,value)=>ipcRenderer.invoke('desktop-context-control',action,value),select:(id,revision)=>ipcRenderer.invoke('desktop-context-select',id,revision),resource:(kind,id,contextId)=>ipcRenderer.invoke('desktop-context-resource',kind,id,contextId),record:(token,id)=>ipcRenderer.invoke('desktop-context-record',token,id),snippet:(id,contextId,values,copy,revision)=>ipcRenderer.invoke('desktop-context-snippet',id,contextId,values,copy,revision),file:(token,index,action)=>ipcRenderer.invoke('desktop-context-file',token,index,action),files:(token,indices)=>ipcRenderer.invoke('desktop-context-files',token,indices),manage:()=>ipcRenderer.invoke('desktop-context-manage'),onOpen:callback=>listen('context-app-open',callback),onClose:callback=>listen('context-app-close',callback),onChanged:callback=>listen('desktop-context-changed',callback)}));
+
+contextBridge.exposeInMainWorld('zipUpdateAPI',Object.freeze({
+ command:(action,value)=>invoke('zip-update',action,value),
+ drop:file=>invoke('zip-update','drop-zip',webUtils.getPathForFile(file)),
+ onProgress:callback=>{const listener=(_,value)=>callback(value);ipcRenderer.on('zip-update-progress',listener);return ()=>ipcRenderer.removeListener('zip-update-progress',listener);}
+}));
