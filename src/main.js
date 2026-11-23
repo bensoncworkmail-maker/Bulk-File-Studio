@@ -208,6 +208,8 @@ function openDrafts(){
  closeFloatingMenu();
  return drafts.open();
 }
+let workspaceImageService;
+function workspaceImages(){return workspaceImageService??=new(require('./workspace-images').WorkspaceImages)(path.join(app.getPath('userData'),'workspace-images'),nativeImage);}
 function validatedLinkPaths(paths=[]){
  if(!Array.isArray(paths)||paths.length>100)throw new Error('位置連結資料無效');
  return paths.map(require('./notes-location-links').locationPath);
@@ -512,17 +514,19 @@ app.whenReady().then(() => {
   handle('notes-sheet-preview',(_,input)=>notesStore().sheetPreview(input));
   handle('notes-sheet-commit',(_,token,confirmRemoval)=>notesChanged(notesStore().sheetCommit(token,confirmRemoval)));
   handle('notes-sheet-save',(_,input)=>notesChanged(notesStore().saveSheet(input)));
-  handle('notes-record-save',(_,input)=>require('./intranet-path').withIntranetPaths(validatedLinkPaths(input?.directPaths),()=>{
+  handle('notes-image-prepare',(_,bytes)=>workspaceImages().prepare(bytes));
+  handle('notes-record-image',(_,id,index)=>{const record=notesStore().get().document.records.find(r=>r.id===id&&!r.deletedAt);return workspaceImages().read(record,index);});
+  handle('notes-record-save',(_,input)=>{const result=workspaceImages().withImages(input,(input,imagePaths=[])=>require('./intranet-path').withIntranetPaths(validatedLinkPaths(input?.directPaths),()=>{
     if(!input||!Array.isArray(input.favoriteIds)||input.favoriteIds.length>100||!Array.isArray(input.keepUnlinked)||input.keepUnlinked.length>100)throw new Error('檔案連結資料無效');
     const old=notesStore().get().document.records.find(record=>record.id===input.id),catalog=favorites.read(),knownIds=new Set(catalog.items.map(item=>item.id)),unlinked=(old?.fileLinks||[]).filter(link=>link.favoriteId===null||!knownIds.has(link.favoriteId)).map(link=>({...link,favoriteId:null}));
     if(input.keepUnlinked.some(value=>typeof value!=='string'||!unlinked.some(link=>link.path===value)))throw new Error('匯入位置連結已變更');
     if(input.directPaths!==undefined&&(!Array.isArray(input.directPaths)||input.directPaths.length>100))throw new Error('位置連結資料無效');
-    const direct=input.directPaths?.length?require('./notes-location-links').inspectLinks(input.directPaths).map(item=>({favoriteId:null,path:item.path,type:item.type,label:''})):[];
+    const direct=input.directPaths?.length?require('./notes-location-links').inspectLinks(input.directPaths).map(item=>({favoriteId:null,path:item.path,type:item.type,label:imagePaths.includes(item.path)?'貼上的圖片':''})):[];
     const seenPaths=new Set(),fileLinks=[...(input.favoriteIds.length?favorites.selection(catalog,input.favoriteIds).map(item=>({favoriteId:item.id,path:item.path,label:item.label,type:item.type})):[]),...unlinked.filter(link=>input.keepUnlinked.includes(link.path)),...direct].filter(link=>{const key=process.platform==='win32'?link.path.toLowerCase():link.path;if(seenPaths.has(key))return false;seenPaths.add(key);return true;});
     let favoriteTagLinks=old?.favoriteTagLinks||[];
     if(input.favoriteTags!==undefined||input.keepPendingTags!==undefined){const selected=input.favoriteTags||[],pending=input.keepPendingTags||[];if(!Array.isArray(selected)||!Array.isArray(pending)||selected.length+pending.length>20||[...selected,...pending].some(tag=>typeof tag!=='string'||!tag.trim()||tag.length>32))throw new Error('收藏標籤連結無效');const knownTags=new Set(catalog.items.flatMap(item=>item.tags).map(tag=>tag.toLocaleLowerCase())),oldTags=old?.favoriteTagLinks||[];if(selected.some(tag=>!knownTags.has(tag.toLocaleLowerCase())&&!oldTags.some(link=>link.authorized&&link.tag.toLocaleLowerCase()===tag.toLocaleLowerCase())))throw new Error('收藏標籤已變更，請重新選取');if(pending.some(tag=>!oldTags.some(link=>!link.authorized&&link.tag===tag)))throw new Error('分享標籤連結已變更');favoriteTagLinks=[...selected.map(tag=>({tag:tag.trim(),authorized:true})),...pending.map(tag=>({tag,authorized:false}))];}
-    if(input.copies!==undefined&&(!Number.isSafeInteger(input.copies)||input.copies<1||input.copies>500||input.id&&input.copies!==1))throw new Error('新增份數請填 1–500');if(input.id&&input.masterIds!==undefined)throw new Error('編輯現有紀錄不能同時跨主紀錄新增');return notesChanged(!input.id&&(input.copies>1||input.masterIds!==undefined)?notesStore().saveCopies({...input,fileLinks,favoriteTagLinks},input.copies||1):notesStore().saveRecord({...input,fileLinks,favoriteTagLinks}));
-  }));
+    if(input.copies!==undefined&&(!Number.isSafeInteger(input.copies)||input.copies<1||input.copies>500||input.id&&input.copies!==1))throw new Error('新增份數請填 1–500');if(input.id&&input.masterIds!==undefined)throw new Error('編輯現有紀錄不能同時跨主紀錄新增');return !input.id&&(input.copies>1||input.masterIds!==undefined)?notesStore().saveCopies({...input,fileLinks,favoriteTagLinks},input.copies||1):notesStore().saveRecord({...input,fileLinks,favoriteTagLinks});
+  }));return result&&typeof result.then==='function'?result.then(value=>notesChanged(value)):notesChanged(result);});
   handle('notes-add-paths',(_,paths)=>{if(!Array.isArray(paths)||!paths.length||paths.length>100)throw new Error('每次最多連結 100 個位置');const result=favorites.addPaths(paths,[]);notifyFavorites();return result;});
   handle('notes-choose-paths',async(_,kind)=>{if(!['file','folder'].includes(kind))throw new Error('位置類型無效');const result=await dialog.showOpenDialog(win,{title:'選取位置：加入收藏並連結',properties:[kind==='folder'?'openDirectory':'openFile','multiSelections']});if(result.canceled)return {canceled:true,ids:[]};if(result.filePaths.length>100)throw new Error('每次最多連結 100 個位置');const saved=favorites.addPaths(result.filePaths,[]);notifyFavorites();return saved;});
   handle('notes-context-menu',(_,kind,id)=>{

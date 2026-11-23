@@ -16,6 +16,9 @@ function register({handle,root,dialog,parent,fileOperation,progress,openPath}){
   if(action==='drop-zip')return loadZip(value);
   if(action==='choose-source-folder'){const r=await choose({title:'加入常用 ZIP 來源資料夾',defaultPath:service.history.sourceFolders[0],properties:['openDirectory']});if(r.canceled)return {canceled:true};service.rememberSource(r.filePaths[0]);browsers.source.select(r.filePaths[0]);await browsers.source.read();return state();}
   if(action==='choose-target'){const r=await choose({title:'選擇接收更新的資料夾',defaultPath:service.selected.target||service.history.targetFolders[0],properties:['openDirectory']});return r.canceled?{canceled:true}:target(r.filePaths[0]);}
+  if(action==='save-target'){service.saveTarget();return state();}
+  if(action==='forget-target'){service.forgetTarget(value?.kind,value?.index);return state();}
+  if(action==='select-saved-target')return target(index(service.history.savedTargets,value));
   if(action==='select-target')return target(index(service.history.targetFolders,value));
   if(action==='browse-source'){browsers.source.select(index(service.history.sourceFolders,value));await browsers.source.read();return state();}
   if(action==='source-open')return loadZip(browsers.source.resolve(value,'zip'));

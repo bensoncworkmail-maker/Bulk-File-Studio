@@ -42,14 +42,16 @@ const same=(a,b)=>a===null?b===null:b!==null&&a.hash===b.hash&&a.size===b.size;
 class ZipUpdate{
  constructor(root,{limits=LIMITS,progress=()=>{},now=Date.now}={}){
   this.root=path.resolve(root);assertLocalPath(this.root);fs.mkdirSync(this.root,{recursive:true});this.limits=limits;this.progress=progress;this.now=now;this.index=path.join(this.root,'history.json');this.history=readJSON(this.index,{sourceFolders:[],targetFolders:[],runs:[]});
-  for(const key of ['sourceFolders','targetFolders'])this.history[key]=(Array.isArray(this.history[key])?this.history[key]:[]).filter(v=>typeof v==='string'&&v.length<2000).slice(0,10);
+  for(const key of ['sourceFolders','targetFolders','savedTargets'])this.history[key]=(Array.isArray(this.history[key])?this.history[key]:[]).filter(v=>typeof v==='string'&&v.length<2000).slice(0,key==='savedTargets'?50:10);
   this.history.runs=(Array.isArray(this.history.runs)?this.history.runs:[]).filter(r=>r&&ID.test(r.id)).slice(0,20);
   this.work=path.join(this.root,'work');assertLocalPath(this.work);fs.rmSync(this.work,{recursive:true,force:true});fs.mkdirSync(this.work,{recursive:true});this.selected={zipPath:'',target:''};this.files=[];this.roots=[];
  }
- state(){return {sourceFolders:[...this.history.sourceFolders],targetFolders:[...this.history.targetFolders],runs:this.history.runs.map(r=>({...r})),selected:{...this.selected},files:this.files.map(({id,name,size})=>({id,name,size})),roots:[...this.roots],busy:Boolean(this.busy)};}
+ state(){return {savedTargets:[...this.history.savedTargets],sourceFolders:[...this.history.sourceFolders],targetFolders:[...this.history.targetFolders],runs:this.history.runs.map(r=>({...r})),selected:{...this.selected},files:this.files.map(({id,name,size})=>({id,name,size})),roots:[...this.roots],busy:Boolean(this.busy)};}
  save(){writeJSON(this.index,this.history);}
  remember(key,folder){assertLocalPath(folder);if(!fs.statSync(folder).isDirectory())throw Error('資料夾不存在');this.history[key]=[folder,...this.history[key].filter(v=>v.toLowerCase()!==folder.toLowerCase())].slice(0,10);this.save();}
  rememberSource(folder){if(this.busy)throw Error('請等待目前操作完成');this.remember('sourceFolders',folder);return this.state();}
+ saveTarget(){if(this.busy)throw Error('請等待目前操作完成');const folder=this.selected.target;if(!folder)throw Error('請先選擇目標資料夾');assertLocalPath(folder);if(!fs.statSync(folder).isDirectory())throw Error('目標資料夾不存在');if(this.history.savedTargets.length>=50&&!this.history.savedTargets.some(p=>p.toLowerCase()===folder.toLowerCase()))throw Error('最多儲存 50 個常用目標位置');this.history.savedTargets=[folder,...this.history.savedTargets.filter(p=>p.toLowerCase()!==folder.toLowerCase())];this.save();return this.state();}
+ forgetTarget(kind,index){if(this.busy)throw Error('請等待目前操作完成');const key=kind==='saved'?'savedTargets':kind==='recent'?'targetFolders':'';if(!key||!Number.isInteger(index)||index<0||index>=this.history[key].length)throw Error('位置清單已變更，請重新選擇');const folder=this.history[key][index];for(const list of ['savedTargets','targetFolders'])this.history[list]=this.history[list].filter(p=>p.toLowerCase()!==folder.toLowerCase());this.save();return this.state();}
  setTarget(folder){if(this.busy)throw Error('請等待目前操作完成');assertLocalPath(folder);if(!fs.statSync(folder).isDirectory())throw Error('目標資料夾不存在');if(within(this.root,folder))throw Error('請選擇應用程式資料以外的目標資料夾');this.selected.target=path.resolve(folder);this.plan=null;this.remember('targetFolders',folder);return this.state();}
  check(){if(this.canceled){const e=Error('操作已取消');e.code='CANCELED';throw e;}}
  cancel(){if(this.busy)this.canceled=true;return {requested:Boolean(this.busy)};}
