@@ -29,7 +29,7 @@ function replaceAuxiliary(store,input){
 }
 function packAssets(doc,auxiliary,includeDocuments=false){
  const paths=new Set(auxiliary.drafts.flatMap(draft=>draft.data.attachments.filter(item=>item.type==='file').map(item=>item.path)));
- if(includeDocuments)for(const record of doc.records)for(const item of record.fileLinks)if(item.type==='file')paths.add(item.path);
+ for(const record of doc.records)for(const item of record.fileLinks)if(item.type==='file'&&(includeDocuments||item.label==='貼上的圖片'&&/[.]png$/i.test(item.path)))paths.add(item.path);
  const recordLinks=doc.records.flatMap(record=>record.fileLinks);const assets=[],omitted=[...recordLinks.filter(link=>link.type==='folder'||!includeDocuments&&!paths.has(link.path)).map(link=>({path:link.path,reason:link.type==='folder'?'資料夾內容未封裝':'未選擇封裝紀錄文件，保留連結'})),...auxiliary.drafts.flatMap(draft=>draft.data.attachments.filter(item=>item.type==='folder').map(item=>({path:item.path,reason:'資料夾保留為連結，未封裝資料夾內容'})))];let total=0;
  for(const originalPath of paths){try{
   if(assets.length>=128)throw Error('附件封裝最多 128 個檔案');assertLocalPath(originalPath);
