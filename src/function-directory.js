@@ -10,6 +10,7 @@
   {group:'檔案與收藏',title:'檔案／資料夾收藏',description:'位置收藏、標籤、批次開啟、複製路徑、圖示／清單、遺失位置',page:'favorites',favorite:'files'},
   {group:'檔案與收藏',title:'工作區紀錄與表格收藏',description:'單筆／整表同步收藏、標籤繼承、紀錄詳情、釘選',page:'favorites',favorite:'workspace'},
   {group:'檔案與收藏',title:'Everything 追蹤',description:'本機索引、搜尋預設、自訂副檔名、日期／大小、排序、右鍵選單',tracking:true},
+  {group:'檔案與收藏',title:'ZIP 更新助手',description:'頁面內挑選 ZIP、瀏覽目標內容、資料夾樹比較、逐項更新、備份與還原',page:'zip'},
   {group:'檔案與收藏',title:'檔案工具',description:'批次重新命名、規則、預覽、搬移、復原、排序、來源清單',page:'rename'},
   {group:'資料工作區',title:'主表、明細與紀錄',description:'主從關聯、自訂欄位、清單／卡片／表格、範本、批次建立與編輯、回收筒',page:'notes'},
   {group:'資料工作區',title:'工作區匯入與匯出',description:'JSON、Excel、表格文字、合併差異、欄位對應、資料檢查',page:'notes'},

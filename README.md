@@ -10,6 +10,8 @@ Bulk File Studio 是繁體中文 Windows 桌面工具，將檔案收藏、標籤
 
 ## 近期更新
 
+- **ZIP 獨立頁與自訂導覽（v1.136.0）**：來源／目標清單、資料夾樹比較與整組勾選；可調整導覽順序及收進「更多」的頁面。[操作說明](docs/zip-update-assistant-zh-Hant.md)。
+
 - **ZIP 更新助手與浮動工具修正（v1.135.0）**：記住 ZIP 來源與目的地、比較後逐項更新、備份與還原；Everything 追蹤保留獨立入口，修正懸浮球填滿、點擊及離開／失焦收合。[操作說明](docs/zip-update-assistant-zh-Hant.md)。
 
 - **Floating Tools UI 修復（v1.134.0）**：修正懸浮球尺寸與拖曳、側邊列／Dock 間距、舊捷徑擠迫、收合重啟位置及情境重複初始化。[實際截圖與 UI-01 至 UI-12 驗收](docs/floating-tools-ui-v3-zh-Hant.md)。
