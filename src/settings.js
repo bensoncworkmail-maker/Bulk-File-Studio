@@ -4,10 +4,10 @@
   const catalog=window.studioSettingsCatalog,{controls,nativeControls,buttonLabels,numericKeys,sharedNativeKeys}=catalog;
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
-  const tabs=catalog.groups.map(group=>group.id);let workbench,resetScope='all';
+  const tabs=catalog.groups.map(group=>group.id);let workbench,navigationSettings,resetScope='all';
   function syncControls() {
     for(const tab of tabs){const current=settings.settingsTab===tab;const button=$('settings-tab-'+tab);button.setAttribute('aria-selected',String(current));button.tabIndex=current?0:-1;$('settings-panel-'+tab).hidden=!current;}
-    workbench?.sync();window.everythingLayout?.sync();applyRoot(document.documentElement,settings);for(const [key,id] of [['notesPanelWidth','settings-notes-panel-width-value'],['notesDetailWidth','settings-notes-detail-width-value'],['notesRowHeight','settings-notes-row-height-value']])$(id).textContent=settings[key]+' px';
+    navigationSettings?.sync();window.favoritesUI?.configureNavigation?.(settings.navigation);workbench?.sync();window.everythingLayout?.sync();applyRoot(document.documentElement,settings);for(const [key,id] of [['notesPanelWidth','settings-notes-panel-width-value'],['notesDetailWidth','settings-notes-detail-width-value'],['notesRowHeight','settings-notes-row-height-value']])$(id).textContent=settings[key]+' px';
     $('settings-source-width-value').textContent=settings.sourcePanelWidth+' px';
     $('settings-rules-width-value').textContent=settings.rulesWidth+' px';
     $('settings-tag-width-value').textContent=settings.tagPanelWidth+' px';
@@ -104,7 +104,7 @@
     });
   }
   function init(options) {
-    callbacks=options;window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(target=>{
+    callbacks=options;navigationSettings=window.navigationSettings?.mount($('settings-navigation'),{get:()=>settings,update:patch=>update(patch)});window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(target=>{
       const routes=window.quickActionsModel;
       const page=typeof target==='string'&&Object.hasOwn(routes.PAGES,target);
       const tool=target&&typeof target==='object'&&Object.hasOwn(routes.TOOLS,target.tool);

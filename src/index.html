@@ -9,7 +9,7 @@
     <script src="favorites-model.js"></script>
     <script src="search-criteria.js"></script><script src="search-date-presets.js"></script><script src="floating-search-state.js"></script><script src="settings-catalog.js"></script>
     <script src="notes-table-state.js"></script>
-    <script src="everything-result-columns.js"></script><script src="everything-view-settings.js"></script><script src="settings-model.js"></script>
+    <script src="everything-result-columns.js"></script><script src="everything-view-settings.js"></script><script src="navigation-model.js"></script><script src="settings-model.js"></script>
     <script src="theme.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="themes.css">
@@ -46,9 +46,9 @@
           <button id="tab-tracking" class="studio-tab" aria-pressed="false">⌕ Everything 追蹤</button>
           <button id="tab-planning" class="studio-tab" aria-pressed="false">日曆／看板</button>
           <details class="app-nav-group" id="nav-files">
-            <summary class="studio-tab" title="檔案、搜尋及其他工具"><span class="app-nav-label" data-default-label="工具">工具</span> ▾</summary>
+            <summary class="studio-tab" title="更多頁面"><span class="app-nav-label" data-default-label="更多">更多</span> ▾</summary>
             <div class="app-nav-menu">
-              <button id="btn-zip-update" class="studio-tab" type="button">ZIP 更新助手</button>
+              <button id="tab-zip" class="studio-tab" type="button" aria-pressed="false">ZIP 更新助手</button>
               <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
               <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button>
               <button id="tab-logs" class="studio-tab" aria-pressed="false">查看紀錄</button>
@@ -92,6 +92,22 @@
         <div class="home-focus-bar"><div><strong id="home-today">今日工作</strong><span>隨手記下內容，再整理到工作區</span></div><div class="home-focus-actions"><button id="home-new-draft" class="btn btn-primary">✎ 新草稿</button><button id="home-calendar" class="btn btn-secondary">▦ 日曆</button><button id="home-reminders" class="btn btn-ghost">提醒排程</button><button id="home-snippets" class="btn btn-ghost">常用文字</button></div></div><div class="home-workflows" aria-label="常用工作流程"><button id="home-workspace" type="button" class="home-workflow"><strong>▤ 管理工作資料</strong><span>主表、明細、欄位與匯入</span></button><button id="home-everything" type="button" class="home-workflow"><strong>⌕ Everything 追蹤 <small id="home-tracking-count"></small></strong><span>以日期、大小及副檔名整理本機檔案</span></button><button id="home-quick-settings" type="button" class="home-workflow"><strong>↗ 自訂浮動快捷</strong><span>指定追蹤、表格、文字片段與快捷鍵</span></button></div><details id="home-function-directory" class="home-function-directory"><summary>功能導覽 · 找到適合的入口</summary><input id="home-function-search" type="search" placeholder="搜尋功能，例如匯入、共享、追蹤、備份" aria-label="搜尋應用程式功能"><p id="home-function-count" role="status"></p><div id="home-function-results" class="home-function-results"></div></details><p id="home-status" class="notes-hint" role="status"></p>
         <div id="home-widgets" class="home-widgets"></div>
       </section>
+    <section id="zip-update-page" class="zip-update-page hidden" aria-labelledby="zip-update-title">
+      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>選擇 ZIP、比較目的地，確認後備份並套用。</p></div><button id="zip-update-refresh" type="button" class="btn btn-ghost">重新整理位置清單</button></header>
+      <div class="zip-update-scroll">
+        <div id="zip-update-drop" class="zip-update-drop" tabindex="0">拖放 ZIP 至此，或使用下方「選擇 ZIP」</div>
+        <div class="zip-update-sources">
+          <section><h3>1. ZIP 來源</h3><div class="zip-update-actions"><button id="zip-update-choose" class="btn btn-secondary">選擇 ZIP</button><button id="zip-update-add-source" class="btn btn-ghost">選擇來源資料夾（記住）</button></div><label>常用 ZIP 來源位置<select id="zip-update-sources"><option value="">最近使用的來源位置</option></select></label><p id="zip-update-source-path" class="zip-update-path">尚未選擇 ZIP</p><div class="zip-browser"><div class="zip-browser-heading"><strong>來源位置的 ZIP 與資料夾</strong><button id="zip-update-source-up" type="button" class="btn btn-ghost">上層</button></div><p id="zip-update-source-folder-path" class="zip-update-path"></p><input id="zip-update-source-browser-query" type="search" aria-label="搜尋來源位置的 ZIP 與資料夾" placeholder="篩選名稱…"><div class="zip-browser-scroll"><table><thead><tr><th>名稱</th><th>大小</th><th>修改時間</th></tr></thead><tbody id="zip-update-source-browser-rows"></tbody></table></div><div class="zip-browser-pager"><button id="zip-update-source-prev" type="button" class="btn btn-ghost">‹</button><span id="zip-update-source-browser-status"></span><button id="zip-update-source-next" type="button" class="btn btn-ghost">›</button></div></div><label>ZIP 來源根目錄<select id="zip-update-root"><option value="">保留 ZIP 完整層級</option></select></label><p class="notes-hint">目標已位於 ZIP 的同名資料夾時，可選 ZIP 內該資料夾，避免重複多加一層。</p></section>
+          <section><h3>2. 目標資料夾</h3><div class="zip-update-actions"><button id="zip-update-target" class="btn btn-secondary">選擇目標資料夾</button><button id="zip-update-open-target" class="btn btn-ghost">開啟目標</button></div><label>常用目的地<select id="zip-update-targets"><option value="">選擇最近目的地</option></select></label><p id="zip-update-target-path" class="zip-update-path">尚未選擇目標</p><div class="zip-browser"><div class="zip-browser-heading"><strong>目標資料夾內容</strong><button id="zip-update-target-up" type="button" class="btn btn-ghost">上層</button></div><p id="zip-update-target-folder-path" class="zip-update-path"></p><input id="zip-update-target-browser-query" type="search" aria-label="搜尋目標資料夾內容" placeholder="篩選名稱…"><div class="zip-browser-scroll"><table><thead><tr><th>名稱</th><th>大小</th><th>修改時間</th></tr></thead><tbody id="zip-update-target-browser-rows"></tbody></table></div><div class="zip-browser-pager"><button id="zip-update-target-prev" type="button" class="btn btn-ghost">‹</button><span id="zip-update-target-browser-status"></span><button id="zip-update-target-next" type="button" class="btn btn-ghost">›</button></div></div><p class="notes-hint">只處理勾選的新增／覆寫檔案。目標內其餘檔案保留。</p></section>
+        </div>
+        <div class="zip-update-toolbar"><h3>3. 比較與套用</h3><button id="zip-update-preview" class="btn btn-secondary">比較檔案</button><label>篩選<select id="zip-update-filter"><option value="changes">新增／不同／無法處理</option><option value="all">全部</option><option value="added">新增</option><option value="changed">內容不同</option><option value="same">內容相同</option><option value="blocked">無法處理</option></select></label><input id="zip-update-query" type="search" aria-label="搜尋 ZIP 路徑" placeholder="搜尋路徑…"><button id="zip-update-expand-all" type="button" class="btn btn-ghost">全部展開</button><button id="zip-update-collapse-all" type="button" class="btn btn-ghost">全部收合</button><button id="zip-update-select-all" class="btn btn-ghost">勾選可更新項目</button><button id="zip-update-select-none" class="btn btn-ghost">取消全選</button></div>
+        <p id="zip-update-summary" class="notes-hint">先選 ZIP 與目標資料夾，再比較檔案。</p>
+        <div class="zip-update-table-wrap"><table class="zip-update-table"><thead><tr><th>選取</th><th>資料夾／檔案</th><th>狀態</th><th>大小</th><th>完整目標路徑</th></tr></thead><tbody id="zip-update-rows"></tbody></table></div>
+        <div class="zip-update-pager"><button id="zip-update-prev" class="btn btn-ghost">上一頁</button><span id="zip-update-pagination"></span><button id="zip-update-next" class="btn btn-ghost">下一頁</button></div>
+        <section class="zip-update-history"><h3>最近更新與還原</h3><p class="notes-hint">覆寫前保留原檔。還原時，更新後再次修改的檔案會保留並列出衝突。</p><div id="zip-update-history"></div></section>
+      </div>
+      <footer class="zip-update-footer"><p id="zip-update-status" role="status" aria-live="polite"></p><button id="zip-update-cancel" class="btn btn-secondary" hidden>停止後續項目</button><button id="zip-update-apply" class="btn btn-primary" disabled>確認套用</button></footer>
+    </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
         <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>按需要使用情境、範本、追蹤、OCR 或備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
         <p id="productivity-status" class="productivity-status" role="status" aria-live="polite"></p>
@@ -491,7 +507,7 @@
                   <p class="notes-hint">自訂顯示只影響這台電腦的偏好，不會刪除資料；小視窗會自動減少實際欄數。</p>
                 </section>
               </div>
-              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance"><section class="settings-card"><h2>主視窗版面預設</h2><label class="check-row"><input id="settings-layout-editing" type="checkbox"><span>啟用首頁區塊與檔案側欄的拖曳版面編輯</span></label><label class="field"><span>檔案工具側欄位置</span><select id="settings-file-panel-side"><option value="source-left">來源在左、規則在右</option><option value="rules-left">規則在左、來源在右</option></select></label><button id="settings-layout-reset" class="btn btn-ghost">還原區塊順序與尺寸</button><p class="rule-hint">首頁可拖曳標題調整順序、拖曳右下角調整高度，並切換區塊寬度；檔案工具可將來源／規則標題互相拖放以交換側欄。工作區與收藏側欄仍用分隔線調寬，不提供任意疊放的自由座標版面。</p><p class="rule-hint">套用後仍可逐項調整密度、字體及各面板寬度；不改資料。</p><div class="notes-tools"><button id="layout-main-compact" class="btn btn-secondary">精簡</button><button id="layout-main-standard" class="btn btn-secondary">標準</button><button id="layout-main-readable" class="btn btn-secondary">大字易讀</button></div><div class="settings-inline"><label>視窗寬<input id="settings-main-width" type="number" min="800" max="8000" value="1400"></label><label>視窗高<input id="settings-main-height" type="number" min="500" max="8000" value="900"></label></div><button id="settings-main-size-apply" class="btn btn-secondary">套用視窗尺寸</button><p id="settings-main-size-status" class="rule-hint"></p>
+              <div id="settings-panel-appearance" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-appearance"><section class="settings-card navigation-settings-card"><h2>導覽列與更多選單</h2><p>選擇頁面直接顯示於導覽列，或收進「更多」。上下移動會同步調整兩處的排列；設定與資訊保留於右側固定入口。</p><div id="settings-navigation"></div></section><section class="settings-card"><h2>主視窗版面預設</h2><label class="check-row"><input id="settings-layout-editing" type="checkbox"><span>啟用首頁區塊與檔案側欄的拖曳版面編輯</span></label><label class="field"><span>檔案工具側欄位置</span><select id="settings-file-panel-side"><option value="source-left">來源在左、規則在右</option><option value="rules-left">規則在左、來源在右</option></select></label><button id="settings-layout-reset" class="btn btn-ghost">還原區塊順序與尺寸</button><p class="rule-hint">首頁可拖曳標題調整順序、拖曳右下角調整高度，並切換區塊寬度；檔案工具可將來源／規則標題互相拖放以交換側欄。工作區與收藏側欄仍用分隔線調寬，不提供任意疊放的自由座標版面。</p><p class="rule-hint">套用後仍可逐項調整密度、字體及各面板寬度；不改資料。</p><div class="notes-tools"><button id="layout-main-compact" class="btn btn-secondary">精簡</button><button id="layout-main-standard" class="btn btn-secondary">標準</button><button id="layout-main-readable" class="btn btn-secondary">大字易讀</button></div><div class="settings-inline"><label>視窗寬<input id="settings-main-width" type="number" min="800" max="8000" value="1400"></label><label>視窗高<input id="settings-main-height" type="number" min="500" max="8000" value="900"></label></div><button id="settings-main-size-apply" class="btn btn-secondary">套用視窗尺寸</button><p id="settings-main-size-status" class="rule-hint"></p>
                 <details id="settings-window-sizes" class="notes-disclosure">
                   <summary>對話框與浮動視窗尺寸</summary>
                   <p class="rule-hint">拖曳對話框右下角或浮動視窗邊緣，尺寸會按視窗類型儲存。這裡可直接修改或還原。</p>
@@ -2779,23 +2795,7 @@
       </div>
     </dialog>
 <dialog id="document-preview-dialog" class="modal productivity-preview" aria-labelledby="document-preview-title"><h2 id="document-preview-title">文件預覽</h2><p id="document-preview-path" class="notes-hint"></p><div id="document-preview-content"></div><div class="modal-buttons"><button id="document-preview-close" class="btn btn-secondary">關閉</button></div></dialog>
-    <dialog id="zip-update-dialog" class="modal zip-update-dialog" aria-labelledby="zip-update-title">
-      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>選擇 ZIP、比較目的地，確認後備份並套用。</p></div><button id="zip-update-close" type="button" class="btn btn-ghost" aria-label="關閉 ZIP 更新助手">✕</button></header>
-      <div class="zip-update-scroll">
-        <div id="zip-update-drop" class="zip-update-drop" tabindex="0">拖放 ZIP 至此，或使用下方「選擇 ZIP」</div>
-        <div class="zip-update-sources">
-          <section><h3>1. ZIP 來源</h3><div class="zip-update-actions"><button id="zip-update-choose" class="btn btn-secondary">選擇 ZIP</button><button id="zip-update-add-source" class="btn btn-ghost">加入常用來源資料夾</button></div><label>從常用位置選 ZIP<select id="zip-update-sources"><option value="">最近使用的來源位置</option></select></label><p id="zip-update-source-path" class="zip-update-path">尚未選擇 ZIP</p><label>ZIP 來源根目錄<select id="zip-update-root"><option value="">保留 ZIP 完整層級</option></select></label><p class="notes-hint">目標已位於 ZIP 的同名資料夾時，可選 ZIP 內該資料夾，避免重複多加一層。</p></section>
-          <section><h3>2. 目標資料夾</h3><div class="zip-update-actions"><button id="zip-update-target" class="btn btn-secondary">選擇目標資料夾</button><button id="zip-update-open-target" class="btn btn-ghost">開啟目標</button></div><label>常用目的地<select id="zip-update-targets"><option value="">選擇最近目的地</option></select></label><p id="zip-update-target-path" class="zip-update-path">尚未選擇目標</p><p class="notes-hint">只處理勾選的新增／覆寫檔案。目標內其餘檔案保留。</p></section>
-        </div>
-        <div class="zip-update-toolbar"><h3>3. 比較與套用</h3><button id="zip-update-preview" class="btn btn-secondary">比較檔案</button><label>篩選<select id="zip-update-filter"><option value="changes">新增／不同／無法處理</option><option value="all">全部</option><option value="added">新增</option><option value="changed">內容不同</option><option value="same">內容相同</option><option value="blocked">無法處理</option></select></label><input id="zip-update-query" type="search" aria-label="搜尋 ZIP 路徑" placeholder="搜尋路徑…"><button id="zip-update-select-all" class="btn btn-ghost">勾選可更新項目</button><button id="zip-update-select-none" class="btn btn-ghost">取消全選</button></div>
-        <p id="zip-update-summary" class="notes-hint">先選 ZIP 與目標資料夾，再比較檔案。</p>
-        <div class="zip-update-table-wrap"><table class="zip-update-table"><thead><tr><th>選取</th><th>ZIP 路徑</th><th>狀態</th><th>大小</th><th>完整目標路徑</th></tr></thead><tbody id="zip-update-rows"></tbody></table></div>
-        <div class="zip-update-pager"><button id="zip-update-prev" class="btn btn-ghost">上一頁</button><span id="zip-update-page"></span><button id="zip-update-next" class="btn btn-ghost">下一頁</button></div>
-        <section class="zip-update-history"><h3>最近更新與還原</h3><p class="notes-hint">覆寫前保留原檔。還原時，更新後再次修改的檔案會保留並列出衝突。</p><div id="zip-update-history"></div></section>
-      </div>
-      <footer class="zip-update-footer"><p id="zip-update-status" role="status" aria-live="polite"></p><button id="zip-update-cancel" class="btn btn-secondary" hidden>停止後續項目</button><button id="zip-update-apply" class="btn btn-primary" disabled>確認套用</button></footer>
-    </dialog>
-    <link rel="stylesheet" href="zip-update.css"><script src="zip-update-ui.js" defer></script>
+    <link rel="stylesheet" href="zip-update.css"><script src="zip-update-tree.js" defer></script><script src="zip-update-ui.js" defer></script>
     <div id="toast-container" aria-live="polite"></div>
     <script src="presets.js" defer></script>
     <script src="list-pagination.js" defer></script>
@@ -2806,7 +2806,7 @@
     <script src="toolbox-model.js" defer></script><script src="quick-actions-model.js" defer></script>
     <script src="quick-actions-settings.js" defer></script>
     <script src="diagnostics-settings.js" defer></script>
-    <script src="shortcut-overview.js" defer></script><script src="settings.js" defer></script>
+    <script src="shortcut-overview.js" defer></script><script src="navigation-settings.js" defer></script><script src="settings.js" defer></script>
     <script src="shortcuts.js" defer></script>
     <script src="moving.js" defer></script>
     <script src="path-import.js" defer></script>
