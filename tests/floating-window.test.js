@@ -28,3 +28,21 @@ test('Dock snaps to every work-area edge and recovers on monitor removal without
 
 test('collapsed orb keeps its exact corner anchor across restart even if the expanded rectangle would be offscreen',t=>{const h=setup(t);h.desktop.update({floatingLauncher:'bubble',floatingCollapsed:true});h.controller.apply();const gesture=h.controller.startDrag();h.controller.moveDrag(gesture.token,9000,9000);h.controller.endDrag(gesture.token);const before={...h.window.bounds},store=new DesktopState(h.desktop.filename),nextWindow=new h.window.constructor();nextWindow.bounds=store.bounds('floating',h.controller.screen.getAllDisplays(),require('../src/floating-window').windowDefaults(store.settings));const next=new FloatingWindow(nextWindow,store,h.controller.screen);t.after(()=>nextWindow.emit('closed'));assert.deepEqual([nextWindow.bounds.x,nextWindow.bounds.y],[before.x,before.y]);assert.deepEqual([nextWindow.bounds.width,nextWindow.bounds.height],[64,64]);store.update({floatingCollapsed:false});next.apply();assert.ok(nextWindow.bounds.x+nextWindow.bounds.width<=1920);assert.ok(nextWindow.bounds.y+nextWindow.bounds.height<=1040);});
 test('native geometry uses content bounds rather than stale outer frame bounds',t=>{const h=setup(t);h.window.getBounds=()=>({x:1,y:2,width:900,height:900});h.window.getContentBounds=()=>({...h.window.bounds});let calls=0;h.window.setContentBounds=bounds=>{calls++;h.window.bounds={...bounds};h.window.emit('resize');};h.desktop.update({floatingLauncher:'bubble',floatingCollapsed:true});h.controller.apply();assert.ok(calls>0);assert.deepEqual([h.controller.liveBounds().width,h.controller.liveBounds().height],[64,64]);h.desktop.update({floatingCollapsed:false});h.controller.apply();assert.ok(h.window.bounds.width<900);});
+
+test('native shape follows mode, resize and dialog lifecycle without disabling real controls',t=>{
+ const h=setup(t),shapes=[];h.window.setShape=rects=>shapes.push(rects);
+ h.desktop.update({floatingLauncher:'bubble',floatingCollapsed:true});h.controller.apply();assert.ok(shapes.at(-1).length>0);
+ h.controller.setModal(true);assert.deepEqual(shapes.at(-1),[]);h.controller.setModal(false);assert.ok(shapes.at(-1).length>0);
+ assert.throws(()=>h.controller.setModal('true'),/無效/);
+ h.desktop.update({floatingCollapsed:false});h.controller.apply();const before=JSON.stringify(shapes.at(-1));h.window.bounds.width+=100;h.window.emit('resize');assert.notEqual(JSON.stringify(shapes.at(-1)),before);
+ h.desktop.update({floatingLauncher:'classic'});h.controller.apply();assert.deepEqual(shapes.at(-1),[]);
+});
+test('each quick tool applies its own size across selection, collapse and settings reload',t=>{
+ const h=setup(t);h.desktop.update({floatingLauncher:'bubble',floatingLastPanel:'files',floatingToolLayout:{files:{panelSize:{width:500,height:450}},snippets:{panelSize:{width:600,height:550}}}});h.controller.apply();
+ const panel=()=>require('../src/floating-layout').surfaces('bubble','bottom',false,h.window.bounds.width,h.window.bounds.height).panel;
+ assert.deepEqual([panel().width,panel().height],[500,450]);h.desktop.update({floatingLastPanel:'snippets'});h.controller.apply();assert.deepEqual([panel().width,panel().height],[600,550]);
+ h.desktop.update({floatingCollapsed:true});h.controller.apply();h.desktop.update({floatingLastPanel:'files',floatingCollapsed:false});h.controller.apply();assert.deepEqual([panel().width,panel().height],[500,450]);
+ assert.deepEqual(new DesktopState(h.desktop.filename).settings.floatingToolLayout.files.panelSize,{width:500,height:450});
+});
+
+test('actual default panel size takes precedence over remembered last panel without changing preferences',t=>{const h=setup(t);h.desktop.update({floatingLauncher:'bubble',floatingLastPanel:'files',floatingRememberPanel:false,floatingToolLayout:{files:{panelSize:{width:500,height:450}},snippets:{panelSize:{width:600,height:550}}}});h.controller.selectPanel('snippets');const b=require('../src/floating-layout').surfaces('bubble','bottom',false,h.window.bounds.width,h.window.bounds.height).panel;assert.deepEqual([b.width,b.height],[600,550]);assert.equal(h.desktop.settings.floatingLastPanel,'files');assert.equal(h.desktop.settings.floatingRememberPanel,false);assert.throws(()=>h.controller.selectPanel('unknown'),/無效/);});

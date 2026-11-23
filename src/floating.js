@@ -45,6 +45,7 @@
   onSelect:id=>{
    if(id!=='files')liveSearch.cancel();
    document.documentElement.dataset.miniPanel=id;
+   if(!settings.floatingCollapsed&&id!=='empty')window.desktopAPI.workspace?.('panel-size',id)?.catch(error=>window.studioDiagnostics?.report('floating-panel-size',error));
   }
  });
  const workspace=window.floatingWorkspaceUI?.mount({api:window.desktopAPI,panels,action,getSettings:()=>settings});

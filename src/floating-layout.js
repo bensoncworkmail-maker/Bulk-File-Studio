@@ -18,6 +18,16 @@
  // On unusually small work areas, reserve B and More. All overflow actions
  // remain available in a real expanded menu instead of clipping/scrolling rail.
  function visibleSlots(length){return Math.max(2,Math.min(METRICS.count,Math.floor((length-18+8)/50)));}
- const api=Object.freeze({METRICS,rail,modern,horizontal,capsule,minimum,defaults,surfaces,visibleSlots});
+ // Native input regions must follow the visible surfaces: transparent pixels
+ // in a BrowserWindow otherwise intercept clicks intended for the app below.
+ function inputRegions(mode,edge,collapsed,width,height,modal=false){
+  if(!modern(mode)||modal)return [];
+  const {panel,launcher}=surfaces(mode,edge,collapsed,width,height),regions=[];
+  if(panel)regions.push(panel);
+  if(mode!=='bubble')regions.push(launcher);
+  else{const radius=launcher.width/2;for(let y=0;y<launcher.height;y++){const dy=y+.5-radius,half=Math.sqrt(Math.max(0,radius*radius-dy*dy)),left=Math.ceil(radius-half),right=Math.floor(radius+half);if(right>left)regions.push({x:launcher.x+left,y:launcher.y+y,width:right-left,height:1});}}
+  return regions;
+ }
+ const api=Object.freeze({METRICS,rail,modern,horizontal,capsule,minimum,defaults,surfaces,visibleSlots,inputRegions});
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else window.floatingLayout=api;
 })();
