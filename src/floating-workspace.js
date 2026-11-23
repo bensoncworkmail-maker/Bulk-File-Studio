@@ -1,10 +1,12 @@
 'use strict';
 const {randomUUID}=require('node:crypto');
 // History is explicit, text-only and lives in this process. Never poll the clipboard.
-function register({handle,clipboard,configure,openPage,openTool,idleCollapse,settings,saveLayout,mainTool,canMove=()=>true}){
+function register({handle,clipboard,configure,openPage,openTool,idleCollapse,settings,saveLayout,mainTool,setModal,selectPanel,canMove=()=>true}){
  let history=[],revision=0;
  const invoke=async(action,value)=>{
   if(action==='idle-collapse')return idleCollapse();
+  if(action==='modal')return setModal(value);
+  if(action==='panel-size')return selectPanel(value);
   if(action==='panel'){if(!['files','planning','snippets','clipboard','contexts','drafts'].includes(value))throw Error('浮動分頁無效');return configure({floatingLastPanel:value});}
   if(action==='mode'){if(!['classic','bar','dock','bubble'].includes(value))throw Error('入口模式無效');return configure({floatingLauncher:value});}
   if(action==='page'){if(!['tracking','settings'].includes(value))throw Error('頁面無效');openPage(value);return {opened:true};}

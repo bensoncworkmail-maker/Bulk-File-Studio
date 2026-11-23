@@ -35,7 +35,6 @@
   if(value==='calendar'||value==='logs')return window.favoritesUI.show(value==='calendar'?'planning':'logs');
   const route=T.get(value);if(!route||!canSwitch(value))return false;const wasWorkflow=Boolean(T.get(section)?.workflow);section=value;const parent=T.parent(value);
   for(const item of $('productivity-nav').querySelectorAll('[data-productivity]')){const active=item.dataset.productivity===parent;item.setAttribute('aria-pressed',String(active));if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
-  if(T.extra.some(item=>item.id===parent))$('toolbox-advanced').open=true;
   for(const panel of $('productivity-page').querySelectorAll('.productivity-panel'))panel.hidden=panel.id!=='productivity-'+value;
   const sub=$('toolbox-subnav');sub.replaceChildren();const ids=parent==='contexts'?['contexts','worksets']:parent==='parameters'?['parameters','snippets']:parent==='rules'?['rules','conditions']:[];sub.hidden=!ids.length;
   for(const id of ids){const entry=T.get(id),control=button(entry.title,()=>show(id));control.setAttribute('aria-pressed',String(value===id));sub.append(control);}

@@ -43,16 +43,26 @@
           <button id="tab-home" class="studio-tab" aria-pressed="false">⌂ 首頁</button>
           <button id="tab-notes" class="studio-tab" aria-pressed="false">▦ 資料工作區 <span id="share-update-badge" class="count-pill" hidden>有更新</span></button>
           <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
-          <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 全域搜尋</button>
-          <button id="tab-tracking" class="studio-tab" aria-pressed="false">⌕ Everything 追蹤</button>
-          <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
           <button id="tab-planning" class="studio-tab" aria-pressed="false">日曆／看板</button>
           <button id="tab-logs" class="studio-tab" aria-pressed="false">查看紀錄</button>
+          <details class="app-nav-group" id="nav-files">
+            <summary class="studio-tab" title="搜尋追蹤與檔案操作"><span class="app-nav-label" data-default-label="檔案">檔案</span> ▾</summary>
+            <div class="app-nav-menu">
+              <button id="tab-tracking" class="studio-tab" aria-pressed="false">⌕ Everything 追蹤</button>
+              <button id="tab-rename" class="studio-tab" aria-pressed="false">↗ 檔案工具</button>
+            </div>
+          </details>
           <button id="tab-productivity" class="studio-tab" aria-pressed="false">▧ 工具箱</button>
-          <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
-          <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
+          <button id="tab-search" class="studio-tab" aria-pressed="false" title="全域搜尋（Ctrl+Shift+F）">⌕ 搜尋</button>
         </nav>
         <div class="header-right">
+          <details class="app-nav-group" id="nav-application">
+            <summary class="studio-tab" title="設定與應用程式資訊" aria-label="設定與資訊"><span class="app-nav-label" data-default-label="⚙">⚙</span> ▾</summary>
+            <div class="app-nav-menu">
+              <button id="tab-settings" class="studio-tab" aria-pressed="false">⚙ 設定</button>
+              <button id="tab-info" class="studio-tab" aria-pressed="false">ⓘ 資訊</button>
+            </div>
+          </details>
           <span class="local-state">
             <span class="state-dot"></span>
             <span id="app-connection-label">本機與指定內網檔案 · 封鎖網頁連線</span>
@@ -93,7 +103,7 @@
             <button type="button" class="btn btn-secondary" data-productivity="ocr" aria-pressed="false"><strong>離線 OCR</strong><small>圖片文字轉成草稿</small></button>
 
             <button type="button" class="btn btn-secondary" data-productivity="backup" aria-pressed="false"><strong>備份</strong><small>保存與還原資料</small></button>
-            <details id="toolbox-advanced"><summary>其他工具</summary><div class="toolbox-extra-nav">
+            <section id="toolbox-advanced" aria-label="其他工具"><p class="toolbox-extra-heading">其他工具</p><div class="toolbox-extra-nav">
 <button type="button" class="btn btn-ghost" data-productivity="repair" aria-pressed="false">批次修復路徑</button>
 <button type="button" class="btn btn-ghost" data-productivity="rules" aria-pressed="false">檔案整理規則</button>
 <button type="button" class="btn btn-ghost" data-productivity="preview" aria-pressed="false">文件預覽</button>
@@ -101,7 +111,7 @@
 
 
 
-</div></details></nav><div class="productivity-content"><nav id="toolbox-subnav" class="toolbox-subnav" aria-label="工具內功能" hidden></nav>
+</div></section></nav><div class="productivity-content"><nav id="toolbox-subnav" class="toolbox-subnav" aria-label="工具內功能" hidden></nav>
 
 <section id="productivity-contexts" class="productivity-panel" hidden></section>
 <section id="productivity-parameters" class="productivity-panel" hidden></section>

@@ -10,7 +10,7 @@
 :root[data-launcher]:not([data-launcher=classic])[data-collapsed=true] body>#workspace-panel{display:none!important}
 :root[data-launcher]:not([data-launcher=classic]) body>#workspace-launcher{display:flex!important;position:absolute;left:var(--launcher-x);top:var(--launcher-y);width:var(--launcher-width);height:var(--launcher-height);flex-direction:column;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:17px;background:var(--panel);touch-action:none;user-select:none}
 #workspace-launcher button{flex:0 0 42px;width:42px;height:42px;min-width:0;min-height:0;padding:0;border:1px solid transparent;border-radius:11px;font-size:20px;line-height:1;background:transparent}
-#workspace-launcher button:first-child{background:linear-gradient(125deg,#50a9f5,#7566dd);color:white;font-weight:800}
+#workspace-launcher button:first-child{background:linear-gradient(125deg,#50a9f5,#7566dd);color:white;font-weight:800;border-radius:50%;aspect-ratio:1}
 #workspace-launcher button[aria-pressed=true]{background:#3c6da3;color:#fff;border-color:#76adff}
 #workspace-launcher button[data-placement=pinned]{border-bottom-color:#56d6ad}
 #workspace-launcher button:disabled{opacity:.35}
@@ -47,3 +47,8 @@
 :root[data-launcher]:not([data-launcher=classic]) #mini-panel-content .tool-view-month-controls{flex-wrap:nowrap}
 :root[data-launcher]:not([data-launcher=classic]) #mini-panel-content .tool-view-month-controls input{width:0;flex:1 1 0;min-width:0}
 :root[data-launcher]:not([data-launcher=classic]) #mini-panel-content .tool-view-query{display:none}
+
+#workspace-settings fieldset,#settings-floating-tool-layout fieldset{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:8px;min-width:0}
+#workspace-settings fieldset label,#settings-floating-tool-layout fieldset label{display:flex;align-items:center;gap:8px;margin:6px 0}
+#workspace-settings fieldset input,#settings-floating-tool-layout fieldset input{width:110px;max-width:100%}
+#workspace-settings fieldset button,#settings-floating-tool-layout fieldset button{margin:4px 6px 0 0}
