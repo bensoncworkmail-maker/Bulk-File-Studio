@@ -4,6 +4,7 @@ const {Transform}=require('node:stream'),{pipeline}=require('node:stream/promise
 const {crc32}=require('node:zlib');
 const JSZip=require('jszip'),{assertLocalPath}=require('./offline-policy');
 const LIMITS=Object.freeze({archive:128*1024*1024,file:128*1024*1024,total:512*1024*1024,entries:5000});
+const MAX_BATCH=50;
 const ID=/^[a-f0-9-]{36}$/i;
 function within(root,file){const rel=path.relative(root,file);return rel===''||rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);}
 function entryPath(value){
@@ -57,16 +58,66 @@ class ZipUpdate{
  cancel(){if(this.busy)this.canceled=true;return {requested:Boolean(this.busy)};}
  async guard(task){if(this.busy)throw Error('另一項 ZIP 操作仍在執行');this.busy=true;this.canceled=false;try{return await task();}finally{this.busy=false;}}
  emit(phase,current,total,name=''){this.progress({phase,current,total,name});}
- async openZip(filename){return this.guard(async()=>{
+ async stageArchive(filename){
   assertLocalPath(filename);if(!/\.zip$/i.test(filename))throw Error('請選擇 ZIP 檔案');const stat=await fsp.stat(filename);if(!stat.isFile()||stat.size>this.limits.archive)throw Error('ZIP 檔案不存在或超過大小上限');
   const buffer=await fsp.readFile(filename);this.check();const central=inspectArchive(buffer,this.limits),zip=await JSZip.loadAsync(buffer,{createFolders:false}),entries=Object.values(zip.files);if(entries.length!==central.length)throw Error('ZIP 目錄含重複或無法辨識的項目');
-  const dir=path.join(this.work,crypto.randomUUID());await fsp.mkdir(dir);const files=[],roots=new Set();let total=0;
-  try{for(const entry of entries){this.check();const name=entryPath(entry.unsafeOriginalName||entry.name),metadata=central.find(r=>r.name===name);if(!metadata||entryPath(entry.name)!==name)throw Error('ZIP 路徑經過改寫，無法使用');if(entry.dir)continue;
+  const dir=path.join(this.work,crypto.randomUUID());assertLocalPath(dir);await fsp.mkdir(dir);const files=[],directories=[],roots=new Set();let total=0;
+  const metadataByName=new Map(central.map(row=>[row.name,row]));
+  const fileCount=central.filter(row=>!row.directory).length;
+  try{for(const entry of entries){this.check();const name=entryPath(entry.unsafeOriginalName||entry.name),metadata=metadataByName.get(name);if(!metadata||entryPath(entry.name)!==name||Boolean(entry.dir)!==metadata.directory)throw Error('ZIP 路徑或類型經過改寫，無法使用');if(entry.dir){directories.push(name);continue;}
     const id=crypto.randomUUID(),stage=path.join(dir,id),hash=crypto.createHash('sha256');let size=0,crc=0;
     const meter=new Transform({transform:(chunk,encoding,callback)=>{try{this.check();size+=chunk.length;total+=chunk.length;if(size>this.limits.file||total>this.limits.total)throw Error('ZIP 解壓大小超過允許上限');hash.update(chunk);crc=crc32(chunk,crc);callback(null,chunk);}catch(e){callback(e);}}});
-    await pipeline(entry.nodeStream('nodebuffer'),meter,fs.createWriteStream(stage,{flags:'wx',mode:0o600}));if(size!==metadata.size||crc!==metadata.crc)throw Error('ZIP 檔案內容校驗失敗');files.push({id,name,size,hash:hash.digest('hex'),stage});let parent=path.posix.dirname(name);while(parent!=='.'){roots.add(parent);parent=path.posix.dirname(parent);}this.emit('extract',files.length,entries.filter(e=>!e.dir).length,name);
-   }if(!files.length)throw Error('ZIP 內沒有檔案');this.check();this.remember('sourceFolders',path.dirname(filename));if(this.sessionDir)await fsp.rm(this.sessionDir,{recursive:true,force:true}).catch(()=>{});this.plan=null;this.sessionDir=dir;this.files=files;this.roots=[...roots].sort();this.selected.zipPath=filename;return this.state();
+    await pipeline(entry.nodeStream('nodebuffer'),meter,fs.createWriteStream(stage,{flags:'wx',mode:0o600}));if(size!==metadata.size||crc!==metadata.crc)throw Error('ZIP 檔案內容校驗失敗');files.push({id,name,size,hash:hash.digest('hex'),stage});let parent=path.posix.dirname(name);while(parent!=='.'){roots.add(parent);parent=path.posix.dirname(parent);}this.emit('extract',files.length,fileCount,name);
+   }this.check();return {dir,files,directories,roots:[...roots].sort()};
   }catch(e){await fsp.rm(dir,{recursive:true,force:true});throw e;}
+ }
+ async openZip(filename){return this.guard(async()=>{
+  const staged=await this.stageArchive(filename);
+  try{
+   if(!staged.files.length)throw Error('ZIP 內沒有檔案');this.remember('sourceFolders',path.dirname(filename));
+   if(this.sessionDir)await fsp.rm(this.sessionDir,{recursive:true,force:true}).catch(()=>{});
+   this.plan=null;this.sessionDir=staged.dir;this.files=staged.files;this.roots=staged.roots;this.selected.zipPath=filename;return this.state();
+  }catch(error){await fsp.rm(staged.dir,{recursive:true,force:true});throw error;}
+ });}
+ batchPlan(paths,target){
+  if(!Array.isArray(paths)||!paths.length||paths.length>MAX_BATCH)throw Error(`請選擇 1–${MAX_BATCH} 個 ZIP 檔案`);
+  assertLocalPath(target);
+  if(within(this.root,target)||!fs.statSync(target).isDirectory())throw Error('請選擇有效的目標資料夾');
+  const key=value=>value.normalize('NFC').toLowerCase(),reserved=new Set(fs.readdirSync(target).map(key)),seen=new Set(),rows=[];
+  for(const input of paths){
+   assertLocalPath(input);const archive=path.resolve(input),archiveKey=process.platform==='win32'?key(archive):archive;
+   if(seen.has(archiveKey))continue;
+   if(!/\.zip$/i.test(archive)||!fs.statSync(archive).isFile())throw Error('請選擇有效的 ZIP 檔案');
+   seen.add(archiveKey);
+   const stem=path.basename(archive).slice(0,-4).trim().replace(/[. ]+$/,'')||'ZIP';
+   let name=stem,index=2;
+   while(reserved.has(key(name)))name=`${stem} (${index++})`;
+   if(entryPath(name)!==name||name.includes('/'))throw Error('ZIP 檔名無法用作資料夾：'+path.basename(archive));
+   reserved.add(key(name));rows.push({archive,destination:path.join(target,name)});
+  }
+  return rows;
+ }
+ async extractBatch(rows){return this.guard(async()=>{
+  const results=[];
+  for(const row of rows){
+   if(this.canceled)break;
+   let staged,created=false,count=0;
+   try{
+    staged=await this.stageArchive(row.archive);this.check();
+    assertLocalPath(row.destination);await fsp.mkdir(row.destination);created=true;
+    const output=name=>assertLocalPath(path.join(row.destination,...name.split('/')));
+    for(const name of staged.directories){this.check();await fsp.mkdir(output(name),{recursive:true});}
+    for(const file of staged.files){
+     this.check();const filename=output(file.name);await fsp.mkdir(path.dirname(filename),{recursive:true});
+     assertLocalPath(filename);await fsp.copyFile(file.stage,filename,fs.constants.COPYFILE_EXCL);count++;
+    }
+    results.push({...row,status:'completed',count});
+   }catch(error){results.push({...row,status:created?'partial':error.code==='CANCELED'?'canceled':'failed',count,error:error.message});}
+   finally{if(staged)await fsp.rm(staged.dir,{recursive:true,force:true}).catch(()=>{});}
+   this.emit('batch',results.length,rows.length,path.basename(row.archive));
+  }
+  for(const row of rows.slice(results.length))results.push({...row,status:'canceled',count:0});
+  return {rows:results,canceled:false};
  });}
  destination(relative){const target=this.selected.target,file=path.resolve(target,...relative.split('/'));if(!target||!within(target,file)||file===target||within(this.root,file))throw Error('目的地超出選定範圍');assertLocalPath(file);return file;}
  async compareStructure(rows){
@@ -124,4 +175,4 @@ class ZipUpdate{
   run.status=run.items.some(r=>['applied','writing'].includes(r.state))?'partial-undo':'restored';writeJSON(file,run);const summary=this.history.runs.find(r=>r.id===id);summary.status=run.status;this.save();return this.result(run,dir);
  });}
 }
-module.exports={ZipUpdate,LIMITS,entryPath,inspectArchive,fingerprint,within};
+module.exports={ZipUpdate,LIMITS,MAX_BATCH,entryPath,inspectArchive,fingerprint,within};

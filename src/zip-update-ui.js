@@ -4,6 +4,7 @@
  const labels={added:'新增',changed:'內容不同',same:'內容相同',blocked:'無法處理',source:'待比較',completed:'已完成',partial:'部分完成',canceled:'已停止',running:'未完成，可檢查／還原',restored:'已還原','partial-undo':'部分還原'};
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
  let data={files:[],sourceFolders:[],targetFolders:[],savedTargets:[],roots:[],runs:[],selected:{},browsers:{}},plan=null,selected=new Set(),page=0,busy=false,lastResult=null,expanded=new Set(),tree,treeKey='';
+ const batchSources=new Set();
  const browserPages={source:0,target:0},eligible=row=>['added','changed'].includes(row.status),status=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
  const size=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
  function persistView(){window.settingsUI?.update({zipUpdateView:view.normalize(prefs)});}
@@ -78,19 +79,27 @@
  }
  function invalidate(){plan=null;selected.clear();page=0;lastResult=null;treeKey='';expanded.clear();}
  function options(field,values,placeholder){const old=field.value;field.replaceChildren();const empty=node('option',placeholder);empty.value='';field.append(empty);values.forEach((text,i)=>{const option=node('option',text);option.value=String(i);field.append(option);});field.value=old;}
- function sync(next){for(const kind of ['source','target'])if(next.browsers?.[kind]?.folder!==data.browsers?.[kind]?.folder){browserPages[kind]=0;$(kind+'-browser-query').value='';}data=next;options($('sources'),data.sourceFolders,'選擇最近來源位置');renderTargetOptions();const old=$('root').value;$('root').replaceChildren();for(const text of ['',...data.roots]){const option=node('option',text?text+'／內的檔案':'保留 ZIP 完整層級');option.value=text;$('root').append(option);}$('root').value=data.roots.includes(old)?old:'';$('source-path').textContent=data.selected.zipPath||'尚未選擇 ZIP';$('target-path').textContent=data.selected.target||'尚未選擇目標';const sourceIndex=data.sourceFolders.indexOf(data.browsers?.source?.root);$('sources').value=sourceIndex>=0?String(sourceIndex):'';render();}
+ function sync(next){for(const kind of ['source','target'])if(next.browsers?.[kind]?.folder!==data.browsers?.[kind]?.folder){browserPages[kind]=0;$(kind+'-browser-query').value='';}data=next;const available=new Set(data.browsers?.source?.rows?.map(row=>row.id));for(const id of batchSources)if(!available.has(id))batchSources.delete(id);options($('sources'),data.sourceFolders,'選擇最近來源位置');renderTargetOptions();const old=$('root').value;$('root').replaceChildren();for(const text of ['',...data.roots]){const option=node('option',text?text+'／內的檔案':'保留 ZIP 完整層級');option.value=text;$('root').append(option);}$('root').value=data.roots.includes(old)?old:'';$('source-path').textContent=data.selected.zipPath||'尚未選擇 ZIP';$('target-path').textContent=data.selected.target||'尚未選擇目標';const sourceIndex=data.sourceFolders.indexOf(data.browsers?.source?.root);$('sources').value=sourceIndex>=0?String(sourceIndex):'';render();}
  function currentRows(){const query=$('query').value.toLowerCase(),filter=$('filter').value,sourceRoot=$('root').value;return (plan?.rows||data.files.filter(r=>!sourceRoot||r.name.startsWith(sourceRoot+'/')).map(r=>({...r,relative:sourceRoot?r.name.slice(sourceRoot.length+1):r.name,status:'source',destination:''}))).filter(r=>(!plan||filter==='all'||filter==='changes'&&r.status!=='same'||filter===r.status)&&(!query||(r.relative||r.name).toLowerCase().includes(query)||(r.destination||'').toLowerCase().includes(query)));}
  function makeTree(){const rows=currentRows(),key=JSON.stringify([plan?.token||data.selected.zipPath,$('filter').value,$('query').value,rows.map(r=>r.id)]);tree=window.zipUpdateTree.build(rows,prefs.sorts.compare);if(key!==treeKey){treeKey=key;page=0;expanded=new Set([...tree.folders.keys()].filter(path=>$('query').value||prefs.expandAll||prefs.expanded.includes(path)));}}
  function members(path){return tree?.folders.get(path)?.members.filter(eligible)||[];}
  function controls(){for(const field of root.querySelectorAll('button,input,select'))field.disabled=busy;$('cancel').disabled=false;$('cancel').hidden=!busy;$('apply').disabled=busy||!plan||!selected.size;$('apply').textContent='確認套用'+(selected.size?'（'+selected.size+' 個）':'');$('preview').disabled=busy||!data.files.length||!data.selected.target;$('latest').disabled=busy||!data.browsers?.source?.folder||!data.selected.target;$('open-target').disabled=busy||!data.selected.target;$('save-target').disabled=busy||!data.selected.target||(data.savedTargets||[]).includes(data.selected.target);$('save-target').textContent=(data.savedTargets||[]).includes(data.selected.target)?'★ 已儲存':'☆ 儲存目前位置';$('forget-target').disabled=busy||!$('targets').value;$('select-all').disabled=$('select-none').disabled=busy||!plan;
   $('quick-target').disabled=busy||!data.savedTargets?.length;
+  $('extract-batch').textContent=batchSources.size?`批次解壓（${batchSources.size}）`:'批次解壓';
   const p=tree?.page(expanded,page);$('prev').disabled=busy||!p||p.index===0;$('next').disabled=busy||!p||p.index>=p.last;
   for(const input of $('rows').querySelectorAll('input')){const rows=input.dataset.folder?members(input.dataset.folder):[plan?.rows.find(r=>r.id===input.dataset.id)].filter(Boolean);const allowed=rows.filter(eligible);input.disabled=busy||!plan||!allowed.length;const count=allowed.filter(r=>selected.has(r.id)).length;input.checked=Boolean(allowed.length)&&count===allowed.length;input.indeterminate=count>0&&count<allowed.length;}
   for(const kind of ['source','target']){const state=data.browsers?.[kind],count=browserRows(kind).length;$(kind+'-up').disabled=busy||!state?.canUp;$(kind+'-prev').disabled=busy||browserPages[kind]===0;$(kind+'-next').disabled=busy||browserPages[kind]>=Math.ceil(count/100)-1;}
  }
  function browserRows(kind){const query=$(kind+'-browser-query').value.toLowerCase();return view.browserRows((data.browsers?.[kind]?.rows||[]).filter(r=>!query||r.name.toLowerCase().includes(query)),prefs.sorts[kind]);}
  function renderBrowser(kind){const snapshot=data.browsers?.[kind],rows=browserRows(kind),container=$(kind+'-browser-rows');browserPages[kind]=Math.min(browserPages[kind],Math.max(0,Math.ceil(rows.length/100)-1));container.replaceChildren();$(kind+'-folder-path').textContent=snapshot?.folder||(kind==='source'?'選擇來源資料夾或常用來源位置':'選擇目標資料夾後顯示內容');
-  for(const entry of rows.slice(browserPages[kind]*100,browserPages[kind]*100+100)){const tr=node('tr'),name=node('td');if(entry.kind==='folder'||kind==='source'&&entry.kind==='zip'){const button=node('button',(entry.kind==='folder'?'▸ 📁 ':'▣ ')+entry.name,'zip-browser-item');button.type='button';button.title=entry.kind==='folder'?(kind==='target'?'進入並設為目標資料夾':'進入來源資料夾'):'讀取這個 ZIP';button.addEventListener('click',()=>runTask(async()=>{const value=await api.command(kind==='source'&&entry.kind==='zip'?'source-open':kind+'-enter',entry.id);if(entry.kind==='zip'||kind==='target')await compareSelection(value,{newZip:entry.kind==='zip',reveal:kind==='source'});else{sync(value);status('已切換來源資料夾。');}}));name.append(button);}else name.textContent=(entry.kind==='blocked'?'⚠ ':'')+entry.name;name.title=entry.error||entry.name;tr.append(name,node('td',entry.kind==='folder'?'—':size(entry.size)),node('td',entry.modified?new Date(entry.modified).toLocaleString():entry.error||''));if(entry.kind!=='blocked')bindEntryMenu(tr,{panel:kind,id:entry.id,kind:entry.kind});container.append(tr);}
+  for(const entry of rows.slice(browserPages[kind]*100,browserPages[kind]*100+100)){const tr=node('tr'),name=node('td');
+   if(entry.kind==='zip'){
+    const check=node('input');check.type='checkbox';check.checked=batchSources.has(entry.id);
+    check.setAttribute('aria-label','批次解壓 '+entry.name);
+    check.addEventListener('change',()=>{check.checked?batchSources.add(entry.id):batchSources.delete(entry.id);controls();});
+    name.append(check);
+   }
+   if(entry.kind==='folder'||kind==='source'&&entry.kind==='zip'){const button=node('button',(entry.kind==='folder'?'▸ 📁 ':'▣ ')+entry.name,'zip-browser-item');button.type='button';button.title=entry.kind==='folder'?(kind==='target'?'進入並設為目標資料夾':'進入來源資料夾'):'讀取這個 ZIP';button.addEventListener('click',()=>runTask(async()=>{const value=await api.command(kind==='source'&&entry.kind==='zip'?'source-open':kind+'-enter',entry.id);if(entry.kind==='zip'||kind==='target')await compareSelection(value,{newZip:entry.kind==='zip',reveal:kind==='source'});else{sync(value);status('已切換來源資料夾。');}}));name.append(button);}else name.textContent=(entry.kind==='blocked'?'⚠ ':'')+entry.name;name.title=entry.error||entry.name;tr.append(name,node('td',entry.kind==='folder'?'—':size(entry.size)),node('td',entry.modified?new Date(entry.modified).toLocaleString():entry.error||''));if(entry.kind!=='blocked')bindEntryMenu(tr,{panel:kind,id:entry.id,kind:entry.kind});container.append(tr);}
   if(!rows.length){const tr=node('tr'),td=node('td',snapshot?.folder?'此位置沒有符合的'+(kind==='source'?' ZIP 或資料夾':'項目'):'尚未選擇位置');td.colSpan=3;tr.append(td);container.append(tr);}$(kind+'-browser-status').textContent=`${rows.length} 項`+(rows.length>100?` · ${browserPages[kind]+1}／${Math.ceil(rows.length/100)} 頁`:'')+(snapshot?.truncated?' · 清單已達上限，可使用選擇器另選檔案或資料夾':'');
  }
  function renderResults(){makeTree();const p=tree.page(expanded,page);page=p.index;$('rows').replaceChildren();
@@ -145,6 +154,23 @@
   else sync(value);
  }
  function report(value){status(`${labels[value.status]||value.status}：已套用 ${value.applied} 個，已還原 ${value.restored} 個。${value.rows.some(r=>r.error)?'請按「更新結果／還原」查看未完成項目。':''}`,value.rows.some(r=>r.error));}
+ async function reportBatch(result){
+  if(result.canceled)return;
+  batchSources.clear();
+  const list=$('batch-list'),panel=$('batch-results');list.replaceChildren();
+  for(const item of result.rows){
+   const label=item.status==='failed'?'失敗':item.status==='canceled'?'未完成':labels[item.status]||item.status;
+   const stateClass=item.status==='completed'?'':'zip-update-state-blocked';
+   list.append(node('li',`${label} · ${item.archive}\n→ ${item.destination}（${item.count} 個檔案）`+(item.error?'\n'+item.error:''),stateClass));
+  }
+  panel.hidden=false;panel.open=true;jump('batch-results');
+  const done=result.rows.filter(row=>row.status==='completed').length;
+  if(data.selected.target){
+   try{sync(await api.command('refresh-browser','target'));}
+   catch(error){status(`完成 ${done}／${result.rows.length} 個 ZIP。目標清單未能更新：${error.message}`,true);return;}
+  }
+  status(`完成 ${done}／${result.rows.length} 個 ZIP，請查看批次解壓結果。`,done!==result.rows.length);
+ }
  async function runTask(task){if(busy)return;busy=true;status('處理中…');controls();try{return await task();}catch(e){status(e.message||String(e),true);}finally{busy=false;if($('status').textContent==='處理中…')status(plan?'比較已就緒，請核對後套用。':data.files.length&&data.selected.target?'來源與目標已就緒，可按「重新比較」。':'請選擇 ZIP 與目標資料夾。');render();}}
  const on=(id,task)=>$(id).addEventListener('click',()=>runTask(task));
  on('choose',async()=>compareSelection(await api.command('choose-zip'),{newZip:true}));
@@ -170,6 +196,7 @@
   else status('選好目標後會自動比較目前的來源層級。');
  }));
  on('preview',()=>compare());
+ on('extract-batch',async()=>reportBatch(await api.command('batch-extract',[...batchSources])));
  on('apply',async()=>{const value=await api.command('apply',{token:plan.token,ids:[...selected]});if(!value.canceled){invalidate();lastResult=value;if(data.selected.target)sync(await api.command('refresh-browser','target'));else await refresh();report(value);if(value.rows.some(r=>r.error)){$('history-panel').open=true;jump('history-panel');}else jump('comparison');}});
  on('open-target',()=>api.command('open-target'));on('select-all',()=>{for(const row of currentRows())if(eligible(row))selected.add(row.id);});on('select-none',()=>selected.clear());
  for(const kind of ['source','target']){on(kind+'-up',async()=>{const value=await api.command(kind+'-up');if(kind==='target')await compareSelection(value,{reveal:false});else{sync(value);status('已返回來源上層。');}});$(kind+'-browser-query').addEventListener('input',()=>{browserPages[kind]=0;renderBrowser(kind);controls();});for(const [suffix,delta]of [['prev',-1],['next',1]])$(kind+'-'+suffix).addEventListener('click',()=>{browserPages[kind]+=delta;renderBrowser(kind);controls();});}
@@ -189,13 +216,13 @@
   hideDrop();if(!isFileDrag(event))return;
   event.preventDefault();event.stopPropagation();if(busy)return;
   const files=Array.from(event.dataTransfer.files||[]);
-  if(files.length!==1||!/\.zip$/i.test(files[0].name)){status('請拖入一個 ZIP 檔案。',true);return;}
-  void runTask(async()=>compareSelection(await api.drop(files[0]),{newZip:true}));
+  if(!files.length||files.some(file=>!/\.zip$/i.test(file.name))){status('請拖入一個或多個 ZIP 檔案。',true);return;}
+  void runTask(async()=>files.length===1?compareSelection(await api.drop(files[0]),{newZip:true}):reportBatch(await api.dropBatch(files)));
  });
  window.addEventListener?.('blur',hideDrop);
  resizeHandles.forEach(bindPanelResize);
  for(const button of root.querySelectorAll('[data-zip-sort]'))button.addEventListener('click',()=>{const [kind,key]=button.getAttribute('data-zip-sort').split(':'),sort=prefs.sorts[kind];prefs.sorts[kind]={key,direction:sort.key===key&&sort.direction==='asc'?'desc':'asc'};persistView();if(kind==='compare')page=0;else browserPages[kind]=0;render();});
  $('go-setup').addEventListener('click',()=>{$('setup').open=true;jump('setup');});$('go-compare').addEventListener('click',()=>jump('comparison'));$('go-history').addEventListener('click',()=>{$('history-panel').open=true;jump('history-panel');});
- api.onProgress?.(value=>{if(busy)status(({extract:'讀取 ZIP',compare:'比較內容',apply:'套用更新',undo:'還原更新'}[value.phase]||'處理中')+` ${value.current}／${value.total}：${value.name}`);});
+ api.onProgress?.(value=>{if(busy)status(({extract:'讀取 ZIP',batch:'批次解壓',compare:'比較內容',apply:'套用更新',undo:'還原更新'}[value.phase]||'處理中')+` ${value.current}／${value.total}：${value.name}`);});
  window.zipUpdateUI={activate:()=>{if(!busy){prefs=view.normalize(window.settingsUI?.get()?.zipUpdateView||prefs);resizeHandles.forEach(renderPanelSize);hideDrop();treeKey='';void runTask(refreshLocations);}},open:()=>window.favoritesUI.show('zip'),isBusy:()=>busy};
 })();

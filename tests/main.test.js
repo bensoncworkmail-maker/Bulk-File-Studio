@@ -1415,6 +1415,41 @@ test('workspace recycle explains retained paths and offers record-only confirmat
  assert.ok(result.document.records[0].deletedAt);
 });
 
+test('workspace drop transfers commit destination links and remove originals only after a confirmed move',async t=>{
+ const h=harness(t),root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-workspace-drop-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),target=path.join(root,'target'),folder=path.join(source,'documents');
+ fs.mkdirSync(folder,{recursive:true});fs.mkdirSync(target);
+ const file=path.join(source,'example.pdf'),related=path.join(source,'linked.txt');
+ fs.writeFileSync(file,'source');fs.writeFileSync(related,'link');
+ fs.writeFileSync(path.join(folder,'nested.txt'),'inside');fs.writeFileSync(path.join(target,'example.pdf'),'existing');
+ let cancelPicker=true,pickedTarget=target,confirm=0;
+ h.dialog.showOpenDialog=async()=>({canceled:cancelPicker,filePaths:[pickedTarget]});
+ h.dialog.showMessageBox=async(_,options)=>{assert.equal(options.defaultId,0);assert.ok(options.detail.includes(target));return {response:confirm};};
+ const sheetId=h.handlers.get('notes-sheet-save')(null,{name:'Dropped files',fields:[]}).result.id;
+ const save=(mode,paths,title='Transfer')=>h.handlers.get('notes-record-save')(null,{sheetId,title,notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[related],fileTransfer:{mode,paths}});
+ assert.equal((await save('copy',[file])).canceled,true);
+ cancelPicker=false;
+ assert.equal((await save('move',[folder])).canceled,true);
+ assert.equal(h.handlers.get('notes-get')().document.records.length,0);
+ assert.equal(fs.existsSync(path.join(target,'documents')),false);
+ pickedTarget=folder;
+ await assert.rejects(save('copy',[folder]),/來源資料夾內/);
+ pickedTarget=target;
+ await assert.rejects(save('copy',[file],''),/標題/);
+ assert.deepEqual(fs.readdirSync(target),['example.pdf']);
+ const copy=await save('copy',[file]);
+ assert.deepEqual(copy.document.records[0].fileLinks.map(link=>link.path),[related,path.join(target,'example (2).pdf')]);
+ assert.equal(fs.readFileSync(path.join(target,'example.pdf'),'utf8'),'existing');
+ assert.equal(fs.readFileSync(file,'utf8'),'source');
+ confirm=1;
+ const move=await save('move',[folder]);
+ const record=move.document.records.find(row=>row.id===move.result.id);
+ assert.deepEqual(record.fileLinks.map(link=>link.path),[related,path.join(target,'documents')]);
+ assert.equal(fs.existsSync(folder),false);
+ assert.equal(fs.readFileSync(path.join(target,'documents','nested.txt'),'utf8'),'inside');
+});
+
 test('workspace recycles a draft image after references are removed and retains other app data',async t=>{
  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aSOkAAAAASUVORK5CYII=','base64');
  const h=harness(t,{nativeImage:{createFromBuffer:()=>({isEmpty:()=>false,toPNG:()=>png})}});
