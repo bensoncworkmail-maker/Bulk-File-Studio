@@ -944,7 +944,7 @@
   $('notes-drop-transfer').hidden=!count;
   $('notes-drop-transfer-hint').textContent=$('notes-drop-mode').value==='link'
    ?`已拖放 ${count} 個項目，儲存後會連結原位置。`
-   :`已拖放 ${count} 個項目，儲存時會請你選擇目的地。`;
+   :`已拖放 ${count} 個項目，儲存時會${$('notes-drop-mode').value==='move'?'移動':'複製'}到此表格的附件資料夾。`;
  }
  function stageRecordPaths(paths){
   if(busy)return;

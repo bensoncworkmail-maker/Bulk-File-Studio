@@ -3,13 +3,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {deletionPlan, ID} = require('./notes-model');
 const {assertLocalPath} = require('./offline-policy');
+const {workspaceFilesRoot} = require('./workspace-images');
 
 const fileKey = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
 function under(root, file) {
  const relative = path.relative(fileKey(root), fileKey(file));
  return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep));
 }
-function draftAttachmentFolder(root, file) {
+function managedAttachmentFolder(root, file) {
  const folder = path.dirname(file);
  return fileKey(path.dirname(folder)) === fileKey(root) && ID.test(path.basename(folder)) ? folder : null;
 }
@@ -56,6 +57,7 @@ async function trashReferences({store, entries, includeDetails, revision, profil
  }
  const seen = new Set(), targets = [], skipped = [];
  const workspaceImages = path.join(profileRoot, 'workspace-images');
+ const workspaceFiles = workspaceFilesRoot(profileRoot);
  const draftAssets = path.join(profileRoot, 'draft-images');
  const restoredAssets = path.join(profileRoot, 'restored-assets');
  for(const record of state.document.records) {
@@ -71,8 +73,9 @@ async function trashReferences({store, entries, includeDetails, revision, profil
     if(draftReferences.has(key)) throw Error('草稿仍有引用');
     if(favoritePaths.has(key)) throw Error('仍在「我的收藏」');
     const restoredFile = fileKey(path.dirname(file)) === fileKey(restoredAssets) && ID.test(path.parse(file).name);
-    const draftFolder = draftAttachmentFolder(draftAssets, file);
-    if(under(profileRoot, file) && !under(workspaceImages, file) && !restoredFile && !draftFolder && !isLegacyDraftImage(draftAssets, file)) throw Error('受保護的應用程式資料');
+    const managedWorkspaceFile = managedAttachmentFolder(workspaceFiles, file);
+    const draftFolder = managedAttachmentFolder(draftAssets, file);
+    if(under(profileRoot, file) && !under(workspaceImages, file) && !managedWorkspaceFile && !restoredFile && !draftFolder && !isLegacyDraftImage(draftAssets, file)) throw Error('受保護的應用程式資料');
     targets.push({path:file, signature:snapshot(file), draftFolder});
    } catch(error) {
     const reason = error.code === 'ENOENT' ? '找不到檔案' : error.code === 'EACCES' || error.code === 'EPERM' ? '沒有存取權限' : error.message;
