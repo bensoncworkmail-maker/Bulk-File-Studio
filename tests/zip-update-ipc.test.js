@@ -31,3 +31,38 @@ test('opening ZIP page reloads locations and newest ZIP comparison needs no pick
  assert.deepEqual(fs.readdirSync(target),[]);
  assert.equal(picker,1);
 });
+
+test('ZIP folder mismatch warns before writing and choosing the correct source root removes the warning',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-zip-structure-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const target=path.join(root,'project'),archive=path.join(root,'patch.zip'),zip=new JSZip();
+ for(const folder of ['forms','models','views','target-only'])fs.mkdirSync(path.join(target,folder),{recursive:true});
+ fs.mkdirSync(path.join(target,'project','forms'),{recursive:true});
+ zip.file('project/forms/main.txt','new');
+ zip.file('project/forms/other.txt','new');
+ zip.file('project/models/data.txt','new');
+ zip.file('project/views/page.txt','new');
+ fs.writeFileSync(archive,await zip.generateAsync({type:'nodebuffer'}));
+ let invoke,confirmation;
+ register({handle:(_,fn)=>invoke=(action,value)=>fn({},action,value),root:path.join(root,'profile'),parent:()=>null,
+  dialog:{showOpenDialog:async()=>({canceled:false,filePaths:[target]}),showMessageBox:async(_,options)=>{confirmation=options;return {response:1};}},
+  fileOperation:task=>task(),openPath:async()=>''});
+ await invoke('drop-zip',archive);
+ await invoke('choose-target');
+ let plan=await invoke('preview','');
+ assert.match(plan.structureWarning,/3 個資料夾直接存放檔案，其中 2 個/);
+ const apply=()=>invoke('apply',{token:plan.token,ids:plan.rows.map(row=>row.id)});
+ assert.deepEqual(await apply(),{canceled:true});
+ assert.equal(confirmation.type,'warning');
+ assert.equal(confirmation.buttons[0],'仍要套用');
+ assert.equal(confirmation.buttons[confirmation.defaultId],'取消');
+ assert.ok(confirmation.detail.includes(plan.structureWarning));
+ assert.ok(confirmation.detail.includes(target));
+ assert.deepEqual(fs.readdirSync(path.join(target,'project','forms')),[]);
+ plan=await invoke('preview','project');
+ assert.equal(plan.structureWarning,'');
+ assert.equal(plan.rows[0].destination,path.join(target,'forms','main.txt'));
+ assert.deepEqual(await apply(),{canceled:true});
+ assert.equal(confirmation.type,'question');
+ assert.match(confirmation.detail,/ZIP 來源層級：project\//);
+});
