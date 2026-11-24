@@ -23,11 +23,11 @@ async function copyFile(item){
   if(!equal(signature(await stat(item.source)),item.expectedFingerprint)||await digest(item.destination,item.destinationFingerprint)!==item.hash)throw Error('附件複製校驗失敗：'+item.source);
  }finally{if(output)await output.close();await input.close();}
 }
-async function transfer({sources,folder,mode,commit}){
+async function transfer({sources,folder,mode,commit,warningLabel='草稿'}){
  const rows=[],roots=[];let saved;
- async function scan(source,destination,root=false){
+ async function scan(source,destination){
   if(rows.length>=5000)throw Error('每次最多處理 5000 個檔案／資料夾（含子項目）');
-  const info=await stat(source),kind=info.isDirectory()?'folder':'file',item={source,destination,kind,root,expectedFingerprint:signature(info)};rows.push(item);
+  const info=await stat(source),kind=info.isDirectory()?'folder':'file',item={source,destination,kind,expectedFingerprint:signature(info)};rows.push(item);
   if(kind==='folder'){item.names=(await p.readdir(source)).sort();for(const name of item.names)await scan(path.join(source,name),path.join(destination,name));}
  }
  // Collapse duplicates and children already included by a dragged folder.
@@ -41,7 +41,7 @@ async function transfer({sources,folder,mode,commit}){
    const type=inspectLocation(source).type,base=path.basename(source),extension=type==='file'?path.extname(base):'',stem=extension?base.slice(0,-extension.length):base;
    let name=base,suffix=1;while(names.has(key(name)))name=stem+' ('+(++suffix)+')'+extension;
    names.add(key(name));
-   const destination=path.join(folder,name);roots.push({path:destination,type,managed:true,originalPath:source});await scan(source,destination,true);
+   const destination=path.join(folder,name);roots.push({path:destination,type,managed:true,originalPath:source});await scan(source,destination);
   }
   for(const item of rows){
    if(item.kind==='folder'){
@@ -55,12 +55,12 @@ async function transfer({sources,folder,mode,commit}){
   // Every destination is complete and verified before metadata is committed or any source is removed.
   saved=await commit(roots);
  }catch(error){
-  // The shared folder can already contain attachments from earlier drops. Remove only roots created by this attempt.
-  if(!saved)for(const item of rows.filter(item=>item.root&&item.created).reverse())try{
+  // Roll back our entries from leaves to roots so a new unrelated file is kept.
+  if(!saved)for(const item of rows.filter(item=>item.created).reverse())try{
    const actual=signature(await stat(item.destination));
    if(!item.destinationIdentity||!['dev','ino','birthtimeNs'].every(key=>actual[key]===item.destinationIdentity[key]))throw Error('附件位置已變更');
-   await p.rm(item.destination,{recursive:item.kind==='folder',force:true});
-  }catch(cleanup){if(cleanup.code!=='ENOENT')error.message+='；草稿暫存需核對：'+item.destination+'（'+cleanup.message+'）';}
+   if(item.kind==='folder')await p.rmdir(item.destination);else await p.unlink(item.destination);
+  }catch(cleanup){if(!['ENOENT','ENOTDIR'].includes(cleanup.code))error.message+='；目的地需核對：'+item.destination+'（'+cleanup.message+'）';}
   throw error;
  }
  const moved=[],failures=[];
@@ -77,6 +77,6 @@ async function transfer({sources,folder,mode,commit}){
    }catch(error){failures.push(item.source+'：'+error.message);break;}
   }
  }
- return {saved,moved,warning:failures.length?'附件副本已存入草稿，部分來源未移除，請核對：'+failures.join('；'):''};
+ return {saved,moved,warning:failures.length?'附件副本已存入'+warningLabel+'，部分來源未移除，請核對：'+failures.join('；'):''};
 }
 module.exports={transfer,inside};

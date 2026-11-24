@@ -597,7 +597,7 @@ function wireEvents() {
       if(current.tagName==='DIALOG')return null;
     }
     if(document.querySelector('dialog[open]'))return null;
-    if(!$('notes-page').classList.contains('hidden'))return {hint:'放開以新增含路徑的紀錄',apply:window.notesUI.dropRecord};
+    if(!$('notes-page').classList.contains('hidden'))return {hint:'放開以新增紀錄，可選擇連結、複製或移動',apply:window.notesUI.dropRecord};
     if(window.favoritesUI.isActive())return {hint:'放開以加入收藏',apply:window.favoritesUI.addPaths};
     if(!$('rename-workspace').classList.contains('hidden'))return {
       hint:'放開以加入檔案',apply:async paths=>addFromResult(await api.addPaths(paths,$('recursive').checked))

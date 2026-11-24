@@ -1,5 +1,5 @@
 'use strict';
-const path=require('node:path'),fs=require('node:fs'),{ZipUpdate}=require('./zip-update'),{assertLocalPath,assertSafeOpen}=require('./offline-policy');
+const path=require('node:path'),fs=require('node:fs'),{ZipUpdate,MAX_BATCH,within}=require('./zip-update'),{assertLocalPath,assertSafeOpen}=require('./offline-policy');
 function existing(filepath){
  try{return fs.lstatSync(filepath);}catch(error){if(error.code!=='ENOENT')throw error;return null;}
 }
@@ -96,6 +96,32 @@ function register({handle,root,downloads,dialog,parent,fileOperation,progress,op
    const defaultPath=value===undefined?(browsers.source.folder||service.history.sourceFolders[0]||downloads):index(service.history.sourceFolders,value),r=await choose({title:'選擇要更新的 ZIP',defaultPath,properties:['openFile'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});return r.canceled?{canceled:true}:loadZip(r.filePaths[0]);
   }
   if(action==='drop-zip')return loadZip(value);
+  if(['batch-extract','batch-drop'].includes(action))return fileOperation(async()=>{
+   let paths=value;
+   if(action==='batch-extract'){
+    if(!Array.isArray(value)||value.length>MAX_BATCH)throw Error(`每次最多選取 ${MAX_BATCH} 個 ZIP 檔案`);
+    if(value.length)paths=value.map(id=>browsers.source.resolve(id,'zip'));
+    else{
+     const picked=await choose({title:'選擇要批次解壓的 ZIP',defaultPath:browsers.source.folder||downloads,properties:['openFile','multiSelections'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});
+     if(picked.canceled)return {canceled:true};
+     paths=picked.filePaths;
+    }
+   }
+   if(!Array.isArray(paths)||!paths.length||paths.length>MAX_BATCH)throw Error(`請選擇 1–${MAX_BATCH} 個 ZIP 檔案`);
+   let folder=service.selected.target;
+   if(!folder){
+    const picked=await choose({title:'選擇批次解壓的目標資料夾',properties:['openDirectory','createDirectory']});
+    if(picked.canceled)return {canceled:true};
+    folder=picked.filePaths[0];
+   }
+   assertLocalPath(folder);
+   if(within(root,folder))throw Error('請選擇應用程式資料以外的目標資料夾');
+   const rows=service.batchPlan(paths,folder);
+   const detail=[folder,'同名資料夾會加上編號，每個 ZIP 各自解壓。',...rows.map(row=>`${path.basename(row.archive)} → ${path.basename(row.destination)}`)].join('\n');
+   const confirmation=await dialog.showMessageBox(parent(),{type:'question',title:'批次解壓到各自資料夾',message:`解壓 ${rows.length} 個 ZIP？`,detail,buttons:['解壓','取消'],defaultId:1,cancelId:1,noLink:true});
+   if(confirmation.response!==0)return {canceled:true};
+   return service.extractBatch(rows);
+  });
   if(action==='choose-source-folder'){const r=await choose({title:'加入常用 ZIP 來源資料夾',defaultPath:service.history.sourceFolders[0],properties:['openDirectory']});if(r.canceled)return {canceled:true};const next=await readLocation('source',r.filePaths[0]);service.rememberSource(r.filePaths[0]);browsers.source=next;return state();}
   if(action==='choose-target'){const r=await choose({title:'選擇接收更新的資料夾',defaultPath:service.selected.target||service.history.targetFolders[0],properties:['openDirectory']});return r.canceled?{canceled:true}:target(r.filePaths[0]);}
   if(action==='save-target'){service.saveTarget();return state();}

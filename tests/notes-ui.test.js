@@ -473,6 +473,25 @@ test('workspace and record drops stage paths in the link tab without writing unt
  assert.deepEqual(saved.fileLinks.map(link=>link.path),input.value.split('\n'));
 });
 
+test('workspace copy and move options apply to dropped paths and keep the editor open when canceled',async t=>{
+ const h=setup(t);h.store.addTemplate();h.ui.activate();await flush();
+ const field=h.els.get('notes-direct-paths'),mode=h.els.get('notes-drop-mode');
+ let submitted;
+ h.api.saveRecord=async input=>{submitted=input;return {canceled:true};};
+ h.ui.dropRecord(['C:\\工作\\報表.pdf']);
+ field.value+='\nC:\\Manual.pdf';
+ assert.equal(h.els.get('notes-drop-transfer').hidden,false);
+ mode.value='copy';mode.events.change();
+ h.els.get('notes-record-title').value='報表';
+ h.els.get('notes-record-form').requestSubmit();await flush();
+ assert.equal(submitted.fileTransfer.mode,'copy');
+ assert.deepEqual(Array.from(submitted.fileTransfer.paths),['C:\\工作\\報表.pdf']);
+ assert.deepEqual(Array.from(submitted.directPaths),['C:\\Manual.pdf']);
+ assert.equal(h.els.get('notes-record-dialog').open,true);
+ assert.equal(h.els.get('notes-form-links').hidden,false);
+ assert.equal(h.store.get().document.records.length,0);
+});
+
 test('bulk edit modal blocks navigation and ignores an outdated asynchronous preview',async t=>{
  const h=setup(t),state=h.store.addTemplate(),sheet=state.document.sheets[0];h.store.saveCopies({sheetId:sheet.id,title:'Before',notes:'keep',tags:[],values:{},fileLinks:[]},2);h.ui.activate();await flush();
  h.els.get('notes-select-filtered').events.click();h.els.get('notes-bulk-edit').events.click();assert.equal(h.els.get('notes-bulk-dialog').open,true);assert.equal(h.ui.canLeave(),false);

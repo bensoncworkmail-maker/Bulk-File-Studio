@@ -1,6 +1,37 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),JSZip=require('jszip'),{register}=require('../src/zip-update-ipc');
 
+test('batch ZIP extraction confirms mapped destinations and preserves old folders and empty archive directories',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-zip-batch-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const source=path.join(root,'source'),target=path.join(root,'target');
+ fs.mkdirSync(source);fs.mkdirSync(path.join(target,'learning'),{recursive:true});
+ fs.writeFileSync(path.join(target,'learning','keep.txt'),'existing');
+ const paths=['learning.zip','learning - copy.zip','broken.zip'].map(name=>path.join(source,name));
+ for(const [index,filename] of paths.slice(0,2).entries()){
+  const archive=new JSZip();archive.file('course/note.txt','zip '+index);archive.folder('course/empty');
+  fs.writeFileSync(filename,await archive.generateAsync({type:'nodebuffer'}));
+ }
+ fs.writeFileSync(paths[2],'broken');
+ let invoke,picked={filePaths:[target]},response=1,confirmation,selection;
+ register({handle:(_,handler)=>invoke=(action,value)=>handler({},action,value),root:path.join(root,'profile'),parent:()=>null,
+  fileOperation:task=>task(),openPath:async()=>'',dialog:{showOpenDialog:async(_,items)=>{selection=items;return picked;},showMessageBox:async(_,options)=>{confirmation=options;return {response};}}});
+ await invoke('choose-target');picked={filePaths:paths};
+ assert.deepEqual(await invoke('batch-extract',[]),{canceled:true});
+ assert.ok(selection.properties.includes('multiSelections'));
+ assert.match(confirmation.detail,/learning\.zip → learning \(2\)/);
+ assert.deepEqual(fs.readdirSync(target),['learning']);
+ response=0;
+ const result=await invoke('batch-drop',paths);
+ assert.deepEqual(result.rows.map(row=>row.status),['completed','completed','failed']);
+ assert.equal(fs.readFileSync(path.join(target,'learning','keep.txt'),'utf8'),'existing');
+ for(const [index,name] of ['learning (2)','learning - copy'].entries()){
+  assert.equal(fs.readFileSync(path.join(target,name,'course','note.txt'),'utf8'),'zip '+index);
+  assert.deepEqual(fs.readdirSync(path.join(target,name,'course','empty')),[]);
+ }
+ assert.equal(fs.existsSync(path.join(target,'broken')),false);
+});
+
 test('ZIP row menus open issued source and target items and locate comparison files before and after extraction',async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-zip-menu-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
