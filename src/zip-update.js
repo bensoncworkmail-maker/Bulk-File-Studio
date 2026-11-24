@@ -69,13 +69,28 @@ class ZipUpdate{
   }catch(e){await fsp.rm(dir,{recursive:true,force:true});throw e;}
  });}
  destination(relative){const target=this.selected.target,file=path.resolve(target,...relative.split('/'));if(!target||!within(target,file)||file===target||within(this.root,file))throw Error('目的地超出選定範圍');assertLocalPath(file);return file;}
+ async compareStructure(rows){
+  const parents=new Set(rows.map(row=>path.posix.dirname(row.relative)).filter(parent=>parent!=='.'));
+  let missing=0;
+  for(const parent of parents){
+   this.check();
+   try{if(!(await fsp.lstat(this.destination(parent))).isDirectory())missing++;}
+   catch(error){if(error.code==='ENOENT'||error.code==='ENOTDIR')missing++;}
+  }
+  const hint='請核對目標資料夾與 ZIP 來源根目錄。';
+  if(missing>parents.size/2)return `目錄結構可能不符。ZIP 有 ${parents.size} 個資料夾直接存放檔案，其中 ${missing} 個在目標找不到對應路徑。${hint}`;
+  if(!parents.size&&rows.every(row=>row.status==='added'))return `目標沒有與 ZIP 檔案相同的相對路徑，套用會全數新增。${hint}`;
+  return '';
+ }
  async preview(sourceRoot=''){return this.guard(async()=>{
   this.plan=null;if(!this.files.length||!this.selected.target)throw Error('請先選擇 ZIP 及目標資料夾');if(typeof sourceRoot!=='string'||sourceRoot&&!this.roots.includes(sourceRoot))throw Error('來源根目錄無效');assertLocalPath(this.selected.target);if(!fs.statSync(this.selected.target).isDirectory())throw Error('目標資料夾不存在');
   const selected=this.files.filter(r=>!sourceRoot||r.name.startsWith(sourceRoot+'/'));const rows=[];
   for(const row of selected){this.check();const relative=sourceRoot?row.name.slice(sourceRoot.length+1):row.name;let before=null,destination='',error='';try{destination=this.destination(relative);before=await fingerprint(destination,()=>this.check(),this.limits.file);}catch(e){if(e.code==='CANCELED')throw e;error=e.message;}
    rows.push({...row,relative,destination,before,status:error?'blocked':before===null?'added':same(before,row)?'same':'changed',error});this.emit('compare',rows.length,selected.length,relative);
   }
-  this.plan={token:crypto.randomUUID(),at:this.now(),sourceRoot,target:this.selected.target,zipPath:this.selected.zipPath,rows};return {token:this.plan.token,sourceRoot,target:this.plan.target,zipPath:this.plan.zipPath,rows:rows.map(({stage,hash,before,...r})=>r)};
+  const structureWarning=await this.compareStructure(rows);this.check();
+  this.plan={token:crypto.randomUUID(),at:this.now(),sourceRoot,target:this.selected.target,zipPath:this.selected.zipPath,structureWarning,rows};
+  return {...this.plan,rows:rows.map(({stage,hash,before,...r})=>r)};
  });}
  getPlan(token,ids){const plan=this.plan;if(!plan||plan.token!==token||this.now()-plan.at>30*60*1000)throw Error('預覽已失效，請重新比較');if(!Array.isArray(ids)||!ids.length||ids.length>this.limits.entries||new Set(ids).size!==ids.length)throw Error('請選擇要套用的檔案');const rows=ids.map(id=>plan.rows.find(r=>r.id===id));if(rows.some(r=>!r||!['added','changed'].includes(r.status)))throw Error('選取項目無效或不可套用');return {plan,rows};}
  async apply(token,ids){return this.guard(async()=>{

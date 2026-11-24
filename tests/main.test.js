@@ -1414,3 +1414,44 @@ test('workspace recycle explains retained paths and offers record-only confirmat
  assert.deepEqual(recycled,[file]);
  assert.ok(result.document.records[0].deletedAt);
 });
+
+test('workspace recycles a draft image after references are removed and retains other app data',async t=>{
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aSOkAAAAASUVORK5CYII=','base64');
+ const h=harness(t,{nativeImage:{createFromBuffer:()=>({isEmpty:()=>false,toPNG:()=>png})}});
+ const sheetId=h.handlers.get('notes-sheet-save')(null,{name:'草稿附件',fields:[]}).result.id;
+ await h.registered.get('CommandOrControl+Alt+D')();
+ const window=h.windows.at(-1),event={sender:window.webContents,senderFrame:{url:window.url}};
+ const draft=(name,...args)=>h.rawHandlers.get('draft-'+name)(event,...args);
+ const initial=draft('new'),pictured=draft('paste',initial.id,initial.version,png),image=pictured.attachments[0].path;
+ h.dialog.showMessageBox=async()=>({response:0}); // Keep the draft when sending it to the workspace.
+ const {id}=await draft('send',pictured.id,pictured.version,sheetId,'');
+ const internal=path.join(h.dir,'workspace.sqlite'),loose=path.join(h.dir,'draft-images','loose.txt');
+ fs.writeFileSync(loose,'not a draft attachment');
+ const other=h.handlers.get('notes-record-save')(null,{sheetId,title:'其他引用',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[image,internal,loose]}).result.id;
+ const current=()=>h.handlers.get('notes-get')();
+ const entry=id=>({id,version:current().document.records.find(row=>row.id===id).version});
+ const recycle=(ids=[id])=>h.handlers.get('notes-trash-references')(null,ids.map(entry),false,current().revision);
+ const recycled=[];
+ h.shell.trashItem=async file=>{recycled.push(file);fs.unlinkSync(file);};
+ h.dialog.showMessageBox=async(_,options)=>{
+  assert.ok(options.detail.includes('草稿仍有引用：'+image));
+  return {response:1};
+ };
+ assert.equal((await recycle([id,other])).canceled,true);
+ draft('delete',pictured.id,pictured.version);
+ h.dialog.showMessageBox=async(_,options)=>{
+  assert.ok(options.detail.includes('其他紀錄仍有引用（包含工作區回收筒）：'+image));
+  return {response:1};
+ };
+ assert.equal((await recycle()).canceled,true);
+ h.dialog.showMessageBox=async(_,options)=>{
+  assert.equal(options.buttons[0],'回收紀錄與檔案');
+  assert.ok(options.detail.startsWith(image));
+  for(const file of [internal,loose])assert.ok(options.detail.includes('受保護的應用程式資料：'+file));
+  return {response:0};
+ };
+ const result=await recycle([id,other]);
+ assert.deepEqual(recycled,[image]);
+ assert.equal(result.result.skipped,2);
+ assert.ok([internal,loose].every(file=>fs.existsSync(file)));
+});

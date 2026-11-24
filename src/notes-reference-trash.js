@@ -9,6 +9,16 @@ function under(root, file) {
  const relative = path.relative(fileKey(root), fileKey(file));
  return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep));
 }
+function isDraftAsset(root, file) {
+ if(!under(root, file)) return false;
+ const parts = path.relative(fileKey(root), fileKey(file)).split(path.sep);
+ // Copied attachments, pasted images and restored draft images use a draft ID directory.
+ if(parts.length === 2) return ID.test(parts[0]);
+ // Older pasted images were stored directly in draft-images.
+ if(parts.length !== 1) return false;
+ const {name, ext} = path.parse(parts[0]);
+ return ext.toLowerCase() === '.png' && (ID.test(name.replace(/-\d{6}$/, '')) || /^貼上的圖片 [1-9]\d{0,5}$/.test(name));
+}
 function snapshot(file) {
  assertLocalPath(file);
  const stat = fs.lstatSync(file, {bigint:true});
@@ -31,6 +41,7 @@ async function trashReferences({store, entries, includeDetails, revision, profil
  }
  const seen = new Set(), targets = [], skipped = [];
  const workspaceImages = path.join(profileRoot, 'workspace-images');
+ const draftAssets = path.join(profileRoot, 'draft-images');
  const restoredAssets = path.join(profileRoot, 'restored-assets');
  for(const record of state.document.records) {
   if(!ids.has(record.id)) continue;
@@ -45,7 +56,7 @@ async function trashReferences({store, entries, includeDetails, revision, profil
     if(draftReferences.has(key)) throw Error('草稿仍有引用');
     if(favoritePaths.has(key)) throw Error('仍在「我的收藏」');
     const restoredFile = fileKey(path.dirname(file)) === fileKey(restoredAssets) && ID.test(path.parse(file).name);
-    if(under(profileRoot, file) && !under(workspaceImages, file) && !restoredFile) throw Error('受保護的應用程式資料');
+    if(under(profileRoot, file) && !under(workspaceImages, file) && !restoredFile && !isDraftAsset(draftAssets, file)) throw Error('受保護的應用程式資料');
     targets.push({path:file, signature:snapshot(file)});
    } catch(error) {
     const reason = error.code === 'ENOENT' ? '找不到檔案' : error.code === 'EACCES' || error.code === 'EPERM' ? '沒有存取權限' : error.message;

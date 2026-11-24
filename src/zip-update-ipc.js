@@ -80,7 +80,20 @@ function register({handle,root,downloads,dialog,parent,fileOperation,progress,op
   if(action==='refresh-browser'){if(!['source','target'].includes(value))throw Error('瀏覽位置無效');await browsers[value].read();return state();}
   if(action==='preview')return service.preview(value);
   if(action==='apply')return fileOperation(async()=>{
-   const {plan,rows}=service.getPlan(value?.token,value?.ids);const choice=await dialog.showMessageBox(parent(),{type:'question',title:'確認 ZIP 更新',message:`套用 ${rows.length} 個檔案至所選資料夾？`,detail:plan.target+'\n新增 '+rows.filter(r=>r.status==='added').length+' 個；覆寫 '+rows.filter(r=>r.status==='changed').length+' 個。\n覆寫前會備份原檔；ZIP 以外的目標檔案保留。\n\n'+rows.slice(0,15).map(r=>r.destination).join('\n')+(rows.length>15?'\n…其餘項目已列於預覽。':''),buttons:['確認套用','取消'],defaultId:1,cancelId:1,noLink:true});if(choice.response!==0)return {canceled:true};return service.apply(value.token,value.ids);
+   const {plan,rows}=service.getPlan(value?.token,value?.ids);
+   const warning=plan.structureWarning;
+   const detail=[
+    '目標資料夾：'+plan.target,
+    'ZIP 來源層級：'+(plan.sourceRoot?plan.sourceRoot+'/':'保留 ZIP 完整層級'),
+    warning,
+    '新增 '+rows.filter(row=>row.status==='added').length+' 個，覆寫 '+rows.filter(row=>row.status==='changed').length+' 個。覆寫前會備份原檔，ZIP 以外的目標檔案會保留。',
+    rows.slice(0,15).map(row=>row.destination).join('\n')+(rows.length>15?'\n…其餘項目已列於預覽。':'')
+   ].filter(Boolean).join('\n\n');
+   const choice=await dialog.showMessageBox(parent(),{
+    type:warning?'warning':'question',title:'確認 ZIP 更新',message:`套用 ${rows.length} 個檔案至所選資料夾？`,detail,
+    buttons:[warning?'仍要套用':'確認套用','取消'],defaultId:1,cancelId:1,noLink:true
+   });
+   return choice.response===0?service.apply(value.token,value.ids):{canceled:true};
   });
   if(action==='undo')return fileOperation(async()=>{const {run}=service.readRun(value),choice=await dialog.showMessageBox(parent(),{type:'warning',title:'還原 ZIP 更新',message:'還原這次更新？',detail:run.target+'\n覆寫檔案會還原備份；這次新增的檔案會移除。更新後再次修改的檔案會保留並列為衝突。',buttons:['確認還原','取消'],defaultId:1,cancelId:1,noLink:true});return choice.response===0?service.undo(value):{canceled:true};});
   if(action==='open-target'){const folder=value?service.readRun(value).run.target:service.selected.target;assertLocalPath(folder);const error=await openPath(folder);if(error)throw Error(error);return {opened:true};}
