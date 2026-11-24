@@ -1357,8 +1357,11 @@ test('record and reference file recycling uses the native second confirmation an
   assert.equal(options.defaultId,1);
   assert.ok(options.detail.includes(exclusive));
   assert.ok(options.detail.includes(locked));
-  assert.ok(!options.detail.includes(shared));
-  assert.ok(!options.detail.includes(favorite));
+  const [toRecycle,retained]=options.detail.split('保留 2 個位置：');
+  assert.ok(!toRecycle.includes(shared));
+  assert.ok(!toRecycle.includes(favorite));
+  assert.ok(retained.includes('其他紀錄仍有引用（包含工作區回收筒）：'+shared));
+  assert.ok(retained.includes('仍在「我的收藏」：'+favorite));
   return {response:1};
  };
  assert.equal((await recycle()).canceled,true);
@@ -1375,4 +1378,39 @@ test('record and reference file recycling uses the native second confirmation an
  assert.ok(result.document.records.find(row=>row.id===id).deletedAt);
  assert.equal(result.document.records.find(row=>row.id===other).deletedAt,null);
  assert.ok([shared,favorite,locked].every(file=>fs.existsSync(file)));
+});
+
+
+test('workspace recycle explains retained paths and offers record-only confirmation if nothing can move',async t=>{
+ const h=harness(t);
+ const restored=path.join(h.dir,'restored-assets'),file=path.join(restored,'313c09dc-68d3-470b-96bf-ddc011c58280.png');
+ fs.mkdirSync(restored);fs.writeFileSync(file,'asset');
+ const sheet=h.handlers.get('notes-sheet-save')(null,{name:'Restored documents',fields:[]}).result.id;
+ const state=h.handlers.get('notes-record-save')(null,{sheetId:sheet,title:'Restored',notes:'',values:{},tags:[],favoriteIds:[],keepUnlinked:[],directPaths:[file]});
+ const record=state.document.records[0];
+ const recycle=()=>h.handlers.get('notes-trash-references')(null,[{id:record.id,version:record.version}],false,state.revision);
+ const store=new(require('../src/notes-store').NotesStore)(path.join(h.dir,'workspace.sqlite'));
+ t.after(()=>store.close());
+ const draft=store.createDraft();
+ const withLink=store.saveDraft(draft.id,draft.version,{attachments:[{path:file,type:'file'}]});
+ const recycled=[];
+ h.shell.trashItem=async file=>{recycled.push(file);fs.unlinkSync(file);};
+ h.dialog.showMessageBox=async(_,options)=>{
+  assert.equal(options.buttons[0],'只回收紀錄');
+  assert.equal(options.defaultId,1);
+  assert.ok(options.detail.includes('草稿仍有引用：'+file));
+  return {response:1};
+ };
+ assert.equal((await recycle()).canceled,true);
+ assert.deepEqual(recycled,[]);
+ store.saveDraft(draft.id,withLink.version,{attachments:[]});
+ h.dialog.showMessageBox=async(_,options)=>{
+  assert.equal(options.buttons[0],'回收紀錄與檔案');
+  assert.ok(options.detail.startsWith(file));
+  return {response:0};
+ };
+ const result=await recycle();
+ assert.equal(result.result.skipped,0);
+ assert.deepEqual(recycled,[file]);
+ assert.ok(result.document.records[0].deletedAt);
 });

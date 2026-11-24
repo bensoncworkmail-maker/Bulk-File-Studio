@@ -94,7 +94,7 @@
         <div id="home-widgets" class="home-widgets"></div>
       </section>
     <section id="zip-update-page" class="zip-update-page hidden" aria-labelledby="zip-update-title">
-      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>選擇 ZIP、比較目的地，確認後備份並套用。</p></div><div class="zip-update-actions"><button id="zip-update-latest" type="button" class="btn btn-primary" disabled>比較最新 ZIP</button><button id="zip-update-refresh" type="button" class="btn btn-ghost">重新整理位置清單</button></div></header>
+      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>選擇 ZIP、比較目的地，確認後備份並套用。</p></div></header>
       <nav class="zip-update-steps" aria-label="ZIP 更新步驟"><button id="zip-update-go-setup" type="button" class="btn btn-ghost">① 選擇 ZIP 與目標</button><span id="zip-update-flow-hint">選好來源與目標後會自動比較。</span><button id="zip-update-go-compare" type="button" class="btn btn-ghost">② 比較與套用</button><button id="zip-update-go-history" type="button" class="btn btn-ghost">更新結果／還原</button></nav>
       <div class="zip-update-scroll">
         <div id="zip-update-drop" class="zip-update-drop" tabindex="0">拖放 ZIP 至此，或使用下方「選擇 ZIP」</div>
@@ -108,7 +108,16 @@
         <div class="zip-update-pager"><button id="zip-update-prev" class="btn btn-ghost">上一頁</button><span id="zip-update-pagination"></span><button id="zip-update-next" class="btn btn-ghost">下一頁</button></div>
         </section><details id="zip-update-history-panel" class="zip-update-history"><summary>最近更新與還原</summary><p class="notes-hint">覆寫前保留原檔。還原時，更新後再次修改的檔案會保留並列出衝突。</p><div id="zip-update-history"></div></details>
       </div>
-      <footer class="zip-update-footer"><p id="zip-update-status" role="status" aria-live="polite"></p><button id="zip-update-preview" class="btn btn-secondary">重新比較</button><button id="zip-update-cancel" class="btn btn-secondary" hidden>停止後續項目</button><button id="zip-update-apply" class="btn btn-primary" disabled>確認套用</button></footer>
+      <footer class="zip-update-footer">
+        <p id="zip-update-status" role="status" aria-live="polite"></p>
+        <div class="zip-update-actions zip-update-primary-actions" role="group" aria-label="ZIP 更新操作">
+          <button id="zip-update-refresh" type="button" class="btn btn-ghost" title="重新讀取來源與目標資料夾">重新整理清單</button>
+          <button id="zip-update-latest" type="button" class="btn btn-secondary" title="重新掃描目前來源資料夾，並比較修改時間最新的 ZIP" disabled>比較最新 ZIP</button>
+          <button id="zip-update-preview" type="button" class="btn btn-secondary">重新比較</button>
+          <button id="zip-update-cancel" type="button" class="btn btn-secondary" hidden>停止後續項目</button>
+          <button id="zip-update-apply" type="button" class="btn btn-primary" disabled>確認套用</button>
+        </div>
+      </footer>
     </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
         <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>按需要使用情境、範本、追蹤、OCR 或備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
@@ -2691,7 +2700,17 @@
         </footer>
       </form>
     </dialog>
-    <dialog id="notes-image-preview" class="modal notes-image-preview" aria-label="工作區圖片預覽"><div id="notes-image-preview-content"></div><button id="notes-image-preview-close" type="button" class="btn btn-secondary">關閉</button></dialog>
+    <dialog id="notes-image-preview" class="modal notes-image-preview" aria-label="工作區圖片預覽">
+      <div id="notes-image-preview-content"></div>
+      <div class="notes-image-preview-footer">
+        <div class="notes-image-preview-navigation" role="group" aria-label="切換圖片">
+          <button id="notes-image-preview-previous" type="button" class="btn btn-secondary" aria-keyshortcuts="ArrowLeft">← 上一張</button>
+          <span id="notes-image-preview-position" role="status"></span>
+          <button id="notes-image-preview-next" type="button" class="btn btn-secondary" aria-keyshortcuts="ArrowRight">下一張 →</button>
+        </div>
+        <button id="notes-image-preview-close" type="button" class="btn btn-secondary" autofocus>關閉</button>
+      </div>
+    </dialog>
     <dialog id="notes-favorites-dialog" class="modal notes-modal" aria-labelledby="notes-favorites-title">
       <h2 id="notes-favorites-title">連結位置或收藏標籤</h2>
       <div class="notes-tools">

@@ -35,20 +35,20 @@
  function renderHistory(){$('history').replaceChildren();for(const run of data.runs){const row=node('article');row.append(node('strong',(labels[run.status]||run.status)+' · '+new Date(run.date).toLocaleString()),node('p',run.zipPath+'\n→ '+run.target,'zip-update-path'));for(const [text,action]of [['查看結果','details'],['開啟目標','open-target'],['備份／記錄','open-backup'],['還原這次更新','undo']]){const button=node('button',text,'btn btn-ghost');button.type='button';button.addEventListener('click',()=>runTask(async()=>{const value=await api.command(action,run.id);if(['undo','details'].includes(action)&&!value.canceled){lastResult=value;await refresh();report(value);$('history-panel').open=true;jump('history-panel');}}));if(action==='undo'&&run.status==='restored')button.hidden=true;row.append(button);}$('history').append(row);}if(lastResult){const failures=lastResult.rows.filter(r=>r.error),rows=failures.length?failures:lastResult.rows,block=node('section'),list=node('ul');block.append(node('p',(failures.length?'未完成／衝突 ':'更新結果 ')+rows.length+' 個'+(rows.length>100?'（先顯示 100 個，完整記錄可從「備份／記錄」開啟）':'')));for(const row of rows.slice(0,100))list.append(node('li',({applied:'已套用',restored:'已還原',failed:'失敗',pending:'未執行',writing:'需核對','backed-up':'已備份'}[row.state]||row.state)+' · '+row.relative+(row.error?'：'+row.error:'')));block.append(list);$('history').prepend(block);}}
  function render(){for(const button of root.querySelectorAll('[data-zip-sort]')){const [kind,key]=button.getAttribute('data-zip-sort').split(':'),sort=prefs.sorts[kind],active=sort.key===key;button.parentElement.setAttribute('aria-sort',active?(sort.direction==='asc'?'ascending':'descending'):'none');button.title='按'+(active&&sort.direction==='asc'?'降冪':'升冪')+'排序（自動記住）';button.classList.toggle('zip-sort-active',active);button.setAttribute('data-direction',active?sort.direction:'');}const brief=(path)=>path?.split(/[\\/]/).filter(Boolean).at(-1)||'';$('setup-summary').textContent=[brief(data.selected.zipPath),brief(data.selected.target)].filter(Boolean).join(' → ');$('flow-hint').textContent=busy?'處理中，可從下方查看進度或停止。':plan?'已比較完成，核對勾選項目後按「確認套用」。':data.files.length&&data.selected.target?'可重新比較目前的 ZIP。':'選好來源與目標後會自動比較。';for(const kind of ['source','target'])renderBrowser(kind);renderResults();$('summary').textContent=plan?['added','changed','same','blocked'].map(k=>labels[k]+' '+plan.rows.filter(r=>r.status===k).length).join(' · ')+' ｜ 目標：'+plan.target:data.files.length?`ZIP 有 ${data.files.length} 個檔案；請核對來源層級及目標後比較。`:'先選 ZIP 與目標資料夾，再比較檔案。';renderHistory();controls();}
  async function refresh(){sync(await api.command('state'));}
- async function compare({reveal=true}={}){
+ async function compare({reveal=true,refreshedSource=false}={}){
   invalidate();
   plan=await api.command('preview',$('root').value);
   selected=new Set(plan.rows.filter(eligible).map(row=>row.id));
   render();
   if(reveal)jump('comparison');
-  status(selected.size?'比較完成，請核對勾選項目及目標路徑。':'比較完成，沒有可套用的差異。');
+  status((refreshedSource?'來源清單已更新。':'')+(selected.size?'比較完成，請核對勾選項目及目標路徑。':'比較完成，沒有可套用的差異。'));
  }
- async function compareSelection(value,{newZip=false,reveal=true}={}){
+ async function compareSelection(value,{newZip=false,reveal=true,refreshedSource=false}={}){
   if(value.canceled)return;
   invalidate();
   if(newZip)$('root').value='';
   sync(value);
-  if(data.files.length&&data.selected.target)await compare({reveal});
+  if(data.files.length&&data.selected.target)await compare({reveal,refreshedSource});
   else status(data.files.length?'請選擇目標資料夾，選好後會自動比較。':'選擇 ZIP 後會自動比較。');
  }
  async function refreshLocations(){
@@ -61,7 +61,7 @@
  async function runTask(task){if(busy)return;busy=true;status('處理中…');controls();try{return await task();}catch(e){status(e.message||String(e),true);}finally{busy=false;if($('status').textContent==='處理中…')status(plan?'比較已就緒，請核對後套用。':data.files.length&&data.selected.target?'來源與目標已就緒，可按「重新比較」。':'請選擇 ZIP 與目標資料夾。');render();}}
  const on=(id,task)=>$(id).addEventListener('click',()=>runTask(task));
  on('choose',async()=>compareSelection(await api.command('choose-zip'),{newZip:true}));
- on('latest',async()=>compareSelection(await api.command('choose-latest'),{newZip:true}));
+ on('latest',async()=>compareSelection(await api.command('choose-latest'),{newZip:true,refreshedSource:true}));
  on('add-source',async()=>{const value=await api.command('choose-source-folder');if(!value.canceled){sync(value);status('已記住來源資料夾，可直接點選清單中的 ZIP。');}});
  on('target',async()=>compareSelection(await api.command('choose-target')));
  $('sources').addEventListener('change',()=>{if($('sources').value!=='')void runTask(async()=>{sync(await api.command('browse-source',Number($('sources').value)));status('已載入來源位置，請點選 ZIP。');});});

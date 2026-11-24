@@ -544,11 +544,19 @@ app.whenReady().then(() => {
       store:notesStore(),entries,includeDetails,revision,profileRoot:app.getPath('userData'),
       favorites:()=>favorites.read().items,trash:filepath=>shell.trashItem(filepath),
       confirm:async({paths,records,skipped})=>{
+        const retained=skipped.slice(0,8).map(({path,reason})=>reason+'：'+path);
+        if(skipped.length>retained.length)retained.push('另有 '+(skipped.length-retained.length)+' 個位置保留。');
+        const details=[];
+        if(paths.length)details.push(paths.join('\n'),'如需還原原檔，請使用系統資源回收筒。');
+        if(retained.length)details.push('保留 '+skipped.length+' 個位置：\n'+retained.join('\n'));
         const choice=await dialog.showMessageBox(win,{
-          type:'warning',title:'第二次確認：回收實際檔案',
-          message:`回收 ${records} 筆紀錄，並將下列 ${paths.length} 個實際檔案移至系統資源回收筒？`,
-          detail:paths.join('\n')+`\n\n保留 ${skipped} 個共用、收藏或不適用的位置。還原紀錄後，如需原檔，請另從系統資源回收筒還原。`,
-          buttons:['回收紀錄與檔案','取消'],defaultId:1,cancelId:1,noLink:true
+          type:'warning',
+          title:'第二次確認：'+(paths.length?'回收實際檔案':'只回收紀錄'),
+          message:paths.length
+            ? `回收 ${records} 筆紀錄，並將下列 ${paths.length} 個實際檔案移至系統資源回收筒？`
+            : `沒有可一併回收的檔案。要只回收這 ${records} 筆紀錄嗎？`,
+          detail:details.join('\n\n'),
+          buttons:[paths.length?'回收紀錄與檔案':'只回收紀錄','取消'],defaultId:1,cancelId:1,noLink:true
         });
         return choice.response===0&&!win.isDestroyed();
       }
