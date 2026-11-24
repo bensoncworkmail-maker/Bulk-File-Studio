@@ -1,6 +1,9 @@
 'use strict';
-const path=require('node:path'),fs=require('node:fs'),{ZipUpdate}=require('./zip-update'),{assertLocalPath}=require('./offline-policy');
-function register({handle,root,downloads,dialog,parent,fileOperation,progress,openPath}){
+const path=require('node:path'),fs=require('node:fs'),{ZipUpdate}=require('./zip-update'),{assertLocalPath,assertSafeOpen}=require('./offline-policy');
+function existing(filepath){
+ try{return fs.lstatSync(filepath);}catch(error){if(error.code!=='ENOENT')throw error;return null;}
+}
+function register({handle,root,downloads,dialog,parent,fileOperation,progress,openPath,locate,pickMenu}){
  const service=new ZipUpdate(path.join(root,'zip-updates'),{progress}),{FolderBrowser}=require('./zip-update-browser'),browsers={source:new FolderBrowser('source'),target:new FolderBrowser('target',{forbiddenRoot:service.root})};
  const state=()=>({...service.state(),browsers:{source:browsers.source.snapshot(),target:browsers.target.snapshot()}});
  async function readLocation(kind,folder,keepRoot){
@@ -24,6 +27,34 @@ function register({handle,root,downloads,dialog,parent,fileOperation,progress,op
  }
  const index=(rows,value)=>{if(!Number.isInteger(value)||value<0||value>=rows.length)throw Error('常用位置已變更，請重新選擇');const folder=rows[value];assertLocalPath(folder);if(!fs.statSync(folder).isDirectory())throw Error('常用資料夾已不存在，請重新選擇');return folder;};
  const choose=async options=>dialog.showOpenDialog(parent(),options);
+ const open=async filepath=>{const error=await openPath(filepath);if(error)throw Error(error);return {opened:true};};
+ function menuEntry(value){
+  const {panel,id,kind,folder,sourceRoot='',target:expectedTarget}=value||{};
+  let file,category=kind;
+  if(panel==='source'||panel==='target'){
+   if(!['file','folder','zip'].includes(kind))throw Error('位置類型無效');
+   file=browsers[panel].resolve(id,kind);
+  }else if(panel==='compare'){
+   const row=service.files.find(item=>item.id===id);
+   if(!row||expectedTarget!==(service.selected.target||'')||typeof sourceRoot!=='string'||sourceRoot&&(!service.roots.includes(sourceRoot)||!row.name.startsWith(sourceRoot+'/')))throw Error('ZIP 或目標已變更，請重新選擇項目');
+   if(expectedTarget){
+    const relative=sourceRoot?row.name.slice(sourceRoot.length+1):row.name;
+    if(folder!==undefined&&(typeof folder!=='string'||!folder||!relative.startsWith(folder+'/')))throw Error('ZIP 資料夾項目無效');
+    category=folder?'folder':'file';file=service.destination(folder||relative);
+   }else{category='zip';file=service.selected.zipPath;}
+  }else throw Error('ZIP 清單無效');
+  assertLocalPath(file);
+  const stat=existing(file);
+  let canOpen=category==='folder'?Boolean(stat?.isDirectory()):Boolean(stat?.isFile());
+  if(canOpen&&category!=='folder')try{assertSafeOpen(file);}catch{canOpen=false;}
+  let parentFolder=path.dirname(file);
+  if(!stat){
+   if(panel!=='compare'||!expectedTarget)throw Error('檔案或資料夾已移除，請重新整理');
+   while(parentFolder!==service.selected.target&&!existing(parentFolder)?.isDirectory())parentFolder=path.dirname(parentFolder);
+   if(!existing(parentFolder)?.isDirectory())throw Error('目標資料夾已不存在');
+  }
+  return {file,category,stat,canOpen,parentFolder};
+ }
  async function refreshLocations(){
   // Re-read the open listings on entry. Invalid remembered paths fall back to
   // the next accessible location without changing an already selected target.
@@ -78,6 +109,21 @@ function register({handle,root,downloads,dialog,parent,fileOperation,progress,op
   if(action==='target-enter')return target(browsers.target.resolve(value,'folder'),true);
   if(action==='target-up')return target(browsers.target.parent(),true);
   if(action==='refresh-browser'){if(!['source','target'].includes(value))throw Error('瀏覽位置無效');await browsers[value].read();return state();}
+  if(action==='entry-menu'){
+   const entry=menuEntry(value);
+   const choice=await pickMenu([
+    {id:'open',label:entry.category==='folder'?'開啟資料夾':entry.category==='zip'?'開啟 ZIP':'開啟檔案',enabled:entry.canOpen},
+    {id:'locate',label:entry.stat?'開啟所在位置':'開啟已存在的上層資料夾'}
+   ]);
+   if(!choice)return {canceled:true};
+   const current=menuEntry(value);
+   if(choice==='open'&&current.canOpen)return open(current.file);
+   if(choice==='locate'){
+    if(!current.stat)return open(current.parentFolder);
+    locate(current.file);return {opened:true};
+   }
+   throw Error('項目已變更或不可直接開啟');
+  }
   if(action==='preview')return service.preview(value);
   if(action==='apply')return fileOperation(async()=>{
    const {plan,rows}=service.getPlan(value?.token,value?.ids);
