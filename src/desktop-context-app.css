@@ -5,3 +5,4 @@
 .desktop-header,.context-display,.desktop-toolbar .topmost{display:none}.desktop-content{height:auto;overflow:visible}:scope{--bg:var(--panel);--surface:var(--surface-2,var(--panel))}
 }
 #app-context-dialog{width:min(420px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px}.app-context-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.app-context-heading h2{font-size:1.1rem;margin:0}#app-context-dialog input[type=checkbox]{width:14px}
+#app-context-dialog .context-resource-search{margin:4px 0 9px}#app-context-dialog .context-resource-group{display:grid;gap:5px}#app-context-dialog .context-resource-group h3{font-size:.88em;color:var(--muted);margin:4px 0 0}

@@ -1337,3 +1337,42 @@ test('workspace image IPC saves PNG links with records, rolls back failed saves 
  h.handlers.get('floating-show')();const floating=h.windows[1],event={sender:floating.webContents,senderFrame:{url:floating.url}};assert.throws(()=>h.rawHandlers.get('notes-image-prepare')(event,png),/不受信任/);assert.throws(()=>h.rawHandlers.get('notes-record-image')(event,record.id,0),/不受信任/);
  result=await h.handlers.get('notes-record-save')(null,{...input,id:record.id,expectedVersion:record.version,pastedImages:[],keepUnlinked:[]});assert.equal(result.document.records[0].fileLinks.length,0);assert.equal(fs.existsSync(link.path),true);assert.throws(()=>h.handlers.get('notes-record-image')(null,record.id,0),/不存在/);
 });
+
+test('record and reference file recycling uses the native second confirmation and protects shared files', async t=>{
+ const h=harness(t);
+ const external=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-note-files-'));
+ t.after(()=>fs.rmSync(external,{recursive:true,force:true}));
+ const [exclusive,shared,favorite,locked]=['only.txt','shared.txt','favorite.txt','locked.txt'].map(name=>path.join(external,name));
+ for(const file of [exclusive,shared,favorite,locked])fs.writeFileSync(file,'original');
+ h.handlers.get('favorites-add')(null,[favorite],[]);
+ const sheet=h.handlers.get('notes-sheet-save')(null,{name:'Reference tests',fields:[]}).result.id;
+ const save=(title,directPaths)=>h.handlers.get('notes-record-save')(null,{sheetId:sheet,title,notes:'',values:{},tags:[],favoriteIds:[],keepUnlinked:[],directPaths}).result.id;
+ const id=save('Remove',[exclusive,shared,favorite,locked]),other=save('Keep',[shared]);
+ const before=h.handlers.get('notes-get')(),record=before.document.records.find(row=>row.id===id);
+ const recycle=()=>h.handlers.get('notes-trash-references')(null,[{id,version:record.version}],false,before.revision);
+ const recycled=[];
+ h.shell.trashItem=async file=>{if(file===locked)throw Error('locked');recycled.push(file);fs.unlinkSync(file);};
+ h.dialog.showMessageBox=async(_,options)=>{
+  assert.match(options.title,/第二次確認/);
+  assert.equal(options.defaultId,1);
+  assert.ok(options.detail.includes(exclusive));
+  assert.ok(options.detail.includes(locked));
+  assert.ok(!options.detail.includes(shared));
+  assert.ok(!options.detail.includes(favorite));
+  return {response:1};
+ };
+ assert.equal((await recycle()).canceled,true);
+ assert.equal(h.handlers.get('notes-get')().revision,before.revision);
+ assert.deepEqual(recycled,[]);
+ h.dialog.showMessageBox=async()=>{fs.writeFileSync(exclusive,'changed during confirmation');return {response:0};};
+ await assert.rejects(recycle(),/已變更/);
+ assert.equal(h.handlers.get('notes-get')().revision,before.revision);
+ h.dialog.showMessageBox=async()=>({response:0});
+ const result=await recycle();
+ assert.deepEqual(recycled,[exclusive]);
+ assert.equal(result.result.skipped,2);
+ assert.match(result.result.failures[0],/locked/);
+ assert.ok(result.document.records.find(row=>row.id===id).deletedAt);
+ assert.equal(result.document.records.find(row=>row.id===other).deletedAt,null);
+ assert.ok([shared,favorite,locked].every(file=>fs.existsSync(file)));
+});

@@ -306,7 +306,7 @@ app.whenReady().then(() => {
   });
   if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))require('./profile-service').recoverProfile(app.getPath('userData'),notesStore());
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
-  require('./zip-update-ipc').register({handle,root:app.getPath('userData'),dialog,parent:()=>win,fileOperation,progress:value=>send(win,'zip-update-progress',value),openPath:folder=>shell.openPath(folder)});
+  require('./zip-update-ipc').register({handle,root:app.getPath('userData'),downloads:app.getPath('downloads'),dialog,parent:()=>win,fileOperation,progress:value=>send(win,'zip-update-progress',value),openPath:folder=>shell.openPath(folder)});
   pasteTargetSession=new(require('./paste-target-session').PasteTargetSession)({capture:()=>require('./snippet-paste').capture(),onError:error=>diagnostics.record('floating','paste-target',error)});
   desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,showContext:showDesktopContext,toggleFloatingCollapse,showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),showCalendar:floatingAction(()=>openToolOverlay('planning')),toggleFocusMode:floatingAction(()=>configureDesktop({focusMode:!desktop.settings.focusMode})),extraShortcuts:settings=>[...(settings.floatingQuickActions||[]).filter(item=>item.enabled&&item.shortcut).map(item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runShortcutQuickAction(item.id)),'action:'+item.id]),...(productivity?.store.get().snippets||[]).filter(item=>item.shortcut).map(item=>['accelerator:'+item.shortcut,'複製 '+item.name,floatingAction(()=>productivity.copySnippet(item.id,'')),'snippet:'+item.id])],showSearch:floatingAction(()=>{if(!desktop.settings.floatingGlobalSearch)throw new Error('浮動全域搜尋已停用');if(!floating||floating.isDestroyed()||!floating.isVisible())showFloating();return floatingSearchController().open();}),hideMain:()=>win?.hide(),hideFloating:()=>floating?.hide(),openStartupSettings:()=>shell.openExternal('ms-settings:startupapps'),onWarning:message=>{shellWarning=message;send(win,'desktop-settings-changed',{warning:message});}});
   handle('shortcuts-recording',(_,enabled)=>{if(typeof enabled!=='boolean')throw new Error('快捷鍵錄製狀態無效');if(!enabled){endShortcutRecording();return {capturing:false};}if(!win.isFocused())return {capturing:false};shortcutRecording=true;globalShortcut.unregisterAll();return {capturing:true};});
@@ -539,6 +539,24 @@ app.whenReady().then(() => {
   handle('notes-bulk-preview',(_,input,revision)=>notesStore().bulkPreview(input,revision));
   handle('notes-bulk-commit',(_,token)=>notesChanged(notesStore().bulkCommit(token)));
   handle('notes-batch-trash',(_,entries,includeDetails,revision)=>notesChanged(notesStore().batchTrash(entries,includeDetails,revision)));
+  handle('notes-trash-references',(_,entries,includeDetails,revision)=>fileOperation(async()=>{
+    const result=await require('./notes-reference-trash').trashReferences({
+      store:notesStore(),entries,includeDetails,revision,profileRoot:app.getPath('userData'),
+      favorites:()=>favorites.read().items,trash:filepath=>shell.trashItem(filepath),
+      confirm:async({paths,records,skipped})=>{
+        const choice=await dialog.showMessageBox(win,{
+          type:'warning',title:'第二次確認：回收實際檔案',
+          message:`回收 ${records} 筆紀錄，並將下列 ${paths.length} 個實際檔案移至系統資源回收筒？`,
+          detail:paths.join('\n')+`\n\n保留 ${skipped} 個共用、收藏或不適用的位置。還原紀錄後，如需原檔，請另從系統資源回收筒還原。`,
+          buttons:['回收紀錄與檔案','取消'],defaultId:1,cancelId:1,noLink:true
+        });
+        return choice.response===0&&!win.isDestroyed();
+      }
+    });
+    if(result.canceled)return result;
+    if(result.result.trashedPaths.length)notifyFavorites({trashedPaths:result.result.trashedPaths});
+    return notesChanged(result);
+  }));
   handle('notes-trash',(_,kind,id,version,restore)=>{if(typeof restore!=='boolean')throw new Error('回收筒操作無效');return notesChanged(notesStore().trash(kind,id,version,restore));});
   handle('notes-history',(_,id)=>notesStore().history(id));
   handle('notes-history-restore',(_,id,historyId,version)=>notesChanged(notesStore().restoreHistory(id,historyId,version)));

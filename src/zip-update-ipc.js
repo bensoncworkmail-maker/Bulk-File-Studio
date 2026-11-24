@@ -1,29 +1,80 @@
 'use strict';
 const path=require('node:path'),fs=require('node:fs'),{ZipUpdate}=require('./zip-update'),{assertLocalPath}=require('./offline-policy');
-function register({handle,root,dialog,parent,fileOperation,progress,openPath}){
+function register({handle,root,downloads,dialog,parent,fileOperation,progress,openPath}){
  const service=new ZipUpdate(path.join(root,'zip-updates'),{progress}),{FolderBrowser}=require('./zip-update-browser'),browsers={source:new FolderBrowser('source'),target:new FolderBrowser('target',{forbiddenRoot:service.root})};
  const state=()=>({...service.state(),browsers:{source:browsers.source.snapshot(),target:browsers.target.snapshot()}});
- const loadZip=async filename=>{await service.openZip(filename);browsers.source.select(path.dirname(filename),{keepRoot:true});await browsers.source.read();return state();};
- const target=async(folder,keepRoot=false)=>{service.setTarget(folder);browsers.target.select(folder,{keepRoot});await browsers.target.read();return state();};
+ async function readLocation(kind,folder,keepRoot){
+  const next=new FolderBrowser(kind,{forbiddenRoot:browsers[kind].forbiddenRoot});
+  next.root=browsers[kind].root;
+  next.select(folder,{keepRoot});
+  await next.read();
+  return next;
+ }
+ async function loadZip(filename,listing){
+  const next=listing||await readLocation('source',path.dirname(filename),true);
+  await service.openZip(filename);
+  browsers.source=next;
+  return state();
+ }
+ async function target(folder,keepRoot=false){
+  const next=await readLocation('target',folder,keepRoot);
+  service.setTarget(folder);
+  browsers.target=next;
+  return state();
+ }
  const index=(rows,value)=>{if(!Number.isInteger(value)||value<0||value>=rows.length)throw Error('常用位置已變更，請重新選擇');const folder=rows[value];assertLocalPath(folder);if(!fs.statSync(folder).isDirectory())throw Error('常用資料夾已不存在，請重新選擇');return folder;};
  const choose=async options=>dialog.showOpenDialog(parent(),options);
+ async function refreshLocations(){
+  // Re-read the open listings on entry. Invalid remembered paths fall back to
+  // the next accessible location without changing an already selected target.
+  const source=browsers.source;
+  if(source.folder){
+   try{await source.read();}catch{source.clear();}
+  }
+  if(!source.folder){
+   for(const folder of new Set([...service.history.sourceFolders,downloads].filter(Boolean))){
+    try{source.select(folder);await source.read();break;}catch{source.clear();}
+   }
+  }
+  const destination=browsers.target;
+  if(destination.folder){
+   try{await destination.read();}catch{destination.clear();}
+  }
+  if(!destination.folder&&!service.selected.target){
+   for(const folder of service.history.targetFolders){
+    try{await target(folder);break;}catch{destination.clear();}
+   }
+  }
+  return state();
+ }
+
  handle('zip-update',async(_,action,value)=>{
-  if(action==='state'){if(!browsers.source.folder&&service.history.sourceFolders.length){try{browsers.source.select(index(service.history.sourceFolders,0));await browsers.source.read();}catch{}}return state();}if(action==='cancel')return service.cancel();
+  if(action==='state')return state();
+  if(action==='cancel')return service.cancel();
   if(service.busy)throw Error('ZIP 操作仍在執行，請稍候或取消');
+  if(action==='refresh-locations')return refreshLocations();
+  if(action==='choose-latest'){
+   const source=browsers.source;
+   const latestBrowser=await readLocation('source',source.folder,true),listing=latestBrowser.snapshot();
+   if(listing.truncated)throw Error('來源清單已達上限，請直接指定 ZIP，以免選錯檔案');
+   const latest=listing.rows.filter(row=>row.kind==='zip').sort((a,b)=>b.modified.localeCompare(a.modified)||a.name.localeCompare(b.name))[0];
+   if(!latest)throw Error('目前來源資料夾沒有 ZIP，請選擇其他位置');
+   return loadZip(latestBrowser.resolve(latest.id,'zip'),latestBrowser);
+  }
   if(action==='choose-zip'){
-   const defaultPath=value===undefined?service.history.sourceFolders[0]:index(service.history.sourceFolders,value),r=await choose({title:'選擇要更新的 ZIP',defaultPath,properties:['openFile'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});return r.canceled?{canceled:true}:loadZip(r.filePaths[0]);
+   const defaultPath=value===undefined?(browsers.source.folder||service.history.sourceFolders[0]||downloads):index(service.history.sourceFolders,value),r=await choose({title:'選擇要更新的 ZIP',defaultPath,properties:['openFile'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});return r.canceled?{canceled:true}:loadZip(r.filePaths[0]);
   }
   if(action==='drop-zip')return loadZip(value);
-  if(action==='choose-source-folder'){const r=await choose({title:'加入常用 ZIP 來源資料夾',defaultPath:service.history.sourceFolders[0],properties:['openDirectory']});if(r.canceled)return {canceled:true};service.rememberSource(r.filePaths[0]);browsers.source.select(r.filePaths[0]);await browsers.source.read();return state();}
+  if(action==='choose-source-folder'){const r=await choose({title:'加入常用 ZIP 來源資料夾',defaultPath:service.history.sourceFolders[0],properties:['openDirectory']});if(r.canceled)return {canceled:true};const next=await readLocation('source',r.filePaths[0]);service.rememberSource(r.filePaths[0]);browsers.source=next;return state();}
   if(action==='choose-target'){const r=await choose({title:'選擇接收更新的資料夾',defaultPath:service.selected.target||service.history.targetFolders[0],properties:['openDirectory']});return r.canceled?{canceled:true}:target(r.filePaths[0]);}
   if(action==='save-target'){service.saveTarget();return state();}
   if(action==='forget-target'){service.forgetTarget(value?.kind,value?.index);return state();}
   if(action==='select-saved-target')return target(index(service.history.savedTargets,value));
   if(action==='select-target')return target(index(service.history.targetFolders,value));
-  if(action==='browse-source'){browsers.source.select(index(service.history.sourceFolders,value));await browsers.source.read();return state();}
+  if(action==='browse-source'){browsers.source=await readLocation('source',index(service.history.sourceFolders,value));return state();}
   if(action==='source-open')return loadZip(browsers.source.resolve(value,'zip'));
-  if(action==='source-enter'){browsers.source.select(browsers.source.resolve(value,'folder'),{keepRoot:true});await browsers.source.read();return state();}
-  if(action==='source-up'){browsers.source.select(browsers.source.parent(),{keepRoot:true});await browsers.source.read();return state();}
+  if(action==='source-enter'){browsers.source=await readLocation('source',browsers.source.resolve(value,'folder'),true);return state();}
+  if(action==='source-up'){browsers.source=await readLocation('source',browsers.source.parent(),true);return state();}
   if(action==='target-enter')return target(browsers.target.resolve(value,'folder'),true);
   if(action==='target-up')return target(browsers.target.parent(),true);
   if(action==='refresh-browser'){if(!['source','target'].includes(value))throw Error('瀏覽位置無效');await browsers[value].read();return state();}

@@ -18,7 +18,7 @@
    }
    return maps.masterSummaries.get(item.id);
   }):[];
-  return {title:record?.title||sheet.name,type,masters,context:[area?.name,record?sheet.name:null].filter(Boolean).join(' ／ ')};
+  return {title:record?.title||sheet.name,type,updatedAt:record?.updatedAt||sheet.updatedAt||'',masters,context:[area?.name,record?sheet.name:null].filter(Boolean).join(' ／ ')};
  }
  function trackingBookmark(doc,tools,recordId){
   const record=doc.records.find(item=>item.id===recordId&&M.live(doc,item));

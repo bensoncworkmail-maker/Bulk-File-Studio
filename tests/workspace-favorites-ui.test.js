@@ -181,3 +181,25 @@ test('favorites have two tabs and legacy Everything preference falls back withou
 test('both favorite tabs retain their selection across restart independently of the tracking page',async t=>{
  let prefs={favoriteRememberLastTab:true};for(const kind of ['workspace','files']){const h=fixture(t,prefs);await flush();await h.$('favorite-kind-'+kind).dispatch('click');prefs=JSON.parse(JSON.stringify(h.settings));const next=fixture(t,prefs);await flush();next.window.workspaceFavoritesUI.activate();assert.equal(next.$('favorite-kind-'+kind).getAttribute('aria-selected'),'true');}
 });
+
+test('workspace favorite sort follows the active tag including independent all and untagged preferences',async t=>{
+ const h=fixture(t);
+ await flush();
+ const tags=label=>h.$('workspace-favorite-tag-list').querySelectorAll('button').find(item=>item.textContent.startsWith(label));
+ const sort=h.$('workspace-favorite-sort'),dir=h.$('workspace-favorite-direction');
+ sort.value='title';await sort.dispatch('change');await dir.dispatch('click');
+ await tags('Work').dispatch('click');
+ assert.equal(sort.value,'default');
+ sort.value='context';await sort.dispatch('change');
+ await tags('未加標籤').dispatch('click');
+ assert.equal(sort.value,'default');
+ sort.value='updatedAt';await sort.dispatch('change');
+ await tags('全部收藏').dispatch('click');
+ assert.equal(sort.value,'title');
+ assert.equal(dir.textContent,'↓ 降冪');
+ await tags('Work').dispatch('click');
+ assert.equal(sort.value,'context');
+ assert.equal(dir.textContent,'↑ 升冪');
+ const stored=require('../src/settings-model').normalize(JSON.parse(JSON.stringify(h.settings))).workspaceFavoriteSorts;
+ assert.deepEqual(stored.untagged,{column:'updatedAt',direction:'desc'});
+});
