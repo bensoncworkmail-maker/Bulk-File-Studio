@@ -1438,6 +1438,7 @@ test('workspace recycles a draft image after references are removed and retains 
   return {response:1};
  };
  assert.equal((await recycle([id,other])).canceled,true);
+ assert.ok(fs.existsSync(path.dirname(image)));
  draft('delete',pictured.id,pictured.version);
  h.dialog.showMessageBox=async(_,options)=>{
   assert.ok(options.detail.includes('其他紀錄仍有引用（包含工作區回收筒）：'+image));
@@ -1447,11 +1448,36 @@ test('workspace recycles a draft image after references are removed and retains 
  h.dialog.showMessageBox=async(_,options)=>{
   assert.equal(options.buttons[0],'回收紀錄與檔案');
   assert.ok(options.detail.startsWith(image));
+  assert.match(options.detail,/草稿附件資料夾會一併清理/);
   for(const file of [internal,loose])assert.ok(options.detail.includes('受保護的應用程式資料：'+file));
   return {response:0};
  };
  const result=await recycle([id,other]);
  assert.deepEqual(recycled,[image]);
  assert.equal(result.result.skipped,2);
+ assert.equal(fs.existsSync(path.dirname(image)),false);
  assert.ok([internal,loose].every(file=>fs.existsSync(file)));
+});
+
+test('workspace retains emptied draft folders still in use, and never cleans external folders',async t=>{
+ const h=harness(t),draftRoot=path.join(h.dir,'draft-images'),uuid=require('node:crypto').randomUUID;
+ const store=new(require('../src/notes-store').NotesStore)(path.join(h.dir,'workspace.sqlite'));
+ t.after(()=>store.close());
+ const active=path.join(draftRoot,store.createDraft().id);
+ const linked=path.join(draftRoot,uuid()),nonempty=path.join(draftRoot,uuid()),unrelated=path.join(draftRoot,uuid());
+ const external=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-recycle-folder-'));
+ t.after(()=>fs.rmSync(external,{recursive:true,force:true}));
+ for(const folder of [active,linked,nonempty,unrelated])fs.mkdirSync(folder,{recursive:true});
+ const files=[active,linked,nonempty,external].map(folder=>path.join(folder,'attachment.txt'));
+ for(const file of files)fs.writeFileSync(file,'attachment');
+ const hidden=path.join(nonempty,'.keep');fs.writeFileSync(hidden,'keep');
+ const sheetId=h.handlers.get('notes-sheet-save')(null,{name:'Folder references',fields:[]}).result.id;
+ const before=h.handlers.get('notes-record-save')(null,{sheetId,title:'Attachments',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[...files,linked]});
+ const [{id,version}]=before.document.records;
+ h.dialog.showMessageBox=async()=>({response:0});
+ h.shell.trashItem=async file=>fs.unlinkSync(file);
+ const result=await h.handlers.get('notes-trash-references')(null,[{id,version}],false,before.revision);
+ assert.deepEqual(result.result.trashedPaths,files);
+ for(const folder of [active,linked,nonempty,unrelated,external])assert.ok(fs.existsSync(folder),folder);
+ assert.equal(fs.readFileSync(hidden,'utf8'),'keep');
 });

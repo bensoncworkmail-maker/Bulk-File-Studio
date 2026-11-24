@@ -3,12 +3,31 @@
  const api=window.zipUpdateAPI;if(!api)return;const view=window.zipUpdateView||globalThis.zipUpdateView;let prefs=view.normalize(window.settingsUI?.get()?.zipUpdateView);const $=id=>document.getElementById('zip-update-'+id),root=$('page');if(!root)return;
  const labels={added:'新增',changed:'內容不同',same:'內容相同',blocked:'無法處理',source:'待比較',completed:'已完成',partial:'部分完成',canceled:'已停止',running:'未完成，可檢查／還原',restored:'已還原','partial-undo':'部分還原'};
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
- let data={files:[],sourceFolders:[],targetFolders:[],roots:[],runs:[],selected:{},browsers:{}},plan=null,selected=new Set(),page=0,busy=false,lastResult=null,expanded=new Set(),tree,treeKey='';
+ let data={files:[],sourceFolders:[],targetFolders:[],savedTargets:[],roots:[],runs:[],selected:{},browsers:{}},plan=null,selected=new Set(),page=0,busy=false,lastResult=null,expanded=new Set(),tree,treeKey='';
  const browserPages={source:0,target:0},eligible=row=>['added','changed'].includes(row.status),status=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
  const size=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
  function saveView(){prefs.expanded=[...expanded];window.settingsUI?.update({zipUpdateView:view.normalize(prefs)});}
  function jump(id){$(id).scrollIntoView({behavior:'smooth',block:'start'});}
- function renderTargetOptions(){const field=$('targets');field.replaceChildren();const empty=node('option','選擇目的地');empty.value='';field.append(empty);for(const [kind,rows,title]of [['saved',data.savedTargets||[],'已儲存的常用位置'],['recent',data.targetFolders,'最近使用']]){const group=node('optgroup');group.label=title;rows.forEach((folder,index)=>{const option=node('option',folder);option.value=kind+':'+index;group.append(option);});if(rows.length)field.append(group);}const saved=(data.savedTargets||[]).indexOf(data.selected.target),recent=data.targetFolders.indexOf(data.selected.target);field.value=saved>=0?'saved:'+saved:recent>=0?'recent:'+recent:'';}
+ function renderTargetOptions(){
+  const field=$('targets'),quick=$('quick-target'),savedTargets=data.savedTargets||[];
+  const saved=savedTargets.indexOf(data.selected.target),recent=data.targetFolders.indexOf(data.selected.target);
+  const empty=node('option','選擇目的地');empty.value='';field.replaceChildren(empty);
+  for(const [kind,rows,title] of [['saved',savedTargets,'已儲存的常用位置'],['recent',data.targetFolders,'最近使用']]){
+   if(!rows.length)continue;
+   const group=node('optgroup');group.label=title;
+   rows.forEach((folder,index)=>{const option=node('option',folder);option.value=kind+':'+index;group.append(option);});
+   field.append(group);
+  }
+  field.value=saved>=0?'saved:'+saved:recent>=0?'recent:'+recent:'';
+  const placeholder=node('option','常用目標');placeholder.value='';placeholder.disabled=true;
+  quick.replaceChildren(placeholder);
+  savedTargets.forEach((folder,index)=>{
+   const option=node('option',index===saved?folder+'（目前）':folder);
+   option.value=String(index);quick.append(option);
+  });
+  quick.value='';
+  quick.title=savedTargets.length?'切換已儲存的目標資料夾':'可在「目標資料夾」儲存常用位置';
+ }
  function invalidate(){plan=null;selected.clear();page=0;lastResult=null;treeKey='';expanded.clear();}
  function options(field,values,placeholder){const old=field.value;field.replaceChildren();const empty=node('option',placeholder);empty.value='';field.append(empty);values.forEach((text,i)=>{const option=node('option',text);option.value=String(i);field.append(option);});field.value=old;}
  function sync(next){for(const kind of ['source','target'])if(next.browsers?.[kind]?.folder!==data.browsers?.[kind]?.folder){browserPages[kind]=0;$(kind+'-browser-query').value='';}data=next;options($('sources'),data.sourceFolders,'選擇最近來源位置');renderTargetOptions();const old=$('root').value;$('root').replaceChildren();for(const text of ['',...data.roots]){const option=node('option',text?text+'／內的檔案':'保留 ZIP 完整層級');option.value=text;$('root').append(option);}$('root').value=data.roots.includes(old)?old:'';$('source-path').textContent=data.selected.zipPath||'尚未選擇 ZIP';$('target-path').textContent=data.selected.target||'尚未選擇目標';const sourceIndex=data.sourceFolders.indexOf(data.browsers?.source?.root);$('sources').value=sourceIndex>=0?String(sourceIndex):'';render();}
@@ -16,6 +35,7 @@
  function makeTree(){const rows=currentRows(),key=JSON.stringify([plan?.token||data.selected.zipPath,$('filter').value,$('query').value,rows.map(r=>r.id)]);tree=window.zipUpdateTree.build(rows,prefs.sorts.compare);if(key!==treeKey){treeKey=key;page=0;expanded=new Set([...tree.folders.keys()].filter(path=>$('query').value||prefs.expandAll||prefs.expanded.includes(path)));}}
  function members(path){return tree?.folders.get(path)?.members.filter(eligible)||[];}
  function controls(){for(const field of root.querySelectorAll('button,input,select'))field.disabled=busy;$('cancel').disabled=false;$('cancel').hidden=!busy;$('apply').disabled=busy||!plan||!selected.size;$('apply').textContent='確認套用'+(selected.size?'（'+selected.size+' 個）':'');$('preview').disabled=busy||!data.files.length||!data.selected.target;$('latest').disabled=busy||!data.browsers?.source?.folder||!data.selected.target;$('open-target').disabled=busy||!data.selected.target;$('save-target').disabled=busy||!data.selected.target||(data.savedTargets||[]).includes(data.selected.target);$('save-target').textContent=(data.savedTargets||[]).includes(data.selected.target)?'★ 已儲存':'☆ 儲存目前位置';$('forget-target').disabled=busy||!$('targets').value;$('select-all').disabled=$('select-none').disabled=busy||!plan;
+  $('quick-target').disabled=busy||!data.savedTargets?.length;
   const p=tree?.page(expanded,page);$('prev').disabled=busy||!p||p.index===0;$('next').disabled=busy||!p||p.index>=p.last;
   for(const input of $('rows').querySelectorAll('input')){const rows=input.dataset.folder?members(input.dataset.folder):[plan?.rows.find(r=>r.id===input.dataset.id)].filter(Boolean);const allowed=rows.filter(eligible);input.disabled=busy||!plan||!allowed.length;const count=allowed.filter(r=>selected.has(r.id)).length;input.checked=Boolean(allowed.length)&&count===allowed.length;input.indeterminate=count>0&&count<allowed.length;}
   for(const kind of ['source','target']){const state=data.browsers?.[kind],count=browserRows(kind).length;$(kind+'-up').disabled=busy||!state?.canUp;$(kind+'-prev').disabled=busy||browserPages[kind]===0;$(kind+'-next').disabled=busy||browserPages[kind]>=Math.ceil(count/100)-1;}
@@ -85,7 +105,15 @@
  on('target',chooseTarget);
  on('change-target',chooseTarget);
  $('sources').addEventListener('change',()=>{if($('sources').value!=='')void runTask(async()=>{sync(await api.command('browse-source',Number($('sources').value)));status('已載入來源位置，請點選 ZIP。');});});
- $('targets').addEventListener('change',()=>{if($('targets').value!=='')void runTask(async()=>{const [kind,index]=$('targets').value.split(':');await compareSelection(await api.command(kind==='saved'?'select-saved-target':'select-target',Number(index)));});});
+ const switchTarget=(kind,index)=>runTask(async()=>compareSelection(await api.command(kind==='saved'?'select-saved-target':'select-target',index)));
+ $('targets').addEventListener('change',()=>{
+  if(!$('targets').value)return;
+  const [kind,index]=$('targets').value.split(':');void switchTarget(kind,Number(index));
+ });
+ $('quick-target').addEventListener('change',()=>{
+  const {value}=$('quick-target');$('quick-target').value='';
+  if(value!==''&&data.savedTargets[Number(value)]!==data.selected.target)void switchTarget('saved',Number(value));
+ });
  on('save-target',async()=>{sync(await api.command('save-target'));status('目前目標已儲存為常用位置；之後可從清單選取或移除。');});
  on('forget-target',async()=>{const [kind,index]=$('targets').value.split(':');sync(await api.command('forget-target',{kind,index:Number(index)}));status('已從位置清單移除；目前目標及實體資料夾保留。');});
  $('root').addEventListener('change',()=>void runTask(async()=>{

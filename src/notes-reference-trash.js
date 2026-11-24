@@ -9,15 +9,30 @@ function under(root, file) {
  const relative = path.relative(fileKey(root), fileKey(file));
  return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep));
 }
-function isDraftAsset(root, file) {
- if(!under(root, file)) return false;
- const parts = path.relative(fileKey(root), fileKey(file)).split(path.sep);
- // Copied attachments, pasted images and restored draft images use a draft ID directory.
- if(parts.length === 2) return ID.test(parts[0]);
+function draftAttachmentFolder(root, file) {
+ const folder = path.dirname(file);
+ return fileKey(path.dirname(folder)) === fileKey(root) && ID.test(path.basename(folder)) ? folder : null;
+}
+function isLegacyDraftImage(root, file) {
  // Older pasted images were stored directly in draft-images.
- if(parts.length !== 1) return false;
- const {name, ext} = path.parse(parts[0]);
+ if(fileKey(path.dirname(file)) !== fileKey(root)) return false;
+ const {name, ext} = path.parse(file);
  return ext.toLowerCase() === '.png' && (ID.test(name.replace(/-\d{6}$/, '')) || /^貼上的圖片 [1-9]\d{0,5}$/.test(name));
+}
+function cleanDraftFolders(folders, store, records, references) {
+ const activeDrafts = new Set(store.draftList().map(draft => draft.id.toLowerCase()));
+ for(const record of records) {
+  for(const link of record.fileLinks) if(link.type === 'folder') references.add(fileKey(link.path));
+ }
+ for(const folder of folders) {
+  if(activeDrafts.has(path.basename(folder).toLowerCase()) || references.has(fileKey(folder))) continue;
+  try {
+   assertLocalPath(folder);
+   fs.rmdirSync(folder);
+  } catch {
+   // Keep folders that still contain entries, changed on disk, or cannot be removed.
+  }
+ }
 }
 function snapshot(file) {
  assertLocalPath(file);
@@ -56,8 +71,9 @@ async function trashReferences({store, entries, includeDetails, revision, profil
     if(draftReferences.has(key)) throw Error('草稿仍有引用');
     if(favoritePaths.has(key)) throw Error('仍在「我的收藏」');
     const restoredFile = fileKey(path.dirname(file)) === fileKey(restoredAssets) && ID.test(path.parse(file).name);
-    if(under(profileRoot, file) && !under(workspaceImages, file) && !restoredFile && !isDraftAsset(draftAssets, file)) throw Error('受保護的應用程式資料');
-    targets.push({path:file, signature:snapshot(file)});
+    const draftFolder = draftAttachmentFolder(draftAssets, file);
+    if(under(profileRoot, file) && !under(workspaceImages, file) && !restoredFile && !draftFolder && !isLegacyDraftImage(draftAssets, file)) throw Error('受保護的應用程式資料');
+    targets.push({path:file, signature:snapshot(file), draftFolder});
    } catch(error) {
     const reason = error.code === 'ENOENT' ? '找不到檔案' : error.code === 'EACCES' || error.code === 'EPERM' ? '沒有存取權限' : error.message;
     skipped.push({path:link.path, reason});
@@ -65,7 +81,7 @@ async function trashReferences({store, entries, includeDetails, revision, profil
   }
  }
  if(targets.length > 30) throw Error('一次最多確認 30 個實際檔案，請分批選擇紀錄');
- if(!await confirm({paths:targets.map(item=>item.path), records:ids.size, skipped})) return {canceled:true};
+ if(!await confirm({paths:targets.map(item=>item.path), records:ids.size, skipped, hasDraftAttachments:targets.some(item=>item.draftFolder)})) return {canceled:true};
  if(store.get().revision !== revision) throw Error('紀錄已變更，請重新確認');
  const currentFavorites = protectedPaths(), currentDrafts = draftPaths();
  for(const target of targets){
@@ -77,6 +93,7 @@ async function trashReferences({store, entries, includeDetails, revision, profil
  }
  const result = store.batchTrash(entries, includeDetails, revision);
  const trashedPaths = [], failures = [];
+ const draftFolders = new Set();
  for(const target of targets) {
   try {
    if(store.get().revision !== result.revision || protectedPaths().has(fileKey(target.path)) || draftPaths().has(fileKey(target.path)) || snapshot(target.path) !== target.signature) {
@@ -84,10 +101,19 @@ async function trashReferences({store, entries, includeDetails, revision, profil
    }
    await trash(target.path);
    trashedPaths.push(target.path);
+   if(target.draftFolder) draftFolders.add(target.draftFolder);
   } catch(error) {
    failures.push(target.path + '：' + error.message);
   }
  }
- return {...store.get(), result:{...result.result, trashedPaths, skipped:skipped.length, failures}};
+ const finalState = store.get();
+ if(draftFolders.size) {
+  try {
+   cleanDraftFolders(draftFolders, store, finalState.document.records, new Set([...protectedPaths(), ...draftPaths()]));
+  } catch {
+   // If reference checks fail, retain the empty folders and report the completed recycle operation.
+  }
+ }
+ return {...finalState, result:{...result.result, trashedPaths, skipped:skipped.length, failures}};
 }
 module.exports = {trashReferences};
