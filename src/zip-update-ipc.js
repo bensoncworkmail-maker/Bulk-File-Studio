@@ -5,7 +5,7 @@ function existing(filepath){
 }
 function register({handle,root,downloads,dialog,parent,fileOperation,progress,openPath,locate,pickMenu}){
  const service=new ZipUpdate(path.join(root,'zip-updates'),{progress}),{FolderBrowser}=require('./zip-update-browser'),browsers={source:new FolderBrowser('source'),target:new FolderBrowser('target',{forbiddenRoot:service.root})};
- const state=()=>({...service.state(),browsers:{source:browsers.source.snapshot(),target:browsers.target.snapshot()}});
+ const state=()=>({...service.state(),batchLimit:MAX_BATCH,browsers:{source:browsers.source.snapshot(),target:browsers.target.snapshot()}});
  async function readLocation(kind,folder,keepRoot){
   const next=new FolderBrowser(kind,{forbiddenRoot:browsers[kind].forbiddenRoot});
   next.root=browsers[kind].root;

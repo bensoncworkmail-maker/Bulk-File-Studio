@@ -1332,10 +1332,18 @@ test('paste waits for the clipboard write, separates copy/paste failures and rej
 test('workspace image IPC saves PNG links with records, rolls back failed saves and rejects floating access',async t=>{
  const png=Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000b49444154789c636000020000050001a5f645400000000049454e44ae426082','hex'),h=harness(t,{nativeImage:{createFromBuffer:bytes=>({isEmpty:()=>false,toPNG:()=>bytes})}}),sheet=h.handlers.get('notes-template')().document.sheets[0];
  const data=h.handlers.get('notes-image-prepare')(null,png),input={sheetId:sheet.id,title:'Clipboard screenshot',notes:'Text with a screenshot',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[],pastedImages:[data]};
- let result=await h.handlers.get('notes-record-save')(null,input);const record=result.document.records[0],link=record.fileLinks[0],folder=path.dirname(link.path);assert.equal(link.label,'貼上的圖片');assert.equal(link.type,'file');assert.equal(h.handlers.get('notes-record-image')(null,record.id,0),data);assert.equal(fs.readdirSync(folder).length,1);
+ let result=await h.handlers.get('notes-record-save')(null,input);const record=result.document.records[0],link=record.fileLinks[0],folder=path.dirname(link.path);assert.equal(folder,path.join(h.dir,'workspace-files',sheet.id));assert.equal(link.label,'貼上的圖片');assert.equal(link.type,'file');assert.equal(h.handlers.get('notes-record-image')(null,record.id,0),data);assert.equal(fs.readdirSync(folder).length,1);
  await assert.rejects(async()=>h.handlers.get('notes-record-save')(null,{...input,id:record.id,expectedVersion:record.version+1,keepUnlinked:[link.path]}),/變更/);assert.equal(fs.readdirSync(folder).length,1);assert.equal(h.handlers.get('notes-get')().document.records[0].fileLinks.length,1);
  h.handlers.get('floating-show')();const floating=h.windows[1],event={sender:floating.webContents,senderFrame:{url:floating.url}};assert.throws(()=>h.rawHandlers.get('notes-image-prepare')(event,png),/不受信任/);assert.throws(()=>h.rawHandlers.get('notes-record-image')(event,record.id,0),/不受信任/);
  result=await h.handlers.get('notes-record-save')(null,{...input,id:record.id,expectedVersion:record.version,pastedImages:[],keepUnlinked:[]});assert.equal(result.document.records[0].fileLinks.length,0);assert.equal(fs.existsSync(link.path),true);assert.throws(()=>h.handlers.get('notes-record-image')(null,record.id,0),/不存在/);
+ const otherSheet=h.handlers.get('notes-sheet-save')(null,{name:'Another image table',fields:[]}).result.id;
+ const oldImage=path.join(h.dir,'workspace-images','original.png');
+ fs.mkdirSync(path.dirname(oldImage));fs.writeFileSync(oldImage,png);
+ const different=await h.handlers.get('notes-record-save')(null,{...input,sheetId:otherSheet,directPaths:[oldImage]});
+ const newer=different.document.records.find(row=>row.id===different.result.id);
+ assert.equal(path.dirname(newer.fileLinks[1].path),path.join(h.dir,'workspace-files',otherSheet));
+ assert.equal(h.handlers.get('notes-record-image')(null,newer.id,0),data);
+ assert.equal(h.handlers.get('notes-record-image')(null,newer.id,1),data);
 });
 
 test('record and reference file recycling uses the native second confirmation and protects shared files', async t=>{
@@ -1418,36 +1426,48 @@ test('workspace recycle explains retained paths and offers record-only confirmat
 test('workspace drop transfers commit destination links and remove originals only after a confirmed move',async t=>{
  const h=harness(t),root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-workspace-drop-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- const source=path.join(root,'source'),target=path.join(root,'target'),folder=path.join(source,'documents');
- fs.mkdirSync(folder,{recursive:true});fs.mkdirSync(target);
+ const source=path.join(root,'source'),folder=path.join(source,'documents');
+ fs.mkdirSync(folder,{recursive:true});
  const file=path.join(source,'example.pdf'),related=path.join(source,'linked.txt');
  fs.writeFileSync(file,'source');fs.writeFileSync(related,'link');
- fs.writeFileSync(path.join(folder,'nested.txt'),'inside');fs.writeFileSync(path.join(target,'example.pdf'),'existing');
- let cancelPicker=true,pickedTarget=target,confirm=0;
- h.dialog.showOpenDialog=async()=>({canceled:cancelPicker,filePaths:[pickedTarget]});
- h.dialog.showMessageBox=async(_,options)=>{assert.equal(options.defaultId,0);assert.ok(options.detail.includes(target));return {response:confirm};};
+ fs.writeFileSync(path.join(folder,'nested.txt'),'inside');
  const sheetId=h.handlers.get('notes-sheet-save')(null,{name:'Dropped files',fields:[]}).result.id;
- const save=(mode,paths,title='Transfer')=>h.handlers.get('notes-record-save')(null,{sheetId,title,notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[related],fileTransfer:{mode,paths}});
- assert.equal((await save('copy',[file])).canceled,true);
- cancelPicker=false;
+ const otherSheet=h.handlers.get('notes-sheet-save')(null,{name:'Different table',fields:[]}).result.id;
+ const target=path.join(h.dir,'workspace-files',sheetId),otherTarget=path.join(h.dir,'workspace-files',otherSheet);
+ fs.mkdirSync(target,{recursive:true});fs.writeFileSync(path.join(target,'example.pdf'),'existing');
+ let confirm=0;
+ h.dialog.showOpenDialog=async()=>assert.fail('managed transfers should not open a picker');
+ h.dialog.showMessageBox=async(_,options)=>{assert.equal(options.defaultId,0);assert.ok(options.detail.includes(target));return {response:confirm};};
+ const save=(mode,paths,title='Transfer',tableId=sheetId,edit={})=>h.handlers.get('notes-record-save')(null,{sheetId:tableId,title,notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[related],fileTransfer:{mode,paths},...edit});
  assert.equal((await save('move',[folder])).canceled,true);
  assert.equal(h.handlers.get('notes-get')().document.records.length,0);
  assert.equal(fs.existsSync(path.join(target,'documents')),false);
- pickedTarget=folder;
- await assert.rejects(save('copy',[folder]),/來源資料夾內/);
- pickedTarget=target;
+ await assert.rejects(save('copy',[target]),/程式資料目錄以外/);
+ await assert.rejects(save('copy',[file],'Transfer','other-path'),/表格已刪除/);
  await assert.rejects(save('copy',[file],''),/標題/);
  assert.deepEqual(fs.readdirSync(target),['example.pdf']);
  const copy=await save('copy',[file]);
  assert.deepEqual(copy.document.records[0].fileLinks.map(link=>link.path),[related,path.join(target,'example (2).pdf')]);
  assert.equal(fs.readFileSync(path.join(target,'example.pdf'),'utf8'),'existing');
  assert.equal(fs.readFileSync(file,'utf8'),'source');
+ const isolated=await save('copy',[file],'Second table',otherSheet);
+ const isolatedRecord=isolated.document.records.find(row=>row.id===isolated.result.id);
+ assert.equal(isolatedRecord.fileLinks[1].path,path.join(otherTarget,'example.pdf'));
+ const first=copy.document.records[0];
+ const edit=await save('copy',[file],'Edit original',otherSheet,{id:first.id,expectedVersion:first.version});
+ assert.equal(edit.document.records.find(row=>row.id===first.id).fileLinks[1].path,path.join(target,'example (3).pdf'));
  confirm=1;
  const move=await save('move',[folder]);
  const record=move.document.records.find(row=>row.id===move.result.id);
  assert.deepEqual(record.fileLinks.map(link=>link.path),[related,path.join(target,'documents')]);
  assert.equal(fs.existsSync(folder),false);
  assert.equal(fs.readFileSync(path.join(target,'documents','nested.txt'),'utf8'),'inside');
+ const recycled=[];
+ h.shell.trashItem=async value=>recycled.push(value);
+ h.dialog.showMessageBox=async()=>({response:0});
+ const current=h.handlers.get('notes-get')();
+ await h.handlers.get('notes-trash-references')(null,[{id:isolatedRecord.id,version:isolatedRecord.version}],false,current.revision);
+ assert.deepEqual(recycled,[path.join(otherTarget,'example.pdf')]);
 });
 
 test('workspace recycles a draft image after references are removed and retains other app data',async t=>{
