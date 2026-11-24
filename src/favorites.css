@@ -214,3 +214,4 @@
 .everything-tracking-table .everything-inline-rename{width:100%;min-width:0;flex:1;margin:0;padding:3px 5px;border:1px solid var(--accent);border-radius:4px;background:var(--panel);color:var(--text);font:inherit;box-sizing:border-box;user-select:text}
 .everything-tracking-table .everything-inline-rename-error{display:block;white-space:normal;color:var(--danger,var(--bad));font-size:.9em;line-height:1.4}
 .everything-inline-rename-error:empty{display:none}
+.workspace-favorite-bulk>select{width:auto;max-width:160px;height:28px}

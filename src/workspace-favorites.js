@@ -5,6 +5,9 @@
  const types={record:'紀錄',master:'主表',detail:'明細表',table:'一般表格'};
  const key=item=>item.kind+':'+item.id;
  let kind='files',defaultKind,items=[],visible=[],callbacks,request=0,loading=false,saving=false,editing=null,managing=null,activeTag=null;
+ const sortKey=tag=>tag===null?'all':tag===''?'untagged':'tag:'+tag;
+ const defaultSort={column:'default',direction:'asc'};
+ const collator=new Intl.Collator('zh-Hant',{numeric:true,sensitivity:'base'});
  const selected=new Set();let shownLimit=200;
  function node(tag,text,className){
   const item=document.createElement(tag);
@@ -168,6 +171,13 @@
   saving=true;for(const control of $('workspace-favorite-manage-dialog').querySelectorAll('button,input'))control.disabled=true;render();
   try{
    const result=await api.manageBookmarkTag(session.name,replacement,session.count);
+   const sorts={...window.settingsUI.get().workspaceFavoriteSorts},prior=sortKey(session.key);
+   if(sorts[prior]){
+    const next=replacement===null?null:sortKey(replacement.toLocaleLowerCase());
+    if(next&&next!==prior&&!sorts[next])sorts[next]=sorts[prior];
+    if(next!==prior)delete sorts[prior];
+    window.settingsUI.update({workspaceFavoriteSorts:sorts});
+   }
    if(activeTag===session.key)activeTag=replacement===null?null:replacement.toLocaleLowerCase();
    $('workspace-favorite-manage-dialog').close();await refresh();callbacks.showToast('已更新 '+result.updated+' 項收藏的標籤');
   }catch(error){$('workspace-favorite-manage-error').textContent=String(error.message||error);}
@@ -208,6 +218,17 @@
   visible=data.filter(item=>(state==='all'||(state==='saved'?item.saved:state==='tracked'?(item.tracked||item.followRecords):!item.saved&&item.logPinned))&&(type==='all'||item.type===type)&&
    (activeTag===null||(activeTag===''?!item.tags.length:item.tags.some(tag=>tag.toLocaleLowerCase()===activeTag)))&&
    (!query||[item.title,item.context||'',...(item.masters||[]).flatMap(master=>[master.title,...master.values]),...item.tags].some(value=>value.toLocaleLowerCase().includes(query))));
+  const sort=settings.workspaceFavoriteSorts?.[sortKey(activeTag)]||defaultSort;
+  $('workspace-favorite-sort').value=sort.column;
+  const direction=$('workspace-favorite-direction');
+  direction.disabled=sort.column==='default';
+  direction.textContent=sort.direction==='asc'?'↑ 升冪':'↓ 降冪';
+  if(sort.column!=='default')visible.sort((a,b)=>{
+   const value=item=>sort.column==='type'?types[item.type]:item[sort.column];
+   const left=value(a),right=value(b);
+   if(!left||!right)return Number(!left)-Number(!right);
+   return collator.compare(left,right)*(sort.direction==='desc'?-1:1);
+  });
   const shown=new Set(visible.map(key));for(const id of selected)if(!shown.has(id))selected.delete(id);
   const chosen=selectedItems(),all=$('workspace-favorite-select-all');
   all.checked=visible.length>0&&chosen.length===visible.length;all.indeterminate=chosen.length>0&&!all.checked;all.disabled=saving||loading||!visible.length;
@@ -270,6 +291,19 @@
   }
   window.sidebarResize.initFavoritesWorkspace({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>saving||callbacks.isBusy()});
   const refilter=()=>{shownLimit=200;$('workspace-favorite-list').scrollTop=0;render();};
+  function saveSort(column,direction){
+   const settings=window.settingsUI.get();
+   window.settingsUI.update({workspaceFavoriteSorts:{...settings.workspaceFavoriteSorts,[sortKey(activeTag)]:{column,direction}}});
+   refilter();
+  }
+  $('workspace-favorite-sort').addEventListener('change',event=>{
+   const column=event.target.value;
+   saveSort(column,['addedAt','updatedAt'].includes(column)?'desc':'asc');
+  });
+  $('workspace-favorite-direction').addEventListener('click',()=>{
+   const sort=window.settingsUI.get().workspaceFavoriteSorts?.[sortKey(activeTag)];
+   if(sort&&sort.column!=='default')saveSort(sort.column,sort.direction==='asc'?'desc':'asc');
+  });
   $('workspace-favorite-state').addEventListener('change',refilter);
   $('workspace-favorite-type').addEventListener('change',refilter);$('workspace-favorite-search').addEventListener('input',refilter);
   $('workspace-favorite-select-all').addEventListener('change',event=>{for(const item of visible)event.target.checked?selected.add(key(item)):selected.delete(key(item));render();});

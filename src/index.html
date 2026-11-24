@@ -94,8 +94,8 @@
         <div id="home-widgets" class="home-widgets"></div>
       </section>
     <section id="zip-update-page" class="zip-update-page hidden" aria-labelledby="zip-update-title">
-      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>選擇 ZIP、比較目的地，確認後備份並套用。</p></div><button id="zip-update-refresh" type="button" class="btn btn-ghost">重新整理位置清單</button></header>
-      <nav class="zip-update-steps" aria-label="ZIP 更新步驟"><button id="zip-update-go-setup" type="button" class="btn btn-ghost">① 選擇 ZIP 與目標</button><span id="zip-update-flow-hint">選好來源與目標後，按下方「比較檔案」。</span><button id="zip-update-go-compare" type="button" class="btn btn-ghost">② 比較與套用</button><button id="zip-update-go-history" type="button" class="btn btn-ghost">更新結果／還原</button></nav>
+      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>選擇 ZIP、比較目的地，確認後備份並套用。</p></div><div class="zip-update-actions"><button id="zip-update-latest" type="button" class="btn btn-primary" disabled>比較最新 ZIP</button><button id="zip-update-refresh" type="button" class="btn btn-ghost">重新整理位置清單</button></div></header>
+      <nav class="zip-update-steps" aria-label="ZIP 更新步驟"><button id="zip-update-go-setup" type="button" class="btn btn-ghost">① 選擇 ZIP 與目標</button><span id="zip-update-flow-hint">選好來源與目標後會自動比較。</span><button id="zip-update-go-compare" type="button" class="btn btn-ghost">② 比較與套用</button><button id="zip-update-go-history" type="button" class="btn btn-ghost">更新結果／還原</button></nav>
       <div class="zip-update-scroll">
         <div id="zip-update-drop" class="zip-update-drop" tabindex="0">拖放 ZIP 至此，或使用下方「選擇 ZIP」</div>
         <details id="zip-update-setup" class="zip-update-setup" open><summary>來源與目標位置 <span id="zip-update-setup-summary"></span></summary><div class="zip-update-sources">
@@ -108,7 +108,7 @@
         <div class="zip-update-pager"><button id="zip-update-prev" class="btn btn-ghost">上一頁</button><span id="zip-update-pagination"></span><button id="zip-update-next" class="btn btn-ghost">下一頁</button></div>
         </section><details id="zip-update-history-panel" class="zip-update-history"><summary>最近更新與還原</summary><p class="notes-hint">覆寫前保留原檔。還原時，更新後再次修改的檔案會保留並列出衝突。</p><div id="zip-update-history"></div></details>
       </div>
-      <footer class="zip-update-footer"><p id="zip-update-status" role="status" aria-live="polite"></p><button id="zip-update-preview" class="btn btn-secondary">比較檔案</button><button id="zip-update-cancel" class="btn btn-secondary" hidden>停止後續項目</button><button id="zip-update-apply" class="btn btn-primary" disabled>確認套用</button></footer>
+      <footer class="zip-update-footer"><p id="zip-update-status" role="status" aria-live="polite"></p><button id="zip-update-preview" class="btn btn-secondary">重新比較</button><button id="zip-update-cancel" class="btn btn-secondary" hidden>停止後續項目</button><button id="zip-update-apply" class="btn btn-primary" disabled>確認套用</button></footer>
     </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
         <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>按需要使用情境、範本、追蹤、OCR 或備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
@@ -1660,7 +1660,9 @@
               <select id="workspace-favorite-state" aria-label="收藏與釘選狀態"><option value="all">收藏與釘選</option><option value="saved">已收藏</option><option value="pinned">僅釘選</option><option value="tracked">整表同步</option></select>
               <select id="workspace-favorite-type" aria-label="工作區收藏類型"><option value="all">全部類型</option><option value="record">紀錄</option><option value="master">主表</option><option value="detail">明細表</option><option value="table">一般表格</option></select>
             </header>
-            <div class="workspace-favorite-bulk" aria-label="批次收藏操作">
+            <div class="workspace-favorite-bulk" aria-label="排序及批次收藏操作">
+              <select id="workspace-favorite-sort" aria-label="目前標籤的排序欄位"><option value="default">預設順序</option><option value="title">名稱</option><option value="updatedAt">最後修改</option><option value="addedAt">加入收藏時間</option><option value="context">所屬群組／表格</option><option value="type">類型</option></select>
+              <button id="workspace-favorite-direction" type="button" class="btn btn-ghost" aria-label="切換目前標籤的排序方向" disabled>↑ 升冪</button>
               <label class="check-row"><input id="workspace-favorite-select-all" type="checkbox">全選篩選結果</label>
               <span id="workspace-favorite-selected" role="status">已選 0 項</span>
               <button id="workspace-favorite-bulk-tags" type="button" class="btn btn-ghost" disabled>加入標籤</button>
@@ -2727,6 +2729,10 @@
         <input id="notes-delete-details" type="checkbox">
         <span>連同所選主紀錄的明細一起移至回收筒（共用明細會保留）</span>
       </label>
+      <label id="notes-delete-file-option" class="check-row" hidden>
+        <input id="notes-delete-files" type="checkbox">
+        <span>一併回收引用的實際檔案（下一步確認路徑）</span>
+      </label>
       <div class="modal-buttons">
         <button id="notes-confirm-cancel" class="btn btn-secondary">取消</button>
         <button id="notes-confirm-apply" class="btn btn-primary">確認</button>
@@ -2835,6 +2841,6 @@
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul><button id="operation-cancel-move" hidden type="button" class="btn btn-ghost">取消尚未套用的搬移</button><small>開始套用路徑後會完成整批；取消會在安全檢查點生效。</small></dialog>
 <script src="workflow-guide-model.js" defer></script><script src="workflow-hub.js" defer></script><dialog id="app-context-dialog" aria-labelledby="app-context-title"><div class="app-context-heading"><h2 id="app-context-title">工作情境</h2><button id="app-context-close" type="button">關閉</button></div><div id="desktop-context-icon" class="desktop-icon"><span class="icon-drag" title="拖曳邊緣移動">⠿</span><button id="icon-open" aria-label="展開桌面工作情境" title="工作情境：懸停展開，點擊操作">▦</button></div>
 <main id="desktop-context-panel" hidden><header class="desktop-header"><strong>工作情境</strong><button id="desktop-pin" aria-pressed="false" title="固定展開（與置頂分開）" aria-label="固定展開">固定</button><button id="desktop-icon-mode" title="收成桌面圖示">▣</button><button id="desktop-hide" aria-label="隱藏桌面工作情境" title="隱藏（可從浮動工具或系統匣叫回）">×</button></header>
-<div class="desktop-content"><label for="desktop-select">目前情境</label><select id="desktop-select" disabled><option value="">載入中…</option></select><p id="desktop-current"></p><div class="desktop-toolbar"><label class="topmost"><input id="desktop-topmost" type="checkbox" checked>保持置頂</label><button id="desktop-refresh">重新整理</button><button id="desktop-manage">管理情境</button></div><details class="context-display"><summary>顯示選項</summary><label><input id="desktop-keep-open" type="checkbox">保持展開</label><label>圖示大小（24–64px）<input id="desktop-icon-size" type="number" min="24" max="64" step="1" value="32"></label><button id="desktop-icon-save">套用大小</button><button id="desktop-icon-toolbar">桌面圖示</button><button id="desktop-toolbar-mode">面板模式</button><button id="desktop-compact">重設面板大小</button></details><p id="desktop-status" role="status" aria-live="polite"></p><section id="desktop-resources" aria-label="常用資源"></section><section id="desktop-detail" aria-label="資源內容" hidden></section><p class="desktop-hint">切換只預選資料，不改動搜尋與日曆範圍。懸停不會切換情境。</p></div></main>
+<div class="desktop-content"><label for="desktop-select">目前情境</label><select id="desktop-select" disabled><option value="">載入中…</option></select><p id="desktop-current"></p><div class="desktop-toolbar"><label class="topmost"><input id="desktop-topmost" type="checkbox" checked>保持置頂</label><button id="desktop-refresh">重新整理</button><button id="desktop-manage">管理情境</button></div><details class="context-display"><summary>顯示選項</summary><label><input id="desktop-keep-open" type="checkbox">保持展開</label><label>圖示大小（24–64px）<input id="desktop-icon-size" type="number" min="24" max="64" step="1" value="32"></label><button id="desktop-icon-save">套用大小</button><button id="desktop-icon-toolbar">桌面圖示</button><button id="desktop-toolbar-mode">面板模式</button><button id="desktop-compact">重設面板大小</button></details><p id="desktop-status" role="status" aria-live="polite"></p><input id="desktop-resource-search" class="context-resource-search" type="search" aria-label="搜尋目前情境的資源" placeholder="搜尋情境資源…" hidden><section id="desktop-resources" aria-label="常用資源"></section><section id="desktop-detail" aria-label="資源內容" hidden></section><p class="desktop-hint">切換只預選資料，不改動搜尋與日曆範圍。懸停不會切換情境。</p></div></main>
 </dialog><script src="everything-result-columns.js" defer></script><script src="desktop-context-files.js" defer></script><script src="desktop-context-ui.js" defer></script><script src="floating-tool-layout.js" defer></script><script src="floating-tools-settings.js" defer></script><script src="floating-clipboard-ui.js" defer></script><script src="floating-tool-views.js" defer></script><script src="floating-main-tool.js" defer></script><script src="app-context-host.js" defer></script><dialog id="floating-main-tool-dialog" class="modal"><header><h2 id="floating-main-tool-title"></h2><button id="floating-main-tool-close" class="btn btn-ghost">關閉</button></header><section id="floating-main-tool-content"></section></dialog></body>
 </html>

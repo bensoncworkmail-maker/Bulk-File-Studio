@@ -3,6 +3,7 @@ const fs=require('node:fs'),fsp=fs.promises,path=require('node:path'),{randomUUI
 const inside=(root,file)=>{const rel=path.relative(root,file);return rel===''||rel!=='..'&&!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel);};
 class FolderBrowser{
  constructor(kind,{forbiddenRoot}={}){this.kind=kind;this.forbiddenRoot=forbiddenRoot;this.root='';this.folder='';this.rows=[];this.entries=new Map();this.version=0;}
+ clear(){this.root='';this.folder='';this.rows=[];this.entries.clear();this.truncated=false;this.version++;}
  check(folder){assertLocalPath(folder);if(this.kind==='target'&&this.forbiddenRoot&&inside(this.forbiddenRoot,folder))throw Error('請選擇應用程式資料以外的目標');if(!fs.statSync(folder).isDirectory())throw Error('資料夾不存在');}
  select(folder,{keepRoot=false}={}){this.check(folder);folder=path.resolve(folder);if(!keepRoot||!this.root||!inside(this.root,folder))this.root=folder;this.folder=folder;this.rows=[];this.entries.clear();this.version++;}
  parent(){if(!this.folder)throw Error('請先選擇資料夾');return this.folder===this.root?this.root:path.dirname(this.folder);}
