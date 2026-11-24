@@ -91,6 +91,9 @@ class NotesStore {
  draftList(){
   return this.db.prepare("SELECT id, updated_at AS updatedAt, json_extract(data,'$.title') AS title, substr(CASE WHEN trim(json_extract(data,'$.body'))='' THEN COALESCE(json_extract(data,'$.items[0].label'),'') ELSE json_extract(data,'$.body') END,1,80) AS summary FROM note_drafts ORDER BY updated_at DESC, rowid DESC").all();
  }
+ draftAttachmentPaths(){
+  return this.db.prepare("SELECT json_extract(attachment.value,'$.path') AS path FROM note_drafts, json_each(data,'$.attachments') AS attachment WHERE json_type(attachment.value,'$.path')='text'").all().map(item=>item.path);
+ }
  draft(id){
   model.id(id);
   const row=this.db.prepare('SELECT version, updated_at AS updatedAt, data FROM note_drafts WHERE id=?').get(id);
