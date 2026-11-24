@@ -543,11 +543,12 @@ app.whenReady().then(() => {
     const result=await require('./notes-reference-trash').trashReferences({
       store:notesStore(),entries,includeDetails,revision,profileRoot:app.getPath('userData'),
       favorites:()=>favorites.read().items,trash:filepath=>shell.trashItem(filepath),
-      confirm:async({paths,records,skipped})=>{
+      confirm:async({paths,records,skipped,hasDraftAttachments})=>{
         const retained=skipped.slice(0,8).map(({path,reason})=>reason+'：'+path);
         if(skipped.length>retained.length)retained.push('另有 '+(skipped.length-retained.length)+' 個位置保留。');
         const details=[];
         if(paths.length)details.push(paths.join('\n'),'如需還原原檔，請使用系統資源回收筒。');
+        if(hasDraftAttachments)details.push('已無使用且清空的草稿附件資料夾會一併清理。');
         if(retained.length)details.push('保留 '+skipped.length+' 個位置：\n'+retained.join('\n'));
         const choice=await dialog.showMessageBox(win,{
           type:'warning',

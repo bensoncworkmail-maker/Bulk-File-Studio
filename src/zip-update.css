@@ -20,4 +20,6 @@
 .zip-update-warning{margin:0 0 8px;padding:8px 10px;border:1px solid var(--line);border-inline-start:4px solid var(--warning,var(--amber,#ac7130));border-radius:8px;background:var(--surface);font-size:12px;line-height:1.5}
 
 .zip-update-primary-actions{justify-content:flex-end}
+.zip-update-footer .zip-update-quick-target{display:block;width:calc(104px * var(--font-scale,1));max-width:100%;flex:0 0 auto;cursor:pointer}
+.zip-update-footer .zip-update-quick-target:disabled{cursor:not-allowed;opacity:.47}
 @media(max-width:800px){.zip-update-primary-actions{width:100%}}
