@@ -59,3 +59,51 @@ test('footer quick switch lists saved locations and rebuilds the comparison for 
  await h.click('forget-target');
  assert.equal(quick.disabled,true);
 });
+
+test('ZIP panel handles remember mouse and keyboard changes independently',async()=>{
+ const prefs={},h=fixture(prefs),handle=(kind,ui=h)=>ui.$('page').querySelector('[data-zip-resize="'+kind+'"]');
+ const source=handle('source');source.setPointerCapture=()=>{};
+ await source.dispatch('pointerdown',{button:0,pointerId:1,clientY:300});
+ await source.dispatch('pointermove',{pointerId:1,clientY:364});
+ assert.equal(source.getAttribute('aria-valuenow'),'244');
+ assert.equal(prefs.zipUpdateView,undefined);
+ await source.dispatch('pointerup',{pointerId:1});
+ await handle('target').dispatch('keydown',{key:'ArrowUp'});
+ await handle('compare').dispatch('keydown',{key:'ArrowDown'});
+ await handle('split').dispatch('keydown',{key:'ArrowRight'});
+ const reopened=fixture(prefs);
+ for(const [kind,value] of [['source',244],['target',164],['compare',316],['split',52]])assert.equal(handle(kind,reopened).getAttribute('aria-valuenow'),String(value));
+ await handle('target',reopened).dispatch('dblclick');
+ assert.equal(prefs.zipUpdateView.layout.target,180);
+ assert.equal(prefs.zipUpdateView.layout.source,244);
+});
+
+test('ZIP source, target and comparison rows dispatch their own menu selection',async()=>{
+ const h=fixture();h.window.zipUpdateUI.open();await flush();
+ const row=(kind,text)=>h.$(kind+'-browser-rows').querySelectorAll('tr').find(tr=>tr.textContent.includes(text));
+ await row('source','patch.zip').dispatch('contextmenu');await flush();
+ assert.equal(h.calls.at(-1)[1].id,'archive');assert.equal(h.calls.at(-1)[1].panel,'source');
+ await row('target','existing.dart').dispatch('keydown',{key:'F10',shiftKey:true});await flush();
+ assert.equal(h.calls.at(-1)[1].kind,'file');assert.equal(h.calls.at(-1)[1].panel,'target');
+ await h.compare();h.finish();await flush();
+ await h.$('rows').querySelector('tr').dispatch('contextmenu');await flush();
+ assert.equal(h.calls.at(-1)[1].folder,'els1104');assert.equal(h.calls.at(-1)[1].target,'C:\\learning');
+});
+
+test('ZIP drop notice is visible only during an external file drag',async()=>{
+ const h=fixture(),page=h.$('page'),drop=h.$('drop');
+ const dataTransfer={types:['Files'],files:[{name:'plain.txt'}]};
+ assert.equal(drop.hidden,true);
+ await page.dispatch('dragover',{dataTransfer:{types:['text/plain']}});
+ assert.equal(drop.hidden,true);
+ await page.dispatch('dragenter',{dataTransfer});
+ assert.equal(drop.hidden,false);
+ await page.dispatch('dragleave',{dataTransfer,relatedTarget:h.$('choose')});
+ assert.equal(drop.hidden,false);
+ await page.dispatch('dragleave',{dataTransfer,relatedTarget:null});
+ assert.equal(drop.hidden,true);
+ await page.dispatch('dragover',{dataTransfer});
+ await page.dispatch('drop',{dataTransfer});
+ assert.equal(drop.hidden,true);
+ assert.match(h.$('status').textContent,/一個 ZIP/);
+});
