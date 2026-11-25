@@ -3,8 +3,39 @@ const path=require('node:path'),fs=require('node:fs'),{ZipUpdate,MAX_BATCH,withi
 function existing(filepath){
  try{return fs.lstatSync(filepath);}catch(error){if(error.code!=='ENOENT')throw error;return null;}
 }
-function register({handle,root,downloads,dialog,parent,fileOperation,progress,openPath,locate,pickMenu}){
+function register({handle,root,downloads,dialog,parent,fileOperation,progress,openPath,locate,pickMenu,trash,onTrashed,tracking}){
  const service=new ZipUpdate(path.join(root,'zip-updates'),{progress}),{FolderBrowser}=require('./zip-update-browser'),browsers={source:new FolderBrowser('source'),target:new FolderBrowser('target',{forbiddenRoot:service.root})};
+ let lockedZip,batchTarget='',lastBatchTarget='';
+ const batchTargetState=()=>{
+  if(!batchTarget){
+   const remembered=service.history.batchTarget;
+   if(remembered)try{validateBatchTarget(remembered);batchTarget=remembered;}catch{}
+  }
+  return {target:batchTarget,savedTargets:[...service.history.savedTargets],batchLimit:MAX_BATCH};
+ };
+ function validateBatchTarget(folder){
+  assertLocalPath(folder);
+  if(within(root,folder)||!fs.statSync(folder).isDirectory())throw Error('請選擇應用程式資料以外的目標資料夾');
+  return path.resolve(folder);
+ }
+ function setBatchTarget(folder){
+  batchTarget=validateBatchTarget(folder);
+  service.history.batchTarget=batchTarget;service.save();
+  return batchTargetState();
+ }
+ function batchSources(paths){
+  if(!Array.isArray(paths)||!paths.length||paths.length>MAX_BATCH)throw Error(`請選擇 1–${MAX_BATCH} 個 ZIP 檔案`);
+  const rows=[],errors=[];
+  for(const input of paths){
+   try{
+    assertLocalPath(input);
+    const file=path.resolve(input),stat=fs.lstatSync(file);
+    if(!/\.zip$/i.test(file)||!stat.isFile()||within(root,file))throw Error('請選擇應用程式資料以外的 ZIP 檔案');
+    rows.push({path:file,name:path.basename(file),size:stat.size,modifiedMs:stat.mtimeMs,type:'file'});
+   }catch(error){errors.push((typeof input==='string'?input:'')+'：'+(error.code==='ENOENT'?'找不到 ZIP 檔案':error.message));}
+  }
+  return {rows,errors};
+ }
  const state=()=>({...service.state(),batchLimit:MAX_BATCH,browsers:{source:browsers.source.snapshot(),target:browsers.target.snapshot()}});
  async function readLocation(kind,folder,keepRoot){
   const next=new FolderBrowser(kind,{forbiddenRoot:browsers[kind].forbiddenRoot});
@@ -13,9 +44,15 @@ function register({handle,root,downloads,dialog,parent,fileOperation,progress,op
   await next.read();
   return next;
  }
- async function loadZip(filename,listing){
+ async function loadZip(filename,listing,password){
+  lockedZip=null;
   const next=listing||await readLocation('source',path.dirname(filename),true);
-  await service.openZip(filename);
+  try{await service.openZip(filename,password);}
+  catch(error){
+   if(error.code!=='ZIP_PASSWORD')throw error;
+   lockedZip={filename,listing:next};
+   return {passwordRequired:true,name:path.basename(filename),message:error.message};
+  }
   browsers.source=next;
   return state();
  }
@@ -96,31 +133,56 @@ function register({handle,root,downloads,dialog,parent,fileOperation,progress,op
    const defaultPath=value===undefined?(browsers.source.folder||service.history.sourceFolders[0]||downloads):index(service.history.sourceFolders,value),r=await choose({title:'選擇要更新的 ZIP',defaultPath,properties:['openFile'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});return r.canceled?{canceled:true}:loadZip(r.filePaths[0]);
   }
   if(action==='drop-zip')return loadZip(value);
-  if(['batch-extract','batch-drop'].includes(action))return fileOperation(async()=>{
-   let paths=value;
-   if(action==='batch-extract'){
-    if(!Array.isArray(value)||value.length>MAX_BATCH)throw Error(`每次最多選取 ${MAX_BATCH} 個 ZIP 檔案`);
-    if(value.length)paths=value.map(id=>browsers.source.resolve(id,'zip'));
-    else{
-     const picked=await choose({title:'選擇要批次解壓的 ZIP',defaultPath:browsers.source.folder||downloads,properties:['openFile','multiSelections'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});
-     if(picked.canceled)return {canceled:true};
-     paths=picked.filePaths;
-    }
-   }
-   if(!Array.isArray(paths)||!paths.length||paths.length>MAX_BATCH)throw Error(`請選擇 1–${MAX_BATCH} 個 ZIP 檔案`);
-   let folder=service.selected.target;
-   if(!folder){
-    const picked=await choose({title:'選擇批次解壓的目標資料夾',properties:['openDirectory','createDirectory']});
-    if(picked.canceled)return {canceled:true};
-    folder=picked.filePaths[0];
-   }
-   assertLocalPath(folder);
-   if(within(root,folder))throw Error('請選擇應用程式資料以外的目標資料夾');
-   const rows=service.batchPlan(paths,folder);
-   const detail=[folder,'同名資料夾會加上編號，每個 ZIP 各自解壓。',...rows.map(row=>`${path.basename(row.archive)} → ${path.basename(row.destination)}`)].join('\n');
-   const confirmation=await dialog.showMessageBox(parent(),{type:'question',title:'批次解壓到各自資料夾',message:`解壓 ${rows.length} 個 ZIP？`,detail,buttons:['解壓','取消'],defaultId:1,cancelId:1,noLink:true});
-   if(confirmation.response!==0)return {canceled:true};
-   return service.extractBatch(rows);
+  if(action==='unlock-zip'){
+   if(!lockedZip||typeof value!=='string'||!value||value.length>1024)throw Error('請輸入有效的 ZIP 密碼');
+   const {filename,listing}=lockedZip;lockedZip=null;
+   return loadZip(filename,listing,value);
+  }
+  if(action==='skip-zip-password'){lockedZip=null;return {canceled:true};}
+  if(action==='batch-state')return batchTargetState();
+  if(action==='batch-choose-files'){
+   const picked=await choose({title:'選擇要解壓的 ZIP',defaultPath:browsers.source.folder||downloads,properties:['openFile','multiSelections'],filters:[{name:'ZIP 壓縮檔',extensions:['zip']}]});
+   return picked.canceled?{canceled:true}:batchSources(picked.filePaths);
+  }
+  if(action==='batch-add-paths')return batchSources(value);
+  if(action==='batch-add-tracking'){
+   if(!Array.isArray(value?.indices)||!value.indices.length||value.indices.length>MAX_BATCH)throw Error('請勾選 ZIP 檔案');
+   return batchSources(tracking().selection(value.id,value.token,value.indices).paths);
+  }
+  if(action==='batch-choose-target'){
+   const picked=await choose({title:'選擇解壓目標資料夾',defaultPath:batchTargetState().target||undefined,properties:['openDirectory','createDirectory']});
+   return picked.canceled?{canceled:true}:setBatchTarget(picked.filePaths[0]);
+  }
+  if(action==='batch-select-target')return setBatchTarget(index(service.history.savedTargets,value));
+  if(action==='batch-save-target'){service.saveTarget(validateBatchTarget(batchTarget));return batchTargetState();}
+  if(action==='batch-preview'){
+   const {rows,errors}=batchSources(value?.paths);
+   if(errors.length)throw Error(errors.join('\n'));
+   return service.previewBatch([...new Map(rows.map(row=>[process.platform==='win32'?row.path.toLowerCase():row.path,row.path])).values()],validateBatchTarget(batchTarget),value?.mode);
+  }
+  if(action==='batch-run')return fileOperation(async()=>{
+   const result=await service.extractBatch(value?.token,value?.passwords);
+   lastBatchTarget=result.target;
+   return result;
+  });
+  if(action==='batch-open-target'){
+   const folder=value==='result'?lastBatchTarget:batchTarget;
+   return open(validateBatchTarget(folder));
+  }
+  if(action==='batch-recycle')return fileOperation(async()=>{
+   const completed=service.completedBatch(value);
+   if(!completed.length)return {rows:[]};
+   const confirmation=await dialog.showMessageBox(parent(),{type:'question',title:'回收已解壓的來源 ZIP',
+    message:`將 ${completed.length} 個已完整解壓的 ZIP 移到資源回收筒？`,
+    detail:completed.map(row=>row.archive).join('\n'),buttons:['保留 ZIP','移到資源回收筒'],defaultId:0,cancelId:0,noLink:true});
+   if(confirmation.response!==1)return {canceled:true};
+   const rows=await service.recycleBatch(value,file=>{
+    if(within(root,file))throw Error('應用程式資料會保留');
+    return trash(file);
+   });
+   const paths=rows.filter(row=>row.recycled).map(row=>row.archive);
+   if(paths.length)onTrashed?.(paths);
+   return {rows};
   });
   if(action==='choose-source-folder'){const r=await choose({title:'加入常用 ZIP 來源資料夾',defaultPath:service.history.sourceFolders[0],properties:['openDirectory']});if(r.canceled)return {canceled:true};const next=await readLocation('source',r.filePaths[0]);service.rememberSource(r.filePaths[0]);browsers.source=next;return state();}
   if(action==='choose-target'){const r=await choose({title:'選擇接收更新的資料夾',defaultPath:service.selected.target||service.history.targetFolders[0],properties:['openDirectory']});return r.canceled?{canceled:true}:target(r.filePaths[0]);}

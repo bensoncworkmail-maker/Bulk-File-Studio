@@ -13,7 +13,7 @@
   const status=$('window-size-status');
   let native={};
   const labelOf=dialog=>$(dialog.getAttribute('aria-labelledby'))?.textContent||
-   dialog.querySelector('h2,h3')?.textContent||dialog.id;
+   dialog.getAttribute('aria-label')||dialog.querySelector('h2,h3')?.textContent||dialog.id;
   function read(){
    return Object.hasOwn(auxiliary,kind.value)?(native[kind.value]||(kind.value==='planning'?native.snippets:undefined)):window.settingsUI.get().dialogSizes[kind.value];
   }
@@ -66,7 +66,7 @@
    grip.setAttribute('aria-label','調整'+labelOf(dialog)+'尺寸');
    const row=document.createElement('div');
    row.className='dialog-size-row';
-   const footer=dialog.querySelector('.notes-form-footer');
+   const footer=dialog.querySelector('.notes-form-footer,.notes-image-preview-footer');
    if(footer)footer.append(grip);
    else{row.append(grip);dialog.append(row);}
    new MutationObserver(()=>{
@@ -97,7 +97,7 @@
    grip.addEventListener('pointerup',finish);grip.addEventListener('lostpointercapture',finish);
    grip.addEventListener('keydown',event=>{
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
-    event.preventDefault();
+    event.preventDefault();event.stopPropagation();
     const box=dialog.getBoundingClientRect(),step=event.shiftKey?40:12;
     const size=bounded(box.width+({ArrowLeft:-step,ArrowRight:step}[event.key]||0),
      box.height+({ArrowUp:-step,ArrowDown:step}[event.key]||0));

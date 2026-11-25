@@ -40,3 +40,28 @@
 .zip-panel-resize:is(:hover,:focus-visible)::after{background:var(--accent)}
 .zip-panel-resize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:4px}
 @media(max-width:800px){.zip-update-sources{grid-template-columns:minmax(0,1fr);gap:12px}.zip-panel-resize[data-zip-resize=split]{display:none}}
+
+.zip-update-page [hidden]{display:none!important}
+.zip-update-heading [aria-pressed=true]{color:var(--accent);border-color:var(--accent);background:var(--surface)}
+.zip-normal-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(270px,1fr);gap:12px;align-items:start}
+.zip-normal-card{padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);min-width:0}
+.zip-normal-card h3{font-size:15px;margin:0 0 10px}
+.zip-normal-card .zip-update-section-heading h3{margin:0}
+.zip-normal-card label{display:block;margin:9px 0;color:var(--muted)}
+.zip-normal-card label.check-row{display:flex;align-items:center;gap:7px}
+.zip-normal-card select{margin-top:4px}
+.zip-normal-inline{display:flex;align-items:center;gap:8px;margin:5px 0}
+.zip-normal-inline :is(textarea,select){flex:1;min-width:0}
+.zip-normal-inline textarea{resize:vertical}
+.zip-normal-inline .btn{flex-shrink:0}
+.zip-normal-table table{min-width:440px}
+.zip-normal-table td:first-child{width:auto;min-width:0}
+.zip-normal-table td{max-width:250px}
+.zip-normal-table tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.zip-batch-selected{background:var(--surface)}
+.zip-normal-result{margin-top:12px}
+.zip-normal-result article{border-top:1px solid var(--line);padding:8px 0;overflow-wrap:anywhere}
+.zip-normal-result ul{padding-inline-start:22px;white-space:pre-wrap;overflow-wrap:anywhere}
+.zip-normal-result :is(li,p){font-size:12px;margin:5px 0}
+#zip-password-dialog{width:min(480px,90vw)}
+@media(max-width:800px){.zip-normal-layout{grid-template-columns:minmax(0,1fr)}}

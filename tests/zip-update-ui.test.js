@@ -106,76 +106,119 @@ test('ZIP drop notice is visible only during an external file drag',async()=>{
  await page.dispatch('dragover',{dataTransfer});
  await page.dispatch('drop',{dataTransfer});
  assert.equal(drop.hidden,true);
- assert.match(h.$('status').textContent,/一個或多個 ZIP/);
+ assert.match(h.$('status').textContent,/請拖入 ZIP/);
 });
 
-test('source list can send selected ZIP rows to batch extraction',async()=>{
- const h=fixture();h.window.zipUpdateUI.open();await flush();
- assert.ok(h.$('source-panel').contains(h.$('extract-batch')));
- assert.equal(h.$('extract-batch').disabled,false);
- const check=h.$('source-browser-rows').querySelector('input');
- assert.equal(check.getAttribute('aria-label'),'批次解壓 patch.zip');
- check.checked=true;await check.dispatch('change');
- assert.match(h.$('extract-batch').textContent,/（1）/);
- await h.click('extract-batch');
- const call=h.calls.find(item=>item[0]==='batch-extract');
- assert.equal(Array.from(call[1]).join(','),'archive');
- assert.match(h.$('batch-list').textContent,/patch\.zip/);
- assert.equal(h.$('batch-results').open,true);
- await h.click('extract-batch');
- assert.equal(h.calls.filter(([action])=>action==='batch-extract').at(-1)[1].length,0);
- let dropped=[];
- h.window.zipUpdateAPI.dropBatch=async files=>{dropped=Array.from(files,file=>file.name);return {canceled:true};};
- await h.$('page').dispatch('drop',{dataTransfer:{types:['Files'],files:[{name:'first.zip'},{name:'second.ZIP'}]}});
+function batchFixture(rows){
+ const h=fixture({zipStartMode:'normal'}),api=h.window.zipUpdateAPI;
+ Object.assign(h.window,{
+  everythingResultColumns:require('../src/everything-result-columns'),
+  everythingViewSettings:require('../src/everything-view-settings'),
+  everythingTrackingView:require('../src/everything-tracking-view'),
+  everythingAPI:{trackingList:async()=>({queries:[{id:'query',name:'下載資料夾',enabled:true,snapshot:{token:'snapshot',rows}}]})}
+ });
+ const compareCommand=api.command;
+ api.command=async(action,value)=>{
+  if(!action.startsWith('batch-'))return compareCommand(action,value);
+  h.calls.push([action,value]);
+  if(action==='batch-state')return {target:'/out',savedTargets:['/out'],batchLimit:50};
+  if(action==='batch-add-tracking')return {rows:value.indices.map(i=>rows[i]),errors:[]};
+  if(action==='batch-add-paths')return {rows:value.map(path=>({path,name:path.split('/').at(-1),type:'file'})),errors:[]};
+  if(action==='batch-preview')return {token:'plan',rows:value.paths.map((archive,index)=>({id:'zip'+index,archive,outputs:[{path:'/out/output',directory:true}],encrypted:index===0}))};
+  if(action==='batch-run')return {rows:[{id:'zip0',status:'completed',archive:'/zip/a.zip',destination:'/out/output',count:1}],token:'result'};
+  if(action==='batch-recycle')return {rows:[{id:'zip0',recycled:true}]};
+  return {canceled:true};
+ };
+ api.addDropped=async files=>api.command('batch-add-paths',files.map(file=>'/zip/'+file.name));
+ const context={window:h.window,document:h.document,console,setTimeout};
+ for(const file of ['zip-batch-ui','zip-update-ui'])vm.runInNewContext(fs.readFileSync(require.resolve('../src/'+file),'utf8'),context);
+ const batch=id=>h.document.getElementById('zip-batch-'+id);
+ return {...h,batch,async track(){
+  h.window.zipUpdateUI.open();await flush();
+  batch('tracking').open=true;await batch('tracking').dispatch('toggle');await flush();
+ }};
+}
+const zipItem=name=>({name:name+'.zip',path:'/zip/'+name+'.zip',type:'file',size:10});
+
+test('normal mode adds multiline and dropped ZIPs, remembers the extract mode and gates execution on preview',async()=>{
+ const h=batchFixture([]);
+ h.window.zipUpdateUI.open();await flush();
+ assert.equal(h.$('normal').hidden,false);
+ assert.equal(h.$('compare-actions').hidden,true);
+ const b=h.batch;
+ assert.equal(require('../src/settings-model').normalize().zipDefaultExtractMode,'direct');
+ assert.equal(b('extract-mode').value,'direct');
+ assert.equal(b('run').disabled,true);
+ b('paths').value='"/zip/a.zip"\n/zip/a.zip';
+ await b('paths').dispatch('input');await b('add').dispatch('click');await flush();
+ await h.$('page').dispatch('drop',{dataTransfer:{types:['Files'],files:[{name:'b.zip'}]}});
  await flush();
- assert.deepEqual(dropped,['first.zip','second.ZIP']);
- assert.equal(h.$('drop').hidden,true);
+ assert.deepEqual(h.calls.filter(([action])=>action==='batch-add-paths').map(([,paths])=>Array.from(paths)),[['/zip/a.zip'],['/zip/b.zip']]);
+ assert.match(b('sources').textContent,/a\.zip.*b\.zip/);
+ await b('sources').querySelectorAll('button')[1].dispatch('click');
+ b('extract-mode').value='folder';await b('extract-mode').dispatch('change');
+ assert.equal(h.preferences.zipDefaultExtractMode,'folder');
+ await h.click('mode-compare');await h.click('mode-normal');
+ assert.equal(b('extract-mode').value,'folder');
+ b('extract-mode').value='direct';await b('extract-mode').dispatch('change');
+ assert.equal(h.preferences.zipDefaultExtractMode,'direct');
+ await b('preview-button').dispatch('click');await flush();
+ assert.equal(h.calls.at(-1)[1].mode,'direct');
+ assert.match(b('preview').textContent,/\/out\/output/);
+ assert.equal(b('run').disabled,true);
+ const password=b('preview').querySelector('input');
+ password.value='TEMP';await password.dispatch('input');
+ assert.equal(b('run').disabled,false);
+ await b('run').dispatch('click');await flush();
+ assert.equal(password.value,'');
+ assert.equal(h.calls.find(([action])=>action==='batch-run')[1].passwords.zip0,'TEMP');
+ assert.equal(b('result').hidden,false);
+ await b('open').dispatch('click');await flush();
+ assert.deepEqual(h.calls.at(-1),['batch-open-target','result']);
+ await b('recycle').dispatch('click');await flush();
+ assert.match(b('result-rows').textContent,/已移到資源回收筒/);
+ await h.click('mode-compare');
+ assert.equal(h.$('normal').hidden,true);
+ assert.equal(h.$('compare-actions').hidden,false);
 });
 
-test('ZIP source modifiers select the sorted ZIP range, toggle and move focus without opening archives',async()=>{
- const h=fixture({},[
-  {id:'c',name:'c.zip',kind:'zip',size:10},
-  {id:'dir',name:'b-folder',kind:'folder',size:0},
-  {id:'a',name:'a.zip',kind:'zip',size:10},
-  {id:'b',name:'b.zip',kind:'zip',size:10}
- ]);
- h.window.zipUpdateUI.open();await flush();
- const row=id=>h.$('source-browser-rows').querySelectorAll('tr').find(tr=>tr.textContent.includes(id+'.zip'));
- const checked=()=>h.$('source-browser-rows').querySelectorAll('input').filter(el=>el.checked).map(el=>el.getAttribute('aria-label').split(' ')[1]);
- await row('a').querySelector('button').dispatch('click',{ctrlKey:true});
- assert.deepEqual(checked(),['a.zip']);
+test('Everything ZIP picker sorts persistently and supports ctrl toggles and shift range in visible order',async()=>{
+ const h=batchFixture([zipItem('c'),zipItem('a'),zipItem('b'),{name:'other.txt',path:'/zip/other.txt',type:'file'}]);
+ await h.track();
+ const table=h.batch('tracking-rows'),row=name=>table.querySelectorAll('tr').find(tr=>tr.textContent.includes(name+'.zip'));
+ const picked=()=>table.querySelectorAll('input').filter(el=>el.checked).map(el=>el.getAttribute('aria-label').split(' ')[1]);
+ await row('a').dispatch('click',{ctrlKey:true});
+ assert.deepEqual(picked(),['a.zip']);
  await row('a').dispatch('keydown',{key:'ArrowRight',shiftKey:true});
- assert.deepEqual(checked(),['a.zip','b.zip']);assert.equal(h.document.activeElement,row('b'));
+ assert.deepEqual(picked(),['a.zip','b.zip']);
+ assert.equal(h.document.activeElement,row('b'));
  await row('b').dispatch('keydown',{key:'ArrowDown',ctrlKey:true});
- assert.deepEqual(checked(),['a.zip','b.zip']);assert.equal(h.document.activeElement,row('c'));
- await row('c').querySelector('input').dispatch('click',{shiftKey:true});
- assert.deepEqual(checked(),['a.zip','b.zip','c.zip']);
- await row('c').dispatch('keydown',{key:'ArrowLeft',shiftKey:true});
- assert.deepEqual(checked(),['a.zip','b.zip']);
- await row('b').dispatch('contextmenu',{ctrlKey:true});
- assert.deepEqual(checked(),['a.zip']);
- await row('b').dispatch('keydown',{key:' ',ctrlKey:true});
- assert.deepEqual(checked(),['a.zip','b.zip']);
- await row('c').dispatch('contextmenu',{shiftKey:true});
- assert.deepEqual(checked(),['a.zip','b.zip','c.zip']);
- assert.ok(!h.calls.some(([action])=>['source-open','entry-menu'].includes(action)));
- await row('b').dispatch('contextmenu');
- assert.equal(h.calls.at(-1)[0],'entry-menu');
- h.$('source-browser-query').value='c.zip';await h.$('source-browser-query').dispatch('input');
- await row('c').dispatch('keydown',{key:'a',ctrlKey:true});
- assert.deepEqual(checked(),['c.zip']);
- h.$('source-browser-query').value='';await h.$('source-browser-query').dispatch('input');
- assert.deepEqual(checked(),['c.zip']);
+ assert.deepEqual(picked(),['a.zip','b.zip']);
+ assert.equal(h.document.activeElement,row('c'));
+ await row('c').dispatch('click',{shiftKey:true});
+ assert.deepEqual(picked(),['a.zip','b.zip','c.zip']);
+ const header=h.batch('tracking').querySelector('[data-zip-batch-sort="name"]');
+ await header.dispatch('click');
+ assert.equal(h.preferences.everythingSortStates.query.direction,'desc');
+ assert.deepEqual(picked(),['c.zip','b.zip','a.zip']);
+ await row('b').dispatch('contextmenu',{type:'contextmenu',ctrlKey:true});
+ assert.deepEqual(picked(),['c.zip','a.zip']);
+ await row('b').dispatch('keydown',{key:' '});
+ assert.deepEqual(picked(),['c.zip','b.zip','a.zip']);
+ await row('b').dispatch('keydown',{key:' '});
+ assert.deepEqual(picked(),['c.zip','a.zip']);
+ await h.batch('add-tracking').dispatch('click');await flush();
+ assert.deepEqual(Array.from(h.calls.at(-1)[1].indices),[1,0]);
+ assert.match(h.batch('sources').textContent,/a\.zip.*c\.zip/);
 });
 
-test('ZIP source keyboard selection moves between pages and respects the batch limit',async()=>{
- const h=fixture({},Array.from({length:101},(_,i)=>({id:'zip-'+i,name:'archive-'+i+'.zip',kind:'zip',size:10})));
- h.window.zipUpdateUI.open();await flush();
- const row=name=>h.$('source-browser-rows').querySelectorAll('tr').find(tr=>tr.textContent.includes(name+'.zip'));
- await row('archive-99').dispatch('keydown',{key:'ArrowDown',shiftKey:true});
- assert.equal(h.document.activeElement,row('archive-100'));
- assert.match(h.$('extract-batch').textContent,/（2）/);
- await row('archive-100').dispatch('keydown',{key:'a',ctrlKey:true});
- assert.match(h.$('extract-batch').textContent,/（50）/);
- assert.match(h.$('status').textContent,/最多勾選 50 個 ZIP/);
+test('Everything ZIP keyboard selection crosses pages and respects the batch limit',async()=>{
+ const h=batchFixture(Array.from({length:76},(_,i)=>zipItem('archive-'+i)));
+ await h.track();
+ const table=h.batch('tracking-rows'),row=name=>table.querySelectorAll('tr').find(tr=>tr.textContent.includes(name+'.zip'));
+ await row('archive-74').dispatch('keydown',{key:'ArrowDown',shiftKey:true});
+ assert.equal(h.document.activeElement,row('archive-75'));
+ await row('archive-75').dispatch('keydown',{key:'a',ctrlKey:true});
+ assert.match(h.batch('tracking-summary').textContent,/已勾選 50 個/);
+ assert.match(h.$('status').textContent,/最多勾選 50 個/);
 });

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),JSZip=require('jszip'),{register}=require('../src/zip-update-ipc');
 
-test('batch ZIP extraction confirms mapped destinations and preserves old folders and empty archive directories',async t=>{
+test('batch ZIP preview maps destinations and extraction preserves old folders and empty archive directories',async t=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-zip-batch-'));
  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  const source=path.join(root,'source'),target=path.join(root,'target');
@@ -13,16 +13,34 @@ test('batch ZIP extraction confirms mapped destinations and preserves old folder
   fs.writeFileSync(filename,await archive.generateAsync({type:'nodebuffer'}));
  }
  fs.writeFileSync(paths[2],'broken');
- let invoke,picked={filePaths:[target]},response=1,confirmation,selection;
+ let invoke,picked={filePaths:[target]},response=0,confirmation,selection,opened;
+ const trashed=[];
  register({handle:(_,handler)=>invoke=(action,value)=>handler({},action,value),root:path.join(root,'profile'),parent:()=>null,
-  fileOperation:task=>task(),openPath:async()=>'',dialog:{showOpenDialog:async(_,items)=>{selection=items;return picked;},showMessageBox:async(_,options)=>{confirmation=options;return {response};}}});
- await invoke('choose-target');picked={filePaths:paths};
- assert.deepEqual(await invoke('batch-extract',[]),{canceled:true});
+  fileOperation:task=>task(),openPath:async filename=>{opened=filename;return '';},trash:async filename=>trashed.push(filename),
+  dialog:{showOpenDialog:async(_,items)=>{selection=items;return picked;},showMessageBox:async(_,options)=>{confirmation=options;return {response};}}});
+ await invoke('batch-choose-target');
+ await invoke('batch-save-target');
+ assert.equal((await invoke('batch-state')).target,target);
+ assert.equal((await invoke('state')).selected.target,'');
+ picked={filePaths:paths};
+ assert.equal((await invoke('batch-choose-files')).rows.length,3);
  assert.ok(selection.properties.includes('multiSelections'));
- assert.match(confirmation.detail,/learning\.zip → learning \(2\)/);
+ const preview=await invoke('batch-preview',{paths,mode:'folder'});
+ assert.deepEqual(preview.rows[0].outputs.map(item=>item.path),[path.join(target,'learning (2)')]);
  assert.deepEqual(fs.readdirSync(target),['learning']);
- response=0;
- const result=await invoke('batch-drop',paths);
+ await assert.rejects(invoke('batch-run',{token:'stale',passwords:{}}),/重新預覽/);
+ const result=await invoke('batch-run',{token:preview.token,passwords:{}});
+ await invoke('batch-open-target','result');
+ assert.equal(opened,target);
+ assert.deepEqual(await invoke('batch-recycle',result.token),{canceled:true});
+ assert.deepEqual(trashed,[]);
+ assert.ok(!confirmation.detail.includes('broken.zip'));
+ response=1;
+ fs.appendFileSync(paths[1],'replaced after extraction');
+ const recycled=await invoke('batch-recycle',result.token);
+ assert.equal(recycled.rows[0].recycled,true);
+ assert.match(recycled.rows[1].recycleError,/已變更/);
+ assert.deepEqual(trashed,[paths[0]]);
  assert.deepEqual(result.rows.map(row=>row.status),['completed','completed','failed']);
  assert.equal(fs.readFileSync(path.join(target,'learning','keep.txt'),'utf8'),'existing');
  for(const [index,name] of ['learning (2)','learning - copy'].entries()){
@@ -133,4 +151,42 @@ test('ZIP folder mismatch warns before writing and choosing the correct source r
  assert.deepEqual(await apply(),{canceled:true});
  assert.equal(confirmation.type,'question');
  assert.match(confirmation.detail,/ZIP 來源層級：project\//);
+});
+
+test('encrypted ZIPs preview, unlock for comparison, and batch extract in direct mode with per-archive passwords',async t=>{
+ const {ZipWriter,Uint8ArrayWriter,TextReader}=require('@zip.js/zip.js');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-zip-encrypted-')),target=path.join(root,'target');
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ fs.mkdirSync(target);
+ fs.writeFileSync(path.join(target,'summary.txt'),'existing');
+ const paths=[];
+ for(const zipCrypto of [false,true]){
+  const label=zipCrypto?'legacy':'aes',archive=path.join(root,label+'.zip');
+  const zip=new ZipWriter(new Uint8ArrayWriter(),{password:'密碼 '+label,zipCrypto,useWebWorkers:false});
+  await zip.add('summary.txt',new TextReader(label));
+  await zip.add('course/deep/note.txt',new TextReader('nested'));
+  fs.writeFileSync(archive,await zip.close());
+  paths.push(archive);
+ }
+ let invoke;
+ register({handle:(_,handler)=>invoke=(action,value)=>handler({},action,value),root:path.join(root,'profile'),parent:()=>null,
+  fileOperation:task=>task(),dialog:{showOpenDialog:async()=>({filePaths:[target]})}});
+ await invoke('batch-choose-target');
+ assert.equal((await invoke('drop-zip',paths[0])).passwordRequired,true);
+ assert.match((await invoke('unlock-zip','wrong')).message,/密碼錯誤/);
+ assert.equal((await invoke('unlock-zip','密碼 aes')).files.length,2);
+ let preview=await invoke('batch-preview',{paths,mode:'direct'});
+ assert.equal(preview.rows[0].encrypted,true);
+ assert.deepEqual(preview.rows.map(row=>row.outputs.map(out=>path.basename(out.path))),[['summary (2).txt','course'],['summary (3).txt','course (2)']]);
+ const [aes,legacy]=preview.rows;
+ let result=await invoke('batch-run',{token:preview.token,passwords:{[aes.id]:'密碼 aes',[legacy.id]:'wrong'}});
+ assert.deepEqual(result.rows.map(row=>row.status),['completed','failed']);
+ assert.match(result.rows[1].error,/密碼錯誤/);
+ assert.equal(fs.existsSync(legacy.outputs[0].path),false);
+ preview=await invoke('batch-preview',{paths:[paths[1]],mode:'direct'});
+ result=await invoke('batch-run',{token:preview.token,passwords:{[preview.rows[0].id]:'密碼 legacy'}});
+ assert.equal(result.rows[0].status,'completed');
+ assert.equal(fs.readFileSync(path.join(target,'summary.txt'),'utf8'),'existing');
+ assert.equal(fs.readFileSync(path.join(target,'summary (3).txt'),'utf8'),'legacy');
+ assert.equal(fs.readFileSync(path.join(target,'course (2)','deep','note.txt'),'utf8'),'nested');
 });

@@ -52,6 +52,10 @@
      <label id="master-field" hidden>主紀錄<select id="master"></select></label>
      <div class="destination-actions">
       <button id="refresh" type="button" title="重新讀取工作區表格及主紀錄">更新表格</button>
+      <label id="send-attachments-field" class="draft-drop-choice" hidden>送出附件<select id="send-attachments">
+       <option value="link">保留現有附件路徑</option>
+       <option value="copy">複製到目標表格的附件資料夾</option>
+      </select><small>複製會包含拖入的檔案、資料夾和貼上的圖片，原附件會保留。</small></label>
       <label class="reminder-choice"><input id="send-reminder" type="checkbox"> 建立後設定提醒</label>
       <button id="send" type="button" class="primary" disabled>建立紀錄</button>
      </div>

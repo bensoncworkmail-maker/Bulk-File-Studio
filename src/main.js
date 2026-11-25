@@ -198,7 +198,7 @@ function captureController(){
 function openDrafts(){
  if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
  drafts??=new DraftNotes({BrowserWindow,screen,nativeImage,dialog,secureWindow,desktop,store:notesStore,settings:()=>desktop.settings,
-  onMoved:syncFavoriteMoves,imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
+  onMoved:syncFavoriteMoves,profile:app.getPath('userData'),imageDir:path.join(app.getPath('userData'),'draft-images'),onError:error=>diagnostics.record('main','draft-notes',error),
   onPreview:(filepath,mode,parent)=>productivity.previewFile(filepath,mode,parent),onStandaloneReminder:input=>{const value=recordReminders.save(input);send(win,'record-reminders-changed',value);send(floating,'floating-panel-changed','planning');return value;},onSent:notesChanged,onRemind:recordId=>{
    focusMain();
    const target=win,show=()=>send(target,'record-reminders-open',{recordId});
@@ -310,7 +310,9 @@ app.whenReady().then(() => {
   if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))require('./profile-service').recoverProfile(app.getPath('userData'),notesStore());
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   require('./zip-update-ipc').register({handle,root:app.getPath('userData'),downloads:app.getPath('downloads'),dialog,parent:()=>win,fileOperation,
-    progress:value=>send(win,'zip-update-progress',value),openPath:filepath=>shell.openPath(filepath),locate:filepath=>shell.showItemInFolder(filepath),
+    progress:value=>send(win,'zip-update-progress',value),tracking:()=>everythingTracking,trash:filepath=>shell.trashItem(filepath),
+    onTrashed:paths=>{everythingTracking.removePaths(paths);notifyFavorites({trashedPaths:paths});trackingChanged();},
+    openPath:filepath=>shell.openPath(filepath),locate:filepath=>shell.showItemInFolder(filepath),
     pickMenu:items=>new Promise(resolve=>{
       const menu=Menu.buildFromTemplate(items.map(({id,...item})=>({...item,click:()=>resolve(id)})));
       menu.popup({window:win,callback:()=>setImmediate(()=>resolve(null))});
@@ -324,7 +326,7 @@ app.whenReady().then(() => {
    save:(...args)=>drafts.save(...args),configure:patch=>drafts.configure(patch),export:(...args)=>drafts.export(...args),preview:(...args)=>drafts.preview(...args),remind:(...args)=>drafts.remind(...args),
    attach:(...args)=>fileOperation(()=>drafts.attach(...args)),paste:(...args)=>drafts.paste(...args),image:(...args)=>drafts.image(...args),
    remove:(...args)=>drafts.removeAttachment(...args),delete:(...args)=>notesStore().deleteDraft(...args),
-   masters:id=>drafts.masters(id),send:(...args)=>drafts.send(...args),
+   masters:id=>drafts.masters(id),send:(...args)=>fileOperation(()=>drafts.send(...args)),
    close:event=>{const owner=drafts.window;setImmediate(()=>{if(drafts.window===owner&&drafts.owns(event))drafts.close();});},
    'cancel-close':()=>drafts.cancelClose()
   };
