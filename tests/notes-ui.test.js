@@ -163,12 +163,12 @@ test('Excel source worksheet can be chosen and edited text invalidates earlier p
  const h=setup(t),state=h.store.addTemplate();h.ui.activate();await flush();h.api.chooseTableFile=async()=>({name:'Clients.xlsx',sheets:[{name:'First',rows:[['Name'],['A']]},{name:'Second',rows:[['Name'],['B']]}],warnings:['Only stored values']});h.els.get('notes-tabular-open').events.click();h.els.get('notes-table-file').events.click();await flush();assert.equal(h.els.get('notes-table-sheet').hidden,false);h.els.get('notes-table-sheet').value='1';h.els.get('notes-table-sheet').events.change();h.els.get('notes-table-preview-button').events.click();await flush();assert.match(h.els.get('notes-table-preview').textContent,/B/);assert.equal(h.els.get('notes-table-apply').disabled,false);h.els.get('notes-table-text').value='Name\nC';h.els.get('notes-table-text').events.input();assert.equal(h.els.get('notes-table-apply').disabled,true);assert.equal(h.els.get('notes-table-mapping').children.length,0);h.els.get('notes-table-read').events.click();h.els.get('notes-table-preview-button').events.click();await flush();assert.match(h.els.get('notes-table-preview').textContent,/C/);h.els.get('notes-table-cancel').events.click();assert.equal(h.store.get().document.records.length,0);assert.deepEqual(h.errors,[]);
 });
 
-test('a card body selects the record and double-click or its title opens the record',async t=>{
+test('clicking a title opens the master and a single click on a detail card opens its overview',async t=>{
  const h=setup(t,{settings:{notesView:'cards',notesOpenMode:'double',notesCardSelection:true}}),state=h.store.addTemplate(),[root,contacts]=state.document.sheets;
  const parent=h.store.saveRecord({sheetId:root.id,title:'Acme',values:{},notes:'',tags:[],fileLinks:[]}).result.id;h.store.saveRecord({sheetId:contacts.id,title:'Alice',values:{[contacts.fields[0].id]:[parent]},notes:'',tags:[],fileLinks:[]});h.ui.activate();await flush();
  let card=descendants(h.els.get('notes-table')).find(n=>n.tagName==='ARTICLE');assert.equal(descendants(card).some(n=>n.tagName==='BUTTON'&&n.textContent==='查看'),false);assert.equal(h.els.has('notes-card-mode'),false);assert.equal(h.els.has('settings-notes-card-selection'),false);
  findButton(card,'Acme').events.click();assert.equal(h.els.get('notes-detail-tabs').hidden,false);assert.match(h.els.get('notes-master-heading').textContent,/Acme/);assert.match(h.els.get('notes-selected-count').textContent,/0 筆/);
- card=descendants(h.els.get('notes-table')).find(n=>n.tagName==='ARTICLE');card.events.click({detail:1});assert.equal(h.els.get('notes-detail').hidden,true);assert.match(h.els.get('notes-selected-count').textContent,/1 筆/);card.events.dblclick({detail:2});assert.equal(h.els.get('notes-detail').hidden,false);assert.match(h.els.get('notes-detail-body').textContent,/Alice/);assert.match(h.els.get('notes-selected-count').textContent,/0 筆/);assert.deepEqual(h.errors,[]);
+ card=descendants(h.els.get('notes-table')).find(n=>n.tagName==='ARTICLE');card.events.click({detail:1});assert.equal(h.els.get('notes-detail').hidden,false);assert.match(h.els.get('notes-detail-body').textContent,/Alice/);assert.match(h.els.get('notes-selected-count').textContent,/0 筆/);assert.deepEqual(h.errors,[]);
 });
 test('card checkboxes and Shift/Ctrl select without opening, with checkbox anchor and range across pages',async t=>{
  const h=setup(t,{settings:{notesView:'cards',notesPageSize:25}}),state=h.store.addTemplate(),root=state.document.sheets[0];for(let i=1;i<=30;i++)h.store.saveRecord({sheetId:root.id,title:'Client '+i,values:{},notes:'',tags:[],fileLinks:[]});h.ui.activate();await flush();h.els.get('notes-sort').value='title';h.els.get('notes-sort').events.change();
@@ -822,26 +822,41 @@ test('record form submits pasted image payloads, waits for preparation and reset
 });
 
 
-test('a plain click replaces select-all in workspace rows, cards and editable grids',async t=>{
- const h=setup(t,{settings:{notesOpenMode:'double'}});
+test('workspace rows, cards and editable grids open the overview with up to one checked record',async t=>{
+ const h=setup(t);
  const sheet=h.store.saveSheet({name:'Selection table',fields:[]}).document.sheets[0];
  for(const title of ['Alpha','Bravo','Charlie'])h.store.saveRecord({sheetId:sheet.id,title,values:{},notes:'',tags:[],fileLinks:[]});
  h.ui.activate();await flush();
  const results=h.els.get('notes-table');
  for(const mode of ['list','cards','grid']){
   h.els.get('notes-view-'+mode).events.click();
+  const items=()=>descendants(results).filter(node=>mode==='cards'?node.tagName==='ARTICLE':node.tagName==='TR'&&node.parentElement?.tagName==='TBODY');
+  const click=(row,event)=>mode==='grid'?row.children[1].events.click(event):row.events.click(event);
+  click(items()[1],{detail:1});
+  const detail=h.els.get('notes-detail-body');
+  const original=detail.textContent;
+  assert.equal(h.els.get('notes-detail').hidden,false);
+  click(items()[2],{detail:1,shiftKey:true});
+  assert.match(h.els.get('notes-selected-count').textContent,/2 筆/);
+  assert.equal(detail.textContent,original);
   h.els.get('notes-select-filtered').events.click();
   assert.match(h.els.get('notes-selected-count').textContent,/3 筆/);
-  const items=descendants(results).filter(node=>mode==='cards'?node.tagName==='ARTICLE':node.tagName==='TR'&&node.parentElement?.tagName==='TBODY');
-  const click=(row,event)=>mode==='grid'?row.children[1].events.click(event):row.events.click(event);
-  click(items[0],{detail:1});
+  const rows=items();
+  click(rows[0],{detail:1});
   assert.match(h.els.get('notes-selected-count').textContent,/1 筆/);
-  assert.equal(items[0].attrs['aria-selected'],'true');
-  assert.equal(items[1].attrs['aria-selected'],'false');
-  click(items[2],{detail:1,shiftKey:true});
+  assert.equal(rows[0].attrs['aria-selected'],'true');
+  assert.equal(rows[1].attrs['aria-selected'],'false');
+  assert.equal(detail.textContent,original);
+  click(rows[2],{detail:1,shiftKey:true});
   assert.match(h.els.get('notes-selected-count').textContent,/3 筆/);
-  click(items[1],{detail:1,ctrlKey:true});
+  click(rows[1],{detail:1,ctrlKey:true});
   assert.match(h.els.get('notes-selected-count').textContent,/2 筆/);
+  assert.equal(detail.textContent,original);
+  click(rows[0],{detail:1});
+  assert.equal(detail.textContent,original);
+  click(rows[0],{detail:1});
+  assert.notEqual(detail.textContent,original);
+  assert.match(h.els.get('notes-selected-count').textContent,/0 筆/);
  }
  assert.deepEqual(h.errors,[]);
 });
