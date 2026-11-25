@@ -1,7 +1,7 @@
 'use strict';
 (() => {
  const collator=new Intl.Collator('zh-Hant',{numeric:true,sensitivity:'base'});
- const COLUMNS=Object.freeze({name:{label:'名稱',width:'minmax(180px,1.2fr)',min:180,sort:'name'},location:{label:'位置',width:'minmax(210px,1.6fr)',min:210,sort:'path'},tags:{label:'標籤',width:'140px',min:140},type:{label:'類型',width:'90px',min:90,sort:'type'},size:{label:'大小',width:'100px',min:100,sort:'size'},modified:{label:'修改時間',width:'155px',min:155,sort:'modified'},status:{label:'狀態',width:'115px',min:115}});
+ const COLUMNS=Object.freeze({name:{label:'名稱',width:'minmax(180px,1.2fr)',min:180,sort:'name'},location:{label:'位置',width:'minmax(210px,1.6fr)',min:210,sort:'path'},tags:{label:'標籤',width:'140px',min:140,sort:'tags'},type:{label:'類型',width:'90px',min:90,sort:'type'},size:{label:'大小',width:'100px',min:100,sort:'size'},modified:{label:'修改時間',width:'155px',min:155,sort:'modified'},status:{label:'狀態',width:'115px',min:115,sort:'status'}});
  const DEFAULT_COLUMNS=Object.freeze(['name','location','tags','status']);
  const basename=value=>value.split(/[\\/]/).filter(Boolean).pop()||value;
  function columns(input){const found=Array.isArray(input)?[...new Set(input.filter(key=>Object.hasOwn(COLUMNS,key)))]:[...DEFAULT_COLUMNS];return ['name',...found.filter(key=>key!=='name')];}
@@ -14,7 +14,11 @@
  function sortItems(items,sort='recent',direction='desc'){
   const sign=direction==='desc'?-1:1;return [...items].sort((a,b)=>{let order;
    if(sort==='size'||sort==='modified'){const av=sort==='size'?a.size:a.modifiedMs,bv=sort==='size'?b.size:b.modifiedMs;if(av==null||bv==null)return av==null?(bv==null?collator.compare(a.path,b.path):1):-1;order=av-bv;}
-   else if(sort==='recent')order=a.createdAt.localeCompare(b.createdAt);else if(sort==='type')order=collator.compare(typeLabel(a),typeLabel(b));else order=collator.compare(sort==='path'?a.path:a.label||basename(a.path),sort==='path'?b.path:b.label||basename(b.path));
+   else if(sort==='recent')order=a.createdAt.localeCompare(b.createdAt);
+   else if(sort==='type')order=collator.compare(typeLabel(a),typeLabel(b));
+   else if(sort==='tags')order=collator.compare((a.tags||[]).join('、'),(b.tags||[]).join('、'));
+   else if(sort==='status')order=collator.compare(a.status,b.status);
+   else order=collator.compare(sort==='path'?a.path:a.label||basename(a.path),sort==='path'?b.path:b.label||basename(b.path));
    return (order||collator.compare(a.path,b.path))*sign;
   });
  }

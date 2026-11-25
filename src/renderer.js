@@ -39,7 +39,7 @@ const optionsMap = {
 };
 
 let files = [];
-let selected = new Set();
+let selected = new Set(),fileAnchor=null,previewSort=null;
 let latest = { rows: [], counts: { total:0, ready:0, same:0, error:0 } };
 let history = null;
 let rules = { ...defaults };
@@ -56,6 +56,11 @@ const locationGroups=window.fileLocationGroups;
 const collapsedLocations=new Set();
 try{const saved=JSON.parse(localStorage.getItem('bfs-file-collapsed-groups')||'[]');if(Array.isArray(saved))for(const value of saved.slice(-1000))if(typeof value==='string')collapsedLocations.add(value);}catch{}
 function grouped(rows){return locationGroups.arrange(rows,groupMode);}
+function previewOrder(rows){
+  if(!previewSort)return rows;
+  const {key,direction}=previewSort,sign=direction==='asc'?1:-1;
+  return [...rows].sort((a,b)=>sign*collator.compare(String(a[key]||''),String(b[key]||''))||collator.compare(a.source,b.source));
+}
 function visibleGroupRows(rows){return locationGroups.visibleRows(rows,groupMode,collapsedLocations);}
 function saveCollapsedLocations(){try{localStorage.setItem('bfs-file-collapsed-groups',JSON.stringify([...collapsedLocations].slice(-1000)));}catch{}}
 function expandGroups(expand){
@@ -311,12 +316,12 @@ function renderFiles() {
     row.title = p;
     const check = element('input','file-check'); check.type = 'checkbox'; check.checked = isChecked;
     check.setAttribute('aria-label', '選取 ' + name);
-    check.addEventListener('change', () => selectOne(p, check.checked));
+    bindFileSelection(row,check,p,false);
     const ext = (name.includes('.') ? name.split('.').pop() : 'FILE').slice(0,4).toUpperCase();
     row.append(check, element('div','file-item-icon',ext));
     const label = element('div','file-item-text');
     label.append(element('div','file-name',name), element('div','file-dir', shortDir(p)));
-    row.append(label); row.addEventListener('click', ev => { if (ev.target !== check) selectOne(p, !selected.has(norm(p))); });
+    row.append(label);
     row.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,p);});
     fragment.appendChild(row);
   }
@@ -324,7 +329,8 @@ function renderFiles() {
 }
 function renderTable() {
   const tbody = $('preview-body'); tbody.replaceChildren();
-  const filtered = grouped(filterFiles());
+  const filtered = grouped(previewOrder(filterFiles()));
+  paintPreviewSort();
   const displayed=visibleGroupRows(filtered),page=paginate(displayed,previewPage,window.settingsUI.get().pageSize);previewPage=page.page;
   $('preview-page-info').textContent=`${page.page+1} / ${page.pageCount}`;
   for(const id of ['preview-page-first','preview-page-prev'])$(id).disabled=busy||!page.hasPrevious;
@@ -356,7 +362,7 @@ function renderTable() {
     tr.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy)window.favoritesUI.showSourceMenu(event,row.source);});
     const checkTd = document.createElement('td');
     const checkbox = element('input');checkbox.type='checkbox';checkbox.checked=on;checkbox.setAttribute('aria-label','選取 ' + row.name);
-    checkbox.addEventListener('change',() => selectOne(row.source, checkbox.checked));checkTd.appendChild(checkbox);
+    bindFileSelection(tr,checkbox,row.source,true);checkTd.appendChild(checkbox);
     const originalTd = document.createElement('td');
     originalTd.append(element('span','filename',row.name,row.source),element('div','full-dir full-dir-path',row.dir,row.dir));
     const arrowTd = document.createElement('td'); arrowTd.appendChild(element('span','row-arrow','→'));
@@ -449,10 +455,45 @@ function render() {
   }
   renderWorkspaceControls();renderFiles(); renderTable();
 }
-function selectOne(p, enabled) {
-  if (busy) return;
-  if (enabled) selected.add(norm(p)); else selected.delete(norm(p));
-  enqueuePreview();render();
+function bindFileSelection(row,check,file,preview){
+  window.tableSelection?.guard(row);
+  row.tabIndex=0;
+  row.id=(preview?'preview-file-':'source-file-')+encodeURIComponent(file);
+  row.setAttribute('aria-selected',String(check.checked));
+  const id=norm(file),order=()=>visibleGroupRows(grouped(preview?previewOrder(filterFiles()):filterFiles())).filter(item=>!item.collapsedGroup).map(item=>norm(item.source));
+  let checkEvent={};
+  function choose(event={},checked){
+    if(busy||event.button>0||event.detail>1)return;
+    const modified=event.ctrlKey||event.metaKey;
+    const span=event.shiftKey?window.tableSelection?.range(order(),fileAnchor,id):null;
+    if(span){
+      for(const key of span)selected.add(key);
+    }else{
+      if(checked===undefined&&!modified)selected.clear();
+      if(checked??(!modified||!selected.has(id)))selected.add(id);else selected.delete(id);
+      fileAnchor=id;
+    }
+    enqueuePreview();render();$(row.id)?.focus();
+  }
+  check.addEventListener('click',event=>{checkEvent=event;});
+  check.addEventListener('change',()=>{choose(checkEvent,check.checked);checkEvent={};});
+  row.addEventListener('click',event=>{
+    if(!window.tableSelection?.control(event)&&!(event.target===check)&&
+      (window.tableSelection?.modifier(event)||!window.getSelection?.()?.toString()))choose(event);
+  });
+  row.addEventListener('keydown',event=>{
+    if(busy)return;
+    if(window.tableSelection?.selectAll(event)){
+      event.preventDefault();event.stopPropagation();selectFiltered(true);$(row.id)?.focus();
+    }else if(event.target===row&&event.key===' '){event.preventDefault();choose(event,!selected.has(id));}
+  });
+}
+function paintPreviewSort(){
+  for(const control of document.querySelectorAll('[data-preview-sort]')){
+    const active=previewSort?.key===control.getAttribute('data-preview-sort')&&Boolean(previewSort);
+    control.textContent=control.getAttribute('data-label')+(active?(previewSort.direction==='asc'?' ▲':' ▼'):'');
+    control.parentElement.setAttribute('aria-sort',active?(previewSort.direction==='asc'?'ascending':'descending'):'none');
+  }
 }
 function selectFiltered(all) {
   if (busy) return;
@@ -556,6 +597,13 @@ function wireEvents() {
   $('btn-select-all').addEventListener('click',()=>selectFiltered(true));
   $('btn-select-none').addEventListener('click',()=>selectFiltered(false));
   $('check-all').addEventListener('change',e=>selectFiltered(e.target.checked));
+  for(const control of document.querySelectorAll('[data-preview-sort]'))control.addEventListener('click',()=>{
+    if(busy)return;
+    const key=control.getAttribute('data-preview-sort');
+    previewSort={key,direction:previewSort?.key===key&&previewSort.direction==='asc'?'desc':'asc'};
+    previewPage=0;renderTable();
+  });
+
   $('btn-reset').addEventListener('click',()=>{applyRules(defaults);saveRulePreferences();enqueuePreview();});
   document.querySelectorAll('[data-token]').forEach(btn=>btn.addEventListener('click',()=>{
     if (busy) return;
@@ -634,6 +682,7 @@ async function init() {
   catch {applyRules(defaults);}
   $('recursive').checked=initialSettings.recursiveDefault;$('favorite-recursive').checked=initialSettings.recursiveDefault;
   window.settingsUI.init({isBusy:()=>busy,showFailure,getConfiguration:()=>({rules:getRules(),presets:savedPresets}),onChange:(settings,changed)=>{
+    if(changed.every(key=>['everythingSelections','zipBatchSelections'].includes(key)))return;
     if(changed.includes('theme'))applyTheme(settings.theme);
     if(changed.includes('fontSize'))applyFontSize(settings.fontSize);
     if(changed.includes('recursiveDefault')){$('recursive').checked=settings.recursiveDefault;$('favorite-recursive').checked=settings.recursiveDefault;}

@@ -43,10 +43,18 @@
     for(const id of ['btn-fav-quick-tag','btn-fav-open','btn-fav-copy','btn-fav-move','btn-fav-edit','btn-fav-remove','btn-fav-rename','btn-fav-select-none'])$(id).disabled=busy||!loaded||!selected.size;
     for(const row of $('favorite-list').children){if(!row.dataset.id)continue;const checked=selected.has(row.dataset.id);row.classList.toggle('selected',checked);row.setAttribute('aria-selected',String(checked));row.querySelector('input[type="checkbox"]').checked=checked;}
   }
-  function selectRow(event,item){
-    if(busy)return;
-    if(event.shiftKey&&anchor){const ids=visibleItems().map(i=>i.id),a=ids.indexOf(anchor),b=ids.indexOf(item.id);if(a>=0&&b>=0){if(!event.ctrlKey&&!event.metaKey)selected.clear();for(const id of ids.slice(Math.min(a,b),Math.max(a,b)+1))selected.add(id);}}
-    else {if(!event.ctrlKey&&!event.metaKey)selected=new Set([item.id]);else if(selected.has(item.id))selected.delete(item.id);else selected.add(item.id);anchor=item.id;}
+  function selectRow(event,item,checked){
+    if(busy||event.button>0||event.detail>1)return;
+    const keys=event.shiftKey?visibleItems().map(entry=>entry.id):[],from=keys.indexOf(anchor),to=keys.indexOf(item.id);
+    const modified=event.ctrlKey||event.metaKey;
+    if(from>=0&&to>=0){
+      if(!modified&&checked===undefined)selected.clear();
+      for(const id of keys.slice(Math.min(from,to),Math.max(from,to)+1))selected.add(id);
+    }else{
+      if(checked===undefined&&!modified)selected.clear();
+      if(checked??(!modified||!selected.has(item.id)))selected.add(item.id);else selected.delete(item.id);
+      anchor=item.id;
+    }
     selectionUI();
   }
   function renderColumns(keys){
@@ -82,7 +90,9 @@
     for(const item of visible) {
       const row=node('div','favorite-row');row.dataset.id=item.id;row.setAttribute('aria-selected',String(selected.has(item.id)));
       const check=node('input');check.type='checkbox';check.checked=selected.has(item.id);check.disabled=busy;check.setAttribute('aria-label','選取 '+(item.label||basename(item.path)));
-      check.addEventListener('change',()=>{if(check.checked)selected.add(item.id);else selected.delete(item.id);anchor=item.id;selectionUI();});row.appendChild(check);
+      let checkEvent={};
+      check.addEventListener('click',event=>{checkEvent=event;});
+      check.addEventListener('change',()=>{selectRow(checkEvent,item,check.checked);checkEvent={};});row.appendChild(check);
       for(const key of keys){
         let cell;
         if(key==='name'||key==='location'){
@@ -91,7 +101,7 @@
           if(key==='name'&&settings.showFileIcons){const icon=node('span','favorite-row-icon',item.type==='folder'?'📁':'📄');icon.title=item.type==='folder'?'資料夾':'一般檔案';icon.setAttribute('aria-hidden','true');cell.appendChild(icon);}
           cell.appendChild(node('span','favorite-cell-text',value));cell.title=(key==='name'?(item.type==='folder'?'資料夾':'檔案')+' · ':'')+item.path+'\n'+(settings.favoriteOpenMode==='single'?'單擊':'雙擊')+(key==='name'?'開啟':'定位');
           const activate=()=>key==='name'?open(item):run(()=>api.show(item.id));
-          cell.addEventListener(settings.favoriteOpenMode==='single'?'click':'dblclick',activate);
+          cell.addEventListener(settings.favoriteOpenMode==='single'?'click':'dblclick',event=>{if(!window.tableSelection?.modifier(event)&&!(settings.favoriteOpenMode==='single'&&selected.size>1))activate();});
           cell.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();event.stopPropagation();activate();}});
         }else if(key==='tags'){
           cell=node('div','favorite-badges');for(const tag of item.tags)cell.appendChild(button(tag,()=>{activeTag=tag.toLocaleLowerCase();pageIndex=0;render();},'favorite-badge'));if(!item.tags.length)cell.appendChild(node('span','favorite-badge','未分類'));
@@ -103,7 +113,17 @@
         row.appendChild(cell);
       }
       const actions=node('div','favorite-row-actions'),more=button('⋯',event=>showItemMenu(event,item));more.disabled=busy;more.setAttribute('aria-label','更多操作：'+(item.label||basename(item.path)));actions.append(more);row.appendChild(actions);
-      row.addEventListener('click',event=>{if(event.target.closest('input')||event.target.closest('button:not(.favorite-cell-action)'))return;selectRow(event,item);});
+      window.tableSelection?.guard(row);row.tabIndex=0;
+      row.addEventListener('click',event=>{
+        if(event.target.closest('input')||event.target.closest('button:not(.favorite-cell-action)')||!window.tableSelection?.modifier(event)&&window.getSelection?.()?.toString())return;
+        selectRow(event,item);
+      });
+      row.addEventListener('keydown',event=>{
+        if(busy)return;
+        if(window.tableSelection?.selectAll(event)){
+          event.preventDefault();event.stopPropagation();selected=new Set(visibleItems().map(item=>item.id));anchor=item.id;selectionUI();
+        }else if(event.target===row&&event.key===' '){event.preventDefault();selectRow(event,item,!selected.has(item.id));}
+      });
       row.addEventListener('contextmenu',event=>{event.preventDefault();if(!busy){if(!selected.has(item.id)){selected=new Set([item.id]);selectionUI();}showItemMenu(event,item);}});container.appendChild(row);
     }
     selectionUI();

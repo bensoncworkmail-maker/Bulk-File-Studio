@@ -28,6 +28,7 @@
     settings=result.settings;signature=sourceSignature(settings);status(result.warning||'專注模式的保留清單已儲存');render();
    }catch(error){status(String(error.message||error));render();}finally{writing=false;}
   }
+  const tableSort={};
   function render(){
    const rows=M.rows(settings,snippets,window.studioShortcuts.getBindings(),window.studioShortcutModel?.LABELS||{}),conflicts=M.conflicts(rows),bad=new Map();
    for(const [a,b] of conflicts){bad.set(a.id,b.label);bad.set(b.id,a.label);}
@@ -52,6 +53,13 @@
     }
     if(bad.has(row.id)){tr.dataset.conflict='true';binding.append(node('small','與「'+bad.get(row.id)+'」重複'));}
     tr.append(binding,actions);root.append(tr);
+   }
+   const table=root.parentElement;
+   const head=table?.querySelector('thead tr');
+   if(head&&window.tableSelection){
+    const headings=['功能／來源','情境','按鍵','操作'].map(label=>{const cell=node('th',label);cell.scope='col';return cell;});
+    head.replaceChildren(...headings);
+    window.tableSelection.enhance(table,{sortable:3,state:tableSort,values:shown.map(row=>[row.label,M.SCOPES[row.scope],drafts.get(row.id)??row.shortcut])});
    }
   }
   async function refresh(){const current=++request;try{const [prefs,list]=await Promise.all([window.desktopAPI.get(),window.productivityAPI.snippetList()]);if(current!==request)return;settings=prefs;snippets=list;signature=sourceSignature(settings);render();}catch(error){status(String(error.message||error));}}

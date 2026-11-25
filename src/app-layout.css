@@ -229,3 +229,13 @@
 .toolbox-extra-heading{font-size:12px;color:var(--muted);margin:8px 0}
 #toolbox-advanced{border-top:1px solid var(--line);padding-top:8px}
 .app-nav-group:not([open])>.app-nav-menu{display:none}
+
+.table-sort-heading{display:block;width:100%;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:start;cursor:pointer;padding:5px}
+.table-sort-heading:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.table-select-heading{width:34px}
+.table-select-cell{text-align:center}
+tr.table-row-selected>:is(td,th){background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+tr.table-row-selected>:first-child{box-shadow:inset 3px 0 var(--accent)}
+.notes-audit-table th.table-select-heading{width:34px}
+
+@media print{.user-guide :is(.table-select-heading,.table-select-cell){display:none}}

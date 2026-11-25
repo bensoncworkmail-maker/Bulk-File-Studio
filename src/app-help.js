@@ -16,7 +16,11 @@
   }
   function render(){const matches=window.studioFunctionDirectory.search(search.value);buttons=[];results.replaceChildren();$('function-finder-count').textContent=matches.length+' 項功能'+(search.value.trim()&&matches.length?' · Enter 開啟第一項':'');for(const item of matches){const button=document.createElement('button'),label=document.createElement('strong'),description=document.createElement('small'),group=document.createElement('span');button.type='button';button.className='btn btn-ghost function-finder-result';label.textContent=item.title;description.textContent=item.description;group.textContent=item.group;group.className='function-finder-group';button.append(group,label,description);button.addEventListener('click',()=>navigate(item.title,finder));results.append(button);buttons.push(button);}if(!matches.length){const empty=document.createElement('p');empty.textContent='找不到功能，請試試其他關鍵字。';results.append(empty);}}
   function showFinder(){if(open(finder)){search.value='';render();search.focus();}}
-  function showGuide(){if(!open(guide))return;if(!guideView)guideView=window.userGuideUI.mount($('user-guide-root'),{openFeature:title=>navigate(title,guide)});guideView.focus();}
+  function showGuide(){if(!open(guide))return;if(!guideView){
+   const root=$('user-guide-root');
+   guideView=window.userGuideUI.mount(root,{openFeature:title=>navigate(title,guide)});
+   for(const table of root.querySelectorAll('table'))window.tableSelection?.enhance(table);
+  }guideView.focus();}
   $('app-guide').addEventListener('click',showGuide);
   $('app-function-finder').addEventListener('click',showFinder);$('function-finder-close').addEventListener('click',()=>close(finder));$('user-guide-close').addEventListener('click',()=>close(guide));search.addEventListener('input',render);
   search.addEventListener('keydown',event=>{if(event.isComposing||event.repeat)return;if(event.key==='ArrowDown'&&buttons.length){event.preventDefault();buttons[0].focus();}else if(event.key==='Enter'&&search.value.trim()&&buttons.length){event.preventDefault();void navigate(window.studioFunctionDirectory.search(search.value)[0].title,finder);}});
