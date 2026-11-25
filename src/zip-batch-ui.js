@@ -314,7 +314,7 @@
   return {
    controls,
    resetMode:()=>{
-    const value=settings().zipDefaultExtractMode||'folder';
+    const value=settings().zipDefaultExtractMode||'direct';
     if($('extract-mode').value!==value){$('extract-mode').value=value;invalidate();}
     $('remember-mode').checked=settings().zipRememberExtractMode!==false;
     for(const field of passwordFields.values())field.value='';

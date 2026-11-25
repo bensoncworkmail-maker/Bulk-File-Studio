@@ -146,6 +146,8 @@ test('normal mode adds multiline and dropped ZIPs, remembers the extract mode an
  assert.equal(h.$('normal').hidden,false);
  assert.equal(h.$('compare-actions').hidden,true);
  const b=h.batch;
+ assert.equal(require('../src/settings-model').normalize().zipDefaultExtractMode,'direct');
+ assert.equal(b('extract-mode').value,'direct');
  assert.equal(b('run').disabled,true);
  b('paths').value='"/zip/a.zip"\n/zip/a.zip';
  await b('paths').dispatch('input');await b('add').dispatch('click');await flush();
@@ -154,6 +156,10 @@ test('normal mode adds multiline and dropped ZIPs, remembers the extract mode an
  assert.deepEqual(h.calls.filter(([action])=>action==='batch-add-paths').map(([,paths])=>Array.from(paths)),[['/zip/a.zip'],['/zip/b.zip']]);
  assert.match(b('sources').textContent,/a\.zip.*b\.zip/);
  await b('sources').querySelectorAll('button')[1].dispatch('click');
+ b('extract-mode').value='folder';await b('extract-mode').dispatch('change');
+ assert.equal(h.preferences.zipDefaultExtractMode,'folder');
+ await h.click('mode-compare');await h.click('mode-normal');
+ assert.equal(b('extract-mode').value,'folder');
  b('extract-mode').value='direct';await b('extract-mode').dispatch('change');
  assert.equal(h.preferences.zipDefaultExtractMode,'direct');
  await b('preview-button').dispatch('click');await flush();

@@ -141,7 +141,7 @@
               <label>常用解壓位置<select id="zip-batch-targets"></select></label>
               <div class="zip-update-actions"><button id="zip-batch-pick-target" class="btn btn-secondary" type="button">選擇資料夾</button><button id="zip-batch-save-target" class="btn btn-ghost" type="button">儲存為常用</button></div>
               <p id="zip-batch-target-path" class="zip-update-path"></p>
-              <label>解壓方式<select id="zip-batch-extract-mode"><option value="folder">解壓至各自的 ZIP 同名資料夾</option><option value="direct">解壓到目標根目錄（/）</option></select></label>
+              <label>解壓方式<select id="zip-batch-extract-mode"><option value="direct">解壓到目標根目錄（/）</option><option value="folder">解壓至各自的 ZIP 同名資料夾</option></select></label>
               <label class="check-row"><input id="zip-batch-remember-mode" type="checkbox"> 記住解壓方式</label>
               <p class="notes-hint">保留 ZIP 內的資料夾結構。同名的第一層項目會自動加編號。</p>
             </section>
@@ -643,7 +643,7 @@
                 <section class="settings-card">
                   <h2>ZIP 更新助手</h2>
                   <label class="field"><span>開啟時的模式</span><select id="settings-zip-start-mode"><option value="compare">比較更新</option><option value="normal">一般解壓</option></select></label>
-                  <label class="field"><span>預設解壓方式</span><select id="settings-zip-extract-mode"><option value="folder">解壓至各自的 ZIP 同名資料夾</option><option value="direct">解壓到目標根目錄（/）</option></select></label>
+                  <label class="field"><span>預設解壓方式</span><select id="settings-zip-extract-mode"><option value="direct">解壓到目標根目錄（/）</option><option value="folder">解壓至各自的 ZIP 同名資料夾</option></select></label>
                   <label class="check-row"><input id="settings-zip-remember-mode" type="checkbox"><span>記住一般解壓最後使用的方式</span></label>
                   <label class="check-row"><input id="settings-zip-ask-recycle" type="checkbox"><span>解壓後詢問是否回收已完成的 ZIP</span></label>
                 </section>
