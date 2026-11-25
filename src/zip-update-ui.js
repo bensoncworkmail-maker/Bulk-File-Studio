@@ -14,14 +14,17 @@
  const resizeHandles=[...root.querySelectorAll('[data-zip-resize]')];
  function renderPanelSize(handle){
   const key=handle.getAttribute('data-zip-resize'),value=prefs.layout[key],{min,max}=view.dimensions[key];
-  if(key==='split'){
+  if(key==='batch-split'){
+   root.style.setProperty('--zip-batch-source-fr',value+'fr');root.style.setProperty('--zip-batch-target-fr',(100-value)+'fr');
+  }else if(key==='split'){
    root.style.setProperty('--zip-source-fr',value+'fr');root.style.setProperty('--zip-target-fr',(100-value)+'fr');
   }else root.style.setProperty('--zip-'+key+'-height',value+'px');
   handle.setAttribute('aria-valuemin',min);handle.setAttribute('aria-valuemax',max);
-  handle.setAttribute('aria-valuenow',value);handle.setAttribute('aria-valuetext',value+(key==='split'?'%':' 像素'));
+  handle.setAttribute('aria-valuenow',value);handle.setAttribute('aria-valuetext',value+(key.endsWith('split')?'%':' 像素'));
  }
  function bindPanelResize(handle){
-  const key=handle.getAttribute('data-zip-resize'),{min,max,initial}=view.dimensions[key],split=key==='split';
+  const key=handle.getAttribute('data-zip-resize'),{min,max,initial}=view.dimensions[key],split=key.endsWith('split');
+  const panels=key==='batch-split'?document.getElementById('zip-batch-layout'):$('source-target-panels');
   const increase=split?'ArrowRight':'ArrowDown',decrease=split?'ArrowLeft':'ArrowUp';
   const coordinate=event=>split?event.clientX:event.clientY;
   let drag;
@@ -34,7 +37,7 @@
   handle.addEventListener('pointermove',event=>{
    if(!drag||drag.id!==event.pointerId)return;
    const delta=coordinate(event)-drag.start;
-   resize(drag.size+(split?100*delta/Math.max(1,$('source-target-panels').clientWidth-14):delta));
+   resize(drag.size+(split?100*delta/Math.max(1,panels.clientWidth-14):delta));
   });
   for(const type of ['pointerup','lostpointercapture','pointercancel'])handle.addEventListener(type,event=>{
    if(drag?.id!==event.pointerId)return;
@@ -202,6 +205,7 @@
  function activateMode(){return mode==='normal'?batch?.activate():refreshLocations();}
  for(const value of ['compare','normal'])$('mode-'+value).addEventListener('click',()=>{
   if(busy||mode===value)return;
+  if(mode==='normal')batch?.clearPasswords();
   showMode(value);
   if(value==='normal')batch?.resetMode();
   void runTask(activateMode);
@@ -269,6 +273,7 @@
    void runTask(activateMode);
   },
   open:()=>window.favoritesUI.show('zip'),
+  deactivate:()=>batch?.clearPasswords(),
   isBusy:()=>busy
  };
 })();

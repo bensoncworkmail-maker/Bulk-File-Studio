@@ -109,22 +109,24 @@ test('ZIP drop notice is visible only during an external file drag',async()=>{
  assert.match(h.$('status').textContent,/請拖入 ZIP/);
 });
 
-function batchFixture(rows){
- const h=fixture({zipStartMode:'normal'}),api=h.window.zipUpdateAPI;
+function batchFixture(rows,preferences={},encrypted=(archive,index)=>index===0){
+ const h=fixture({zipStartMode:'normal',...preferences}),api=h.window.zipUpdateAPI;
+ let trackingRows=rows,token='snapshot';
+ const trackingList=async()=>({queries:[{id:preferences.queryId||'query',name:'下載資料夾',enabled:true,snapshot:{token,rows:trackingRows}}]});
  Object.assign(h.window,{
   everythingResultColumns:require('../src/everything-result-columns'),
   everythingViewSettings:require('../src/everything-view-settings'),
   everythingTrackingView:require('../src/everything-tracking-view'),
-  everythingAPI:{trackingList:async()=>({queries:[{id:'query',name:'下載資料夾',enabled:true,snapshot:{token:'snapshot',rows}}]})}
+  everythingAPI:{trackingList,trackingRefresh:trackingList}
  });
  const compareCommand=api.command;
  api.command=async(action,value)=>{
   if(!action.startsWith('batch-'))return compareCommand(action,value);
   h.calls.push([action,value]);
   if(action==='batch-state')return {target:'/out',savedTargets:['/out'],batchLimit:50};
-  if(action==='batch-add-tracking')return {rows:value.indices.map(i=>rows[i]),errors:[]};
+  if(action==='batch-add-tracking')return {rows:value.indices.map(i=>trackingRows[i]),errors:[]};
   if(action==='batch-add-paths')return {rows:value.map(path=>({path,name:path.split('/').at(-1),type:'file'})),errors:[]};
-  if(action==='batch-preview')return {token:'plan',rows:value.paths.map((archive,index)=>({id:'zip'+index,archive,outputs:[{path:'/out/output',directory:true}],encrypted:index===0}))};
+  if(action==='batch-preview')return {token:'plan',rows:value.paths.map((archive,index)=>({id:'zip'+index,archive,outputs:[{path:'/out/output',directory:true}],encrypted:encrypted(archive,index)}))};
   if(action==='batch-run')return {rows:[{id:'zip0',status:'completed',archive:'/zip/a.zip',destination:'/out/output',count:1}],token:'result'};
   if(action==='batch-recycle')return {rows:[{id:'zip0',recycled:true}]};
   return {canceled:true};
@@ -133,14 +135,14 @@ function batchFixture(rows){
  const context={window:h.window,document:h.document,console,setTimeout};
  for(const file of ['zip-batch-ui','zip-update-ui'])vm.runInNewContext(fs.readFileSync(require.resolve('../src/'+file),'utf8'),context);
  const batch=id=>h.document.getElementById('zip-batch-'+id);
- return {...h,batch,async track(){
+ return {...h,batch,replaceSnapshot(rows){token+='-new';trackingRows=rows;},async track(){
   h.window.zipUpdateUI.open();await flush();
   batch('tracking').open=true;await batch('tracking').dispatch('toggle');await flush();
  }};
 }
 const zipItem=name=>({name:name+'.zip',path:'/zip/'+name+'.zip',type:'file',size:10});
 
-test('normal mode adds multiline and dropped ZIPs, remembers the extract mode and gates execution on preview',async()=>{
+test('normal mode adds multiline and dropped ZIPs, remembers the extract mode and uses per-file passwords',async()=>{
  const h=batchFixture([]);
  h.window.zipUpdateUI.open();await flush();
  assert.equal(h.$('normal').hidden,false);
@@ -221,4 +223,84 @@ test('Everything ZIP keyboard selection crosses pages and respects the batch lim
  await row('archive-75').dispatch('keydown',{key:'a',ctrlKey:true});
  assert.match(h.batch('tracking-summary').textContent,/已勾選 50 個/);
  assert.match(h.$('status').textContent,/最多勾選 50 個/);
+});
+
+
+test('plain row click replaces Ctrl+A and checked paths survive a reordered snapshot and reopening',async()=>{
+ const queryId='f23fb14a-df99-49bf-b1c0-899609013aa6';
+ const h=batchFixture([zipItem('b'),zipItem('a'),zipItem('c')],{queryId});
+ await h.track();
+ const picked=fixture=>fixture.batch('tracking-rows').querySelectorAll('input').filter(input=>input.checked).map(input=>input.getAttribute('aria-label'));
+ const row=name=>h.batch('tracking-rows').querySelectorAll('tr').find(tr=>tr.textContent.includes(name+'.zip'));
+ await row('a').dispatch('keydown',{key:'a',ctrlKey:true});
+ assert.equal(picked(h).length,3);
+ await row('b').dispatch('click');
+ assert.deepEqual(picked(h),['選取 b.zip']);
+ h.replaceSnapshot([zipItem('c'),zipItem('b'),zipItem('a')]);
+ await h.batch('refresh').dispatch('click');await flush();
+ assert.deepEqual(picked(h),['選取 b.zip']);
+ const saved=require('../src/settings-model').normalize(JSON.parse(JSON.stringify(h.preferences)));
+ const reopened=batchFixture([zipItem('b'),zipItem('c')],{...saved,queryId});
+ await reopened.track();
+ assert.deepEqual(picked(reopened),['選取 b.zip']);
+ await h.batch('add-tracking').dispatch('click');await flush();
+ assert.deepEqual(Array.from(h.calls.at(-1)[1].indices),[1]);
+ assert.deepEqual(picked(h),['選取 b.zip']);
+});
+
+test('normal mode starts directly, reuses a batch password, and accepts a per-ZIP override',async()=>{
+ const h=batchFixture([],{},archive=>!archive.endsWith('plain.zip'));
+ h.window.zipUpdateUI.open();await flush();
+ const b=h.batch;
+ b('paths').value='/zip/a.zip\n/zip/b.zip';
+ await b('add').dispatch('click');await flush();
+ assert.equal(b('run').disabled,false);
+ await b('run').dispatch('click');await flush();
+ assert.equal(h.calls.at(-1)[0],'batch-preview');
+ assert.equal(b('password-options').open,true);
+ b('shared-password').value='common';
+ await b('shared-password').dispatch('input');
+ const override=b('preview').querySelectorAll('input')[1];
+ override.value='other';
+ await b('run').dispatch('click');await flush();
+ assert.equal(JSON.stringify(h.calls.at(-1)[1].passwords),JSON.stringify({zip0:'common',zip1:'other'}));
+ assert.equal(b('shared-password').value,'');
+ assert.equal(override.value,'');
+
+ const direct=batchFixture([],{},()=>false);
+ direct.window.zipUpdateUI.open();await flush();
+ direct.batch('paths').value='/zip/plain.zip';
+ await direct.batch('add').dispatch('click');await flush();
+ await direct.batch('run').dispatch('click');await flush();
+ assert.deepEqual(direct.calls.slice(-2).map(([action])=>action),['batch-preview','batch-run']);
+ assert.equal(direct.batch('result').hidden,false);
+});
+
+test('normal mode remembers its own column order and independently resized panels',async()=>{
+ const h=batchFixture([]);
+ h.window.zipUpdateUI.open();await flush();
+ const b=h.batch;
+ b('paths').value='/zip/z.zip\n/zip/a.zip';
+ await b('add').dispatch('click');await flush();
+ assert.match(b('sources').textContent,/a\.zip.*z\.zip/);
+ const header=b('source-table').querySelector('[data-zip-batch-source-sort="name"]');
+ await header.dispatch('click');
+ assert.match(b('sources').textContent,/z\.zip.*a\.zip/);
+ assert.equal(header.parentElement.getAttribute('aria-sort'),'descending');
+ assert.match(header.textContent,/▼/);
+ const handle=key=>h.$('normal').querySelector('[data-zip-resize="'+key+'"]');
+ await handle('batch-tracking').dispatch('keydown',{key:'ArrowDown'});
+ await handle('batch-split').dispatch('keydown',{key:'ArrowLeft'});
+ assert.equal(h.preferences.zipUpdateView.layout['batch-tracking'],216);
+ assert.equal(h.preferences.zipUpdateView.layout['batch-split'],62);
+ assert.equal(h.preferences.zipUpdateView.layout.split,50);
+ const reopened=batchFixture([],h.preferences);
+ const styles=new Map();
+ reopened.$('page').style.setProperty=(name,value)=>styles.set(name,value);
+ reopened.window.zipUpdateUI.open();await flush();
+ assert.equal(styles.get('--zip-batch-tracking-height'),'216px');
+ assert.equal(styles.get('--zip-batch-source-fr'),'62fr');
+ reopened.batch('paths').value='/zip/a.zip\n/zip/z.zip';
+ await reopened.batch('add').dispatch('click');await flush();
+ assert.match(reopened.batch('sources').textContent,/z\.zip.*a\.zip/);
 });
