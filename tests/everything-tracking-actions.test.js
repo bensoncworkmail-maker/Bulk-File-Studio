@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const {trackingAction}=require('../src/everything-tracking-actions'),{EverythingTracking}=require('../src/everything-tracking'),{FavoritesStore}=require('../src/favorites-store'),{listPaths}=require('../src/rename-core');
+const {trackingAction,trackingTrashStore}=require('../src/everything-tracking-actions'),{EverythingTracking}=require('../src/everything-tracking'),{FavoritesStore}=require('../src/favorites-store'),{listPaths}=require('../src/rename-core');
+const {prepareTrash,executeTrashBatch}=require('../src/favorites-trash');
 function fixture(t){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-tracking-actions-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const files=['a.txt','b.txt'].map(name=>path.join(dir,name)),folder=path.join(dir,'folder');files.forEach(file=>fs.writeFileSync(file,'original'));fs.mkdirSync(folder);
@@ -29,6 +30,65 @@ test('mixed folders, replaced files, stale tokens and forged actions cannot stag
  assert.equal(h.copy(),'');assert.equal(h.notifications(),0);
  assert.equal(fs.readFileSync(h.files[1],'utf8'),'original');
 });
+test('tracking submits one recycle batch and saves only confirmed bookmark removals',async t=>{
+ const {tracking,query,files,folder}=fixture(t),favorites=tracking.favorites,child=path.join(folder,'child.txt');
+ fs.writeFileSync(child,'inside');
+ favorites.addPaths([...files,folder,child],['Work']);
+ const {token}=((await tracking.refresh(query.id)).queries[0]).snapshot;
+ const indices=[0,1,2],store=trackingTrashStore(tracking,favorites,query.id,token,indices),plan=prepareTrash(store,indices);
+ const writes=t.mock.method(favorites,'write');
+ let submissions=0;
+ const result=await executeTrashBatch(store,plan,async verify=>{
+  submissions++;
+  assert.deepEqual(verify(),[...files,folder]);
+  fs.unlinkSync(files[0]);fs.rmSync(folder,{recursive:true});
+  return [null,'locked',null];
+ });
+ assert.equal(submissions,1);
+ assert.equal(writes.mock.callCount(),1);
+ assert.deepEqual(result,{canceled:false,trashed:2,trashedPaths:[files[0],folder],removed:3,failures:[files[1]+'：locked']});
+ assert.deepEqual(favorites.read().items.map(item=>item.path),[files[1]]);
+ assert.ok(fs.existsSync(files[1]));
+});
+
+test('tracking blocks replaced files at dispatch and skips writes for batches without bookmark changes',async t=>{
+ const {tracking,query,files}=fixture(t),favorites=tracking.favorites;
+ const result=await tracking.refresh(query.id),indices=[0,1];
+ const store=trackingTrashStore(tracking,favorites,query.id,result.queries[0].snapshot.token,indices),plan=prepareTrash(store,indices);
+ const old=files[0]+'.old',writes=t.mock.method(favorites,'write');
+ fs.renameSync(files[0],old);fs.writeFileSync(files[0],'replacement');
+ await assert.rejects(executeTrashBatch(store,plan,async verify=>{
+  verify();assert.fail('replaced file must never reach the recycle operation');
+ }),/已替換/);
+ fs.unlinkSync(files[0]);fs.renameSync(old,files[0]);
+ const recycled=await executeTrashBatch(store,plan,async verify=>verify().map(()=>null));
+ assert.equal(recycled.trashed,2);
+ assert.equal(writes.mock.callCount(),0);
+});
+
+test('sequential fallback retains a replaced next file and a bookmark relinked during recycling',async t=>{
+ const {tracking,query,files}=fixture(t),favorites=tracking.favorites;
+ const {ids}=favorites.addPaths(files,['Work']);
+ const {token}=((await tracking.refresh(query.id)).queries[0]).snapshot;
+ const indices=[0,1],store=trackingTrashStore(tracking,favorites,query.id,token,indices),plan=prepareTrash(store,indices);
+ const replacement=files[1]+'.old',relocated=files[0]+'.new';
+ fs.writeFileSync(relocated,'original location changed');
+ const calls=[];
+ const result=await executeTrashBatch(store,plan,()=>null,async filepath=>{
+  calls.push(filepath);
+  favorites.update([ids[0]],{path:relocated});
+  fs.renameSync(files[1],replacement);fs.writeFileSync(files[1],'replacement');
+  fs.unlinkSync(filepath);
+ });
+ assert.deepEqual(calls,[files[0]]);
+ assert.deepEqual(result.trashedPaths,[files[0]]);
+ assert.equal(result.removed,0);
+ assert.match(result.failures[0],/已變更/);
+ assert.equal(fs.readFileSync(files[1],'utf8'),'replacement');
+ assert.equal(favorites.get(ids[0]).path,relocated);
+ assert.equal(favorites.get(ids[1]).path,files[1]);
+});
+
 test('parent folder copying handles Windows paths and case-insensitive duplicates',async()=>{
  let copied='';const tracking={selection:()=>({paths:['C:\\Work\\a.txt','c:\\work\\b.txt','D:\\Photos\\c.jpg'],tags:[]})};
  const result=await trackingAction({tracking,action:'copy-folders',clipboard:{writeText:value=>{copied=value;}}});

@@ -2,7 +2,7 @@
 (() => {
  const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns,views=window.everythingViewSettings;
  const tableSelection=window.tableSelection;
- let updatingView=false,iconState,pendingLoad=false,tagEditing=null;
+ let updatingView=false,iconState,pendingLoad=false,tagEditing=null,recycling=0;
  const resultFilters=new Map();
  const resultFilter=()=>resultFilters.get(currentId)||'';
  let callbacks,active=false,data={queries:[],refreshSeconds:60,engine:{}},currentId=null,tag=null,selected=new Set(),anchor=null,renaming=null,busy=false,loading=false,editing=null,timer,request=0,refreshRequest=0;
@@ -149,8 +149,9 @@
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns(),entries=ordered();
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
   $('everything-tracking-title').textContent=query?.name||'追蹤 Everything 搜尋';$('everything-tracking-command').textContent=query?.text||'新增搜尋命令及標籤，追蹤符合條件的檔案與資料夾。';
-  const status=$('everything-tracking-status');status.classList.toggle('error',Boolean(snapshot?.error));
+  const status=$('everything-tracking-status');status.classList.toggle('error',!recycling&&Boolean(snapshot?.error));
   status.textContent=!ready()?'請在設定 → 啟動選取 es.exe 並啟用 Everything；此功能僅適用於 Windows。':!query?'尚無追蹤搜尋，按「＋ 追蹤搜尋」新增。':!query.enabled?'已暫停追蹤；按「恢復追蹤」重新啟用。':snapshot?.error?'更新失敗：'+snapshot.error+(snapshot.checkedAt?'；保留 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' 的上次結果。':''):!snapshot?'尚未查詢，按「立即更新」讀取結果。':'已更新 '+new Date(snapshot.checkedAt).toLocaleString('zh-Hant')+' · '+rows.length+' 項'+(snapshot.truncated?'（超過上限，只顯示前 500 項）':'')+(snapshot.skipped?' · 略過 '+snapshot.skipped+' 項無法存取的位置'+(snapshot.skippedReasons?.length?'（'+snapshot.skippedReasons.join('；')+'）':''):'');
+  if(recycling)status.textContent='回收作業處理中（'+recycling+' 個選取項目）…';
   const list=$('everything-tracking-results'),body=$('everything-tracking-body'),scroll=list.scrollTop,focused=body.contains(document.activeElement)||document.activeElement===list;body.replaceChildren();
   const labels=Object.fromEntries(Object.entries(columns.COLUMNS).map(([key,column])=>[key,column.label])),sort=sorting(),sortKey=sort.key,sortDirection=sort.direction;
   for(const [key,label] of Object.entries(labels)){
@@ -255,17 +256,22 @@
  async function action(kind,indices=[...selected]){
   const query=current();if(!query?.snapshot||blocked()||!indices.length)return;
   if(kind==='copy-table'){const wanted=new Set(indices);indices=ordered().filter(entry=>wanted.has(entry.index)).map(entry=>entry.index);}
-  busy=true;render();
+  busy=true;if(kind==='trash')recycling=indices.length;render();
   try{const result=await api.trackingAction(query.id,query.snapshot.token,indices,kind,kind==='copy-table'?{columns:shownColumns(),sizeUnit:sizeUnit()}:undefined);
    if(kind==='favorite'){callbacks.showToast('已保留 '+result.added+' 項一般收藏；'+result.existing+' 項已存在');if(result.issues?.length)callbacks.showFailure('部分結果未能收藏',result.issues.join('\n'));}
    else if(kind==='copy-table')callbacks.showToast('已複製 '+result.copied+' 項表格，可貼到試算表');
    else if(['copy','copy-names','copy-folders'].includes(kind))callbacks.showToast('已複製 '+result.copied+' 項'+({'copy':'路徑','copy-names':'檔名','copy-folders':'所在資料夾'}[kind]));
-   else if(kind==='trash'&&!result.canceled){callbacks.showToast('已移至資源回收筒 '+result.trashed+' 項');if(result.failures?.length)callbacks.showFailure('部分項目未能回收',result.failures.join('\n'));busy=false;if(result.trashed)await load(true);}
+   else if(kind==='trash'&&!result.canceled){
+    recycling=0;busy=false;
+    callbacks.showToast('已移至資源回收筒 '+result.trashed+' 項');
+    if(result.failures?.length)callbacks.showFailure('回收作業部分未完成',result.failures.join('\n'));
+    if(result.trashed)await load(Boolean(query.snapshot.truncated));
+   }
    else if(kind==='rename')callbacks.onRename(result);
    else if(kind==='move')await window.movingUI.start(result.paths,{sourceLabel:'Everything 追蹤結果'});
    else if(kind==='bulk-open'||kind==='bulk-locations'){if(!result.canceled){callbacks.showToast('已開啟 '+result.opened+' 項');if(result.failures?.length)callbacks.showFailure('部分項目未能開啟',result.failures.join('\n'));}}
   }catch(error){callbacks.showFailure('追蹤結果操作未完成',error);}
-  finally{busy=false;render();}
+  finally{recycling=0;busy=false;render();}
  }
  async function toggleTracking(){
   const query=current();if(!query||blocked())return;const enabled=!query.enabled;busy=true;renderControls();
