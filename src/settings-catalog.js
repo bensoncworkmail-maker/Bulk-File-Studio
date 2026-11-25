@@ -18,7 +18,7 @@ const config={
     {
       "id": "workspace",
       "label": "檔案工具",
-      "description": "改名工作台、面板與命名預設",
+      "description": "改名工作台、命名預設、ZIP 更新與解壓",
       "keywords": "rename file workspace"
     },
     {
@@ -63,7 +63,7 @@ const config={
       "keywords": "data backup reset export"
     }
   ],
-  "controls": {"planningDayShowMaster":"settings-planning-day-show-master","notesCardWidthMode":"settings-notes-card-width-mode","notesCardMaxWidth":"settings-notes-card-max-width",
+  "controls": {"zipStartMode":"settings-zip-start-mode","zipDefaultExtractMode":"settings-zip-extract-mode","zipRememberExtractMode":"settings-zip-remember-mode","zipAskRecycle":"settings-zip-ask-recycle","planningDayShowMaster":"settings-planning-day-show-master","notesCardWidthMode":"settings-notes-card-width-mode","notesCardMaxWidth":"settings-notes-card-max-width",
     "notesGridEnter":"settings-notes-grid-enter","notesGridTab":"settings-notes-grid-tab","notesGridEditNext":"settings-notes-grid-edit-next","notesDeleteKey":"settings-notes-delete-key","layoutEditing":"settings-layout-editing","filePanelSide":"settings-file-panel-side",
     "notesImportChangesOnly":"settings-notes-import-changes-only","notesShareQuickActions":"settings-notes-share-quick",
     "notesImportMode":"settings-notes-import-mode","notesSharedImportMode":"settings-notes-shared-import-mode",
@@ -235,7 +235,7 @@ const config={
     "copy-paths": "複製路徑清單",
     "drop-hint": "拖放提示"
   },
-  "groupsByKey": {"workspaceFavoriteSorts":"favorites","zipUpdateView":"appearance",
+  "groupsByKey": {"workspaceFavoriteSorts":"favorites","zipBatchTrackingId":"workspace","zipStartMode":"workspace","zipDefaultExtractMode":"workspace","zipRememberExtractMode":"workspace","zipAskRecycle":"workspace","zipUpdateView":"appearance",
     "navigation":"appearance","draftDropMode":"draft","calendarScope":"planning","snippetPicker":"floating","favoriteShortcuts":"shortcuts","snippetsShortcut":"shortcuts","calendarShortcut":"shortcuts","draftReminders":"draft","draftLocalShortcuts":"draft","draftBodyLimit":"draft","draftPreviewMode":"draft","draftAfterTransfer":"draft","draftImageHeight":"draft","focusMode":"shortcuts","focusShortcut":"shortcuts","focusShortcutIds":"shortcuts","draftListWidth":"draft","draftBodyHeight":"draft","workspacePreviewMode":"notes","toolSplitWidths":"appearance","calendarShowCount":"planning","calendarWeekStart":"planning","calendarDayHeight":"planning","calendarEventLimit":"planning","calendarFontSize":"planning","calendarShowAgenda":"planning","backupIntervalHours":"data","draftRememberWindow":"draft","draftWindowWidth":"draft","draftWindowHeight":"draft","draftShortcut":"shortcuts","planningDayShowMaster":"planning","floatingPanels":"floating","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"shortcuts","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating","floatingCollapsedQuickActionIds":"floating",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchCloseOnVisit":"search","floatingSearchFiltersExpanded":"search",
     "floatingSearchPresentation":"search","floatingLayoutEditing":"floating","floatingControlOrder":"floating",

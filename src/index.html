@@ -94,12 +94,15 @@
         <div id="home-widgets" class="home-widgets"></div>
       </section>
     <section id="zip-update-page" class="zip-update-page hidden" aria-labelledby="zip-update-title">
-      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2><p>比較並套用 ZIP，或選擇空資料夾解壓檔案。</p></div></header>
-      <nav class="zip-update-steps" aria-label="ZIP 更新步驟"><button id="zip-update-go-setup" type="button" class="btn btn-ghost">① 選擇 ZIP 與目標</button><span id="zip-update-flow-hint">選好來源與目標後會自動比較。</span><button id="zip-update-go-compare" type="button" class="btn btn-ghost">② 比較與套用</button><button id="zip-update-go-history" type="button" class="btn btn-ghost">更新結果／還原</button></nav>
-      <div id="zip-update-drop" class="zip-update-drop" role="status" hidden>拖放 ZIP 至此。拖入多個 ZIP 可批次解壓。</div>
+      <header class="zip-update-heading"><div><h2 id="zip-update-title">ZIP 更新助手</h2></div><div class="zip-update-actions" role="group" aria-label="ZIP 助手模式">
+        <button id="zip-update-mode-compare" class="btn btn-secondary" type="button" aria-pressed="true">比較更新</button>
+        <button id="zip-update-mode-normal" class="btn btn-secondary" type="button" aria-pressed="false">一般解壓</button>
+      </div></header>
+      <nav id="zip-update-steps" class="zip-update-steps" aria-label="ZIP 更新步驟"><button id="zip-update-go-setup" type="button" class="btn btn-ghost">① 選擇 ZIP 與目標</button><span id="zip-update-flow-hint">選好來源與目標後會自動比較。</span><button id="zip-update-go-compare" type="button" class="btn btn-ghost">② 比較與套用</button><button id="zip-update-go-history" type="button" class="btn btn-ghost">更新結果／還原</button></nav>
+      <div id="zip-update-drop" class="zip-update-drop" role="status" hidden>拖放 ZIP 至此。</div>
       <div class="zip-update-scroll">
         <details id="zip-update-setup" class="zip-update-setup" open><summary>來源與目標位置 <span id="zip-update-setup-summary"></span></summary><div id="zip-update-source-target-panels" class="zip-update-sources">
-          <section id="zip-update-source-panel"><div class="zip-update-section-heading"><h3>1. ZIP 來源</h3><div class="zip-update-actions"><button id="zip-update-choose" class="btn btn-secondary">選擇 ZIP</button><button id="zip-update-add-source" class="btn btn-ghost">選擇來源資料夾（記住）</button></div></div><label>常用 ZIP 來源位置<select id="zip-update-sources"><option value="">最近使用的來源位置</option></select></label><p id="zip-update-source-path" class="zip-update-path">尚未選擇 ZIP</p><div class="zip-browser"><div class="zip-browser-heading"><strong>來源位置的 ZIP 與資料夾</strong><div class="zip-update-actions"><button id="zip-update-extract-batch" type="button" class="btn btn-ghost" title="解壓已勾選的 ZIP，或開啟檔案選擇器">批次解壓</button><button id="zip-update-source-up" type="button" class="btn btn-ghost">上層</button></div></div><small id="zip-update-batch-hint" class="notes-hint" hidden>Shift＋點選或方向鍵選取範圍，Ctrl＋點選或空白鍵切換勾選，Ctrl＋A 全選。</small><p id="zip-update-source-folder-path" class="zip-update-path"></p><input id="zip-update-source-browser-query" type="search" aria-label="搜尋來源位置的 ZIP 與資料夾" placeholder="篩選名稱…"><div class="zip-browser-scroll"><table><thead><tr><th><button type="button" data-zip-sort="source:name">名稱</button></th><th><button type="button" data-zip-sort="source:size">大小</button></th><th><button type="button" data-zip-sort="source:modified">修改時間</button></th></tr></thead><tbody id="zip-update-source-browser-rows"></tbody></table></div><div class="zip-panel-resize" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="調整ZIP 來源清單高度" aria-controls="zip-update-source-panel" data-zip-resize="source" title="調整ZIP 來源清單高度，按兩下還原預設"></div><div class="zip-browser-pager"><button id="zip-update-source-prev" type="button" class="btn btn-ghost">‹</button><span id="zip-update-source-browser-status"></span><button id="zip-update-source-next" type="button" class="btn btn-ghost">›</button></div></div><label>ZIP 來源根目錄<select id="zip-update-root"><option value="">保留 ZIP 完整層級</option></select></label><p class="notes-hint">目標已位於 ZIP 的同名資料夾時，可選 ZIP 內該資料夾，避免重複多加一層。</p></section>
+          <section id="zip-update-source-panel"><div class="zip-update-section-heading"><h3>1. ZIP 來源</h3><div class="zip-update-actions"><button id="zip-update-choose" class="btn btn-secondary">選擇 ZIP</button><button id="zip-update-add-source" class="btn btn-ghost">選擇來源資料夾（記住）</button></div></div><label>常用 ZIP 來源位置<select id="zip-update-sources"><option value="">最近使用的來源位置</option></select></label><p id="zip-update-source-path" class="zip-update-path">尚未選擇 ZIP</p><div class="zip-browser"><div class="zip-browser-heading"><strong>來源位置的 ZIP 與資料夾</strong><div class="zip-update-actions"><button id="zip-update-source-up" type="button" class="btn btn-ghost">上層</button></div></div><p id="zip-update-source-folder-path" class="zip-update-path"></p><input id="zip-update-source-browser-query" type="search" aria-label="搜尋來源位置的 ZIP 與資料夾" placeholder="篩選名稱…"><div class="zip-browser-scroll"><table><thead><tr><th><button type="button" data-zip-sort="source:name">名稱</button></th><th><button type="button" data-zip-sort="source:size">大小</button></th><th><button type="button" data-zip-sort="source:modified">修改時間</button></th></tr></thead><tbody id="zip-update-source-browser-rows"></tbody></table></div><div class="zip-panel-resize" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="調整ZIP 來源清單高度" aria-controls="zip-update-source-panel" data-zip-resize="source" title="調整ZIP 來源清單高度，按兩下還原預設"></div><div class="zip-browser-pager"><button id="zip-update-source-prev" type="button" class="btn btn-ghost">‹</button><span id="zip-update-source-browser-status"></span><button id="zip-update-source-next" type="button" class="btn btn-ghost">›</button></div></div><label>ZIP 來源根目錄<select id="zip-update-root"><option value="">保留 ZIP 完整層級</option></select></label><p class="notes-hint">目標已位於 ZIP 的同名資料夾時，可選 ZIP 內該資料夾，避免重複多加一層。</p></section>
           <div class="zip-panel-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="調整來源與目標寬度" aria-controls="zip-update-source-target-panels" data-zip-resize="split" title="調整來源與目標寬度，按兩下還原預設"></div>
           <section id="zip-update-target-panel"><div class="zip-update-section-heading"><h3>2. 目標資料夾</h3><div class="zip-update-actions"><button id="zip-update-target" class="btn btn-secondary">選擇目標資料夾</button><button id="zip-update-open-target" class="btn btn-ghost">開啟目標</button></div></div><div class="zip-update-location-row"><label>常用／最近目的地<select id="zip-update-targets"><option value="">選擇目的地</option></select></label><button id="zip-update-save-target" type="button" class="btn btn-ghost">☆ 儲存目前位置</button><button id="zip-update-forget-target" type="button" class="btn btn-ghost">移除所選位置</button></div><p id="zip-update-target-path" class="zip-update-path">尚未選擇目標</p><div class="zip-browser"><div class="zip-browser-heading"><strong>目標資料夾內容</strong><button id="zip-update-target-up" type="button" class="btn btn-ghost">上層</button></div><p id="zip-update-target-folder-path" class="zip-update-path"></p><input id="zip-update-target-browser-query" type="search" aria-label="搜尋目標資料夾內容" placeholder="篩選名稱…"><div class="zip-browser-scroll"><table><thead><tr><th><button type="button" data-zip-sort="target:name">名稱</button></th><th><button type="button" data-zip-sort="target:size">大小</button></th><th><button type="button" data-zip-sort="target:modified">修改時間</button></th></tr></thead><tbody id="zip-update-target-browser-rows"></tbody></table></div><div class="zip-panel-resize" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="調整目標資料夾清單高度" aria-controls="zip-update-target-panel" data-zip-resize="target" title="調整目標資料夾清單高度，按兩下還原預設"></div><div class="zip-browser-pager"><button id="zip-update-target-prev" type="button" class="btn btn-ghost">‹</button><span id="zip-update-target-browser-status"></span><button id="zip-update-target-next" type="button" class="btn btn-ghost">›</button></div></div><p class="notes-hint">只處理勾選的新增／覆寫檔案。目標內其餘檔案保留。</p></section>
         </div></details>
@@ -114,20 +117,77 @@
         <div class="zip-panel-resize" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="調整比較清單高度" aria-controls="zip-update-comparison" data-zip-resize="compare" title="調整比較清單高度，按兩下還原預設"></div>
         <div class="zip-update-pager"><button id="zip-update-prev" class="btn btn-ghost">上一頁</button><span id="zip-update-pagination"></span><button id="zip-update-next" class="btn btn-ghost">下一頁</button></div>
         </section><details id="zip-update-history-panel" class="zip-update-history"><summary>最近更新與還原</summary><p class="notes-hint">覆寫前保留原檔。還原時，更新後再次修改的檔案會保留並列出衝突。</p><div id="zip-update-history"></div></details>
-        <details id="zip-update-batch-results" class="zip-update-history" hidden><summary>批次解壓結果</summary><ul id="zip-update-batch-list"></ul></details>
+        <div id="zip-update-normal" hidden>
+          <div class="zip-normal-layout">
+            <section class="zip-normal-card">
+              <div class="zip-update-section-heading"><h3>ZIP 來源</h3><button id="zip-batch-pick" class="btn btn-secondary" type="button">選擇 ZIP 檔案</button></div>
+              <label for="zip-batch-paths">批次輸入 ZIP 完整路徑</label>
+              <div class="zip-normal-inline"><textarea id="zip-batch-paths" rows="2" placeholder="每行一個 ZIP 路徑，也可直接拖放檔案"></textarea><button id="zip-batch-add" class="btn btn-ghost" type="button">加入清單</button></div>
+              <details id="zip-batch-tracking" class="zip-browser">
+                <summary>從 Everything 追蹤選取 ZIP</summary>
+                <div class="zip-normal-inline"><select id="zip-batch-query" aria-label="Everything 追蹤搜尋"></select><button id="zip-batch-refresh" class="btn btn-ghost" type="button">更新追蹤結果</button></div>
+                <input id="zip-batch-filter" type="search" placeholder="篩選檔名或路徑" aria-label="篩選追蹤 ZIP">
+                <small class="notes-hint">Shift＋點選或方向鍵選取範圍，Ctrl＋點選或空白鍵切換勾選，Ctrl＋A 全選。</small>
+                <div class="zip-browser-scroll zip-normal-table"><table aria-label="Everything 追蹤 ZIP"><thead><tr><th scope="col">選取</th><th><button data-zip-batch-sort="name" type="button">檔名</button></th><th><button data-zip-batch-sort="location" type="button">位置</button></th><th><button data-zip-batch-sort="size" type="button">大小</button></th><th><button data-zip-batch-sort="modified" type="button">修改日期</button></th></tr></thead><tbody id="zip-batch-tracking-rows"></tbody></table></div>
+                <div class="zip-browser-pager"><button id="zip-batch-prev" class="btn btn-ghost" aria-label="上一頁" type="button">‹</button><span id="zip-batch-tracking-summary"></span><button id="zip-batch-next" class="btn btn-ghost" aria-label="下一頁" type="button">›</button><button id="zip-batch-add-tracking" class="btn btn-secondary" type="button">加入已勾選 ZIP</button></div>
+              </details>
+              <div class="zip-browser">
+                <div class="zip-browser-heading"><strong id="zip-batch-count"></strong><button id="zip-batch-clear" class="btn btn-ghost" type="button">清空清單</button></div>
+                <div class="zip-browser-scroll zip-normal-table"><table aria-label="待解壓 ZIP"><thead><tr><th scope="col">檔名</th><th scope="col">位置</th><th scope="col">大小</th><th scope="col">修改日期</th><th scope="col">操作</th></tr></thead><tbody id="zip-batch-sources"></tbody></table></div>
+              </div>
+            </section>
+            <section class="zip-normal-card">
+              <h3>目標位置</h3>
+              <label>常用解壓位置<select id="zip-batch-targets"></select></label>
+              <div class="zip-update-actions"><button id="zip-batch-pick-target" class="btn btn-secondary" type="button">選擇資料夾</button><button id="zip-batch-save-target" class="btn btn-ghost" type="button">儲存為常用</button></div>
+              <p id="zip-batch-target-path" class="zip-update-path"></p>
+              <label>解壓方式<select id="zip-batch-extract-mode"><option value="folder">解壓至各自的 ZIP 同名資料夾</option><option value="direct">解壓到目標根目錄（/）</option></select></label>
+              <label class="check-row"><input id="zip-batch-remember-mode" type="checkbox"> 記住解壓方式</label>
+              <p class="notes-hint">保留 ZIP 內的資料夾結構。同名的第一層項目會自動加編號。</p>
+            </section>
+          </div>
+          <section class="zip-normal-card zip-normal-result">
+            <h3>預期結果</h3>
+            <p id="zip-batch-preview-hint" class="notes-hint">加入 ZIP 並選擇目標後，按「預覽解壓」查看第一層輸出。</p>
+            <div id="zip-batch-preview"></div>
+          </section>
+          <section id="zip-batch-result" class="zip-normal-card zip-normal-result" hidden>
+            <div class="zip-update-section-heading"><h3>解壓結果</h3><div class="zip-update-actions">
+              <button id="zip-batch-open" class="btn btn-secondary" type="button">開啟目標位置</button>
+              <button id="zip-batch-recycle" class="btn btn-ghost" type="button">將成功的 ZIP 移到資源回收筒</button>
+              <button id="zip-batch-retry" class="btn btn-ghost" type="button">重試未完成的 ZIP</button>
+            </div></div>
+            <ul id="zip-batch-result-rows"></ul>
+          </section>
+        </div>
       </div>
       <footer class="zip-update-footer">
         <p id="zip-update-status" role="status" aria-live="polite"></p>
-        <div class="zip-update-actions zip-update-primary-actions" role="group" aria-label="ZIP 更新操作">
+        <div id="zip-update-compare-actions" class="zip-update-actions zip-update-primary-actions" role="group" aria-label="ZIP 更新操作">
           <select id="zip-update-quick-target" class="btn btn-ghost zip-update-quick-target" aria-label="切換已儲存的常用目標" disabled><option value="">常用目標</option></select>
           <button id="zip-update-refresh" type="button" class="btn btn-ghost" title="重新讀取來源與目標資料夾">重新整理清單</button>
           <button id="zip-update-latest" type="button" class="btn btn-secondary" title="重新掃描目前來源資料夾，並比較修改時間最新的 ZIP" disabled>比較最新 ZIP</button>
           <button id="zip-update-preview" type="button" class="btn btn-secondary">重新比較</button>
-          <button id="zip-update-cancel" type="button" class="btn btn-secondary" hidden>停止後續項目</button>
           <button id="zip-update-apply" type="button" class="btn btn-primary" disabled>確認套用</button>
         </div>
+        <div id="zip-update-normal-actions" class="zip-update-actions zip-update-primary-actions" role="group" aria-label="一般解壓操作" hidden>
+          <button id="zip-batch-preview-button" class="btn btn-secondary" type="button">預覽解壓</button>
+          <button id="zip-batch-run" class="btn btn-primary" type="button" disabled>開始解壓</button>
+        </div>
+          <button id="zip-update-cancel" type="button" class="btn btn-secondary" hidden>停止後續項目</button>
       </footer>
     </section>
+    <dialog id="zip-password-dialog" class="modal" aria-labelledby="zip-password-title">
+      <form method="dialog">
+        <h3 id="zip-password-title">輸入 ZIP 密碼</h3>
+        <p id="zip-password-message" class="zip-update-path" role="status"></p>
+        <label class="field">ZIP 密碼<input id="zip-password-input" type="password" maxlength="1024" autocomplete="off" required></label>
+        <div class="zip-update-actions">
+          <button type="submit" value="cancel" formnovalidate class="btn btn-ghost">取消</button>
+          <button type="submit" value="unlock" class="btn btn-primary">解鎖</button>
+        </div>
+      </form>
+    </dialog>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
         <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>按需要使用情境、範本、追蹤、OCR 或備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
         <p id="productivity-status" class="productivity-status" role="status" aria-live="polite"></p>
@@ -580,6 +640,13 @@
                 </section>
               </div>
               <div id="settings-panel-workspace" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-workspace" hidden>
+                <section class="settings-card">
+                  <h2>ZIP 更新助手</h2>
+                  <label class="field"><span>開啟時的模式</span><select id="settings-zip-start-mode"><option value="compare">比較更新</option><option value="normal">一般解壓</option></select></label>
+                  <label class="field"><span>預設解壓方式</span><select id="settings-zip-extract-mode"><option value="folder">解壓至各自的 ZIP 同名資料夾</option><option value="direct">解壓到目標根目錄（/）</option></select></label>
+                  <label class="check-row"><input id="settings-zip-remember-mode" type="checkbox"><span>記住一般解壓最後使用的方式</span></label>
+                  <label class="check-row"><input id="settings-zip-ask-recycle" type="checkbox"><span>解壓後詢問是否回收已完成的 ZIP</span></label>
+                </section>
                 <section class="settings-card"><h2>改名速度與復原校驗</h2><label class="field"><span>重新命名校驗模式</span><select id="settings-rename-verification"><option value="fast">快速改名（預設，不讀取完整內容）</option><option value="full">完整校驗（SHA-256，適合需要內容檢查的檔案）</option></select></label><p class="rule-hint">快速模式檢查名稱衝突、檔案身分、大小與修改時間；復原也使用這些屬性，無法可靠偵測「同大小且修改時間被還原」的內容變更。完整模式讀取並校驗全部內容，顯示實際讀取進度。每批復原沿用該批儲存的模式；此設定不影響檔案搬移的內容校驗。</p></section>
                 <section class="settings-card">
                   <h2>工作區與清單</h2>
@@ -2836,7 +2903,7 @@
       </div>
     </dialog>
 <dialog id="document-preview-dialog" class="modal productivity-preview" aria-labelledby="document-preview-title"><h2 id="document-preview-title">文件預覽</h2><p id="document-preview-path" class="notes-hint"></p><div id="document-preview-content"></div><div class="modal-buttons"><button id="document-preview-close" class="btn btn-secondary">關閉</button></div></dialog>
-    <link rel="stylesheet" href="zip-update.css"><script src="zip-update-tree.js" defer></script><script src="zip-update-ui.js" defer></script>
+    <link rel="stylesheet" href="zip-update.css"><script src="zip-update-tree.js" defer></script><script src="zip-batch-ui.js" defer></script><script src="zip-update-ui.js" defer></script>
     <div id="toast-container" aria-live="polite"></div>
     <script src="presets.js" defer></script>
     <script src="list-pagination.js" defer></script>

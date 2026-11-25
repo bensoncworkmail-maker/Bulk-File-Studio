@@ -151,6 +151,6 @@ contextBridge.exposeInMainWorld('desktopContextAPI',Object.freeze({get:()=>ipcRe
 contextBridge.exposeInMainWorld('zipUpdateAPI',Object.freeze({
  command:(action,value)=>invoke('zip-update',action,value),
  drop:file=>invoke('zip-update','drop-zip',webUtils.getPathForFile(file)),
- dropBatch:files=>invoke('zip-update','batch-drop',files.map(file=>webUtils.getPathForFile(file))),
+ addDropped:files=>invoke('zip-update','batch-add-paths',files.map(file=>webUtils.getPathForFile(file))),
  onProgress:callback=>{const listener=(_,value)=>callback(value);ipcRenderer.on('zip-update-progress',listener);return ()=>ipcRenderer.removeListener('zip-update-progress',listener);}
 }));

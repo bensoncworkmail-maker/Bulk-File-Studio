@@ -166,7 +166,8 @@ class DraftNotes{
   if(!Number.isSafeInteger(index)||!draft.attachments[index])throw new Error('附件已移除');
   return store.saveDraft(id,version,{attachments:draft.attachments.filter((_,position)=>position!==index)});
  }
- async send(id,version,sheetId,masterId,withReminder=false,mapping={}){
+ async send(id,version,sheetId,masterId,withReminder=false,mapping={},attachmentMode='link'){
+  if(!['link','copy'].includes(attachmentMode))throw Error('送出附件方式無效');
   if(typeof withReminder!=='boolean')throw new Error('提醒選項無效');
   const store=this.store(),draft=store.draft(id);
   if(version!==draft.version)throw new Error('草稿已變更，請重新開啟');
@@ -176,12 +177,11 @@ class DraftNotes{
     value.length>20000||value.includes('\0'):!['title','body','items','extraField'].includes(key)||value&&!M.ID.test(value))))throw new Error('草稿欄位對應無效');
   const paths=draft.attachments.map(item=>item.path);
   const afterTransfer=toolPreferences.value('draftAfterTransfer',this.settings().draftAfterTransfer);
-  const saved=await withIntranetPaths(paths,()=>{
+  const saved=await withIntranetPaths(paths,async()=>{
    if(store.draft(id).version!==version)throw new Error('草稿已變更，請重新開啟');
    const doc=store.get().document,sheet=doc.sheets.find(sheet=>sheet.id===sheetId&&!sheet.deletedAt);
    if(!sheet)throw new Error('請選擇可用表格');
    const parent=M.parentField(doc,sheet);
-   const fileLinks=paths.length?inspectLinks(paths).map(({path,type})=>({path,type,favoriteId:null,label:''})):[];
    const values=parent?{[parent.id]:[masterId]}:{};
    const targets=sheet.fields.filter(field=>field.type===draft.type);
    const target=Object.hasOwn(mapping,'items')?mapping.items:targets.length===1?targets[0].id:'';
@@ -204,10 +204,29 @@ class DraftNotes{
     if(Object.hasOwn(values,field.id))throw new Error('另填值請選擇尚未對應的欄位');
     if(mapping.extraValue!==undefined&&mapping.extraValue!=='')values[field.id]=M.gridValue(field,mapping.extraValue);
    }
-   const result=store.saveRecord({sheetId,title,notes:draftText(draft,{includeBody:!mapping.body,includeItems:!structured}),tags:[],values,fileLinks},
-    {operation:'草稿轉入工作區'},afterTransfer==='delete'?{id,version}:undefined);
+   function commit(links){
+    if(store.draft(id).version!==version)throw new Error('草稿已變更，請重新開啟');
+    const fileLinks=links.map(({path,type})=>({path,type,favoriteId:null,label:''}));
+    return store.saveRecord({sheetId,title,notes:draftText(draft,{includeBody:!mapping.body,includeItems:!structured}),tags:[],values,fileLinks},
+     {operation:'草稿轉入工作區'},afterTransfer==='delete'?{id,version}:undefined);
+   }
+   let result,copiedAttachments=0;
+   if(attachmentMode==='copy'&&paths.length){
+    const {sheetFolder,workspaceFilesRoot}=require('./workspace-images');
+    const {inside,transfer}=require('./draft-file-transfer');
+    const folder=sheetFolder(workspaceFilesRoot(this.profile),sheetId);
+    for(const source of paths){
+     assertLocalPath(source);
+     if(inside(source,folder))throw Error('附件資料夾包含目標位置，無法複製');
+    }
+    const copied=await transfer({sources:paths,folder,mode:'copy',commit:items=>{
+     copiedAttachments=items.length;
+     return commit(items);
+    }});
+    result=copied.saved;
+   }else result=commit(paths.length?inspectLinks(paths):[]);
    try{this.onSent(result);}catch(error){this.onError(error);}
-   return {id:result.result.id,sheet:sheet.name};
+   return {id:result.result.id,sheet:sheet.name,copiedAttachments};
   });
   let draftDeleted=afterTransfer==='delete',draftWarning='';
   if(afterTransfer==='ask'){

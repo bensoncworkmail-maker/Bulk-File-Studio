@@ -54,6 +54,7 @@
   const target=$('attachments'),images=$('draft-images'),request=++attachmentsRequest;
   target.replaceChildren();
   images.replaceChildren();images.hidden=true;
+  $('send-attachments-field').hidden=!current?.attachments.length;
   if(!current)return;
   for(const [index,item] of current.attachments.entries()){
    const numbered=item.image&&/(?:貼上的圖片 |[0-9a-f-]{36}-)([0-9]{1,6})\.png$/.exec(item.path);const name=item.image?(numbered?'貼上的圖片 '+Number(numbered[1]):'貼上的圖片 '+(images.children.length+1)):item.path;
@@ -279,10 +280,11 @@
   const withReminder=$('send-reminder').checked;
   const mapping=Object.fromEntries(['title','body','items','extraField'].map(key=>[key,$('draft-map-'+key).value]));
   if(extraInput)mapping.extraValue=extraInput.value;
-  const result=await api.send(id,version,sheet.value,master.value,withReminder,mapping);
+  const attachmentMode=current.attachments.length?$('send-attachments').value:'link';
+  const result=await api.send(id,version,sheet.value,master.value,withReminder,mapping,attachmentMode);
   if(result.draftDeleted)await nextDraft(id);
   report('已在「'+result.sheet+'」建立紀錄，'+(result.draftDeleted?'已刪除原草稿。':'已保留原草稿。')+
-   (result.draftWarning||'')+(result.reminderRequested?'請在主視窗設定提醒。':''),Boolean(result.draftWarning));
+   (result.copiedAttachments?'已複製 '+result.copiedAttachments+' 個附件。':'')+(result.draftWarning||'')+(result.reminderRequested?'請在主視窗設定提醒。':''),Boolean(result.draftWarning));
  }));
  function applyPreferences(settings){
   const previous=preferences;preferences={...preferences,...settings};

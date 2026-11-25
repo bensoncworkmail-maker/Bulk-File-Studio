@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('draftAPI',{
  remove:(id,version,index)=>invoke('remove',id,version,index),
  deleteDraft:(id,version)=>invoke('delete',id,version),
  masters:sheetId=>invoke('masters',sheetId),
- send:(id,version,sheetId,masterId,withReminder,mapping)=>invoke('send',id,version,sheetId,masterId,withReminder,mapping),
+ send:(id,version,sheetId,masterId,withReminder,mapping,attachmentMode)=>invoke('send',id,version,sheetId,masterId,withReminder,mapping,attachmentMode),
  close:()=>invoke('close'),
  cancelClose:()=>invoke('cancel-close'),
  onClose:callback=>ipcRenderer.on('draft-close-request',()=>callback()),onSettings:callback=>ipcRenderer.on('draft-settings-changed',(_,settings)=>callback(settings)),

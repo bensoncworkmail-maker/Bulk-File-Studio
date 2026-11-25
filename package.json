@@ -68,6 +68,7 @@
     ]
   },
   "dependencies": {
+    "@zip.js/zip.js": "2.25.0",
     "jszip": "3.10.1",
     "xml-js": "1.6.11"
   }
