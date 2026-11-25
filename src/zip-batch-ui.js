@@ -13,9 +13,20 @@
   let queries=[],queryId='',page=0,anchor=null,rangeBase=null,trackingLoaded=false,cachedOrder;
   const pageSize=75;
   const query=()=>queries.find(item=>item.id===queryId);
-  const headers=[...$('tracking').querySelectorAll('[data-zip-batch-sort]')];
+  const trackingHeaders=[...$('tracking').querySelectorAll('[data-zip-batch-sort]')];
+  const sourceHeaders=[...$('source-table').querySelectorAll('[data-zip-batch-source-sort]')];
   const columns=()=>window.everythingResultColumns;
   const sort=()=>window.everythingViewSettings.effective(settings().everythingSortStates?.[queryId],columns().DEFAULT_COLUMNS);
+  const sourceSort=()=>window.everythingViewSettings.effective(settings().zipBatchSourceSort,columns().DEFAULT_COLUMNS);
+  const isZip=({type,path})=>type==='file'&&/\.zip$/i.test(path)&&!/^[/\\]{2}/.test(path);
+  function renderHeaders(headers,attribute,sort){
+   for(const header of headers){
+    const column=header.getAttribute(attribute);
+    const active=column===sort.key;
+    header.parentElement.setAttribute('aria-sort',active?(sort.direction==='asc'?'ascending':'descending'):'none');
+    header.textContent=columns().COLUMNS[column].label+(active?(sort.direction==='asc'?' ▲':' ▼'):'');
+   }
+  }
   function trackingRows(){
    const snapshot=query()?.snapshot;
    if(!snapshot)return [];
@@ -23,10 +34,16 @@
    if(cachedOrder?.snapshot===snapshot&&cachedOrder.key===key&&cachedOrder.direction===direction&&cachedOrder.filter===filter)return cachedOrder.rows;
    const view=window.everythingTrackingView;
    const rows=view.filterRows(view.sortedRows(snapshot.rows,key,direction),filter)
-    .filter(({item})=>item.type==='file'&&/\.zip$/i.test(item.path)&&!/^[/\\]{2}/.test(item.path));
+    .filter(({item})=>isZip(item));
    cachedOrder={snapshot,key,direction,filter,rows};
    return rows;
   }
+  function clearPasswords(){
+   $('shared-password').value='';
+   for(const field of passwordFields.values())field.value='';
+   controls(batchBusy);
+  }
+  const passwordFor=id=>passwordFields.get(id)?.value||$('shared-password').value;
   function invalidate(){
    preview=null;
    passwordFields.clear();
@@ -45,7 +62,7 @@
    $('add').disabled=busy||!$('paths').value.trim();
    $('save-target').disabled=busy||!target||$('targets').value!=='';
    $('preview-button').disabled=busy||!sources.size||!target;
-   $('run').disabled=busy||!preview?.rows.some(row=>!row.error&&(!row.encrypted||passwordFields.get(row.id)?.value));
+   $('run').disabled=$('preview-button').disabled||Boolean(preview&&!preview.rows.some(row=>!row.error&&(!row.encrypted||passwordFor(row.id))));
    $('open').disabled=busy||!result?.rows.some(row=>['completed','partial'].includes(row.status));
    $('recycle').disabled=busy||!result?.rows.some(row=>row.status==='completed'&&!recycled.get(row.id)?.recycled);
    $('retry').disabled=busy||!result?.rows.some(row=>row.status!=='completed');
@@ -53,22 +70,30 @@
    $('add-tracking').disabled=busy||!selected.size;
    $('prev').disabled=busy||page===0;
    $('next').disabled=busy||(page+1)*pageSize>=trackingRows().length;
-   headers.forEach(header=>{header.disabled=busy||!queryId;});
+   trackingHeaders.forEach(header=>{header.disabled=busy||!queryId;});
+   sourceHeaders.forEach(header=>{header.disabled=busy||!sources.size;});
    trackingSummary();
   }
   function renderSources(){
    const {DEFAULT_COLUMNS,display}=columns();
-   const rows=[...sources.entries()].map(([id,item])=>{
+   const sort=sourceSort();
+   const rows=window.everythingTrackingView.sortedRows([...sources.values()],sort.key,sort.direction).map(({item})=>{
     const row=node('tr'),action=node('td');
-    const remove=button('移除',()=>{sources.delete(id);invalidate();renderSources();});
+    const remove=button('移除',()=>{sources.delete(key(item.path));invalidate();renderSources();});
     remove.setAttribute('aria-label','移除 '+item.name);
     action.append(remove);
-    row.append(...DEFAULT_COLUMNS.map(column=>node('td',display(item,column,{sizeUnit:settings().everythingSizeUnit}))),action);
+    row.append(...DEFAULT_COLUMNS.map(column=>fileCell(item,column,display)),action);
     return row;
    });
    $('sources').replaceChildren(...rows);
+   renderHeaders(sourceHeaders,'data-zip-batch-source-sort',sort);
    $('count').textContent='待解壓 ZIP（'+sources.size+'／'+limit+'）';
    controls(batchBusy);
+  }
+  function fileCell(item,column,display){
+   const cell=node('td',display(item,column,{sizeUnit:settings().everythingSizeUnit}));
+   if(column==='name'||column==='location')cell.title=column==='name'?item.name:cell.textContent;
+   return cell;
   }
   function addSources(value){
    if(value.canceled)return;
@@ -95,6 +120,21 @@
    controls(batchBusy);
   }
   function resetSelection(index=null){anchor=index;rangeBase=null;}
+  function rememberSelection(){
+   const snapshot=query()?.snapshot;
+   if(!snapshot?.token)return;
+   const saved={...settings().zipBatchSelections};
+   delete saved[queryId];
+   if(selected.size)saved[queryId]=[...selected].map(index=>snapshot.rows[index].path);
+   update({zipBatchSelections:saved});
+  }
+  function restoreSelection(){
+   selected.clear();resetSelection();page=0;
+   const saved=new Set((settings().zipBatchSelections?.[queryId]||[]).map(key));
+   query()?.snapshot?.rows.forEach((item,index)=>{
+    if(selected.size<limit&&isZip(item)&&saved.has(key(item.path)))selected.add(index);
+   });
+  }
   function selectRows(indices,base){
    const next=new Set(base);
    for(const index of indices){
@@ -102,6 +142,7 @@
     next.add(index);
    }
    selected.clear();next.forEach(index=>selected.add(index));
+   rememberSelection();
    for(const [index,{row,check}] of visibleRows){
     check.checked=selected.has(index);
     row.classList.toggle('zip-batch-selected',check.checked);
@@ -158,39 +199,33 @@
      const modified=event.shiftKey||event.ctrlKey||event.metaKey;
      if(!modified&&(event.target===check||event.type==='contextmenu'))return;
      event.preventDefault();
-     if(event.shiftKey)extend(index);else toggle(index);
+     if(event.shiftKey)extend(index);
+     else if(modified)toggle(index);
+     else{resetSelection(index);selectRows([index],[]);}
      if(event.target===check)setTimeout(()=>{check.checked=selected.has(index);},0);
      row.focus();
     }
     row.addEventListener('click',selectClick);
     row.addEventListener('contextmenu',selectClick);
     select.append(check);
-    row.append(select,...DEFAULT_COLUMNS.map(column=>node('td',display(item,column,{sizeUnit:settings().everythingSizeUnit}))));
+    row.append(select,...DEFAULT_COLUMNS.map(column=>fileCell(item,column,display)));
     return row;
    }));
-   if(queryId){
-    const current=sort();
-    for(const header of headers){
-     const active=header.getAttribute('data-zip-batch-sort')===current.key;
-     header.parentElement.setAttribute('aria-sort',active?(current.direction==='asc'?'ascending':'descending'):'none');
-     header.classList.toggle('zip-sort-active',active);
-     header.setAttribute('data-direction',active?current.direction:'');
-    }
-   }
+   renderHeaders(trackingHeaders,'data-zip-batch-sort',sort());
    controls(batchBusy);
   }
   function syncTracking(value){
    if(!value)return;
-   const token=query()?.snapshot?.token;
+   const previous=query();
    queries=value.queries||[];
    const desired=settings().zipBatchTrackingId;
    queryId=queries.some(item=>item.id===queryId)?queryId:queries.some(item=>item.id===desired)?desired:queries[0]?.id||'';
-   if(token!==query()?.snapshot?.token){selected.clear();resetSelection();page=0;}
+   if(previous?.id!==queryId||previous?.snapshot?.token!==query()?.snapshot?.token)restoreSelection();
    const options=queries.map(item=>{const option=node('option',item.name+(item.enabled?'':'（已暫停）'));option.value=item.id;return option;});
    $('query').replaceChildren(...options);$('query').value=queryId;
    trackingLoaded=true;renderTracking();
   }
-  function renderPreview(value){
+  function renderPreview(value,{reveal=true}={}){
    preview=value;passwordFields.clear();
    $('preview-hint').hidden=true;
    const entries=value.rows.map(row=>{
@@ -201,14 +236,15 @@
     }else{
      const list=node('ul');
      let offset=0;
-     const more=button('顯示更多第一層項目',appendOutputs);
+     const flat=$('extract-mode').value==='flat';
+     const more=button('顯示更多輸出',appendOutputs);
      function appendOutputs(){
       const next=row.outputs.slice(offset,offset+50);
       for(const output of next)list.append(node('li',(output.directory?'資料夾　':'檔案　')+output.path));
       offset+=next.length;more.hidden=offset>=row.outputs.length;
      }
      appendOutputs();
-     group.append(node('p',row.outputs.length?row.outputs.length+' 個第一層輸出':'ZIP 內沒有項目'),list,more);
+     group.append(node('p',row.outputs.length?row.outputs.length+(flat?' 個檔案':' 個第一層輸出'):'ZIP 內沒有項目'),list,more);
      if(row.encrypted){
       const label=node('label','ZIP 密碼 '),field=node('input');
       field.type='password';field.maxLength=1024;field.autocomplete='off';
@@ -220,14 +256,14 @@
     return group;
    });
    $('preview').replaceChildren(...entries);
-   if(passwordFields.size)$('preview').prepend(node('p','請為加密 ZIP 輸入各自的密碼。留空時，該 ZIP 會跳過。'));
-   $('preview').scrollIntoView({block:'nearest'});
+   if(passwordFields.size)$('preview').prepend(node('p','個別密碼優先使用。未填個別密碼時使用共用密碼，兩者皆空白會跳過該 ZIP。'));
+   if(reveal)$('preview').scrollIntoView({block:'nearest'});
    controls(batchBusy);
   }
   function renderResult(){
    $('result').hidden=false;
    $('result-rows').replaceChildren(...result.rows.map(row=>{
-    const recovery=recycled.get(row.id),label={completed:'已完成',partial:'部分完成',failed:'失敗',canceled:'未執行'}[row.status];
+    const recovery=recycled.get(row.id),label={completed:'已完成',partial:'部分完成',failed:'失敗',skipped:'已跳過',canceled:'未執行'}[row.status];
     const item=node('li',label+' · '+row.archive+'\n→ '+row.destination+'（'+row.count+' 個檔案）'+
      (row.error?'\n'+row.error:'')+(recovery?.recycled?'\n來源 ZIP 已移到資源回收筒':recovery?.recycleError?'\n回收失敗：'+recovery.recycleError:''));
     if(row.status!=='completed'||recovery?.recycleError)item.className='zip-update-state-blocked';
@@ -256,7 +292,14 @@
   $('targets').addEventListener('change',()=>{
    if($('targets').value!=='')void runTask(async()=>syncTarget(await api.command('batch-select-target',Number($('targets').value))));
   });
+  function describeMode(){
+   $('extract-hint').textContent=$('extract-mode').value==='flat'
+    ?'將檔案放在同一層。同名檔案會自動加編號，空資料夾會略過。'
+    :'保留 ZIP 內的資料夾結構。同名的第一層項目會自動加編號。';
+  }
+  $('shared-password').addEventListener('input',()=>controls(batchBusy));
   $('extract-mode').addEventListener('change',()=>{
+   describeMode();
    if($('remember-mode').checked)update({zipDefaultExtractMode:$('extract-mode').value});
    invalidate();
   });
@@ -268,7 +311,7 @@
    if($('tracking').open&&!trackingLoaded&&trackingAPI)void runTask(async()=>syncTracking(await trackingAPI.trackingList()));
   });
   $('query').addEventListener('change',()=>{
-   queryId=$('query').value;update({zipBatchTrackingId:queryId});selected.clear();resetSelection();page=0;renderTracking();
+   queryId=$('query').value;update({zipBatchTrackingId:queryId});restoreSelection();renderTracking();
   });
   $('filter').addEventListener('input',()=>{resetSelection();page=0;renderTracking();});
   on('refresh',async()=>syncTracking(await trackingAPI.trackingRefresh(queryId)));
@@ -277,22 +320,44 @@
   on('add-tracking',async()=>{
    const value=await api.command('batch-add-tracking',{id:queryId,token:query()?.snapshot?.token,indices:[...selected]});
    addSources(value);
-   if(!value.errors.length)selectRows([],[]);
   });
-  for(const header of headers)header.addEventListener('click',()=>{
+  for(const header of trackingHeaders)header.addEventListener('click',()=>{
    const states=settings().everythingSortStates||{},key=header.getAttribute('data-zip-batch-sort');
    update({everythingSortStates:{...states,[queryId]:window.everythingViewSettings.select(states[queryId],key)}});
    resetSelection();page=0;renderTracking();
   });
-  async function previewSources(paths=[...sources.values()].map(item=>item.path)){
+  for(const header of sourceHeaders)header.addEventListener('click',()=>{
+   const column=header.getAttribute('data-zip-batch-source-sort');
+   update({zipBatchSourceSort:window.everythingViewSettings.select(settings().zipBatchSourceSort,column)});
+   renderSources();
+  });
+  async function previewSources({paths=[...sources.values()].map(item=>item.path),reveal=true}={}){
    invalidate();
-   renderPreview(await api.command('batch-preview',{paths,mode:$('extract-mode').value}));
-   status('請核對預期結果及解壓位置。');
+   const value=await api.command('batch-preview',{paths,mode:$('extract-mode').value});
+   renderPreview(value,{reveal});
   }
-  on('preview-button',previewSources);
+  on('preview-button',async()=>{
+   await previewSources();
+   status('請核對預期結果及解壓位置。');
+  });
   on('run',async()=>{
-   const token=preview.token,passwords=Object.fromEntries([...passwordFields].filter(([,field])=>field.value).map(([id,field])=>[id,field.value]));
-   for(const field of passwordFields.values())field.value='';
+   if(!preview){
+    await previewSources({reveal:false});
+    if([...passwordFields.keys()].some(id=>!passwordFor(id))){
+     $('password-options').open=true;
+     $('preview').scrollIntoView({block:'nearest'});
+     status('此批 ZIP 有加密檔案。請輸入共用或個別密碼，再按「開始解壓」。');
+     return;
+    }
+   }
+   if(preview.rows.every(row=>row.error)){
+    $('preview').scrollIntoView({block:'nearest'});
+    status('目前沒有可解壓的 ZIP，請查看預期結果。',true);
+    return;
+   }
+   const {token}=preview;
+   const passwords=Object.fromEntries([...passwordFields.keys()].map(id=>[id,passwordFor(id)]).filter(([,password])=>password));
+   clearPasswords();
    const next=await api.command('batch-run',{token,passwords});
    result=next;recycled=new Map();invalidate();
    for(const row of result.rows)if(row.status==='completed')sources.delete(key(row.archive));
@@ -309,15 +374,15 @@
    const value=await api.command('batch-add-paths',paths);
    addSources(value);
    const accepted=value.rows.filter(item=>sources.has(key(item.path))).map(item=>item.path);
-   if(accepted.length)await previewSources(accepted);
+   if(accepted.length)await previewSources({paths:accepted});
   });
   return {
-   controls,
+   controls,clearPasswords,
    resetMode:()=>{
     const value=settings().zipDefaultExtractMode||'direct';
     if($('extract-mode').value!==value){$('extract-mode').value=value;invalidate();}
     $('remember-mode').checked=settings().zipRememberExtractMode!==false;
-    for(const field of passwordFields.values())field.value='';
+    describeMode();
    },
    drop:async files=>addSources(await api.addDropped(files)),
    activate:async()=>{

@@ -16,7 +16,10 @@ nav button[aria-current="true"]{background:var(--selected);color:var(--accent);b
 #panel{min-width:0;min-height:0;overflow:auto;background:var(--surface);padding:10px}
 #empty{color:var(--muted);padding:8px}
 fieldset{border:0;margin:0;padding:0;display:grid;min-width:0;min-height:100%;grid-template-rows:auto minmax(140px,1fr) auto auto;gap:8px}
-.title-row,.destination,.destination-actions{display:flex;flex-wrap:wrap;align-items:end;gap:6px}
+.title-row{display:flex;flex-wrap:wrap;align-items:end;gap:6px}
+.destination{display:grid;gap:10px;padding-block:4px 2px}
+.destination-target{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.destination-actions{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px 12px;border-top:1px solid var(--border);padding-top:8px}
 #title{flex:1;min-width:105px;font-weight:650}
 textarea{width:100%;min-height:140px;resize:none}
 button,input,select,textarea{font:inherit;color:inherit;border:1px solid var(--border);background:var(--surface);border-radius:6px;padding:5px 8px}
@@ -42,7 +45,8 @@ body.dragging #drop-zone{background:var(--selected);border-color:var(--accent)}
 #attachments img{display:block;width:auto;max-width:100%;max-height:360px;object-fit:contain;margin:0 auto 6px}
 #attachments li:has(img:not([hidden])){display:grid;grid-template-columns:minmax(0,1fr) auto auto}
 #attachments img{grid-column:1/-1}
-.destination label{display:grid;flex:1 1 120px;min-width:0;color:var(--muted)}
+.destination label{display:grid;gap:4px;min-width:0;color:var(--muted)}
+.destination small{line-height:1.45}
 .destination select{width:100%;color:var(--ink)}
 footer{border-top:1px solid var(--border);color:var(--muted);padding-block:5px}
 #status{overflow-wrap:anywhere}
@@ -79,9 +83,9 @@ footer{flex-wrap:wrap}
 
 .draft-type-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
 #draft-type-hint,.draft-transfer-hint { color:var(--muted); font-size:.85rem; }
-#draft-mapping { flex:1 0 100%; border:1px solid var(--border);border-radius:7px;padding:5px 7px; }
-.draft-mapping-fields { display:flex;flex-wrap:wrap;gap:6px; }
-#draft-map-extra { flex:1 1 120px;min-width:0; }
+#draft-mapping { min-width:0;border:1px solid var(--border);border-radius:7px;padding:5px 7px; }
+.draft-mapping-fields { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:8px; }
+#draft-map-extra { min-width:0; }
 #draft-map-extra textarea { min-height:65px;resize:vertical; }
 .draft-transfer-hint { margin:5px 0 0; }
 

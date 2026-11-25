@@ -171,7 +171,7 @@ class ZipUpdate{
  });}
  async previewBatch(paths,target,mode){return this.guard(async()=>{
   if(!Array.isArray(paths)||!paths.length||paths.length>MAX_BATCH)throw Error(`請選擇 1–${MAX_BATCH} 個 ZIP 檔案`);
-  if(!['folder','direct'].includes(mode))throw Error('解壓方式無效');
+  if(!['folder','direct','flat'].includes(mode))throw Error('解壓方式無效');
   this.batch=null;
   assertLocalPath(target);
   if(within(this.root,target)||!fs.statSync(target).isDirectory())throw Error('請選擇有效的目標資料夾');
@@ -188,6 +188,12 @@ class ZipUpdate{
      if(entryPath(stem)!==stem||stem.includes('/'))throw Error('ZIP 檔名無法用作資料夾');
      destination=path.join(target,reserveName(reserved,stem,true));
      outputs=[{name:stem,path:destination,directory:true}];
+    }else if(mode==='flat'){
+     const files=central.filter(entry=>!entry.directory);
+     if(!files.length)throw Error('ZIP 內沒有可平鋪解壓的檔案');
+     outputs=files.map(({name})=>({
+      name,directory:false,path:path.join(target,reserveName(reserved,path.posix.basename(name),false))
+     }));
     }else{
      const top=new Map();
      for(const entry of central){
@@ -225,6 +231,11 @@ class ZipUpdate{
     let staged,created=false,count=0;
     try{
      if(row.error)throw Error(row.error);
+     if(encrypted&&!passwords[row.id]){
+      results.push({...result,status:'skipped',count:0,error:'尚未輸入 ZIP 密碼'});
+      this.emit('batch',results.length,rows.length,path.basename(row.archive));
+      continue;
+     }
      staged=await this.stageArchive(row.archive,passwords[row.id],identity);
      this.check();
      assertLocalPath(target);
@@ -232,16 +243,17 @@ class ZipUpdate{
      if(mode==='folder'){
       assertLocalPath(row.destination);await fsp.mkdir(row.destination);created=true;
      }
-     const top=new Map(outputs.map(output=>[zipNameKey(output.name),output]));
+     const outputPaths=new Map(outputs.map(output=>[output.name,output.path]));
      if(mode==='direct')for(const output of outputs.filter(output=>output.directory)){
       this.check();assertLocalPath(output.path);await fsp.mkdir(output.path);created=true;
      }
      const destination=name=>{
+      if(mode==='flat')return assertLocalPath(outputPaths.get(name));
       const [first,...rest]=name.split('/');
-      const file=mode==='folder'?path.join(row.destination,first,...rest):path.join(top.get(zipNameKey(first)).path,...rest);
+      const file=mode==='folder'?path.join(row.destination,first,...rest):path.join(outputPaths.get(first),...rest);
       return assertLocalPath(file);
      };
-     for(const name of staged.directories){
+     for(const name of mode==='flat'?[]:staged.directories){
       this.check();await fsp.mkdir(destination(name),{recursive:true});
      }
      for(const file of staged.files){

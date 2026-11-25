@@ -190,3 +190,31 @@ test('encrypted ZIPs preview, unlock for comparison, and batch extract in direct
  assert.equal(fs.readFileSync(path.join(target,'summary (3).txt'),'utf8'),'legacy');
  assert.equal(fs.readFileSync(path.join(target,'course (2)','deep','note.txt'),'utf8'),'nested');
 });
+
+test('flat extraction predicts and writes unique file names without creating archive directories',async t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-zip-flat-'));
+ t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const target=path.join(root,'target'),archive=path.join(root,'learning.zip');
+ fs.mkdirSync(target);
+ fs.writeFileSync(path.join(target,'Readme.txt'),'original');
+ const zip=new JSZip();
+ zip.file('alpha/deep/Readme.txt','one');
+ zip.file('beta/readme.txt','two');
+ zip.file('top.txt','three');
+ zip.folder('empty');
+ fs.writeFileSync(archive,await zip.generateAsync({type:'nodebuffer'}));
+ let invoke;
+ register({handle:(_,handler)=>invoke=(action,value)=>handler({},action,value),root:path.join(root,'profile'),parent:()=>null,
+  fileOperation:task=>task(),dialog:{showOpenDialog:async()=>({filePaths:[target]})}});
+ await invoke('batch-choose-target');
+ const plan=await invoke('batch-preview',{paths:[archive],mode:'flat'});
+ assert.deepEqual(plan.rows[0].outputs.map(out=>path.basename(out.path)),['Readme (2).txt','readme (3).txt','top.txt']);
+ assert.equal(plan.rows[0].outputs.every(out=>!out.directory),true);
+ const result=await invoke('batch-run',{token:plan.token,passwords:{}});
+ assert.equal(result.rows[0].status,'completed');
+ assert.equal(result.rows[0].count,3);
+ for(const [name,expected] of [['Readme.txt','original'],['Readme (2).txt','one'],['readme (3).txt','two'],['top.txt','three']]){
+  assert.equal(fs.readFileSync(path.join(target,name),'utf8'),expected);
+ }
+ assert.equal(fs.readdirSync(target).length,4);
+});

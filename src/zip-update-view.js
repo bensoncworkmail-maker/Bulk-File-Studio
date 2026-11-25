@@ -1,7 +1,15 @@
 'use strict';
 (()=>{
  const columns={source:['name','size','modified'],target:['name','size','modified'],compare:['name','status','size','destination']};
- const dimensions={source:{min:100,max:650,initial:180},target:{min:100,max:650,initial:180},compare:{min:110,max:750,initial:300},split:{min:30,max:70,initial:50}};
+ const dimensions={source:{min:100,max:650,initial:180},target:{min:100,max:650,initial:180},compare:{min:110,max:750,initial:300},split:{min:30,max:70,initial:50},
+  'batch-split':{min:40,max:72,initial:64},
+  'batch-paths':{min:44,max:350,initial:60},
+  'batch-tracking':{min:100,max:750,initial:200},
+  'batch-sources':{min:100,max:750,initial:180},
+  'batch-target':{min:130,max:750,initial:355},
+  'batch-preview':{min:100,max:750,initial:240},
+  'batch-result':{min:100,max:750,initial:240}
+ };
  function dimension(key,value){
   const {min,max,initial}=dimensions[key];
   return Number.isFinite(value)?Math.round(Math.min(max,Math.max(min,value))):initial;
