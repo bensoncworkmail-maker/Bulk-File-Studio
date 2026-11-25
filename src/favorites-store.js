@@ -11,13 +11,21 @@ const pathKey = value => network.isUNC(value)?path.win32.normalize(value).toLowe
 const identityKeys = ['dev','ino','birthtimeNs'];
 function identity(stat) { return Object.fromEntries(identityKeys.map(key=>[key,String(stat[key])])); }
 function sameIdentity(a,b) { return a && b && identityKeys.every(key=>a[key]===b[key]); }
-function inspectPath(filepath) {
+function inspectStat(filepath) {
   if (typeof filepath !== 'string' || (!path.isAbsolute(filepath)&&!network.isUNC(filepath)) || filepath.includes('\0')) throw new Error('請選取有效的完整檔案或資料夾路徑');
   favoriteReference(filepath);
   if(network.isUNC(filepath)){network.assertIntranetPath(filepath);require('./notes-location-links').inspectLocation(filepath);}
   const stat=fs.lstatSync(filepath,{bigint:true});
   if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) throw new Error('只支援一般檔案及資料夾，不包含符號連結');
+  return stat;
+}
+function inspectPath(filepath) {
+  const stat=inspectStat(filepath);
   return {type:stat.isDirectory()?'folder':'file',identity:identity(stat),size:stat.isFile()?Number(stat.size):null,modifiedMs:Number(stat.mtimeMs)};
+}
+function inspectPathSnapshot(filepath) {
+  const stat=inspectStat(filepath);
+  return {path:filepath,type:stat.isDirectory()?'folder':'file',identity:identity(stat),size:String(stat.size),mtime:String(stat.mtimeNs)};
 }
 function cleanTags(tags) {
   if (!Array.isArray(tags) || tags.some(tag=>typeof tag!=='string')) throw new Error('標籤必須是文字清單');
@@ -187,4 +195,4 @@ class FavoritesStore {
     return updated;
   }
 }
-module.exports={favoriteReference,FavoritesStore,cleanTags,inspectPath,sameIdentity,MAX_FAVORITES,validateFavorites};
+module.exports={favoriteReference,FavoritesStore,cleanTags,inspectPath,inspectPathSnapshot,sameIdentity,MAX_FAVORITES,validateFavorites};

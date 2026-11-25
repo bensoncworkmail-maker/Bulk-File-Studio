@@ -8,16 +8,16 @@ function trackingBatchStore(tracking,id,token,indices){
 }
 // Use tracking only for the selected sources; affected links remain real favorites.
 function trackingTrashStore(tracking,favorites,id,token,indices){
- return {read:()=>favorites.read(),write:data=>favorites.write(data),selection:()=>tracking.selection(id,token,indices).rows.map(({path,type,identity})=>({path,type,identity})),state:()=>({status:'ready'})};
+ return {read:()=>favorites.read(),write:data=>favorites.write(data),selection:()=>tracking.entries(id,token,indices).rows.map(({path,type,identity})=>({path,type,identity}))};
 }
 
 async function trackingAction({tracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen,renameItem,trash}){
  if(!['open','show','copy','copy-names','copy-folders','copy-table','favorite','rename','move','bulk-open','bulk-locations','rename-item','trash'].includes(action))throw Error('追蹤搜尋操作無效');
  const entries=tracking.entries?tracking.entries(id,token,indices):tracking.selection(id,token,indices);
  if(entries.paths.some(network.isUNC)&&['trash','rename-item','rename','move'].includes(action))throw Error('共享位置支援開啟、定位、複製與收藏；改名、搬移或移至資源回收筒請在檔案總管操作');
+ if(action==='trash')return trash({id,token,indices});
  return network.withIntranetPaths(entries.paths,async()=>{
  const {paths,tags,rows}=tracking.selection(id,token,indices);
- if(action==='trash')return trash({id,token,indices});
  if(action==='bulk-open'||action==='bulk-locations')return bulkOpen({id,token,indices},action==='bulk-open'?'open':'locations');
  if(action==='rename-item'){
   if(paths.length!==1)throw Error('請只選取一個檔案或資料夾再重新命名');

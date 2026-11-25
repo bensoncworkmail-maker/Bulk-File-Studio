@@ -281,10 +281,19 @@ test('local result filtering keeps query commands unchanged, selects visible ori
  await h.$('everything-tracking-filter-clear').dispatch('click');assert.equal(filter.value,'');assert.equal(h.$('everything-tracking-filter-count').textContent,'共 2 項');assert.equal(h.$('everything-tracking-body').querySelectorAll('tr').length,2);
 });
 
-test('successful recycling preserves surviving results during a change event and failed ES requery',async t=>{
+test('successful recycling uses the pruned result cache and returns control without requerying ES',async t=>{
  const h=fixture(t),other=path.join(path.dirname(h.file),'survivor.txt');fs.writeFileSync(other,'other');h.bridge.search=async()=>({rows:[{path:h.file,name:'report.txt'},{path:other,name:'survivor.txt'}],truncated:false});await flush();h.window.everythingTrackingUI.activate(true);await flush();
- h.api.trackingAction=async(id,token,indices,kind)=>{assert.equal(kind,'trash');const {paths}=h.service.selection(id,token,indices);fs.unlinkSync(paths[0]);h.service.removePaths(paths);h.changed();h.bridge.search=async()=>{throw Error('ES unavailable');};return {trashed:1,failures:[]};};
- const row=h.$('everything-tracking-body').querySelectorAll('tr').find(row=>row.querySelector('.everything-tracking-file-text').textContent==='report.txt');await row.dispatch('click');await h.$('everything-tracking-trash').dispatch('click');await flush();const rows=h.$('everything-tracking-body').querySelectorAll('tr');assert.equal(rows.length,1);assert.equal(rows[0].querySelector('.everything-tracking-file-text').textContent,'survivor.txt');assert.match(h.$('everything-tracking-status').textContent,/ES unavailable/);assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
+ let finish,searches=0;
+ h.api.trackingAction=async(id,token,indices,kind)=>{assert.equal(kind,'trash');await new Promise(resolve=>{finish=resolve;});const {paths}=h.service.selection(id,token,indices);fs.unlinkSync(paths[0]);h.service.removePaths(paths);h.changed();return {trashed:1,failures:[]};};
+ h.bridge.search=async()=>{searches++;throw Error('ES unavailable');};
+ const row=h.$('everything-tracking-body').querySelectorAll('tr').find(row=>row.querySelector('.everything-tracking-file-text').textContent==='report.txt');
+ await row.dispatch('click');const operation=h.$('everything-tracking-trash').dispatch('click');await flush();
+ assert.match(h.$('everything-tracking-status').textContent,/回收作業處理中/);
+ finish();await operation;await flush();
+ const rows=h.$('everything-tracking-body').querySelectorAll('tr');
+ assert.equal(rows.length,1);assert.equal(rows[0].querySelector('.everything-tracking-file-text').textContent,'survivor.txt');
+ assert.equal(searches,0);assert.equal(h.$('everything-tracking-refresh').disabled,false);
+ assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');
 });
 
 
