@@ -4,7 +4,9 @@
  const labels={added:'新增',changed:'內容不同',same:'內容相同',blocked:'無法處理',source:'待比較',completed:'已完成',partial:'部分完成',canceled:'已停止',running:'未完成，可檢查／還原',restored:'已還原','partial-undo':'部分還原'};
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
  let data={files:[],sourceFolders:[],targetFolders:[],savedTargets:[],roots:[],runs:[],selected:{},browsers:{}},plan=null,selected=new Set(),page=0,busy=false,lastResult=null,expanded=new Set(),tree,treeKey='';
- let mode='compare',configuredMode;
+ let mode='compare',configuredMode,compareAnchor=null;
+ const tableSelection=window.tableSelection;
+ const browserSelection=Object.fromEntries(['source','target'].map(kind=>[kind,tableSelection?.create({isBusy:()=>busy})]));
  const batch=window.zipBatchUI?.create({api,runTask,status:(...args)=>status(...args)});
  const browserPages={source:0,target:0},eligible=row=>['added','changed'].includes(row.status),status=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
  const size=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
@@ -81,21 +83,23 @@
   quick.value='';
   quick.title=savedTargets.length?'切換已儲存的目標資料夾':'可在「目標資料夾」儲存常用位置';
  }
- function invalidate(){plan=null;selected.clear();page=0;lastResult=null;treeKey='';expanded.clear();}
+ function invalidate(){plan=null;selected.clear();compareAnchor=null;page=0;lastResult=null;treeKey='';expanded.clear();}
  function options(field,values,placeholder){const old=field.value;field.replaceChildren();const empty=node('option',placeholder);empty.value='';field.append(empty);values.forEach((text,i)=>{const option=node('option',text);option.value=String(i);field.append(option);});field.value=old;}
- function sync(next){for(const kind of ['source','target'])if(next.browsers?.[kind]?.folder!==data.browsers?.[kind]?.folder){browserPages[kind]=0;$(kind+'-browser-query').value='';}data=next;options($('sources'),data.sourceFolders,'選擇最近來源位置');renderTargetOptions();const old=$('root').value;$('root').replaceChildren();for(const text of ['',...data.roots]){const option=node('option',text?text+'／內的檔案':'保留 ZIP 完整層級');option.value=text;$('root').append(option);}$('root').value=data.roots.includes(old)?old:'';$('source-path').textContent=data.selected.zipPath||'尚未選擇 ZIP';$('target-path').textContent=data.selected.target||'尚未選擇目標';const sourceIndex=data.sourceFolders.indexOf(data.browsers?.source?.root);$('sources').value=sourceIndex>=0?String(sourceIndex):'';render();}
+ function sync(next){for(const kind of ['source','target'])if(next.browsers?.[kind]?.folder!==data.browsers?.[kind]?.folder){browserPages[kind]=0;browserSelection[kind]?.clear();$(kind+'-browser-query').value='';}data=next;options($('sources'),data.sourceFolders,'選擇最近來源位置');renderTargetOptions();const old=$('root').value;$('root').replaceChildren();for(const text of ['',...data.roots]){const option=node('option',text?text+'／內的檔案':'保留 ZIP 完整層級');option.value=text;$('root').append(option);}$('root').value=data.roots.includes(old)?old:'';$('source-path').textContent=data.selected.zipPath||'尚未選擇 ZIP';$('target-path').textContent=data.selected.target||'尚未選擇目標';const sourceIndex=data.sourceFolders.indexOf(data.browsers?.source?.root);$('sources').value=sourceIndex>=0?String(sourceIndex):'';render();}
  function currentRows(){const query=$('query').value.toLowerCase(),filter=$('filter').value,sourceRoot=$('root').value;return (plan?.rows||data.files.filter(r=>!sourceRoot||r.name.startsWith(sourceRoot+'/')).map(r=>({...r,relative:sourceRoot?r.name.slice(sourceRoot.length+1):r.name,status:'source',destination:''}))).filter(r=>(!plan||filter==='all'||filter==='changes'&&r.status!=='same'||filter===r.status)&&(!query||(r.relative||r.name).toLowerCase().includes(query)||(r.destination||'').toLowerCase().includes(query)));}
  function makeTree(){const rows=currentRows(),key=JSON.stringify([plan?.token||data.selected.zipPath,$('filter').value,$('query').value,rows.map(r=>r.id)]);tree=window.zipUpdateTree.build(rows,prefs.sorts.compare);if(key!==treeKey){treeKey=key;page=0;expanded=new Set([...tree.folders.keys()].filter(path=>$('query').value||prefs.expandAll||prefs.expanded.includes(path)));}}
  function members(path){return tree?.folders.get(path)?.members.filter(eligible)||[];}
  function controls(){for(const field of root.querySelectorAll('button,input,select,textarea'))field.disabled=busy;$('cancel').disabled=false;$('cancel').hidden=!busy;if(mode==='normal'){batch?.controls(busy);return;}$('apply').disabled=busy||!plan||!selected.size;$('apply').textContent='確認套用'+(selected.size?'（'+selected.size+' 個）':'');$('preview').disabled=busy||!data.files.length||!data.selected.target;$('latest').disabled=busy||!data.browsers?.source?.folder||!data.selected.target;$('open-target').disabled=busy||!data.selected.target;$('save-target').disabled=busy||!data.selected.target||(data.savedTargets||[]).includes(data.selected.target);$('save-target').textContent=(data.savedTargets||[]).includes(data.selected.target)?'★ 已儲存':'☆ 儲存目前位置';$('forget-target').disabled=busy||!$('targets').value;$('select-all').disabled=$('select-none').disabled=busy||!plan;
   $('quick-target').disabled=busy||!data.savedTargets?.length;
   const p=tree?.page(expanded,page);$('prev').disabled=busy||!p||p.index===0;$('next').disabled=busy||!p||p.index>=p.last;
-  for(const input of $('rows').querySelectorAll('input')){const rows=input.dataset.folder?members(input.dataset.folder):[plan?.rows.find(r=>r.id===input.dataset.id)].filter(Boolean);const allowed=rows.filter(eligible);input.disabled=busy||!plan||!allowed.length;const count=allowed.filter(r=>selected.has(r.id)).length;input.checked=Boolean(allowed.length)&&count===allowed.length;input.indeterminate=count>0&&count<allowed.length;}
+  for(const input of $('rows').querySelectorAll('input')){const rows=input.dataset.folder?members(input.dataset.folder):[plan?.rows.find(r=>r.id===input.dataset.id)].filter(Boolean);const allowed=rows.filter(eligible);input.disabled=busy||!plan||!allowed.length;const count=allowed.filter(r=>selected.has(r.id)).length;input.checked=Boolean(allowed.length)&&count===allowed.length;input.indeterminate=count>0&&count<allowed.length;input.closest('tr')?.classList.toggle('zip-checked',input.checked);}
   for(const kind of ['source','target']){const state=data.browsers?.[kind],count=browserRows(kind).length;$(kind+'-up').disabled=busy||!state?.canUp;$(kind+'-prev').disabled=busy||browserPages[kind]===0;$(kind+'-next').disabled=busy||browserPages[kind]>=Math.ceil(count/100)-1;}
  }
  function browserRows(kind){const query=$(kind+'-browser-query').value.toLowerCase();return view.browserRows((data.browsers?.[kind]?.rows||[]).filter(r=>!query||r.name.toLowerCase().includes(query)),prefs.sorts[kind]);}
  function renderBrowser(kind){const snapshot=data.browsers?.[kind],rows=browserRows(kind),container=$(kind+'-browser-rows');browserPages[kind]=Math.min(browserPages[kind],Math.max(0,Math.ceil(rows.length/100)-1));container.replaceChildren();$(kind+'-folder-path').textContent=snapshot?.folder||(kind==='source'?'選擇來源資料夾或常用來源位置':'選擇目標資料夾後顯示內容');
-  for(const entry of rows.slice(browserPages[kind]*100,browserPages[kind]*100+100)){const tr=node('tr'),name=node('td');
+  const selection=browserSelection[kind],entryKey=entry=>entry.kind+':'+entry.name;
+  selection?.begin(rows.filter(entry=>entry.kind!=='blocked').map(entryKey));
+  for(const entry of rows.slice(browserPages[kind]*100,browserPages[kind]*100+100)){const tr=node('tr'),name=node('td'),selectionCell=node('td',undefined,'table-select-cell');
    const zip=kind==='source'&&entry.kind==='zip';
    if(entry.kind==='folder'||zip){
     const button=node('button',(zip?'▣ ':'▸ 📁 ')+entry.name,'zip-browser-item');
@@ -111,16 +115,54 @@
     name.append(button);
    }else name.textContent=(entry.kind==='blocked'?'⚠ ':'')+entry.name;
    name.title=entry.error||entry.name;
-   tr.append(name,node('td',entry.kind==='folder'?'—':size(entry.size)),node('td',entry.modified?new Date(entry.modified).toLocaleString():entry.error||''));
-   if(entry.kind!=='blocked')bindEntryMenu(tr,{panel:kind,id:entry.id,kind:entry.kind});
+   tr.append(selectionCell,name,node('td',entry.kind==='folder'?'—':size(entry.size)),node('td',entry.modified?new Date(entry.modified).toLocaleString():entry.error||''));
+   if(entry.kind!=='blocked'){
+    bindEntryMenu(tr,{panel:kind,id:entry.id,kind:entry.kind});
+    if(selection){
+     const check=node('input');check.type='checkbox';check.setAttribute('aria-label','選取 '+entry.name);
+     selectionCell.append(check);selection.bind(tr,entryKey(entry),check);
+    }
+   }
    container.append(tr);
   }
-  if(!rows.length){const tr=node('tr'),td=node('td',snapshot?.folder?'此位置沒有符合的'+(kind==='source'?' ZIP 或資料夾':'項目'):'尚未選擇位置');td.colSpan=3;tr.append(td);container.append(tr);}$(kind+'-browser-status').textContent=`${rows.length} 項`+(rows.length>100?` · ${browserPages[kind]+1}／${Math.ceil(rows.length/100)} 頁`:'')+(snapshot?.truncated?' · 清單已達上限，可使用選擇器另選檔案或資料夾':'');
+  selection?.paint();
+  if(!rows.length){const tr=node('tr'),td=node('td',snapshot?.folder?'此位置沒有符合的'+(kind==='source'?' ZIP 或資料夾':'項目'):'尚未選擇位置');td.colSpan=4;tr.append(td);container.append(tr);}$(kind+'-browser-status').textContent=`${rows.length} 項`+(rows.length>100?` · ${browserPages[kind]+1}／${Math.ceil(rows.length/100)} 頁`:'')+(snapshot?.truncated?' · 清單已達上限，可使用選擇器另選檔案或資料夾':'');
+ }
+ const compareMembers=entry=>entry.kind==='folder'?members(entry.path):[entry.row].filter(eligible);
+ function chooseCompare(entry,event={},checked){
+  if(busy||!plan||event.detail>1||event.button>0)return;
+  const own=compareMembers(entry);
+  if(!own.length)return;
+  const multiple=event.ctrlKey||event.metaKey;
+  const order=event.shiftKey?tree.flatten(expanded):[];
+  const span=tableSelection?.range(order.map(row=>row.key),compareAnchor,entry.key);
+  if(span){
+   const range=new Set(span);
+   for(const item of order)if(range.has(item.key))for(const row of compareMembers(item))selected.add(row.id);
+  }else{
+   if(checked===undefined&&!multiple)selected.clear();
+   const on=checked??(!multiple||own.some(row=>!selected.has(row.id)));
+   for(const row of own)on?selected.add(row.id):selected.delete(row.id);
+   compareAnchor=entry.key;
+  }
+  controls();
  }
  function renderResults(){makeTree();const p=tree.page(expanded,page);page=p.index;$('rows').replaceChildren();
-  for(const entry of p.rows){const tr=node('tr'),checkCell=node('td'),check=node('input'),name=node('td'),label=node(entry.kind==='folder'?'button':'span',(entry.kind==='folder'?(expanded.has(entry.path)?'▾ 📁 ':'▸ 📁 '):'')+entry.name+(entry.context?'（續）':''),'zip-tree-label');check.type='checkbox';label.style.setProperty('--zip-depth',entry.depth);label.title=entry.kind==='folder'?entry.path:entry.row.name;
+  for(const entry of p.rows){const tr=node('tr'),checkCell=node('td'),check=node('input'),name=node('td'),label=node(entry.kind==='folder'?'button':'span',(entry.kind==='folder'?(expanded.has(entry.path)?'▾ 📁 ':'▸ 📁 '):'')+entry.name+(entry.context?'（續）':''),'zip-tree-label');check.type='checkbox';
+   let checkEvent={};
+   check.addEventListener('click',event=>{checkEvent=event;});
+   check.addEventListener('change',()=>{chooseCompare(entry,checkEvent,check.checked);checkEvent={};});
+   tableSelection?.guard(tr);
+   tr.addEventListener('click',event=>{if(!tableSelection?.control(event)&&event.target!==check&&(tableSelection?.modifier(event)||!window.getSelection?.()?.toString()))chooseCompare(entry,event);});
+   tr.addEventListener('keydown',event=>{
+    if(busy||!plan)return;
+    if(window.tableSelection?.selectAll(event)){
+     event.preventDefault();event.stopPropagation();selected.clear();for(const row of currentRows())if(eligible(row))selected.add(row.id);compareAnchor=entry.key;controls();
+    }else if(event.target===tr&&event.key===' '){event.preventDefault();chooseCompare(entry,event,!check.checked);}
+   });
+   label.style.setProperty('--zip-depth',entry.depth);label.title=entry.kind==='folder'?entry.path:entry.row.name;
    bindEntryMenu(tr,{panel:'compare',id:(entry.row||entry.members[0]).id,folder:entry.kind==='folder'?entry.path:undefined,sourceRoot:plan?.sourceRoot??$('root').value,target:data.selected.target||''});
-   if(entry.kind==='folder'){check.dataset.folder=entry.path;check.setAttribute('aria-label','更新資料夾 '+entry.path+' 內符合篩選的檔案');label.type='button';label.setAttribute('aria-expanded',String(expanded.has(entry.path)));label.setAttribute('aria-label',(expanded.has(entry.path)?'收合':'展開')+'資料夾 '+entry.path);label.addEventListener('click',()=>{expanded.has(entry.path)?expanded.delete(entry.path):expanded.add(entry.path);prefs.expandAll=false;saveView();renderResults();controls();});check.addEventListener('change',()=>{for(const row of members(entry.path))check.checked?selected.add(row.id):selected.delete(row.id);controls();});tr.className='zip-folder-row';const summary=['added','changed','same','blocked'].map(k=>[k,entry.members.filter(r=>r.status===k).length]).filter(([,n])=>n).map(([k,n])=>labels[k]+' '+n).join(' · ');name.append(label);
+   if(entry.kind==='folder'){check.dataset.folder=entry.path;check.setAttribute('aria-label','更新資料夾 '+entry.path+' 內符合篩選的檔案');label.type='button';label.setAttribute('aria-expanded',String(expanded.has(entry.path)));label.setAttribute('aria-label',(expanded.has(entry.path)?'收合':'展開')+'資料夾 '+entry.path);label.addEventListener('click',()=>{expanded.has(entry.path)?expanded.delete(entry.path):expanded.add(entry.path);prefs.expandAll=false;saveView();renderResults();controls();});tr.className='zip-folder-row';const summary=['added','changed','same','blocked'].map(k=>[k,entry.members.filter(r=>r.status===k).length]).filter(([,n])=>n).map(([k,n])=>labels[k]+' '+n).join(' · ');name.append(label);
     const member=entry.members.find(row=>row.destination);
     let destination='';
     if(member){
@@ -128,7 +170,7 @@
      destination=member.destination.slice(0,-remainingLength);
     }
     tr.append(checkCell,name,node('td',summary||entry.members.length+' 個檔案'),node('td',size(entry.members.reduce((n,r)=>n+r.size,0))),node('td',destination,'zip-update-path'));
-   }else{const row=entry.row;check.dataset.id=row.id;check.setAttribute('aria-label','更新 '+row.name);check.addEventListener('change',()=>{check.checked?selected.add(row.id):selected.delete(row.id);controls();});name.append(label);tr.append(checkCell,name,node('td',labels[row.status]||row.status,'zip-update-state-'+row.status),node('td',size(row.size)),node('td',(row.destination||'')+(row.error?'\n'+row.error:''),'zip-update-path'));}checkCell.append(check);$('rows').append(tr);
+   }else{const row=entry.row;check.dataset.id=row.id;check.setAttribute('aria-label','更新 '+row.name);name.append(label);tr.append(checkCell,name,node('td',labels[row.status]||row.status,'zip-update-state-'+row.status),node('td',size(row.size)),node('td',(row.destination||'')+(row.error?'\n'+row.error:''),'zip-update-path'));}checkCell.append(check);$('rows').append(tr);
   }
   if(!p.rows.length){const tr=node('tr'),cell=node('td',data.files.length?'沒有符合條件的檔案。':'尚未選擇 ZIP。');cell.colSpan=5;tr.append(cell);$('rows').append(tr);}$('pagination').textContent=p.total?`第 ${page+1}／${p.last+1} 頁 · ${currentRows().length} 個檔案`:'';
  }
@@ -234,7 +276,7 @@
  }));
  on('preview',()=>compare());
  on('apply',async()=>{const value=await api.command('apply',{token:plan.token,ids:[...selected]});if(!value.canceled){invalidate();lastResult=value;if(data.selected.target)sync(await api.command('refresh-browser','target'));else await refresh();report(value);if(value.rows.some(r=>r.error)){$('history-panel').open=true;jump('history-panel');}else jump('comparison');}});
- on('open-target',()=>api.command('open-target'));on('select-all',()=>{for(const row of currentRows())if(eligible(row))selected.add(row.id);});on('select-none',()=>selected.clear());
+ on('open-target',()=>api.command('open-target'));on('select-all',()=>{for(const row of currentRows())if(eligible(row))selected.add(row.id);});on('select-none',()=>{selected.clear();compareAnchor=null;});
  for(const kind of ['source','target']){on(kind+'-up',async()=>{const value=await api.command(kind+'-up');if(kind==='target')await compareSelection(value,{reveal:false});else{sync(value);status('已返回來源上層。');}});$(kind+'-browser-query').addEventListener('input',()=>{browserPages[kind]=0;renderBrowser(kind);controls();});for(const [suffix,delta]of [['prev',-1],['next',1]])$(kind+'-'+suffix).addEventListener('click',()=>{browserPages[kind]+=delta;renderBrowser(kind);controls();});}
  on('refresh',async()=>{await refreshLocations();status('位置清單已重新整理。');});
  $('cancel').addEventListener('click',async()=>{try{await api.command('cancel');status('已要求停止後續項目；正在完成中的檔案會先安全結束。');}catch(e){status(e.message,true);}});

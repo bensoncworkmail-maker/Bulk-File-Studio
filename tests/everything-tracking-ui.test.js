@@ -53,7 +53,7 @@ test('new bulk buttons and shortcuts use the validated selection and stage renam
  await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F2'});await flush();assert.equal(h.renamed.length,1);assert.ok(h.$('everything-inline-rename-name'));await h.$('everything-inline-rename-name').dispatch('keydown',{key:'Escape'});
  await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'m',ctrlKey:true,shiftKey:true});await flush();assert.equal(h.moved.length,2);
  const before=h.calls.length;await h.$('everything-tracking-panel').dispatch('keydown',{target:h.$('everything-tracking-results'),key:'F5'});await flush();assert.equal(h.calls.length,before+1);
- assert.equal(h.$('everything-tracking-selected').textContent,'已選 0 項');assert.equal(h.$('everything-tracking-rename').disabled,true);assert.deepEqual(h.errors,[]);
+ assert.equal(h.$('everything-tracking-selected').textContent,'已選 1 項');assert.equal(h.$('everything-tracking-rename').disabled,false);assert.deepEqual(h.errors,[]);
 });
 
 test('blank row clicks select with Ctrl and Shift without stealing button actions or selected text',async t=>{
@@ -488,4 +488,34 @@ test('tag rename rejects comma separators without splitting tags and a corrected
  h.$('everything-tag-name').value='Work personal';await h.$('everything-tag-form').dispatch('submit');await flush();assert.equal(h.$('everything-tag-dialog').open,false);
  await h.$('everything-tracking-edit').dispatch('click');await h.$('everything-rule-form').dispatch('submit');await flush();assert.deepEqual(h.service.read().queries[0].tags,['Work personal']);
  await h.$('everything-tracking-tags').children[2].dispatch('contextmenu');menus.at(-1).find(item=>/新增/.test(item.label)).run();assert.equal(h.$('everything-rule-tags').value,'Work personal');h.$('everything-rule-name').value='Another';h.$('everything-rule-text').value='ext:pdf';await h.$('everything-rule-form').dispatch('submit');await flush();assert.deepEqual(h.service.read().queries[1].tags,['Work personal']);assert.deepEqual(h.errors,[]);
+});
+
+
+test('Everything restores selected paths across refresh, reordered indices and a fresh renderer',async t=>{
+ const h=fixture(t);await flush();
+ const files=['alpha.txt','beta.txt','gamma.txt'].map(name=>path.join(path.dirname(h.file),name));
+ for(const file of files)fs.writeFileSync(file,'data');
+ const search=paths=>async()=>({rows:paths.map(file=>({path:file,name:path.basename(file)})),skipped:0,truncated:false});
+ h.bridge.search=search(files);
+ h.window.everythingTrackingUI.activate(true);await flush();
+ const rows=()=>h.$('everything-tracking-body').querySelectorAll('tr[data-index]');
+ await h.$('everything-tracking-select-all').dispatch('click');
+ await rows()[1].dispatch('click');
+ assert.match(h.$('everything-tracking-selected').textContent,/1 項/);
+ await rows()[2].dispatch('click',{ctrlKey:true});
+ const prefs=JSON.parse(JSON.stringify(h.window.settingsUI.get()));
+ assert.deepEqual(prefs.everythingSelections[h.rule.id],files.slice(1));
+ h.bridge.search=search([files[2],files[0],files[1]]);
+ await h.$('everything-tracking-refresh').dispatch('click');await flush();
+ assert.equal(rows()[0].querySelector('input').checked,false);
+ assert.equal(rows()[1].querySelector('input').checked,true);
+ assert.equal(rows()[2].querySelector('input').checked,true);
+ await h.$('everything-tracking-copy').dispatch('click');await flush();
+ assert.deepEqual(new Set(h.actions.at(-1).paths),new Set(files.slice(1)));
+ const fresh=fixture(t,prefs,[],h.favorites.read().everythingSearches);await flush();
+ fresh.bridge.search=search([files[1],files[0]]);
+ fresh.window.everythingTrackingUI.activate(true);await flush();
+ assert.equal(fresh.$('everything-tracking-selected').textContent,'已選 1 項');
+ await fresh.$('everything-tracking-copy').dispatch('click');await flush();
+ assert.deepEqual(fresh.actions.at(-1).paths,[files[1]]);
 });

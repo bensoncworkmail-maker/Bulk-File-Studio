@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),{documentFromHTML}=require('./helpers/dom');
-function harness(saved={}){const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.createDocumentFragment=()=>document.createElement('fragment');document.addEventListener=()=>{};const storage=new Map(Object.entries(saved));const window={renameAPI:{},renamePresets:require('../src/presets'),settingsUI:{get:()=>require('../src/settings-model').normalize()},studioPagination:require('../src/list-pagination'),fileLocationGroups:require('../src/file-location-groups')};const context=vm.createContext({window,document,localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},setTimeout:()=>1,clearTimeout(){}});vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8').replace(/init\(\);\s*$/,''),context);vm.runInContext('applyRules(defaults);',context);return {document,context,storage,run:code=>vm.runInContext(code,context)};}
+function harness(saved={}){const document=documentFromHTML(fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'));document.createDocumentFragment=()=>document.createElement('fragment');document.addEventListener=()=>{};const storage=new Map(Object.entries(saved));const window={tableSelection:require('../src/table-selection'),renameAPI:{},renamePresets:require('../src/presets'),settingsUI:{get:()=>require('../src/settings-model').normalize()},studioPagination:require('../src/list-pagination'),fileLocationGroups:require('../src/file-location-groups')};const context=vm.createContext({window,document,localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},setTimeout:()=>1,clearTimeout(){}});vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/renderer.js'),'utf8').replace(/init\(\);\s*$/,''),context);vm.runInContext('applyRules(defaults);',context);return {document,context,storage,run:code=>vm.runInContext(code,context)};}
 test('source and preview group checkboxes select all filtered pages without changing other locations',async()=>{
  const h=harness();h.run("files=Array.from({length:150},(_,i)=>'/client/report'+i+'.txt').concat('/other/a.txt');selected=new Set([norm('/other/a.txt')]);renderFiles();renderTable();");
  const groups=h.document.getElementById('file-list').querySelectorAll('.file-location-group');assert.equal(groups.length,1);const check=groups[0].querySelector('input');check.checked=true;await check.dispatch('change');assert.equal(h.run('selected.size'),151);h.document.getElementById('search').value='report1';h.run('sourcePage=0;renderFiles();renderTable();');const filtered=h.document.getElementById('preview-body').querySelector('.file-location-group').querySelector('input');filtered.checked=false;await filtered.dispatch('change');assert.equal(h.run("selected.has(norm('/other/a.txt'))"),true);assert.equal(h.run("selected.has(norm('/client/report2.txt'))"),true);assert.equal(h.run("selected.has(norm('/client/report100.txt'))"),false);assert.equal(h.run('selected.size'),90);
@@ -29,4 +29,23 @@ test('location move actions reuse listed sources and can move the whole known fo
 });
 test('whole-folder actions never offer a drive root as a source',()=>{
  const h=harness();for(const expression of ["files=['C:/a.txt'];groupMode='folder';render();","files=['/a.txt'];groupMode='folder';render();","files=['C:/client/a.txt'];groupMode='root';render();"]){h.run(expression);assert.equal(h.document.getElementById('preview-body').querySelectorAll('button').filter(node=>node.textContent==='搬移整個資料夾').length,0);}
+});
+
+
+test('rename preview headers sort rows without changing numbering and clicks replace the bulk selection',async()=>{
+ const h=harness(),$=id=>h.document.getElementById(id);
+ h.run("wireEvents();files=['/z.txt','/a.txt','/m.txt'];selected=new Set(files.map(norm));groupMode='none';render();");
+ const header=h.document.querySelector('[data-preview-sort="name"]'),rows=()=> $('preview-body').querySelectorAll('tr').filter(row=>row.querySelector('input'));
+ await header.dispatch('click');
+ assert.deepEqual(rows().map(row=>row.querySelector('.filename').textContent),['a.txt','m.txt','z.txt']);
+ assert.equal(header.parentElement.getAttribute('aria-sort'),'ascending');
+ await header.dispatch('click');
+ assert.equal(header.parentElement.getAttribute('aria-sort'),'descending');
+ assert.equal(h.run("getRules().sortBy"),'path');
+ await rows()[1].dispatch('click');
+ assert.equal(h.run("selected.size===1&&selected.has('/m.txt')"),true);
+ await rows()[2].dispatch('click',{shiftKey:true});
+ assert.equal(h.run("selected.size===2&&selected.has('/a.txt')"),true);
+ await rows()[0].dispatch('click',{ctrlKey:true});
+ assert.equal(h.run("selected.size===3"),true);
 });

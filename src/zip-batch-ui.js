@@ -8,6 +8,7 @@
   const node=(tag,text)=>{const value=document.createElement(tag);if(text!==undefined)value.textContent=text;return value;};
   const button=(text,action)=>{const value=node('button',text);value.type='button';value.className='btn btn-ghost';value.addEventListener('click',action);return value;};
   const key=path=>/^[a-z]:[\\/]/i.test(path)?path.toLowerCase():path;
+  const sourceSelection=window.tableSelection?.create({changed:()=>controls(batchBusy),isBusy:()=>batchBusy});
   const sources=new Map(),selected=new Set(),visibleRows=new Map(),passwordFields=new Map();
   let target='',limit=50,preview,result,recycled=new Map(),batchBusy=false;
   let queries=[],queryId='',page=0,anchor=null,rangeBase=null,trackingLoaded=false,cachedOrder;
@@ -59,6 +60,7 @@
   function controls(busy){
    batchBusy=busy;
    $('clear').disabled=busy||!sources.size;
+   $('remove-selected').disabled=busy||!sourceSelection?.selected.size;
    $('add').disabled=busy||!$('paths').value.trim();
    $('save-target').disabled=busy||!target||$('targets').value!=='';
    $('preview-button').disabled=busy||!sources.size||!target;
@@ -77,18 +79,25 @@
   function renderSources(){
    const {DEFAULT_COLUMNS,display}=columns();
    const sort=sourceSort();
-   const rows=window.everythingTrackingView.sortedRows([...sources.values()],sort.key,sort.direction).map(({item})=>{
-    const row=node('tr'),action=node('td');
+   const ordered=window.everythingTrackingView.sortedRows([...sources.values()],sort.key,sort.direction);
+   sourceSelection?.begin(ordered.map(({item})=>key(item.path)));
+   const rows=ordered.map(({item})=>{
+    const row=node('tr'),action=node('td'),cell=node('td');
+    cell.className='table-select-cell';
+    if(sourceSelection){
+     const check=node('input');check.type='checkbox';check.setAttribute('aria-label','選取 '+item.name);
+     cell.append(check);sourceSelection.bind(row,key(item.path),check);
+    }
     const remove=button('移除',()=>{sources.delete(key(item.path));invalidate();renderSources();});
     remove.setAttribute('aria-label','移除 '+item.name);
     action.append(remove);
-    row.append(...DEFAULT_COLUMNS.map(column=>fileCell(item,column,display)),action);
+    row.append(cell,...DEFAULT_COLUMNS.map(column=>fileCell(item,column,display)),action);
     return row;
    });
    $('sources').replaceChildren(...rows);
    renderHeaders(sourceHeaders,'data-zip-batch-source-sort',sort);
    $('count').textContent='待解壓 ZIP（'+sources.size+'／'+limit+'）';
-   controls(batchBusy);
+   if(sourceSelection)sourceSelection.paint();else controls(batchBusy);
   }
   function fileCell(item,column,display){
    const cell=node('td',display(item,column,{sizeUnit:settings().everythingSizeUnit}));
@@ -191,18 +200,21 @@
     row.classList.toggle('zip-batch-selected',check.checked);
     check.setAttribute('aria-label','選取 '+item.name);
     visibleRows.set(index,{row,check});
-    check.addEventListener('change',()=>toggle(index,check.checked));
+    let extendCheck=false;
+    check.addEventListener('click',event=>{extendCheck=event.shiftKey;});
+    check.addEventListener('change',()=>{if(extendCheck)extend(index);else toggle(index,check.checked);extendCheck=false;});
+
     row.addEventListener('keydown',event=>onTrackingKey(event,index));
-    row.addEventListener('mousedown',event=>{if(event.shiftKey)event.preventDefault();});
+    window.tableSelection?.guard(row);
     function selectClick(event){
      if(batchBusy)return;
      const modified=event.shiftKey||event.ctrlKey||event.metaKey;
-     if(!modified&&(event.target===check||event.type==='contextmenu'))return;
+     if(event.target===check||event.button>0&&event.type!=='contextmenu'||
+       !modified&&(event.type==='contextmenu'||window.getSelection?.()?.toString()))return;
      event.preventDefault();
      if(event.shiftKey)extend(index);
      else if(modified)toggle(index);
      else{resetSelection(index);selectRows([index],[]);}
-     if(event.target===check)setTimeout(()=>{check.checked=selected.has(index);},0);
      row.focus();
     }
     row.addEventListener('click',selectClick);
@@ -287,6 +299,10 @@
    addSources(value);if(!value.errors.length)$('paths').value='';
   });
   on('clear',()=>{sources.clear();invalidate();renderSources();});
+  on('remove-selected',()=>{
+   for(const id of sourceSelection?.selected||[])sources.delete(id);
+   invalidate();renderSources();
+  });
   on('pick-target',async()=>syncTarget(await api.command('batch-choose-target')));
   on('save-target',async()=>{syncTarget(await api.command('batch-save-target'));status('已儲存目前的解壓位置。');});
   $('targets').addEventListener('change',()=>{

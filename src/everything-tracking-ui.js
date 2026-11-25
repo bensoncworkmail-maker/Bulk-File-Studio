@@ -1,6 +1,7 @@
 'use strict';
 (() => {
  const $=id=>document.getElementById(id),api=window.everythingAPI,view=window.everythingTrackingView,columns=window.everythingResultColumns,views=window.everythingViewSettings;
+ const tableSelection=window.tableSelection;
  let updatingView=false,iconState,pendingLoad=false,tagEditing=null;
  const resultFilters=new Map();
  const resultFilter=()=>resultFilters.get(currentId)||'';
@@ -14,7 +15,7 @@
  const renameMode=()=>window.settingsUI?.get().everythingRenameMode==='dialog'?'dialog':'inline';
  function rememberTag(value){tag=value;updateView({everythingSelectedTag:value},true);}
  function rememberQuery(value){currentId=value;if(window.settingsUI?.get().everythingLastQuery!==(value||''))updateView({everythingLastQuery:value||''},true);}
- function selectTag(value){if(blocked())return;rememberTag(value);rememberQuery(filtered().some(query=>query.id===currentId)?currentId:filtered()[0]?.id||null);selected.clear();anchor=null;render();void refresh();}
+ function selectTag(value){if(blocked())return;rememberTag(value);rememberQuery(filtered().some(query=>query.id===currentId)?currentId:filtered()[0]?.id||null);restoreSelection();render();void refresh();}
  function tagMenu(event,item){
   event.preventDefault();event.stopPropagation();if(blocked())return;
   window.favoritesUI?.showMenu(event,[
@@ -56,11 +57,38 @@
  const ordered=()=>{const sort=sorting();return view.filterRows(view.sortedRows(current()?.snapshot?.rows||[],sort.key,sort.direction),resultFilter());};
  function updateView(patch,controlsOnly=false){updatingView=true;try{window.settingsUI?.update?.(patch);}finally{updatingView=false;}controlsOnly?renderControls():render();}
  function changeSort(key,direction){if(!currentId||blocked())return;const states=window.settingsUI?.get().everythingSortStates||{},remembered=rememberedSort(),active=sorting();if(direction===undefined&&active.key===key&&remembered.key!==key)direction=active.direction==='asc'?'desc':'asc';updateView({everythingSortStates:{...states,[currentId]:views.select(remembered,key,direction)}});}
+ function restoreSelection(){
+  const paths=new Set((window.settingsUI?.get().everythingSelections?.[currentId]||[]).map(views.pathKey));
+  selected=new Set(ordered().filter(({item})=>paths.has(views.pathKey(item.path))).map(({index})=>index));
+  anchor=null;
+ }
+ function rememberSelection(){
+  const snapshot=current()?.snapshot;
+  if(!snapshot){renderControls();return;}
+  const saved={...window.settingsUI?.get().everythingSelections};
+  delete saved[currentId];
+  if(selected.size)saved[currentId]=[...selected].map(index=>snapshot.rows[index]?.path).filter(Boolean);
+  updateView({everythingSelections:saved},true);
+ }
+ function changeSelection(index,event,checked){
+  const multiple=event.ctrlKey||event.metaKey;
+  const ids=event.shiftKey?ordered().map(entry=>entry.index):[];
+  const from=ids.indexOf(anchor),to=ids.indexOf(index);
+  if(from>=0&&to>=0){
+   if(!multiple&&checked===undefined)selected.clear();
+   for(const id of ids.slice(Math.min(from,to),Math.max(from,to)+1))selected.add(id);
+  }else{
+   if(checked===undefined&&!multiple)selected.clear();
+   if(checked??(!multiple||!selected.has(index)))selected.add(index);else selected.delete(index);
+   anchor=index;
+  }
+  paintSelection();
+ }
  function paintSelection(){
   for(const row of $('everything-tracking-body').querySelectorAll('tr[data-index]')){
    const checked=selected.has(Number(row.getAttribute('data-index')));row.classList.toggle('selected',checked);row.setAttribute('aria-selected',String(checked));row.querySelector('input').checked=checked;
   }
-  renderControls();
+  rememberSelection();
  }
  function visible(){return active&&!$('tracking-page').classList.contains('hidden')&&!document.hidden;}
  function schedule(){clearInterval(timer);if(active&&data.refreshSeconds)timer=setInterval(()=>{if(visible()&&!busy&&!loading&&!renaming&&!selected.size&&!document.querySelector('dialog[open]')&&current()?.enabled&&ready())void refresh();},data.refreshSeconds*1000);}
@@ -72,7 +100,7 @@
    if(tag&&!data.queries.some(item=>item.tags.some(name=>name.toLocaleLowerCase()===tag)))rememberTag(null);
    if(!currentId){const prefs=window.settingsUI?.get(),preferred=prefs?.everythingStartQuery||prefs?.everythingLastQuery;if(filtered().some(item=>item.id===preferred))currentId=preferred;}
    if(!filtered().some(item=>item.id===currentId))currentId=filtered()[0]?.id||null;
-   rememberQuery(currentId);syncStartQuery();
+   restoreSelection();rememberQuery(currentId);syncStartQuery();
    for(const key of resultFilters.keys())if(!data.queries.some(query=>query.id===key))resultFilters.delete(key);
    loading=false;render();schedule();if(update&&visible()&&current()?.enabled&&ready())await refresh();
   }catch(error){if(id===request)$('everything-tracking-status').textContent=String(error.message||error);}
@@ -80,8 +108,8 @@
  }
  async function refresh(){
   const query=current();if(!query||busy||renaming?.mode==='inline'||!ready()||!query.enabled)return;
-  const id=++refreshRequest;let failure='';busy=true;selected.clear();anchor=null;render();$('everything-tracking-status').textContent='正在查詢 Everything…';
-  try{const value=await api.trackingRefresh(query.id);if(id===refreshRequest&&currentId===query.id){request++;loading=false;data=value;render();}}
+  const id=++refreshRequest;let failure='';busy=true;render();$('everything-tracking-status').textContent='正在查詢 Everything…';
+  try{const value=await api.trackingRefresh(query.id);if(id===refreshRequest&&currentId===query.id){request++;loading=false;data=value;restoreSelection();render();}}
   catch(error){failure=String(error.message||error);}
   finally{busy=false;render();if(failure&&id===refreshRequest)$('everything-tracking-status').textContent=failure;
    // Re-entry may have loaded the snapshot before this invalidated request finished.
@@ -116,7 +144,7 @@
    const control=button('',()=>selectTag(item.key),'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.setAttribute('aria-haspopup','menu');control.title=item.count+' 個追蹤搜尋；右鍵開啟標籤選單';control.addEventListener('contextmenu',event=>tagMenu(event,item));control.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')tagMenu(event,item);});return control;
   }));
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
-   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);selected.clear();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
+   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);restoreSelection();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
   }));
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns(),entries=ordered();
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
@@ -130,20 +158,16 @@
    control.parentElement.setAttribute('aria-sort',key===sortKey?(sortDirection==='asc'?'ascending':'descending'):'none');
   }
   entries.forEach(({item,index})=>{
-   const row=node('tr',undefined,'everything-tracking-row'),check=node('input'),checkCell=node('td');row.setAttribute('data-index',String(index));check.type='checkbox';check.checked=selected.has(index);check.disabled=busy;row.classList.toggle('selected',check.checked);row.setAttribute('aria-selected',String(check.checked));check.setAttribute('aria-label','選取 '+item.name);check.addEventListener('change',()=>{if(blocked())return;check.checked?selected.add(index):selected.delete(index);anchor=index;paintSelection();});checkCell.append(check);
-   // Cancel the browser's range-selection gesture before click selects rows.
-   // Ordinary mouse dragging keeps its native text-selection behavior.
-   row.addEventListener('mousedown',event=>{
-    if(blocked()||!event.shiftKey||event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]'))return;
-    event.preventDefault();
+   const row=node('tr',undefined,'everything-tracking-row'),check=node('input'),checkCell=node('td');row.setAttribute('data-index',String(index));check.type='checkbox';check.checked=selected.has(index);check.disabled=busy;row.classList.toggle('selected',check.checked);row.setAttribute('aria-selected',String(check.checked));check.setAttribute('aria-label','選取 '+item.name);let checkEvent={};
+   check.addEventListener('click',event=>{checkEvent=event;});
+   check.addEventListener('change',()=>{if(!blocked())changeSelection(index,checkEvent,check.checked);checkEvent={};});checkCell.append(check);
+   if(tableSelection)tableSelection.guard(row);
+   else row.addEventListener('mousedown',event=>{
+    if(!blocked()&&event.shiftKey&&event.button===0&&!event.target.closest('button,input,a,select,textarea,[contenteditable]'))event.preventDefault();
    });
    row.addEventListener('click',event=>{
     if(blocked()||event.detail>1||event.button!==undefined&&event.button!==0||event.target.closest('button,input,a,select,textarea,[contenteditable]')||!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&window.getSelection?.()?.toString())return;
-    if(event.shiftKey&&anchor!==null){const ids=ordered().map(entry=>entry.index),from=ids.indexOf(anchor),to=ids.indexOf(index);if(!event.ctrlKey&&!event.metaKey)selected.clear();for(const id of ids.slice(Math.min(from,to),Math.max(from,to)+1))selected.add(id);}
-    else if(event.ctrlKey||event.metaKey){selected.has(index)?selected.delete(index):selected.add(index);anchor=index;}
-    else {selected=new Set([index]);anchor=index;}
-    // Keep the clicked cell alive so the browser can deliver its native dblclick.
-    paintSelection();$('everything-tracking-results').focus();
+    changeSelection(index,event);$('everything-tracking-results').focus();
    });
    const name=node('td',undefined,'everything-tracking-name'),label=node('span',undefined,'everything-tracking-file-label'),icon=node('span',item.type==='folder'?'📁':'📄','everything-tracking-file-icon'),image=node('img'),location=node('td',view.location(item),'everything-tracking-location');
    if(item.type==='file')icon.textContent='';icon.setAttribute('data-kind',item.type);if(/\.lnk$/i.test(item.path))label.setAttribute('data-shortcut','true');
@@ -220,7 +244,7 @@
   window.favoritesUI?.showMenu(event,items);
  }
  function open(id=null){
-  if(!window.favoritesUI?.show('tracking'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);selected.clear();}return true;
+  if(!window.favoritesUI?.show('tracking'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);restoreSelection();}return true;
  }
  function selectResults(kind){
   if(blocked())return;
@@ -282,7 +306,10 @@
   try{
    const result=await api.trackingAction(target.id,target.token,[target.index],'rename-item',{name:input.value});
    if(inline)renaming=null;else $('everything-item-rename-dialog').close();pendingLoad=false;callbacks.showToast(result.changed?'已重新命名':'名稱未變更');
-   if(result.warning)callbacks.showFailure('改名完成，請留意',result.warning);busy=false;await load(false);
+   if(result.warning)callbacks.showFailure('改名完成，請留意',result.warning);
+   busy=false;
+   if(result.changed&&currentId===target.id){selected.delete(target.index);anchor=null;rememberSelection();}
+   await load(false);
   }catch(error){failed=true;(inline?target.error:$('everything-item-rename-error')).textContent=String(error.message||error);if(inline)input.setAttribute('aria-invalid','true');}
   finally{busy=false;if(inline){input.disabled=false;if(failed&&renaming===target)input.focus();}else for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=false;renderControls();}
  }
@@ -345,8 +372,8 @@
   help.addEventListener('focus',showHint);help.addEventListener('blur',hideHint);help.addEventListener('click',showHint);
   help.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();hideHint();}});
   const filter=$('everything-tracking-filter');
-  filter.addEventListener('input',()=>{if(blocked())return;resultFilters.set(currentId,filter.value);selected.clear();anchor=null;$('everything-tracking-results').scrollTop=0;render();});
-  $('everything-tracking-filter-clear').addEventListener('click',()=>{if(blocked())return;resultFilters.delete(currentId);selected.clear();anchor=null;$('everything-tracking-results').scrollTop=0;render();filter.focus();});
+  filter.addEventListener('input',()=>{if(blocked())return;resultFilters.set(currentId,filter.value);restoreSelection();$('everything-tracking-results').scrollTop=0;render();});
+  $('everything-tracking-filter-clear').addEventListener('click',()=>{if(blocked())return;resultFilters.delete(currentId);restoreSelection();$('everything-tracking-results').scrollTop=0;render();filter.focus();});
   $('everything-tracking-panel').addEventListener('keydown',keydown);
   document.addEventListener?.('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f')keydown(event);});
   for(const key of Object.keys(columns.COLUMNS))$('everything-tracking-sort-'+key).addEventListener('click',()=>changeSort(key));
@@ -360,5 +387,5 @@
   $('everything-tag-dialog').addEventListener('close',()=>{tagEditing=null;});
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);selected.clear();},render};
+ window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
 })();

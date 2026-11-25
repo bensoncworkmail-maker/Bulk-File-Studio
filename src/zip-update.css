@@ -81,8 +81,8 @@
 .zip-normal-table .everything-tracking-table td:first-child{min-width:0;padding-inline:8px}
 .zip-normal-table .zip-batch-check-col{width:34px}
 .zip-normal-table .zip-batch-operation-col{width:64px}
-.zip-normal-table .zip-batch-check-col ~ th:nth-last-child(2),#zip-batch-source-table th:nth-child(3){width:82px}
-.zip-normal-table .zip-batch-check-col ~ th:last-child,#zip-batch-source-table th:nth-child(4){width:148px}
+.zip-normal-table .zip-batch-check-col ~ th:nth-last-child(2),#zip-batch-source-table th:nth-child(4){width:82px}
+.zip-normal-table .zip-batch-check-col ~ th:last-child,#zip-batch-source-table th:nth-child(5){width:148px}
 #zip-batch-tracking-rows td:first-child{text-align:center}
 .zip-normal-table .zip-batch-selected{background:var(--surface-2)}
 .zip-batch-selected td:first-child{box-shadow:inset 3px 0 var(--accent)}
@@ -90,3 +90,8 @@
   .zip-normal-layout{grid-template-columns:minmax(0,1fr);gap:12px}
   .zip-panel-resize[data-zip-resize=batch-split]{display:none}
 }
+
+#zip-update-source-panel .zip-browser td:first-child,#zip-update-target-panel .zip-browser td:first-child{width:34px;min-width:0}
+#zip-update-source-panel .zip-browser td:nth-child(2),#zip-update-target-panel .zip-browser td:nth-child(2){width:52%}
+.zip-browser [data-zip-sort],.zip-update-table [data-zip-sort]{display:block;width:100%}
+.zip-update-table tr.zip-checked td{background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
