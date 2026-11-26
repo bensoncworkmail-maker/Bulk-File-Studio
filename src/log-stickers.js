@@ -5,6 +5,7 @@ const {pathToFileURL}=require('node:url');
 const {fitBounds}=require('./desktop-state');
 const page=path.join(__dirname,'log-sticker.html');
 const gap=10,minWidth=180,minHeight=130;
+const currentBounds=window=>window.getBounds?.()||window.getNormalBounds();
 
 class LogStickers {
  constructor(options){
@@ -21,7 +22,7 @@ class LogStickers {
   const columns=Math.max(1,Math.floor((area.width-gap)/(width+gap)));
   const rows=Math.max(1,Math.floor((area.height-gap)/(height+gap)));
   let cell;
-  const occupied=[...this.windows.values()].map(({window})=>window.getNormalBounds());
+  const occupied=[...this.windows.values()].map(({window})=>currentBounds(window));
   for(let index=0;index<columns*rows;index++){
    cell={x:area.x+area.width-width-gap-(index%columns)*(width+gap),y:area.y+gap+Math.floor(index/columns)*(height+gap),width,height};
    if(!occupied.some(other=>cell.x<other.x+other.width&&other.x<cell.x+cell.width&&cell.y<other.y+other.height&&other.y<cell.y+cell.height))break;
@@ -36,7 +37,7 @@ class LogStickers {
   const window=new this.BrowserWindow({...this.bounds(appearance),title:detail.heading,frame:false,show:false,skipTaskbar:true,alwaysOnTop:true,
    backgroundColor:appearance.background,autoHideMenuBar:true,maxWidth:1200,maxHeight:1000,
    webPreferences:{preload:path.join(__dirname,'log-sticker-preload.js'),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
-  const entry={id,window,detail,appearance,expanded:null,collapsed:false,headerAtBottom:false};
+  const entry={id,window,detail,appearance,expanded:null,collapsedWidth:null,collapsed:false,headerAtBottom:false};
   this.windows.set(id,entry);
   this.secureWindow(window);
   window.on('ready-to-show',()=>{if(this.windows.get(id)===entry)window.showInactive();});
@@ -53,23 +54,28 @@ class LogStickers {
  }
  payload(entry){
   const {links,...detail}=entry.detail;
-  return {...detail,links:links.map(({kind,label,location})=>({kind,label,location})),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
+  return {...detail,links:links.map(link=>({kind:link.kind,label:link.label,location:link.location,ref:this.linkRef(link)})),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
  }
- toggle(entry,point){return this.setCollapsed(entry,!entry.collapsed,point);}
+ toggle(entry,point){
+  const content=point&&entry.window.getContentBounds?.();
+  const anchor=content&&Number.isFinite(point.clientX)&&Number.isFinite(point.clientY)?
+   {x:content.x+point.clientX,y:content.y+point.clientY}:point;
+  return this.setCollapsed(entry,!entry.collapsed,anchor);
+ }
  setCollapsed(entry,collapsed,point){
   if(entry.collapsed===collapsed)return this.payload(entry);
   if(collapsed){
-   const {width,height}=entry.window.getNormalBounds();
+   const {width,height}=currentBounds(entry.window);
    entry.expanded={width,height};
-  }
+  }else entry.collapsedWidth=currentBounds(entry.window).width;
   entry.collapsed=collapsed;
   this.resize(entry,point);
   return this.payload(entry);
  }
  resize(entry,point,previousHeaderHeight=entry.appearance.size.collapsedHeight){
-  const {window,appearance,expanded,collapsed}=entry,size=appearance.size,current=window.getNormalBounds();
+  const {window,appearance,expanded,collapsed}=entry,size=appearance.size,current=currentBounds(window);
   const headerY=entry.headerAtBottom?current.y+current.height-previousHeaderHeight:current.y;
-  const target=collapsed?{width:size.collapsedWidth,height:size.collapsedHeight}:{width:expanded?.width||size.width,height:expanded?.height||size.height};
+  const target=collapsed?{width:entry.collapsedWidth??size.collapsedWidth,height:size.collapsedHeight}:{width:expanded?.width||size.width,height:expanded?.height||size.height};
   target.x=current.x;target.y=headerY;
   // Keep the title under the pointer when shrinking or opening near the edge of a display.
   if(point&&Number.isFinite(point.x)&&point.x>=current.x&&point.x<current.x+current.width&&
@@ -94,7 +100,7 @@ class LogStickers {
   if(collapsed)window.setMaximumSize?.(1200,next.height);
  }
  drag(entry,phase,dx,dy){
-  if(phase==='start'){entry.dragBounds=entry.window.getNormalBounds();return;}
+  if(phase==='start'){entry.dragBounds=currentBounds(entry.window);return;}
   if(phase==='end'){entry.dragBounds=null;return;}
   if(phase!=='move'||![dx,dy].every(value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=100000))throw Error('便條拖曳位置無效');
   const original=entry.dragBounds;
@@ -116,18 +122,23 @@ class LogStickers {
  restore(){
   for(const [id,detail] of this.read())this.open(id,detail);
  }
- refresh(){
+ refresh(ids=this.windows.keys()){
   if(!this.windows.size)return;
-  const details=this.read(this.windows.keys()),appearance=this.appearance();
-  for(const [id,entry] of this.windows){
+  const selected=[...ids],details=this.read(selected),appearance=this.appearance();
+  for(const id of selected){
+   const entry=this.windows.get(id);
    const detail=details.get(id);
    if(!detail){this.remove(id);continue;}
-   const resized=JSON.stringify(appearance.size)!==JSON.stringify(entry.appearance.size);
+   const oldSize=entry.appearance.size,newSize=appearance.size;
+   const expandedChanged=oldSize.width!==newSize.width||oldSize.height!==newSize.height;
+   const collapsedWidthChanged=oldSize.collapsedWidth!==newSize.collapsedWidth;
+   const headerChanged=oldSize.collapsedHeight!==newSize.collapsedHeight;
    if(JSON.stringify(appearance)===JSON.stringify(entry.appearance)&&JSON.stringify(detail)===JSON.stringify(entry.detail))continue;
    entry.detail=detail;
-   const previousHeaderHeight=entry.appearance.size.collapsedHeight;
    entry.appearance=appearance;
-   if(resized){entry.expanded=null;this.resize(entry,undefined,previousHeaderHeight);}
+   if(expandedChanged)entry.expanded=null;
+   if(collapsedWidthChanged)entry.collapsedWidth=null;
+   if(headerChanged||(entry.collapsed?collapsedWidthChanged:expandedChanged))this.resize(entry,undefined,oldSize.collapsedHeight);
    entry.window.setTitle(detail.heading);
    entry.window.setBackgroundColor?.(appearance.background);
    entry.window.webContents.send('log-sticker-changed',this.payload(entry));
@@ -135,7 +146,7 @@ class LogStickers {
  }
  recover(){
   for(const entry of this.windows.values()){
-   const current=entry.window.getNormalBounds();
+   const current=currentBounds(entry.window);
    entry.window.setBounds(this.bounds(entry.appearance,current,entry.collapsed));
   }
  }

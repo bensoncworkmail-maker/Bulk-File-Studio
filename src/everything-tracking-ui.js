@@ -252,7 +252,9 @@
   window.favoritesUI?.showMenu(event,items);
  }
  function open(id=null){
-  if(!window.favoritesUI?.show('tracking'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);restoreSelection();}return true;
+  if(!window.favoritesUI?.show('tracking'))return false;
+  if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);restoreSelection();render();}
+  return true;
  }
  function openTag(value){
   if(!window.favoritesUI?.show('tracking'))return false;

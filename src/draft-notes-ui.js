@@ -2,7 +2,8 @@
 (() => {
  const api=window.draftAPI,structured=window.structuredNoteModel,$=id=>document.getElementById(id);
  const type=$('draft-type');
- let pendingSelection=null,initialized=false;api.onSelect?.(id=>{pendingSelection=id;if(initialized)void run(async()=>{showDraft(await api.read(pendingSelection));pendingSelection=null;});});
+ let pendingSelection=null,initialized=false,stickerIds=new Set();
+ api.onSelect?.(id=>{pendingSelection=id;openPendingSelection();});
  let itemsEditor;
  const title=$('title'),body=$('body'),sheet=$('sheet'),master=$('master'),status=$('status');
  let current=null,summaries=[],sheets=[],timer,writing,busy=false,closeRequested=false,closing=false;
@@ -46,6 +47,21 @@
   summaries=[{id:draft.id,title:draft.title,summary:(draft.body.trim()||draft.items?.[0]?.label||'').slice(0,80)},...summaries.filter(item=>item.id!==draft.id)];
   renderList();
  }
+ function updateSticker(){
+  const button=$('pin-sticker'),pinned=stickerIds.has(current?.id);
+  button.hidden=preferences.desktopStickers?.sources.draft===false&&!pinned;
+  button.disabled=!current;
+  button.textContent=pinned?'取消便條釘選':'釘選便條';
+  button.setAttribute('aria-pressed',String(pinned));
+ }
+ function setStickerIds(ids){stickerIds=new Set(ids);updateSticker();}
+ api.onStickerPins?.(setStickerIds);
+ $('pin-sticker').addEventListener('click',()=>run(async()=>{
+  if(!current)return;
+  const pinned=!stickerIds.has(current.id);
+  setStickerIds(await api.pinSticker(current.id,current.version,pinned));
+  report(pinned?'已釘選桌面便條':'已取消便條釘選');
+ }));
  function updateSend(){
   $('send').disabled=!current||!sheet.value||(!$('master-field').hidden&&!master.value)||
    (!title.value.trim()&&!body.value.trim()&&!draftItems().length&&!current.attachments.length);
@@ -94,7 +110,7 @@
   $('send-reminder').checked=false;
   title.value=draft?.title||'';body.value=draft?.body||'';if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);updateCount();
   $('empty').hidden=Boolean(draft);$('editor').hidden=!draft;
-  renderList();renderAttachments();renderMapping(true);updateSend();
+  renderList();renderAttachments();renderMapping(true);updateSend();updateSticker();
  }
  function dirty(){return current&&(title.value!==current.title||body.value!==current.body||type.value!==(current.type||'text')||JSON.stringify(draftItems())!==JSON.stringify(current.items||[]));}
  function flush(){
@@ -125,8 +141,13 @@
   finally{
    setBusy(false);updateSend();
    if(listFocusRequested){listFocusRequested=false;[...$('drafts').querySelectorAll('button')].find(button=>button.dataset.draftId===current?.id)?.focus();}
-   if(closeRequested)void closeEditor();
+   if(closeRequested)void closeEditor();else openPendingSelection();
   }
+ }
+ function openPendingSelection(){
+  if(!initialized||busy||closing||!pendingSelection)return;
+  const id=pendingSelection;pendingSelection=null;
+  if(id!==current?.id)void run(async()=>showDraft(await api.read(id)));
  }
  async function closeEditor(){
   if(closing)return;
@@ -295,7 +316,7 @@
   if(previous.draftDropMode!==preferences.draftDropMode)$('draft-drop-mode').value=preferences.draftDropMode||'link';updateDropHint();
   $('draft-images').style.setProperty('--draft-image-height',preferences.draftImageHeight+'px');
   if(previous.draftListWidth!==preferences.draftListWidth)draftSplit?.set(preferences.draftListWidth||170);
-  $('draft-reminder').hidden=preferences.draftReminders===false;updateCount();
+  $('draft-reminder').hidden=preferences.draftReminders===false;updateCount();updateSticker();
  }
  api.onSettings?.(applyPreferences);
  function updateCount(){const limit=preferences.draftBodyLimit||0;$('char-count').textContent=body.value.length.toLocaleString()+(limit?' / '+limit.toLocaleString()+' 字':' 字 · 不設字數上限');}
@@ -330,17 +351,18 @@
   const data=await api.data();
   document.documentElement.dataset.theme=data.theme;
   document.documentElement.dataset.font=data.fontSize;
-  applyPreferences(data.preferences||{});
+  applyPreferences(data.preferences||{});setStickerIds(data.stickerIds||[]);
   document.documentElement.style.fontSize=data.fontSize+'px';
   body.style.height=(preferences.draftBodyHeight||280)+'px';
   $('draft-reminder').hidden=preferences.draftReminders===false;
   draftSplit=window.resizableSplit.attach($('draft-layout'),{width:preferences.draftListWidth||170,min:110,max:600,label:'調整草稿清單寬度',save:width=>api.configure({draftListWidth:width})});
   const localDate=new Date(Date.now()+3600000);$('reminder-at').value=new Date(localDate.getTime()-localDate.getTimezoneOffset()*60000).toISOString().slice(0,16);
   summaries=data.drafts;
-  const draft=pendingSelection?await api.read(pendingSelection):summaries.length?await api.read(summaries[0].id):await api.newDraft();pendingSelection=null;
+  const requested=pendingSelection;pendingSelection=null;
+  const draft=requested?await api.read(requested):summaries.length?await api.read(summaries[0].id):await api.newDraft();
   showDraft(draft);remember(draft);
   await refreshTargets(data);
-  initialized=true;if(pendingSelection){showDraft(await api.read(pendingSelection));pendingSelection=null;}
+  initialized=true;
   report('草稿儲存在本機');
   setBusy(false);body.focus();
  });

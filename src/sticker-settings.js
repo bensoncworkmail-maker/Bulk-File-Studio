@@ -3,7 +3,7 @@
 (() => {
  const $=id=>document.getElementById(id),api=window.stickersAPI;
  if(!api)return;
- const sources=['workspace','tracking','favorites'];
+ const sources=['workspace','tracking','favorites','draft'];
  const dimensions=['width','height','collapsedWidth','collapsedHeight'];
  let saved,draft,tables=[],pending=false,request=0;
  const status=text=>{$('sticker-settings-status').textContent=text;};

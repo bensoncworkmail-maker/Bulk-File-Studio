@@ -7,7 +7,7 @@
 ## 盤點與整合結果
 
 - 工作集可從工具箱直接開啟，並可使用檔案和資料夾選擇器。情境包與桌面情境入口已移除，舊流程資料保留供相容讀取與備份。
-- 查看紀錄浮窗保留失焦前的內容，每筆釘選對應獨立桌面便條。資料工作區、Everything 追蹤及我的收藏共用便條管理。背景色、展開／收合尺寸、標題握把、標題欄位及釘選來源可從設定調整。便條支援整條標題列拖曳及雙擊、具名標籤釘選和附件表格的雙擊開啟／定位。常用文字外部分類選擇窗支援方向鍵。ZIP 一般解壓可沿用 Everything 快照開啟或定位檔案。草稿移除附件只解除連結。
+- 查看紀錄浮窗保留失焦前的內容，每筆釘選對應獨立桌面便條。資料工作區、Everything 追蹤及我的收藏共用便條管理。背景色、展開／收合尺寸、標題握把、標題欄位及釘選來源可從設定調整。便條支援整條標題列拖曳及雙擊、具名標籤與草稿釘選、內文標題導航和附件表格的雙擊開啟／定位。常用文字外部分類選擇窗支援方向鍵。ZIP 一般解壓可沿用 Everything 快照開啟或定位檔案。草稿移除附件只解除連結。
 - Everything 排序由共用驗證模型管理，按追蹤 ID 保存欄位、方向與各欄位上次方向；欄位隱藏時暫用名稱排序，不刪除原偏好。
 - 追蹤定時更新、選取與批次操作共用可收合工具列，啟動立即還原狀態並保留更新摘要、已選數量、所選項目選單、右鍵與快捷鍵，收合狀態納入偏好還原／匯出。
 - 一般收藏既有排序由 favoriteSort／favoriteDirection 保存；工作區由 notes-table-state 管理表格版面與篩選；查看紀錄由 log-view-settings-model 管理各範圍篩選／排序歷史，沒有另建平行資料來源。
@@ -78,7 +78,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`open`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerSource`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [navigation-model.js](../src/navigation-model.js) | `normalize` |
 | [navigation-settings.js](../src/navigation-settings.js) | `mount`、`render` |
@@ -163,7 +163,7 @@
 | [draft-export-types.js](../src/draft-export-types.js) | `extension`、`filters` |
 | [draft-file-transfer.js](../src/draft-file-transfer.js) | `copyFile`、`digest`、`inside`、`key`、`scan`、`stat`、`transfer` |
 | [draft-notes-preload.js](../src/draft-notes-preload.js) | `invoke` |
-| [draft-notes-ui.js](../src/draft-notes-ui.js) | `applyPreferences`、`caption`、`changeAttachments`、`closeEditor`、`dirty`、`draftItems`、`el`、`flush`、`inputChanged`、`loadMasters`、`message`、`nextDraft`、`option`、`refreshTargets`、`remember`、`renderAttachments`、`renderExtra`、`renderItems`、`renderList`、`renderMapping`、`report`、`run`、`setBusy`、`showDraft`、`showPreview`、`targetFields`、`updateCount`、`updateDropHint`、`updateSend` |
+| [draft-notes-ui.js](../src/draft-notes-ui.js) | `applyPreferences`、`caption`、`changeAttachments`、`closeEditor`、`dirty`、`draftItems`、`el`、`flush`、`inputChanged`、`loadMasters`、`message`、`nextDraft`、`openPendingSelection`、`option`、`refreshTargets`、`remember`、`renderAttachments`、`renderExtra`、`renderItems`、`renderList`、`renderMapping`、`report`、`run`、`setBusy`、`setStickerIds`、`showDraft`、`showPreview`、`targetFields`、`updateCount`、`updateDropHint`、`updateSend`、`updateSticker` |
 | [draft-notes.css](../src/draft-notes.css) | 版面、主題與互動狀態樣式 |
 | [draft-notes.html](../src/draft-notes.html) | 視窗／頁面結構及本機資源引用 |
 | [draft-notes.js](../src/draft-notes.js) | `attach`、`cancelClose`、`close`、`commit`、`configure`、`constructor`、`data`、`destroy`、`draftText`、`export`、`extraField`、`fileKey`、`image`、`masters`、`open`、`owns`、`paste`、`pngBytes`、`preview`、`remind`、`removeAttachment`、`requestClose`、`save`、`textField`、`updateSettings` |
@@ -183,8 +183,8 @@
 | --- | --- |
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`registerShortcuts`、`setLogin` |
 | [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`snippetPickerGroups`、`update`、`validBounds`、`write` |
-| [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`colorText`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
-| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeRecord`、`changedPins`、`config`、`control`、`counts`、`document`、`filePinByKey`、`matchingTag`、`openLink`、`openLocation`、`pinFile`、`pinTag`、`read`、`recordFor`、`register`、`remove`、`sourceEnabled`、`tagItems` |
+| [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`attachmentRow`、`colorText`、`draftDetail`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
+| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`read`、`recordFor`、`register`、`remove`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
 | [floating-auto-collapse.js](../src/floating-auto-collapse.js) | `reset`、`tick` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
@@ -221,10 +221,10 @@
 | [global-shortcuts.js](../src/global-shortcuts.js) | `fromEvent`、`normalize`、`validatePair` |
 | [layout-editor.js](../src/layout-editor.js) | `bind`、`floating`、`main` |
 | [log-sticker-preload.js](../src/log-sticker-preload.js) | 宣告、設定或共用模型 |
-| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`fileCell`、`finishDrag`、`isClose`、`linkButton`、`locate`、`moveDrag`、`open`、`render`、`report`、`text`、`toggle` |
+| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`fileCell`、`finishDrag`、`isClose`、`linkButton`、`locate`、`moveDrag`、`open`、`render`、`report`、`text`、`toggle`、`toggleAt` |
 | [log-sticker.css](../src/log-sticker.css) | 版面、主題與互動狀態樣式 |
 | [log-sticker.html](../src/log-sticker.html) | 視窗／頁面結構及本機資源引用 |
-| [log-stickers.js](../src/log-stickers.js) | `bounds`、`close`、`constructor`、`drag`、`open`、`owner`、`payload`、`recover`、`refresh`、`remove`、`resize`、`restore`、`setAllCollapsed`、`setCollapsed`、`toggle` |
+| [log-stickers.js](../src/log-stickers.js) | `bounds`、`close`、`constructor`、`currentBounds`、`drag`、`open`、`owner`、`payload`、`recover`、`refresh`、`remove`、`resize`、`restore`、`setAllCollapsed`、`setCollapsed`、`toggle` |
 | [log-view-settings-model.js](../src/log-view-settings-model.js) | `allowedSheet`、`logFilterKey`、`normalize`、`normalizeFilters`、`normalizeHistory` |
 | [log-view-settings.js](../src/log-view-settings.js) | `$`、`init`、`refreshTables`、`renderTables`、`sync` |
 | [resizable-split.js](../src/resizable-split.js) | `attach`、`bounds`、`end`、`persist`、`set` |
