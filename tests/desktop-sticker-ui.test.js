@@ -6,12 +6,12 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {documentFromHTML}=require('./helpers/dom');
 
-test('sticker title double-click and keyboard toggle its body while links use versioned actions',async()=>{
+test('sticker title toggles repeatedly at the same point, drags from the header and routes attachment cells',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  let collapsed=false,updates;
- const data={heading:'客戶 · 案件',title:'案件',links:[{label:'附件'}],version:12,fields:[],notes:'內容',visit:'在工作區開啟',background:'#ffffff',foreground:'#171717'};
+ const data={heading:'客戶 · 案件',title:'案件',links:[{kind:'file',label:'圖片.png',location:'C:/測試'},{kind:'url',label:'相關網址'}],version:12,fields:[],notes:'內容',visit:'在工作區開啟',background:'#ffffff',foreground:'#171717'};
  const actions=[],window={logSticker:{
-  get:async()=>({...data,collapsed}),toggle:async()=>({...data,collapsed:collapsed=!collapsed}),
+  get:async()=>({...data,collapsed}),toggle:async()=>({...data,collapsed:collapsed=!collapsed}),drag:async(...input)=>actions.push(input),
   onChanged:callback=>updates=callback,onError:()=>{},visit:async()=>{},locate:async()=>{},close:async()=>{},
   openLink:async(...input)=>actions.push(input)
  }};
@@ -21,15 +21,35 @@ test('sticker title double-click and keyboard toggle its body while links use ve
  assert.equal(heading.textContent,'客戶 · 案件');
  assert.equal(document.getElementById('toggle'),null);
  await heading.dispatch('click');assert.equal(body.hidden,false);
- await heading.dispatch('dblclick');assert.equal(body.hidden,true);
- await heading.dispatch('keydown',{key:'Enter'});assert.equal(body.hidden,false);
+ const header=document.getElementById('sticker-header'),grip=document.getElementById('sticker-grip');
+ const click={target:grip,screenX:125,screenY:210};
+ await header.dispatch('dblclick',click);assert.equal(body.hidden,true);
+ await header.dispatch('dblclick',click);assert.equal(body.hidden,false);
+ await header.dispatch('dblclick',{target:document.getElementById('close')});assert.equal(body.hidden,false);
+ await heading.dispatch('keydown',{key:'Enter'});assert.equal(body.hidden,true);
+ await heading.dispatch('keydown',{key:' '});assert.equal(body.hidden,false);
+ const [name,location]=document.getElementById('attachment-rows').querySelectorAll('td');
+ await name.querySelector('button').dispatch('click',{detail:1});
+ await name.dispatch('dblclick');await location.dispatch('dblclick');
+ await location.querySelector('button').dispatch('click',{detail:0});
  await document.getElementById('links').querySelector('button').dispatch('click');
- assert.deepEqual(actions,[[0,12]]);
- updates({...data,heading:'更新內容',collapsed:true});
- assert.equal(heading.textContent,'更新內容');assert.equal(body.hidden,true);
+ assert.deepEqual(actions,[[0,12,'open','C:/測試'],[0,12,'show','C:/測試'],[0,12,'show','C:/測試'],[1,12]]);
+ updates({...data,heading:'更新內容',collapsed:false,showGrip:false,headerAtBottom:true});
+ assert.equal(heading.textContent,'更新內容');assert.equal(grip.hidden,true);
+ assert.equal(document.body.classList.contains('header-at-bottom'),true);
+ const start={target:heading,button:0,pointerId:3,screenX:200,screenY:100};
+ await header.dispatch('pointerdown',start);
+ await header.dispatch('pointermove',{...start,screenX:202});
+ assert.equal(actions.length,4);
+ await header.dispatch('pointermove',{...start,screenX:240,screenY:120});
+ await header.dispatch('pointerup',{...start,type:'pointerup',screenX:250,screenY:120});
+ await header.dispatch('dblclick',click);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(actions.slice(4),[['start'],['move',50,20],['end']]);
+ assert.equal(body.hidden,false);
 });
 
-test('sticker settings retain distinct header fields across table changes',async()=>{
+test('sticker settings save both sizes and grip while retaining header fields across tables',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/index.html'),'utf8'));
  const $=id=>document.getElementById('sticker-settings-'+id);
  const preferences=require('../src/desktop-sticker-model').settings();
@@ -52,9 +72,11 @@ test('sticker settings retain distinct header fields across table changes',async
  assert.equal($('master').disabled,true);
  $('table').value='logs';await $('table').dispatch('change');
  assert.equal($('item').value,'date');assert.equal($('master').value,'code');
- $('color').value='#fafafa';$('tracking').checked=false;
+ $('color').value='#fafafa';$('tracking').checked=false;$('grip').checked=false;
+ $('width').value='420';$('height').value='350';$('collapsedWidth').value='220';$('collapsedHeight').value='44';
  await $('form').dispatch('submit');
  assert.equal(JSON.stringify(saved.headers.logs),JSON.stringify({master:'code',item:'date'}));
- assert.equal(saved.background,'#fafafa');
+ assert.equal(saved.background,'#fafafa');assert.equal(saved.showGrip,false);
+ assert.deepEqual({...saved.size},{width:420,height:350,collapsedWidth:220,collapsedHeight:44});
  assert.equal(window.stickerSettingsUI.enabled('tracking'),false);
 });

@@ -21,6 +21,7 @@
   window.favoritesUI?.showMenu(event,[
    {label:'查看'+(item.key===null?'全部追蹤':item.key===''?'未加標籤的追蹤':'此標籤的追蹤搜尋'),run:()=>selectTag(item.key)},
    {label:'新增追蹤搜尋…',run:()=>{if(blocked())return;editor();if(item.key!==null)$('everything-rule-tags').value=item.key===''?'':item.name;}},
+   ...(item.key&&window.stickerSettingsUI?.enabled('tracking')?[{label:'釘選此標籤為桌面便條',run:()=>window.stickerSettingsUI.pinTag('tracking',item.name,callbacks)}]:[]),
    ...(item.key===null||item.key===''?[]:[{label:'重新命名標籤…',run:()=>editTag(item,false)},{label:'刪除標籤…',run:()=>editTag(item,true)}])
   ]);
  }
@@ -253,6 +254,11 @@
  function open(id=null){
   if(!window.favoritesUI?.show('tracking'))return false;if(id){cancelInlineRename(false,false);rememberQuery(id);rememberTag(null);restoreSelection();}return true;
  }
+ function openTag(value){
+  if(!window.favoritesUI?.show('tracking'))return false;
+  cancelInlineRename(false,false);rememberTag(value.toLocaleLowerCase());currentId=null;
+  selected.clear();void load(true);return true;
+ }
  function selectResults(kind){
   if(blocked())return;
   selected=new Set(ordered().map(({index})=>index).filter(i=>kind==='all'||kind==='invert'&&!selected.has(i)));
@@ -399,5 +405,5 @@
   $('everything-tag-dialog').addEventListener('close',()=>{tagEditing=null;});
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
+ window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,openTag,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
 })();
