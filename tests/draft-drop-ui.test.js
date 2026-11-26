@@ -4,11 +4,11 @@ const tick=async()=>{for(let i=0;i<5;i++)await new Promise(setImmediate);};
 function fixture(){
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/draft-notes.html'),'utf8')),$=id=>document.getElementById(id),events=new Map(),calls=[];
  document.addEventListener=(name,handler)=>events.set(name,handler);
- const draft={id:crypto.randomUUID(),version:1,title:'Note',body:'Text',type:'text',items:[],attachments:[]};let settings;
- const api={data:async()=>({drafts:[draft],sheets:[],preferences:{draftDropMode:'link'}}),read:async()=>structuredClone(draft),pathForFile:file=>file.path,onClose(){},onSettings:fn=>settings=fn,attach:async(...args)=>{calls.push(args);return {...draft,version:2,attachments:[{path:'/managed/a.txt',type:'file',managed:true,originalPath:args[2][0]}]};}};
- const window={draftAPI:api,structuredNoteModel:require('../src/structured-note-model'),draftExportTypes:require('../src/draft-export-types'),resizableSplit:{attach(){}}};
+ const draft={id:crypto.randomUUID(),version:1,title:'Note',body:'Text',type:'text',items:[],attachments:[]};let settings,stickerUpdate;
+ const api={data:async()=>({drafts:[draft],sheets:[],preferences:{draftDropMode:'link'}}),read:async()=>structuredClone(draft),pathForFile:file=>file.path,onClose(){},onSettings:fn=>settings=fn,onStickerBodySaved:fn=>stickerUpdate=fn,attach:async(...args)=>{calls.push(args);return {...draft,version:2,attachments:[{path:'/managed/a.txt',type:'file',managed:true,originalPath:args[2][0]}]};}};
+ const window={confirm:()=>true,draftAPI:api,structuredNoteModel:require('../src/structured-note-model'),draftExportTypes:require('../src/draft-export-types'),resizableSplit:{attach(){}}};
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/draft-notes-ui.js'),'utf8'),{window,document,setTimeout,clearTimeout,ResizeObserver:class{observe(){}}});
- return {$,events,calls,api,settings:value=>settings(value)};
+ return {$,events,calls,api,draft,stickerUpdate:value=>stickerUpdate(value),settings:value=>settings(value)};
 }
 test('draft drop selector defaults to links and forwards the explicit copy or move choice',async()=>{
  const h=fixture();await tick();assert.equal(h.$('draft-drop-mode').value,'link');
@@ -19,4 +19,20 @@ test('draft drop selector defaults to links and forwards the explicit copy or mo
 });
 test('draft attachment warnings remain visible after a completed file transfer',async()=>{
  const h=fixture();await tick();const attach=h.api.attach;h.api.attach=async(...args)=>({...await attach(...args),attachmentWarning:'部分來源未移除'});h.$('draft-drop-mode').value='move';h.events.get('drop')({dataTransfer:{types:['Files'],files:[{path:'/source/a.txt'}]},preventDefault(){}});await tick();assert.equal(h.$('status').textContent,'部分來源未移除');assert.equal(h.$('status').dataset.error,'true');
+});
+
+
+test('draft editor receives sticker saves and preserves local text on a conflict until reloading',async()=>{
+ const h=fixture();await tick();
+ const {id,title}=h.draft;
+ h.stickerUpdate({id,title,summary:'便條儲存',body:'便條儲存',previousVersion:1,version:2});
+ assert.equal(h.$('body').value,'便條儲存');
+ h.$('body').value='另一段未儲存的文字';
+ h.stickerUpdate({id,title,summary:'後來內容',body:'後來內容',previousVersion:2,version:3});
+ assert.equal(h.$('body').value,'另一段未儲存的文字');
+ assert.equal(h.$('reload-draft').hidden,false);
+ h.api.read=async()=>({...h.draft,version:3,body:'後來內容'});
+ await h.$('reload-draft').dispatch('click');
+ assert.equal(h.$('body').value,'後來內容');
+ assert.equal(h.$('reload-draft').hidden,true);
 });

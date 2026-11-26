@@ -3,6 +3,8 @@
 (() => {
  const api=window.logSticker,$=id=>document.getElementById(id),header=$('sticker-header'),heading=$('heading');
  let updated=false,changing=false,drag=null,lastTap=null,lastPointerToggle=-Infinity,finishedDrag=Promise.resolve();
+ let current,editSession=null,editPending=false;
+ const draftBody=$('draft-body');
  function error(message){const status=$('status');status.hidden=false;status.textContent=message;}
  const report=failure=>error(failure.message);
  function text(tag,label){
@@ -25,7 +27,7 @@
   return cell;
  }
  function render(data){
-  updated=true;
+  updated=true;current=data;
   const style=document.documentElement.style;
   style.setProperty('--sticker-background',data.background);
   style.setProperty('--sticker-foreground',data.foreground);
@@ -42,7 +44,7 @@
   if(data.visit){label.className='sticker-title-link';label.title=data.visit;label.setAttribute('aria-label',data.title+' · '+data.visit);}
   title.replaceChildren(label);
   $('notes').textContent=data.notes;
-  $('notes').hidden=!data.notes;
+  renderEditor();
   $('fields').replaceChildren(...data.fields.flatMap(({label,value})=>[text('dt',label),text('dd',value)]));
   const items=data.items||[];
   $('tag-items').replaceChildren(...items.map(label=>text('li',label)));
@@ -62,8 +64,50 @@
   $('links').replaceChildren(...links);
   $('links').hidden=!links.length;
   $('record').hidden=data.collapsed;
-  $('status').hidden=true;
+  if(!editSession)$('status').hidden=true;
  }
+
+ function renderEditor(){
+  const editable=current?.kind==='draft',editing=editable&&editSession!==null;
+  $('edit-draft').hidden=!editable||editing;
+  $('edit-draft').disabled=editPending;
+  $('draft-editor').hidden=!editing;
+  $('notes').hidden=editing||!current?.notes;
+  draftBody.readOnly=editPending;
+  $('save-draft').disabled=editPending;
+  $('cancel-draft').disabled=editPending;
+ }
+ $('edit-draft').addEventListener('click',async()=>{
+  if(editPending)return;
+  editPending=true;renderEditor();
+  try{
+   editSession=await api.readDraft();
+   draftBody.value=editSession.body;
+   if(editSession.maxLength===null)draftBody.removeAttribute('maxlength');
+   else draftBody.maxLength=editSession.maxLength;
+   $('status').hidden=true;
+  }catch(failure){report(failure);}
+  finally{editPending=false;renderEditor();if(editSession)draftBody.focus();}
+ });
+ $('draft-editor').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!editSession||editPending)return;
+  editPending=true;renderEditor();
+  try{
+   const body=editSession.body.replace(/\r\n?/g,'\n')===draftBody.value?editSession.body:draftBody.value;
+   const data=await api.saveDraft(editSession.version,body);
+   editSession=null;render(data);
+   error('已儲存草稿正文');
+   $('edit-draft').focus();
+  }catch(failure){
+   if(/草稿已變更/.test(failure.message))error('草稿已有其他修改。可先複製這裡的文字，再取消並重新編輯。');
+   else report(failure);
+  }finally{editPending=false;renderEditor();if(editSession)draftBody.focus();}
+ });
+ $('cancel-draft').addEventListener('click',()=>{
+  if(editPending)return;
+  editSession=null;$('status').hidden=true;renderEditor();$('edit-draft').focus();
+ });
 
  async function toggle(point){
   if(changing)return;
@@ -138,7 +182,11 @@
  }
  for(const type of ['pointerup','pointercancel','lostpointercapture'])header.addEventListener(type,finishDrag);
  header.addEventListener('pointerleave',event=>{if(!drag?.moved){lastTap=null;finishDrag(event);}});
- $('close').addEventListener('click',()=>api.close().catch(report));
+ $('close').addEventListener('click',()=>{
+  if(editPending)return;
+  if(editSession&&draftBody.value!==editSession.body.replace(/\r\n?/g,'\n')&&!window.confirm('關閉便條並放棄未儲存的正文？'))return;
+  return api.close().catch(report);
+ });
  window.addEventListener?.('blur',()=>{lastTap=null;});
  api.onChanged(render);
  api.onError(error);

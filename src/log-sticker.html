@@ -17,6 +17,15 @@
  <main id="record">
   <h1 id="title"></h1>
   <p id="notes"></p>
+  <button id="edit-draft" class="sticker-link" type="button" hidden>編輯正文</button>
+  <form id="draft-editor" hidden>
+   <label for="draft-body">草稿正文</label>
+   <textarea id="draft-body" rows="4" spellcheck="false"></textarea>
+   <div class="draft-editor-actions">
+    <button id="save-draft" type="submit">儲存</button>
+    <button id="cancel-draft" type="button">取消</button>
+   </div>
+  </form>
   <dl id="fields"></dl>
   <ul id="tag-items" hidden></ul>
   <div id="attachments" hidden>

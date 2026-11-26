@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('draftAPI',{
  data:()=>invoke('data'),configure:patch=>invoke('configure',patch),export:(id,version,extension)=>invoke('export',id,version,extension),preview:(id,index)=>invoke('preview',id,index),remind:(id,version,input)=>invoke('remind',id,version,input),
  read:id=>invoke('read',id),
  pinSticker:(id,version,pinned)=>invoke('sticker-pin',id,version,pinned),
+ onStickerBodySaved:callback=>ipcRenderer.on('draft-sticker-body-saved',(_,value)=>callback(value)),
  onStickerPins:callback=>ipcRenderer.on('draft-stickers-changed',(_,ids)=>callback(ids)),
  newDraft:()=>invoke('new'),
  save:(id,version,text)=>invoke('save',id,version,text),

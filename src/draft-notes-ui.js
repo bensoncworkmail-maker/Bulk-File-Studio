@@ -7,8 +7,9 @@
  let itemsEditor;
  const title=$('title'),body=$('body'),sheet=$('sheet'),master=$('master'),status=$('status');
  let current=null,summaries=[],sheets=[],timer,writing,busy=false,closeRequested=false,closing=false;
- let listFocusRequested=false,draftSplit;
+ let listFocusRequested=false,draftSplit,stickerUpdate=null;
  let mastersRequest=0,attachmentsRequest=0,preferences={draftLocalShortcuts:true,draftReminders:true,draftBodyLimit:100000,draftImageHeight:96},bodyResizeTimer;
+ const conflictMessage='便條已更新這份草稿。可先複製未儲存的文字，再載入最新草稿。';
  const message=error=>String(error.message||error).replace(/^Error invoking remote method '[^']+': (?:Error: )?/i,'');
  function report(text,error=false){status.textContent=text;status.dataset.error=String(error);}
  function el(tag,text){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;return node;}
@@ -44,9 +45,37 @@
   $('drafts').replaceChildren(...buttons);
  }
  function remember(draft){
-  summaries=[{id:draft.id,title:draft.title,summary:(draft.body.trim()||draft.items?.[0]?.label||'').slice(0,80)},...summaries.filter(item=>item.id!==draft.id)];
+  const {id,title,summary} = draft;
+  summaries=[{id,title,summary:summary??(draft.body.trim()||draft.items?.[0]?.label||'').slice(0,80)},...summaries.filter(item=>item.id!==id)];
   renderList();
  }
+ function applyStickerUpdate(){
+  if(!stickerUpdate||busy||writing||closing)return;
+  const update=stickerUpdate;stickerUpdate=null;
+  if(!current||current.id!==update.id||current.version>=update.version)return;
+  if(body.value!==current.body||current.version!==update.previousVersion){
+   clearTimeout(timer);$('reload-draft').hidden=false;
+   report(conflictMessage,true);
+   return;
+  }
+  current={...current,body:update.body,version:update.version};
+  body.value=update.body;
+  if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);
+  updateCount();updateSend();
+ }
+ api.onStickerBodySaved?.(update=>{
+  if(!initialized)return;
+  if(update.id!==current?.id||update.version>current.version)remember(update);
+  if(update.id===current?.id){stickerUpdate=update;applyStickerUpdate();}
+ });
+ $('reload-draft').addEventListener('click',async()=>{
+  if(busy||writing||!current)return;
+  if(dirty()&&!window.confirm('載入最新草稿並放棄未儲存的修改？'))return;
+  setBusy(true);clearTimeout(timer);
+  try{showDraft(await api.read(current.id));report('已載入最新草稿');}
+  catch(error){report(message(error),true);}
+  finally{setBusy(false);applyStickerUpdate();openPendingSelection();}
+ });
  function updateSticker(){
   const button=$('pin-sticker'),pinned=stickerIds.has(current?.id);
   button.hidden=preferences.desktopStickers?.sources.draft===false&&!pinned;
@@ -105,7 +134,7 @@
   }
  }
  function showDraft(draft){
-  current=draft;
+  current=draft;$('reload-draft').hidden=true;
   type.value=draft?.type||'text';renderItems(draft?.items||[]);
   $('send-reminder').checked=false;
   title.value=draft?.title||'';body.value=draft?.body||'';if(preferences.draftBodyLimit>0)body.maxLength=Math.max(preferences.draftBodyLimit,body.value.length);updateCount();
@@ -117,6 +146,7 @@
   clearTimeout(timer);
   if(writing)return writing;
   if(!dirty())return Promise.resolve();
+  if(!$('reload-draft').hidden)return Promise.reject(Error(conflictMessage));
   writing=(async()=>{
    while(dirty()){
     report('正在儲存…');
@@ -124,7 +154,7 @@
     remember(current);
    }
    report('已自動儲存');
-  })().finally(()=>{writing=null;});
+  })().finally(()=>{writing=null;applyStickerUpdate();});
   return writing;
  }
  function setBusy(value){
@@ -139,7 +169,7 @@
   try{await flush();await task();}
   catch(error){report(message(error),true);}
   finally{
-   setBusy(false);updateSend();
+   setBusy(false);updateSend();applyStickerUpdate();
    if(listFocusRequested){listFocusRequested=false;[...$('drafts').querySelectorAll('button')].find(button=>button.dataset.draftId===current?.id)?.focus();}
    if(closeRequested)void closeEditor();else openPendingSelection();
   }
