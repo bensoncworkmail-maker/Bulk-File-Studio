@@ -10,7 +10,7 @@ const SOURCES=['workspace','tracking','favorites','draft'];
 const TAG_SCOPES=['favorites','workspace','tracking'];
 const DIMENSIONS={width:[180,1200,280],height:[130,1000,245],collapsedWidth:[180,1200,280],collapsedHeight:[32,96,36]};
 const FILE_HEADERS={favorite:{prefix:['none','folder','tag'],title:['label','name','path']},tracking:{prefix:['none','folder','query'],title:['name','path']}};
-const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'double',locationClick:'double',showGrip:true,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
+const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'double',locationClick:'double',showGrip:false,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
  favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'}};
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const fieldKey=value=>typeof value==='string'&&(value==='title'||M.ID.test(value));

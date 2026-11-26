@@ -459,10 +459,11 @@ app.whenReady().then(() => {
     return runQuickAction(null,id);
   }
   function showStickerMenu(anchor){
-    const counts=stickerService.counts(),enabled=Boolean(counts.records+counts.files);
-    const show=counts.hidden||!counts.visible;
-    const item=(label,action)=>({label,enabled,click:floatingAction(()=>stickerService.control(action))});
-    popupFloatingMenu([item(show?'顯示全部便條':'隱藏全部便條',show?'show':'hide'),
+    const {records,files,visible}=stickerService.counts(),total=records+files;
+    const item=(label,action)=>({label,enabled:total>0,click:floatingAction(()=>stickerService.control(action))});
+    popupFloatingMenu([
+      ...(!visible||visible<total?[item('顯示全部便條','show')]:[]),
+      ...(visible?[item('隱藏全部便條','hide')]:[]),
       {type:'separator'},item('展開全部便條','expand'),item('收合全部便條','collapse')],{allowCollapsed:true,anchor});
     return {menu:true};
   }
@@ -1212,7 +1213,7 @@ app.whenReady().then(() => {
     if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();
   }
   stickerService=require('./desktop-sticker-service').register({
-    handle,ipcMain,BrowserWindow,screen,secureWindow,notes:notesStore,tools:toolsStore,
+    handle,ipcMain,Menu,onMenuSettled:recoverFloatingPins,BrowserWindow,screen,secureWindow,notes:notesStore,tools:toolsStore,
     readLayout:()=>desktop.stickerLayout(),saveLayout:value=>desktop.saveStickerLayout(value),
     onClosed:()=>send(win,'desktop-stickers-changed'),
     favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,

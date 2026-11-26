@@ -32,10 +32,10 @@
   style.setProperty('--sticker-header-background',data.headerBackground||'#d5eaf8');
   style.setProperty('--sticker-header-foreground',data.headerForeground||'#203749');
   style.setProperty('--sticker-header-height',(data.size?.collapsedHeight||36)+'px');
-  $('sticker-grip').hidden=data.showGrip===false;
+  $('sticker-grip').hidden=data.showGrip!==true;
   document.body.classList.toggle('header-at-bottom',data.headerAtBottom===true);
   if(heading.textContent!==data.heading)heading.textContent=data.heading;
-  heading.title=data.heading+' ／ 雙擊'+(data.collapsed?'展開':'收合')+' · 拖曳移動';
+  heading.title=data.heading+' ／ 雙擊'+(data.collapsed?'展開':'收合')+' · 拖曳移動 · 右鍵選單';
   heading.setAttribute('aria-expanded',String(!data.collapsed));
   const title=$('title');
   const label=data.visit?linkButton(data.title,()=>api.visit().catch(report)):text('span',data.title);
@@ -74,12 +74,22 @@
  }
 
  const isClose=event=>Boolean(event.target?.closest?.('#close'));
+ function openHeaderMenu(event,point){
+  event.preventDefault();lastTap=null;
+  return api.menu(point).catch(report);
+ }
+ header.addEventListener('contextmenu',event=>openHeaderMenu(event,{x:event.clientX,y:event.clientY}));
  header.addEventListener('dblclick',event=>{
   if(isClose(event)||event.timeStamp-lastPointerToggle<100)return;
   return toggleAt(event);
  });
  heading.addEventListener('keydown',event=>{
-  if(!['Enter',' '].includes(event.key)||event.repeat)return;
+  if(event.repeat)return;
+  if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10'){
+   const {left,bottom}=heading.getBoundingClientRect();
+   return openHeaderMenu(event,{x:left,y:bottom});
+  }
+  if(!['Enter',' '].includes(event.key))return;
   event.preventDefault();return toggle();
  });
  header.addEventListener('pointerdown',event=>{

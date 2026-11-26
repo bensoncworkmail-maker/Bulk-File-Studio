@@ -1775,3 +1775,49 @@ test('logs keep pin when closed and isolated layout updates preserve other tools
  logs.close();await new Promise(setImmediate);
  assert.deepEqual(calls,[[true,'floating']]);
 });
+
+
+test('sticker header menu opens and copies the source, hides one pin and can restore it while other stickers stay visible',async t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers;
+ const event=window=>({sender:window.webContents,senderFrame:{url:window.url}});
+ const paths=['brief.md','other.txt'].map(name=>path.join(h.dir,name));
+ for(const file of paths)fs.writeFileSync(file,'keep');
+ const {ids:[id,otherId]}=H.get('favorites-add')(null,paths,[]);
+ for(const favoriteId of [id,otherId]){
+  await H.get('desktop-stickers-pin')(null,'favorites',{id:favoriteId});
+  h.windows.at(-1).emit('ready-to-show');
+ }
+ const [sticker,other]=h.windows.slice(-2),handler=raw.get('log-sticker-menu');
+ assert.throws(()=>handler(event(h.windows[0]),{x:20,y:10}),/不受信任/);
+ let current=sticker;
+ const popup=()=>{handler(event(current),{x:20,y:10});return h.popup();};
+ const pick=async label=>{
+  const active=h.popup(),item=active.template.find(entry=>entry.label===label);
+  assert.ok(item,label);await item.click();active.options.callback();
+ };
+ assert.equal(popup().options.window,sticker);assert.equal(h.popup().options.x,20);
+ await pick('在程式內開啟原項目');
+ assert.equal(h.messages.findLast(([channel])=>channel==='studio-search-target')[1].id,id);
+ popup();await pick('複製內文標題');assert.equal(h.getCopied(),'brief.md');
+ popup();await pick('收合這張便條');
+ assert.equal(raw.get('log-sticker-get')(event(sticker)).collapsed,true);
+ assert.equal(raw.get('log-sticker-get')(event(other)).collapsed,false);
+ sticker.setBounds({x:115,y:90,width:330,height:36});
+ const before=popup(),stale=before.template.find(item=>item.label==='取消釘選這張便條');
+ await pick('暫時隱藏這張便條');await stale.click();
+ assert.equal(sticker.isDestroyed(),true);assert.equal(other.isVisible(),true);
+ const counts=()=>H.get('desktop-stickers-get')().counts;
+ assert.equal(counts().files,2);assert.equal(counts().visible,1);
+ H.get('floating-show')();
+ raw.get('floating-sticker-menu')(event(h.windows.at(-1)),{x:20,y:10});
+ assert.ok(h.popup().template.some(item=>item.label==='隱藏全部便條'));
+ await pick('顯示全部便條');
+ current=h.windows.at(-1);current.emit('ready-to-show');
+ assert.equal(current.bounds.x,115);assert.equal(current.bounds.width,330);
+ assert.equal(raw.get('log-sticker-get')(event(current)).collapsed,true);
+ popup();await pick('展開這張便條');
+ assert.equal(raw.get('log-sticker-get')(event(current)).collapsed,false);
+ popup();await pick('取消釘選這張便條');
+ assert.equal(counts().files,1);assert.equal(other.isVisible(),true);
+ assert.equal(fs.readFileSync(paths[0],'utf8'),'keep');
+});

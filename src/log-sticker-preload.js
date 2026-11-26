@@ -4,6 +4,7 @@ const {contextBridge,ipcRenderer}=require('electron');
 
 contextBridge.exposeInMainWorld('logSticker',Object.freeze({
  get:()=>ipcRenderer.invoke('log-sticker-get'),
+ menu:point=>ipcRenderer.invoke('log-sticker-menu',point),
  toggle:point=>ipcRenderer.invoke('log-sticker-toggle',point),
  drag:(phase,dx,dy)=>ipcRenderer.invoke('log-sticker-drag',phase,dx,dy),
  close:()=>ipcRenderer.invoke('log-sticker-close'),
