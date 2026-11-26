@@ -6,7 +6,7 @@ const web=require('./web-link-model');
 const {locationPath}=require('./notes-location-links');
 const {parentPath}=require('./favorites-batch');
 const LIMIT=100;
-const SOURCES=['workspace','tracking','favorites'];
+const SOURCES=['workspace','tracking','favorites','draft'];
 const TAG_SCOPES=['favorites','workspace','tracking'];
 const DIMENSIONS={width:[180,1200,280],height:[130,1000,245],collapsedWidth:[180,1200,280],collapsedHeight:[32,96,36]};
 const FILE_HEADERS={favorite:{prefix:['none','folder','tag'],title:['label','name','path']},tracking:{prefix:['none','folder','query'],title:['name','path']}};
@@ -49,11 +49,11 @@ function filePins(input){
  if(!Array.isArray(input)||input.length>LIMIT)throw Error('檔案便條釘選資料無效');
  const keys=new Set();
  return input.map(pin=>{
-  if(!pin||!['favorite','tracking','tag'].includes(pin.kind))throw Error('檔案便條來源無效');
+  if(!pin||!['favorite','tracking','tag','draft'].includes(pin.kind))throw Error('檔案便條來源無效');
   const id=M.id(pin.id),key=fileKey(pin.kind,id);
   if(keys.has(key))throw Error('檔案便條釘選重複');
   keys.add(key);
-  if(pin.kind==='favorite')return {kind:'favorite',id};
+  if(['favorite','draft'].includes(pin.kind))return {kind:pin.kind,id};
   if(pin.kind==='tag'){
    if(!TAG_SCOPES.includes(pin.scope))throw Error('便條標籤來源無效');
    return {kind:'tag',id,scope:pin.scope,tag:tagName(pin.tag)};
@@ -75,6 +75,9 @@ function tagName(value){
 }
 function fileKey(kind,id){return kind+':'+id;}
 function pathName(filepath){return (path.win32.isAbsolute(filepath)&&!path.posix.isAbsolute(filepath)?path.win32:path).basename(filepath)||filepath;}
+function attachmentRow(kind,path,label=pathName(path)){
+ return {kind,path,label,location:parentPath(path)};
+}
 function headline(prefix,title){return [prefix,title].filter(Boolean).join(' · ');}
 const colorText=hex=>{
  const [r,g,b]=hex.slice(1).match(/../g).map(value=>{
@@ -107,7 +110,7 @@ function recordDetail(doc,record,prefs,records,sheets,favorites){
   .map(master=>headingValue(doc,sheets.get(master.sheetId),master,rule.master)):[];
  const links=record.fileLinks.map((link,index)=>{
   const favorite=favorites.get(link.favoriteId),filepath=favorite?.path||link.path;
-  return {kind:'file',index,path:filepath,location:parentPath(filepath),label:link.label||favorite?.label||pathName(filepath)};
+  return {...attachmentRow('file',filepath,link.label||favorite?.label||pathName(filepath)),index};
  });
  const seen=new Set();
  const appendUrls=(value,whole=false)=>{
@@ -135,15 +138,24 @@ function locationDetail(pin,item,prefs){
  const prefixValue=prefix==='folder'&&filepath?pathName((/^(?:[a-z]:|\\\\)/i.test(filepath)?path.win32:path).dirname(filepath)):
   prefix==='tag'?item?.tags?.[0]:prefix==='query'?pin.queryName:'';
  const itemTitle=titleMode==='path'?filepath:titleMode==='name'&&filepath?pathName(filepath):title;
- return {kind:pin.kind,title,heading:headline(prefixValue,itemTitle||title),fields,links:filepath?[{kind:'item',label:pathName(filepath),location:parentPath(filepath)}]:[],notes:item?item.status==='missing'?'位置暫時無法使用。':'':'收藏已移除。',
-  visit:item?'開啟檔案／資料夾':'',locate:Boolean(item)};
+ return {kind:pin.kind,title,heading:headline(prefixValue,itemTitle||title),fields,links:filepath?[attachmentRow('item',filepath)]:[],notes:item?item.status==='missing'?'位置暫時無法使用。':'':'收藏已移除。',
+  visit:item?(pin.kind==='favorite'?'在我的收藏開啟':'開啟追蹤搜尋'):''};
 }
 
-function tagDetail(pin,items){
+function tagDetail(pin,items,links,overflow){
  const scope={favorites:'檔案／資料夾收藏',workspace:'工作區收藏',tracking:'Everything 追蹤'}[pin.scope];
- return {kind:'tag',title:pin.tag,heading:headline(scope,pin.tag),fields:[{label:'項目數',value:String(items.length)}],
-  links:[],items:items.slice(0,20).map(item=>item.title||item.label||item.name||pathName(item.path)),notes:items.length?'':'目前沒有符合此標籤的項目。',
-  visit:items.length?'開啟標籤分類':'',locate:false};
+ return {kind:'tag',scope:pin.scope,title:pin.tag,heading:headline(scope,pin.tag),fields:[{label:'項目數',value:String(items.length)}],
+  links,items:pin.scope==='favorites'?[]:items.slice(0,20).map(item=>item.title||item.name||'已移除的工作區項目'),
+  notes:items.length?(overflow?'便條顯示前 100 個檔案／資料夾。':''):'目前沒有符合此標籤的項目。',
+  visit:items.length?'開啟標籤分類':''};
 }
 
-module.exports={LIMIT,SOURCES,TAG_SCOPES,tagName,tagDetail,DEFAULTS,FILE_HEADERS,settings,filePins,fileKey,tableOptions,recordDetail,locationDetail,colorText};
+function draftDetail(draft){
+ const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,160)||draft.items[0]?.label||'未命名草稿';
+ const items=M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
+ const notes=[draft.body,items].filter(Boolean).join('\n\n').slice(0,12000);
+ const links=draft.attachments.map((item,index)=>({...attachmentRow('draft-file',item.path),index,version:draft.version}));
+ return {kind:'draft',title,heading:headline('草稿筆記',title),fields:[],notes,links,visit:'在草稿筆記開啟'};
+}
+
+module.exports={attachmentRow,draftDetail,LIMIT,SOURCES,TAG_SCOPES,tagName,tagDetail,DEFAULTS,FILE_HEADERS,settings,filePins,fileKey,tableOptions,recordDetail,locationDetail,colorText};

@@ -320,7 +320,8 @@ app.whenReady().then(() => {
   handle('shortcuts-recording',(_,enabled)=>{if(typeof enabled!=='boolean')throw new Error('快捷鍵錄製狀態無效');if(!enabled){endShortcutRecording();return {capturing:false};}if(!win.isFocused())return {capturing:false};shortcutRecording=true;snippetPicker?.close();globalShortcut.unregisterAll();return {capturing:true};});
   handle('draft-open',openDrafts);
   const draftHandlers={
-   data:()=>drafts.data(),read:id=>notesStore().draft(id),new:()=>notesStore().createDraft(),
+   data:()=>({...drafts.data(),stickerIds:stickerService.draftPins()}),read:id=>notesStore().draft(id),new:()=>notesStore().createDraft(),
+   'sticker-pin':(id,version,pinned)=>{stickerService.changeDraft(id,version,pinned);return stickerService.draftPins();},
    save:(...args)=>drafts.save(...args),configure:patch=>drafts.configure(patch),export:(...args)=>drafts.export(...args),preview:(...args)=>drafts.preview(...args),remind:(...args)=>drafts.remind(...args),
    attach:(...args)=>fileOperation(()=>drafts.attach(...args)),paste:(...args)=>drafts.paste(...args),image:(...args)=>drafts.image(...args),
    remove:(...args)=>drafts.removeAttachment(...args),delete:(...args)=>notesStore().deleteDraft(...args),
@@ -333,7 +334,12 @@ app.whenReady().then(() => {
     if(!drafts?.owns(event))throw new Error('不受信任的操作來源');
     if(name!=='close'&&name!=='cancel-close'&&fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw new Error('上次更新未能完成，請重新啟動程式以復原原有資料');
     if(name==='close')return handler(event);
-    const result=handler(...args);if(['new','save','attach','paste','remove','delete','send'].includes(name)){Promise.resolve(result).then(()=>{toolOverlay?.invalidate('drafts');send(floating,'floating-panel-changed','drafts');}).catch(()=>{});}return result;
+    const result=handler(...args);
+    if(['new','save','attach','paste','remove','delete','send'].includes(name))Promise.resolve(result).then(value=>{
+     toolOverlay?.invalidate('drafts');send(floating,'floating-panel-changed','drafts');
+     if(name!=='new')stickerService.draftChanged(args[0],name==='delete'||value?.draftDeleted===true);
+    },()=>{}).catch(error=>diagnostics.record('main','draft-sticker-refresh',error));
+    return result;
    }));
   }
   everything=new EverythingBridge(path.join(app.getPath('userData'),'everything-config.json'));
@@ -641,7 +647,7 @@ app.whenReady().then(() => {
   handle('everything-tracking-save',(_,input)=>{const value=everythingTracking.save(input);trackingChanged();return value;});
   handle('everything-tracking-remove',(_,id)=>{everythingTracking.remove(id);trackingChanged();return everythingTracking.list();});
   handle('everything-tracking-configure',(_,seconds)=>{const value=everythingTracking.configure(seconds);trackingChanged();return value;});
-  handle('everything-tracking-refresh',(_,id)=>everythingTracking.refresh(id));
+  handle('everything-tracking-refresh',async(_,id)=>{const value=await everythingTracking.refresh(id);stickerService?.trackingRefreshed();return value;});
   handle('everything-tracking-icons',(_,id,token,indices)=>trackingIcons.read(id,token,indices));
   handle('everything-tracking-action',(_,id,token,indices,action,input)=>fileOperation(async()=>{
     return require('./everything-tracking-actions').trackingAction({tracking:everythingTracking,id,token,indices,action,input,favorites,notifyFavorites,clipboard,shell,listPaths,bulkOpen:confirmTrackedBatch,trash:confirmTrackedTrash,renameItem:(source,name)=>performMovePlan(planRename(source,name))});
@@ -1171,16 +1177,21 @@ app.whenReady().then(() => {
   ipcMain.handle('tool-overlay-control',(event,action,value)=>overlayAction(event,entry=>toolOverlay.control(entry,action,value)));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
+  function showStickerSource(channel,payload){
+    focusMain();
+    const target=win,open=()=>send(target,channel,payload);
+    if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();
+  }
   stickerService=require('./desktop-sticker-service').register({
     handle,ipcMain,BrowserWindow,screen,secureWindow,notes:notesStore,tools:toolsStore,
     favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,
-    visitTag:(scope,tag)=>{
-      focusMain();
-      const open=()=>send(win,'open-app-page',{stickerTag:{scope,tag}});
-      if(win.webContents.isLoadingMainFrame?.())win.webContents.once('did-finish-load',open);else open();
-    },
+    visitTag:(scope,tag)=>showStickerSource('open-app-page',{stickerTag:{scope,tag}}),
+    visitDraft:id=>{openDrafts();sendDraftSelection(id);},
+    visitFavorite:id=>showStickerSource('studio-search-target',{kind:'favorite',id}),
+    visitTracking:id=>showStickerSource('open-app-page',{everything:id}),
     changed:()=>{
       toolsChanged();toolOverlay.invalidate('logs');send(win,'desktop-stickers-changed');
+      if(drafts?.active)send(drafts.window,'draft-stickers-changed',stickerService.draftPins());
     },
     invokeOwned:(action,task)=>loggedInvocation('desktop-sticker',action,()=>{
       if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw Error('請先完成資料復原');

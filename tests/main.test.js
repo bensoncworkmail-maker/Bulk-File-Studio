@@ -1579,13 +1579,17 @@ test('desktop stickers share management across records, favorites and verified t
  const saved=handlers.get('favorites-add')(null,[image],[]);
  await pin('favorites',{kind:'favorite',id:saved.ids[0]});const favorite=h.windows.at(-1);
  await raw.get('log-sticker-visit')(eventFor(favorite));
+ assert.equal(h.messages.findLast(([channel])=>channel==='studio-search-target')[1].id,saved.ids[0]);
+ await raw.get('log-sticker-open-item')(eventFor(favorite));
  assert.equal(h.opened.at(-1),image);
  const snapshot=await h.refresh(),query=handlers.get('everything-tracking-list')().queries[0];
  await assert.rejects(pin('tracking',{id:query.id,token:'stale',index:0}),/追蹤結果已更新/);
  await pin('tracking',{id:query.id,token:snapshot.token,index:0});const file=h.windows.at(-1);
- await raw.get('log-sticker-visit')(eventFor(file));assert.equal(h.opened.at(-1),tracked);
+ await raw.get('log-sticker-visit')(eventFor(file));
+ assert.equal(h.messages.findLast(([channel])=>channel==='open-app-page')[1].everything,query.id);
+ await raw.get('log-sticker-open-item')(eventFor(file));assert.equal(h.opened.at(-1),tracked);
  fs.renameSync(tracked,tracked+'.old');fs.writeFileSync(tracked,'replacement');
- await assert.rejects(raw.get('log-sticker-visit')(eventFor(file)),/追蹤位置已變更/);
+ await assert.rejects(raw.get('log-sticker-open-item')(eventFor(file)),/追蹤位置已變更/);
  assert.equal(call('collapse').visible,3);
  assert.deepEqual([sticker,favorite,file].map(window=>get(window).collapsed),[true,true,true]);
  call('expand');assert.deepEqual([sticker,favorite,file].map(window=>get(window).collapsed),[false,false,false]);
@@ -1616,6 +1620,7 @@ test('different sticker sizes keep the same header point near the lower screen e
  assert.equal(window.bounds.height,310);
  assert.equal(toggle().showGrip,false);
  assert.equal(window.bounds.width,215);assert.equal(window.bounds.height,44);
+ window.setBounds({...window.bounds,width:330});
  drag('start');drag('move',0,1000);drag('end');
  const bottom=window.bounds.y+44,point={x:window.bounds.x+80,y:window.bounds.y+22};
  const expanded=toggle(point);
@@ -1623,9 +1628,13 @@ test('different sticker sizes keep the same header point near the lower screen e
  assert.equal(window.bounds.width,460);assert.equal(window.bounds.height,310);
  assert.equal(window.bounds.y+window.bounds.height,bottom);
  assert.equal(toggle(point).collapsed,true);
+ assert.equal(window.bounds.width,330);
  assert.equal(window.bounds.y+window.bounds.height,bottom);
  assert.equal(toggle(point).collapsed,false);
  assert.equal(window.bounds.y+window.bounds.height,bottom);
+ handlers.get('desktop-settings-set')(null,{desktopStickers:{size:{...size,collapsedWidth:265}}});
+ assert.equal(toggle(point).collapsed,true);
+ assert.equal(window.bounds.width,265);
 });
 
 test('named tags are pinned by scope, refresh from source records and reopen their category',async t=>{
@@ -1634,9 +1643,9 @@ test('named tags are pinned by scope, refresh from source records and reopen the
  fs.writeFileSync(file,'image');fs.writeFileSync(second,'image');
  handlers.get('favorites-add')(null,[file],['專案']);
  const {id:sheetId}=handlers.get('notes-sheet-save')(null,{name:'文件',fields:[]}).result;
- const {id:recordId}=handlers.get('notes-record-save')(null,{sheetId,title:'工作區紀錄',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result;
+ const {id:recordId}=handlers.get('notes-record-save')(null,{sheetId,title:'工作區紀錄',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[],directPaths:[file]}).result;
  handlers.get('notes-bookmark-batch')(null,[{kind:'record',id:recordId}],'save',['專案']);
- handlers.get('everything-tracking-save')(null,{name:'圖檔規則',text:'*.png',mode:'syntax',type:'all',tags:['專案'],enabled:true});
+ const taggedQuery=handlers.get('everything-tracking-save')(null,{name:'圖檔規則',text:'*.png',mode:'syntax',type:'all',tags:['專案'],enabled:true});
  const pin=(scope,tag='專案',source=scope==='tracking'?'tracking':'favorites')=>handlers.get('desktop-stickers-pin')(null,source,{kind:'tag',scope,tag});
  const eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
  const get=window=>raw.get('log-sticker-get')(eventFor(window));
@@ -1647,7 +1656,18 @@ test('named tags are pinned by scope, refresh from source records and reopen the
  await pin('tracking');const tracking=h.windows.at(-1);
  await pin('favorites',' 專案 ');assert.equal(h.windows.at(-1),tracking);
  assert.equal(handlers.get('desktop-stickers-get')().counts.files,3);
- assert.deepEqual(get(favorite).items,['first.png']);
+ assert.deepEqual(get(favorite).links.map(link=>link.label),['first.png']);
+ assert.deepEqual(get(workspace).links.map(link=>link.label),['first.png']);
+ assert.equal(get(tracking).links.length,0);
+ h.setPaths([file]);await handlers.get('everything-tracking-refresh')(null,taggedQuery.id);
+ assert.deepEqual(get(tracking).links.map(link=>link.label),['first.png']);
+ for(const window of [favorite,workspace,tracking]){
+  const [link]=get(window).links;
+  const open=(ref,action)=>raw.get('log-sticker-open-link')(eventFor(window),0,ref,action,link.location);
+  await assert.rejects(open('stale','open'),/附件清單已更新/);
+  await open(link.ref,'open');await open(link.ref,'show');
+ }
+ assert.deepEqual(h.opened,[file,file,file]);assert.deepEqual(h.shown,[file,file,file]);
  assert.deepEqual(get(workspace).items,['工作區紀錄']);
  assert.deepEqual(get(tracking).items,['圖檔規則']);
  handlers.get('favorites-add')(null,[second],['專案']);
@@ -1660,4 +1680,33 @@ test('named tags are pinned by scope, refresh from source records and reopen the
  assert.equal(handlers.get('desktop-stickers-control')(null,'clear').visible,0);
  assert.equal(handlers.get('favorites-list')().items.length,2);
  assert.equal(handlers.get('notes-bookmarks')().length,1);
+});
+
+
+test('draft stickers follow edits, reopen the editor, verify attachments and unpin on deletion',async t=>{
+ const h=harness(t),handlers=h.handlers,raw=h.rawHandlers;
+ handlers.get('draft-open')();
+ const owner=h.windows.at(-1),eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
+ const draft=(action,...args)=>raw.get('draft-'+action)(eventFor(owner),...args);
+ const created=draft('new'),saved=draft('save',created.id,created.version,{title:'我的草稿',body:'內容'});
+ assert.throws(()=>handlers.get('draft-sticker-pin')(null,saved.id,saved.version,true),/不受信任/);
+ assert.throws(()=>draft('sticker-pin',saved.id,created.version,true),/草稿已變更/);
+ const file=path.join(h.dir,'draft-image.png');fs.writeFileSync(file,'fixture');
+ const linked=await draft('attach',saved.id,saved.version,[file]);
+ assert.deepEqual(draft('sticker-pin',linked.id,linked.version,true),[linked.id]);
+ const window=h.windows.at(-1),event=eventFor(window),get=()=>raw.get('log-sticker-get')(event);
+ assert.equal(get().title,'我的草稿');
+ const [link]=get().links;
+ const open=(ref,action)=>raw.get('log-sticker-open-link')(event,0,ref,action,link.location);
+ await open(link.ref,'open');await open(link.ref,'show');
+ assert.deepEqual(h.opened,[file]);assert.deepEqual(h.shown,[file]);
+ const edited=draft('save',linked.id,linked.version,{title:'草稿已更新',body:'新正文'});
+ await new Promise(setImmediate);
+ assert.equal(get().title,'草稿已更新');assert.equal(get().notes,'新正文');
+ await assert.rejects(open(link.ref,'open'),/附件清單已更新/);
+ await raw.get('log-sticker-visit')(event);
+ assert.deepEqual(h.messages.findLast(([channel])=>channel==='draft-select'),['draft-select',edited.id]);
+ draft('delete',edited.id,edited.version);await new Promise(setImmediate);
+ assert.equal(window.isDestroyed(),true);
+ assert.deepEqual(draft('data').stickerIds,[]);assert.equal(fs.existsSync(file),true);
 });

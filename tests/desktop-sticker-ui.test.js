@@ -12,7 +12,7 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  const data={heading:'客戶 · 案件',title:'案件',links:[{kind:'file',label:'圖片.png',location:'C:/測試'},{kind:'url',label:'相關網址'}],version:12,fields:[],notes:'內容',visit:'在工作區開啟',background:'#ffffff',foreground:'#171717'};
  const actions=[],window={logSticker:{
   get:async()=>({...data,collapsed}),toggle:async()=>({...data,collapsed:collapsed=!collapsed}),drag:async(...input)=>actions.push(input),
-  onChanged:callback=>updates=callback,onError:()=>{},visit:async()=>{},locate:async()=>{},close:async()=>{},
+  onChanged:callback=>updates=callback,onError:()=>{},visit:async()=>actions.push(['visit']),locate:async()=>{},close:async()=>{},
   openLink:async(...input)=>actions.push(input)
  }};
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
@@ -22,9 +22,16 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  assert.equal(document.getElementById('toggle'),null);
  await heading.dispatch('click');assert.equal(body.hidden,false);
  const header=document.getElementById('sticker-header'),grip=document.getElementById('sticker-grip');
- const click={target:grip,screenX:125,screenY:210};
- await header.dispatch('dblclick',click);assert.equal(body.hidden,true);
- await header.dispatch('dblclick',click);assert.equal(body.hidden,false);
+ const click={target:grip,button:0,pointerId:3,screenX:125,screenY:210};
+ for(const [time,expected] of [[10,true],[450,false],[1300,true],[1710,false]]){
+  await header.dispatch('pointerdown',{...click,timeStamp:time});
+  await header.dispatch('pointerup',{...click,type:'pointerup',timeStamp:time+10});
+  await header.dispatch('pointerdown',{...click,target:heading,timeStamp:time+120});
+  await header.dispatch('pointerup',{...click,target:heading,type:'pointerup',timeStamp:time+130});
+  assert.equal(body.hidden,expected);
+  await header.dispatch('dblclick',{...click,timeStamp:time+131});
+  assert.equal(body.hidden,expected);
+ }
  await header.dispatch('dblclick',{target:document.getElementById('close')});assert.equal(body.hidden,false);
  await heading.dispatch('keydown',{key:'Enter'});assert.equal(body.hidden,true);
  await heading.dispatch('keydown',{key:' '});assert.equal(body.hidden,false);
@@ -33,19 +40,20 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  await name.dispatch('dblclick');await location.dispatch('dblclick');
  await location.querySelector('button').dispatch('click',{detail:0});
  await document.getElementById('links').querySelector('button').dispatch('click');
- assert.deepEqual(actions,[[0,12,'open','C:/測試'],[0,12,'show','C:/測試'],[0,12,'show','C:/測試'],[1,12]]);
+ await document.getElementById('title').querySelector('button').dispatch('click');
+ assert.deepEqual(actions,[[0,12,'open','C:/測試'],[0,12,'show','C:/測試'],[0,12,'show','C:/測試'],[1,12],['visit']]);
  updates({...data,heading:'更新內容',collapsed:false,showGrip:false,headerAtBottom:true});
  assert.equal(heading.textContent,'更新內容');assert.equal(grip.hidden,true);
  assert.equal(document.body.classList.contains('header-at-bottom'),true);
  const start={target:heading,button:0,pointerId:3,screenX:200,screenY:100};
  await header.dispatch('pointerdown',start);
  await header.dispatch('pointermove',{...start,screenX:202});
- assert.equal(actions.length,4);
+ assert.equal(actions.length,5);
  await header.dispatch('pointermove',{...start,screenX:240,screenY:120});
- await header.dispatch('pointerup',{...start,type:'pointerup',screenX:250,screenY:120});
- await header.dispatch('dblclick',click);
+ await header.dispatch('pointerup',{...start,type:'pointerup',screenX:250,screenY:120,timeStamp:2500});
+ await header.dispatch('dblclick',{...click,timeStamp:2501});
  await new Promise(resolve=>setImmediate(resolve));
- assert.deepEqual(actions.slice(4),[['start'],['move',50,20],['end']]);
+ assert.deepEqual(actions.slice(5),[['start'],['move',50,20],['end']]);
  assert.equal(body.hidden,false);
 });
 
