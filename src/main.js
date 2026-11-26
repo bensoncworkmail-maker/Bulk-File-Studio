@@ -73,11 +73,11 @@ let notesImportReadVersion=0;
 let notes,notesImportDocument,notesImportName='',notesShare,notesTools,pendingNotesNavigation=null,sharedImport=null,sharedImportToken=null;
 function invalidateNotesImport(){notesImportReadVersion++;notesImportDocument=null;notesImportName='';sharedImport=null;sharedImportToken=null;if(notes)notes.pending=null;}
 function invalidateSharedImport(profileId){if(sharedImport?.profileId===profileId)invalidateNotesImport();}
-function trackingChanged(){send(win,'everything-tracking-changed');}
+function trackingChanged(){logStickers?.refresh();send(win,'everything-tracking-changed');}
 const shareIdleRequests=new Map();
 function shareIdle(){if(!win||win.isDestroyed())return Promise.resolve(false);return new Promise(resolve=>{const id=require('node:crypto').randomUUID(),timer=setTimeout(()=>{shareIdleRequests.delete(id);resolve(false);},1500);shareIdleRequests.set(id,value=>{clearTimeout(timer);shareIdleRequests.delete(id);resolve(value===true);});send(win,'notes-share-idle-query',id);});}
 function toolsStore(){if(!notesTools)notesTools=new NotesToolsStore(path.join(app.getPath('userData'),'workspace-tools.json'));return notesTools;}
-function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});floatingSearch?.invalidate();return result;}
+function toolsChanged(){const result=toolsStore().get();send(win,'notes-tools-changed',result);send(floating,'notes-changed',{});floatingSearch?.invalidate();logStickers?.refresh();return result;}
 function navigateWorkspace(recordId,sheetId=null){pendingNotesNavigation={recordId,sheetId};focusMain();send(win,'notes-navigate',{});}
 function notesStore(){if(!notes)notes=new NotesStore(path.join(app.getPath('userData'),'workspace.sqlite'));return notes;}
 function notesChanged(result,trigger=true){try{if(notesShare?.reconcile())notesShare.emit();}catch(error){diagnostics.record('main','share-profiles-reconcile',error);}send(win,'notes-changed',{revision:result.revision});send(floating,'notes-changed',{revision:result.revision});send(floating,'floating-panel-changed','planning');send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();toolOverlay?.invalidate();logStickers?.refresh();recordAttention?.sync();return result;}
@@ -410,6 +410,7 @@ app.whenReady().then(() => {
     const result=(Array.isArray(tag)?tagListMenu:tagMenu)(favorites.list(),tag,query,{
       open:id=>floatingAction(()=>openFavorite(id))(),
       main:selected=>{focusMain();favoriteActivation=true;queuedFilter={tag:selected};notifyFavorites({activate:true});},
+      pin:desktop.settings.desktopStickers.sources.favorites?tag=>floatingAction(()=>stickerService.pinTag('favorites',tag))():null,
       copy:ids=>floatingAction(()=>clipboard.writeText(favorites.recordedPaths(ids).join('\r\n')))(),
       batchOpen:ids=>floatingAction(async()=>reportFloatingBatch(await confirmBatch(ids,'open',floating)))(),
       batchLocations:ids=>floatingAction(async()=>reportFloatingBatch(await confirmBatch(ids,'locations',floating)))()
@@ -1173,6 +1174,11 @@ app.whenReady().then(() => {
   stickerService=require('./desktop-sticker-service').register({
     handle,ipcMain,BrowserWindow,screen,secureWindow,notes:notesStore,tools:toolsStore,
     favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,
+    visitTag:(scope,tag)=>{
+      focusMain();
+      const open=()=>send(win,'open-app-page',{stickerTag:{scope,tag}});
+      if(win.webContents.isLoadingMainFrame?.())win.webContents.once('did-finish-load',open);else open();
+    },
     changed:()=>{
       toolsChanged();toolOverlay.invalidate('logs');send(win,'desktop-stickers-changed');
     },

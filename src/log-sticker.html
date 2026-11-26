@@ -9,8 +9,8 @@
  <script src="log-sticker-ui.js" defer></script>
 </head>
 <body>
- <header>
-  <span class="drag-handle" title="拖曳移動便條" aria-hidden="true"></span>
+ <header id="sticker-header">
+  <span id="sticker-grip" class="drag-handle" aria-hidden="true"></span>
   <div id="heading" role="button" tabindex="0" aria-controls="record" aria-expanded="true"></div>
   <button id="close" type="button" aria-label="關閉並取消釘選" title="取消釘選">×</button>
  </header>
@@ -18,10 +18,17 @@
   <h1 id="title"></h1>
   <p id="notes"></p>
   <dl id="fields"></dl>
-  <div id="links" aria-label="相關位置與網址" hidden></div>
+  <ul id="tag-items" hidden></ul>
+  <div id="attachments" hidden>
+   <table>
+    <caption>雙擊名稱開啟，雙擊位置在檔案總管定位。</caption>
+    <thead><tr><th scope="col">檔案名稱</th><th scope="col">所在位置</th></tr></thead>
+    <tbody id="attachment-rows"></tbody>
+   </table>
+  </div>
+  <div id="links" aria-label="相關網址" hidden></div>
   <div class="sticker-actions">
    <button id="visit" type="button"></button>
-   <button id="locate" type="button" hidden>顯示所在位置</button>
   </div>
  </main>
  <p id="status" role="status" hidden></p>

@@ -4,10 +4,17 @@
  const $=id=>document.getElementById(id),api=window.stickersAPI;
  if(!api)return;
  const sources=['workspace','tracking','favorites'];
+ const dimensions=['width','height','collapsedWidth','collapsedHeight'];
  let saved,draft,tables=[],pending=false,request=0;
  const status=text=>{$('sticker-settings-status').textContent=text;};
  function enabled(source){return saved?.sources[source]!==false;}
  function pin(source,input){return api.pin(source,input);}
+ async function pinTag(scope,tag,callbacks){
+  try{
+   await pin(scope==='tracking'?'tracking':'favorites',{kind:'tag',scope,tag});
+   callbacks.showToast('已顯示標籤便條');
+  }catch(error){callbacks.showFailure('無法釘選標籤便條',error);}
+ }
  function choices(select,items,value){
   select.replaceChildren();
   for(const {id,label} of items){
@@ -27,6 +34,8 @@
  function sync(prefs){
   saved=prefs;draft=structuredClone(prefs);
   $('sticker-settings-color').value=prefs.background;
+  $('sticker-settings-grip').checked=prefs.showGrip;
+  for(const key of dimensions)$('sticker-settings-'+key).value=prefs.size[key];
   for(const key of sources)$('sticker-settings-'+key).checked=prefs.sources[key];
   for(const kind of ['favorite','tracking'])for(const key of ['prefix','title'])$('sticker-settings-'+kind+'-'+key).value=prefs[kind][key];
   renderHeader();
@@ -62,6 +71,8 @@
    pending=true;const save=$('sticker-settings-save');save.disabled=true;
    try{
     const preferences={...draft,background:$('sticker-settings-color').value,
+     showGrip:$('sticker-settings-grip').checked,
+     size:Object.fromEntries(dimensions.map(key=>[key,Number($('sticker-settings-'+key).value)])),
      sources:Object.fromEntries(sources.map(key=>[key,$('sticker-settings-'+key).checked])),
      favorite:{prefix:$('sticker-settings-favorite-prefix').value,title:$('sticker-settings-favorite-title').value},
      tracking:{prefix:$('sticker-settings-tracking-prefix').value,title:$('sticker-settings-tracking-title').value}};
@@ -84,5 +95,5 @@
   $('settings-tab-stickers').addEventListener('click',()=>void refresh());
   void refresh();
  }
- window.stickerSettingsUI=Object.freeze({init,enabled,pin,refresh});
+ window.stickerSettingsUI=Object.freeze({init,enabled,pin,pinTag,refresh});
 })();

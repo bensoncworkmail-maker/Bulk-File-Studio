@@ -1,9 +1,10 @@
 :root{font:13px/1.45 system-ui,sans-serif;background:var(--sticker-background,#fff);color:var(--sticker-foreground,#171717)}
 body{margin:0;display:flex;flex-direction:column;height:100vh}
 [hidden]{display:none!important}
-header{background:#d5eaf8;color:#203749;min-height:36px;display:flex;align-items:stretch;user-select:none}
-.drag-handle{width:26px;flex:none;cursor:move;-webkit-app-region:drag;app-region:drag;background:center / 8px 12px radial-gradient(circle,#6b8596 1px,transparent 1.5px)}
-#heading{display:block;flex:1;min-width:0;padding:8px 2px;text-align:center;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}
+header{background:#d5eaf8;color:#203749;height:var(--sticker-header-height,36px);flex:none;display:flex;align-items:stretch;user-select:none;touch-action:none;cursor:grab}
+.header-at-bottom header{order:1}
+.drag-handle{width:26px;flex:none;background:center / 8px 12px radial-gradient(circle,#6b8596 1px,transparent 1.5px)}
+#heading{display:block;flex:1;min-width:0;align-self:center;padding:4px 6px;text-align:center;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:inherit}
 #heading:focus-visible{outline:2px solid #446881;outline-offset:-3px}
 #close{width:36px;flex:none;border:0;background:transparent;color:inherit;font-size:18px}
 #close:hover{background:#b8d8ee}
@@ -15,3 +16,11 @@ button{cursor:pointer;font:inherit}
 .sticker-link{border:0;background:transparent;color:inherit;text-align:left;text-decoration:underline;overflow-wrap:anywhere;padding:2px 0}
 .sticker-actions button{color:inherit;background:transparent;border:1px solid currentColor;border-radius:4px;padding:4px 8px}
 #status{padding:0 12px;color:inherit}
+
+#attachments{margin-block:8px}
+#attachments table{width:100%;table-layout:fixed;border-collapse:collapse}
+#attachments caption{text-align:left;font-size:11px;margin-bottom:5px}
+#attachments th,#attachments td{text-align:left;vertical-align:top;border-bottom:1px solid color-mix(in srgb,currentColor 22%,transparent);padding:4px 6px;overflow-wrap:anywhere}
+#attachments th:first-child{width:42%}
+#attachments .sticker-link{max-width:100%}
+#tag-items{padding-inline-start:20px}

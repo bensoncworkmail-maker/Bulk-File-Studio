@@ -137,11 +137,16 @@
   $('workspace-favorite-search').value='';$('workspace-favorite-type').value='all';$('workspace-favorite-state').value='all';
   selected.clear();if(selectAll)for(const item of data)selected.add(key(item));render();
  }
+ function openTag(tag){
+  if(saving||!window.favoritesUI?.show('favorites'))return false;
+  show('workspace');filterCategory({key:tag.toLocaleLowerCase()});return true;
+ }
  function tagMenu(event,tag,data){
   event.preventDefault();if(saving||loading||editing||managing||callbacks.isBusy())return;
   const found=data.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));
   const actions=[{label:'顯示此分類',run:()=>filterCategory(tag)},
    {label:'選取此分類全部項目（'+found.length+' 項）',disabled:!found.length,run:()=>filterCategory(tag,true,found)}];
+  if(tag.key&&window.stickerSettingsUI?.enabled('favorites'))actions.push({label:'釘選此標籤為桌面便條',run:()=>window.stickerSettingsUI.pinTag('workspace',tag.name,callbacks)});
   if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},
    {label:'刪除標籤…',run:()=>manageTag(tag,true)});
   window.favoritesUI.showMenu(event,actions);
@@ -193,7 +198,7 @@
    if(!item.tags.length)untagged++;
    for(const name of item.tags){const tag=name.toLocaleLowerCase(),existing=tags.get(tag);tags.set(tag,{key:tag,name:existing?.name||name,count:(existing?.count||0)+1});}
   }
-  if(activeTag&&!tags.has(activeTag))activeTag=null;
+  if(!loading&&activeTag&&!tags.has(activeTag))activeTag=null;
   const ordered=[{key:null,name:'全部收藏',count:data.length},{key:'',name:'未加標籤',count:untagged},...Array.from(tags.values()).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'))];
   $('workspace-favorite-tag-list').replaceChildren(...ordered.map(({key,name,count})=>{
    const active=activeTag===key;
@@ -369,5 +374,5 @@
   const settings=window.settingsUI.get(),preferred=settings.favoriteRememberLastTab!==false?'last':settings.favoriteStartKind||'files',initial=preferred==='last'?(settings.favoriteLastKind||'files'):preferred;
   if(defaultKind!==preferred){defaultKind=preferred;show(initial,false);}else if(kind==='workspace'){void refresh();void detail()?.refresh();}
  }
- window.workspaceFavoritesUI={init,activate,render,editBookmark,showFiles:()=>show('files'),showWorkspace:()=>show('workspace'),showEverything:()=>window.favoritesUI?.show('tracking'),isFiles:()=>kind==='files',isWorkspace:()=>kind==='workspace'};
+ window.workspaceFavoritesUI={init,activate,render,editBookmark,openTag,showFiles:()=>show('files'),showWorkspace:()=>show('workspace'),showEverything:()=>window.favoritesUI?.show('tracking'),isFiles:()=>kind==='files',isWorkspace:()=>kind==='workspace'};
 })();

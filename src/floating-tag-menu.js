@@ -13,6 +13,7 @@ function tagMenu(items,tag,query,actions,menuItems={}){
  const entry=item=>({label:(item.type==='folder'?'📁 ':'📄 ')+escape(item.label||model.basename(item.path))+(item.status==='ready'?'':'（無法使用）'),enabled:item.status==='ready',toolTip:item.path,click:()=>actions.open(item.id)});
  const template=[{label:escape(title)+' · '+found.length+' 項',enabled:false}];
  const ready=found.filter(item=>item.status==='ready'),ids=ready.map(item=>item.id),locations=locationCount(ready);
+ if(key&&actions.pin)template.push({label:'釘選此標籤為桌面便條',click:()=>actions.pin(title)});
  if(menuItems.main!==false)template.push({label:'在主視窗顯示此分類',click:()=>actions.main(tag)});
  if(menuItems.copy!==false)template.push({label:'複製此篩選結果全部路徑',enabled:found.length>0,click:()=>actions.copy(found.map(item=>item.id))});
  if(menuItems.batchOpen!==false)template.push({label:`批次開啟檔案／資料夾（${ready.length} 項${ready.length>LIMIT?'；最多 20 項':''}）`,enabled:ready.length>0&&ready.length<=LIMIT,click:()=>actions.batchOpen(ids)});

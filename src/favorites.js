@@ -29,12 +29,28 @@
     const container=$('favorite-tags');container.replaceChildren();const settings=window.settingsUI.get();
     $('tag-sort').value=settings.tagSort;$('tag-direction').textContent=settings.tagDirection==='asc'?'↑':'↓';
     const tags=model.tagList(items,settings.tagSort,settings.tagDirection);
-    if(activeTag&&!tags.some(tag=>tag.key===activeTag))activeTag=null;
+    if(loaded&&activeTag&&!tags.some(tag=>tag.key===activeTag))activeTag=null;
     for(const tag of [{key:null,name:'全部收藏',count:items.length},{key:'',name:'未分類',count:items.filter(item=>!item.tags.length).length},...tags]){
       const el=button('',()=>{activeTag=tag.key;pageIndex=0;render();},'favorite-tag-filter'+(activeTag===tag.key?' active':''));
-      el.addEventListener('contextmenu',event=>{event.preventDefault();if(busy)return;const found=items.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));const actions=[{label:'顯示此分類',run:()=>{activeTag=tag.key;pageIndex=0;render();}},{label:'複製此分類全部路徑（'+found.length+' 項）',disabled:!found.length,run:()=>run(async()=>{await api.copyMany(found.map(item=>item.id));callbacks.showToast('已複製 '+found.length+' 項完整路徑（包含跨頁）');})},{label:'選取此分類全部項目',run:()=>{activeTag=tag.key;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set(found.map(item=>item.id));pageIndex=0;render();}}];actions.splice(2,0,{label:'批次開啟此分類可用項目',disabled:!found.some(item=>item.status==='ready'),run:()=>batchFromMenu(found.filter(item=>item.status==='ready').map(item=>item.id),'open')},{label:'批次開啟此分類所在資料夾（去重）',disabled:!found.some(item=>item.status==='ready'),run:()=>batchFromMenu(found.filter(item=>item.status==='ready').map(item=>item.id),'locations')});if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},{label:'刪除標籤…',run:()=>manageTag(tag,true)});menuAt(event,actions);});
+      el.addEventListener('contextmenu',event=>tagMenu(event,tag));
+      el.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.key==='F10'&&event.shiftKey)tagMenu(event,tag);});
       el.setAttribute('aria-pressed',String(activeTag===tag.key));el.title=tag.name+' · '+tag.count+' 項 · 右鍵開啟分類管理';el.append(node('span','',tag.name),node('span','count-pill',String(tag.count)));container.appendChild(el);
     }
+  }
+  function tagMenu(event,tag){
+    event.preventDefault();if(busy)return;
+    const found=items.filter(item=>tag.key===null||(tag.key===''?!item.tags.length:item.tags.some(value=>value.toLocaleLowerCase()===tag.key)));
+    const ids=found.map(item=>item.id),ready=found.filter(item=>item.status==='ready').map(item=>item.id);
+    const actions=[
+      {label:'顯示此分類',run:()=>{activeTag=tag.key;pageIndex=0;render();}},
+      {label:'複製此分類全部路徑（'+ids.length+' 項）',disabled:!ids.length,run:()=>run(async()=>{await api.copyMany(ids);callbacks.showToast('已複製 '+ids.length+' 項完整路徑（包含跨頁）');})},
+      {label:'批次開啟此分類可用項目',disabled:!ready.length,run:()=>batchFromMenu(ready,'open')},
+      {label:'批次開啟此分類所在資料夾（去重）',disabled:!ready.length,run:()=>batchFromMenu(ready,'locations')},
+      {label:'選取此分類全部項目',run:()=>{activeTag=tag.key;$('favorite-search').value='';$('favorite-type').value='all';$('favorite-status').value='all';selected=new Set(ids);pageIndex=0;render();}}
+    ];
+    if(tag.key&&window.stickerSettingsUI?.enabled('favorites'))actions.push({label:'釘選此標籤為桌面便條',run:()=>window.stickerSettingsUI.pinTag('favorites',tag.name,callbacks)});
+    if(tag.key)actions.push({label:'重新命名／合併標籤',run:()=>manageTag(tag,false)},{label:'刪除標籤…',run:()=>manageTag(tag,true)});
+    menuAt(event,actions);
   }
   function selectionUI() {
     const visible=paginate(visibleItems(),pageIndex,window.settingsUI.get().pageSize).rows,visibleIds=new Set(visible.map(item=>item.id));

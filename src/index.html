@@ -1454,6 +1454,15 @@
                 <form id="sticker-settings-form" class="settings-card">
                   <h2>外觀與釘選來源</h2>
                   <label class="field"><span>內容背景色</span><input id="sticker-settings-color" type="color" value="#ffffff"></label>
+                  <label class="check-row"><input id="sticker-settings-grip" type="checkbox" checked>顯示標題列左側握把</label>
+                  <div class="settings-actions">
+                    <label class="field"><span>展開寬度（px）</span><input id="sticker-settings-width" type="number" min="180" max="1200" value="280" required></label>
+                    <label class="field"><span>展開高度（px）</span><input id="sticker-settings-height" type="number" min="130" max="1000" value="245" required></label>
+                  </div>
+                  <div class="settings-actions">
+                    <label class="field"><span>收合寬度（px）</span><input id="sticker-settings-collapsedWidth" type="number" min="180" max="1200" value="280" required></label>
+                    <label class="field"><span>收合高度／標題列高度（px）</span><input id="sticker-settings-collapsedHeight" type="number" min="32" max="96" value="36" required></label>
+                  </div>
                   <label class="check-row"><input id="sticker-settings-workspace" type="checkbox" checked>資料工作區可釘選</label>
                   <label class="check-row"><input id="sticker-settings-tracking" type="checkbox" checked>Everything 追蹤可釘選</label>
                   <label class="check-row"><input id="sticker-settings-favorites" type="checkbox" checked>我的收藏可釘選</label>

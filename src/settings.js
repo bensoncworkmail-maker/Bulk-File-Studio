@@ -109,9 +109,15 @@
       const page=typeof target==='string'&&Object.hasOwn(routes.PAGES,target);
       const tool=target&&typeof target==='object'&&Object.hasOwn(routes.TOOLS,target.tool);
       const tracking=target&&typeof target==='object'&&Object.hasOwn(target,'everything')&&(target.everything===null||typeof target.everything==='string'&&window.quickActionsModel.ID.test(target.everything));
-      if(!page&&!tool&&!tracking)return;
+      const stickerTag=target?.stickerTag;
+      const tagRoute=['favorites','workspace','tracking'].includes(stickerTag?.scope)&&typeof stickerTag.tag==='string'&&stickerTag.tag.trim()&&stickerTag.tag.length<=64;
+      if(!page&&!tool&&!tracking&&!tagRoute)return;
       if(window.notesUI?.canLeave?.()===false){callbacks.showFailure('請先完成目前表單','原有輸入已保留');return;}
-      if(tracking)window.everythingTrackingUI?.open(target.everything);
+      if(tagRoute){
+        if(stickerTag.scope==='favorites')window.favoritesUI.showTag(stickerTag.tag);
+        else if(stickerTag.scope==='workspace')window.workspaceFavoritesUI?.openTag(stickerTag.tag);
+        else window.everythingTrackingUI?.openTag(stickerTag.tag);
+      }else if(tracking)window.everythingTrackingUI?.open(target.everything);
       else if(tool)window.productivityUI.openSection(target.tool);
       else window.favoritesUI.show(target);
     });syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();window.shortcutOverviewUI?.init();
