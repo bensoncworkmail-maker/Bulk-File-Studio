@@ -80,11 +80,31 @@ test('sticker settings save both sizes and grip while retaining header fields ac
  assert.equal($('master').disabled,true);
  $('table').value='logs';await $('table').dispatch('change');
  assert.equal($('item').value,'date');assert.equal($('master').value,'code');
+ $('header-color').value='#20304a';$('opacity').value='70';$('open-click').value='single';$('location-click').value='double';
  $('color').value='#fafafa';$('tracking').checked=false;$('grip').checked=false;
  $('width').value='420';$('height').value='350';$('collapsedWidth').value='220';$('collapsedHeight').value='44';
  await $('form').dispatch('submit');
  assert.equal(JSON.stringify(saved.headers.logs),JSON.stringify({master:'code',item:'date'}));
+ assert.equal(saved.headerBackground,'#20304a');assert.equal(saved.opacity,70);
+ assert.equal(saved.openClick,'single');assert.equal(saved.locationClick,'double');
  assert.equal(saved.background,'#fafafa');assert.equal(saved.showGrip,false);
  assert.deepEqual({...saved.size},{width:420,height:350,collapsedWidth:220,collapsedHeight:44});
  assert.equal(window.stickerSettingsUI.enabled('tracking'),false);
+});
+
+
+test('sticker attachment gestures are independent and a double click does not open twice in single mode',async()=>{
+ const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
+ const $=id=>document.getElementById(id),actions=[];
+ const data={heading:'草稿',title:'草稿',links:[{kind:'file',label:'圖.png',location:'資料夾'}],
+  version:1,fields:[],notes:'',openClick:'single',locationClick:'double'};
+ const window={logSticker:{get:async()=>data,onChanged(){},onError(){},openLink:async(...args)=>actions.push(args)}};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
+ await Promise.resolve();
+ const [name,location]=$('attachment-rows').querySelectorAll('td');
+ await name.dispatch('click',{detail:1});await name.dispatch('click',{detail:2});await name.dispatch('dblclick');
+ await location.dispatch('click',{detail:1});await location.dispatch('dblclick');
+ await name.querySelector('button').dispatch('click',{detail:0});
+ assert.deepEqual(actions.map(([, ,action])=>action),['open','show','open']);
+ assert.match($('attachment-hint').textContent,/單擊名稱開啟，雙擊位置/);
 });

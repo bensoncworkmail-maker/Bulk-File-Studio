@@ -107,7 +107,7 @@
   if(current.kind==='record'&&current.available&&window.stickerSettingsUI?.enabled('favorites')){
    const id=current.id;
    actions.append(button(current.logPinned?'顯示桌面便條':'釘選為桌面便條',async()=>{
-    try{await window.stickerSettingsUI.pin('favorites',{kind:'record',id});callbacks.showToast('已顯示桌面便條');}
+    try{await window.stickerSettingsUI.pin('favorites',{kind:'record',id});callbacks.showToast('已釘選桌面便條');}
     catch(error){callbacks.showFailure('無法釘選桌面便條',error);}
    }));
   }

@@ -15,9 +15,12 @@ function register({handle,ipcMain,invokeOwned,notes,tools,favorites,tracking,pre
  const filePinByKey=(list,key)=>list.find(pin=>model.fileKey(pin.kind,pin.id)===key);
  const sourceEnabled=source=>{if(config().sources[source]!==true)throw Error('此來源的桌面便條已在設定停用');};
  const manager=new LogStickers({...windowOptions,linkRef,appearance:()=>{
-  const {background,showGrip,size}=config();
-  return {background,foreground:model.colorText(background),showGrip,size};
- },read,unpin:remove});
+  const {background,headerBackground,opacity,showGrip,size,openClick,locationClick}=config();
+  return {background,foreground:model.colorText(background),headerBackground,headerForeground:model.colorText(headerBackground),opacity,showGrip,size,openClick,locationClick};
+ },read,pinnedIds:()=>{
+  const {logPins=[],fileStickerPins=[]}=tools().get();
+  return new Set([...logPins,...fileStickerPins.map(pin=>model.fileKey(pin.kind,pin.id))]);
+ }});
 
  function linkRef(link){
   if(!['file','url','item'].includes(link.kind))return crypto.createHash('sha256').update(JSON.stringify(link)).digest('hex');
@@ -102,18 +105,18 @@ function register({handle,ipcMain,invokeOwned,notes,tools,favorites,tracking,pre
  function changedPins(){changed();return counts();}
  function counts(){
   const saved=tools().get();
-  return {records:(saved.logPins||[]).length,files:(saved.fileStickerPins||[]).length,visible:manager.windows.size};
+  return {records:(saved.logPins||[]).length,files:(saved.fileStickerPins||[]).length,visible:manager.visibleCount(),hidden:manager.hidden};
  }
  function changeRecord(doc,id,pinned){
   tools().setLogPin(doc,id,pinned);
-  if(pinned)manager.open(id);else manager.remove(id);
+  if(pinned)manager.open(id);else manager.remove(id,{forget:true});
   changedPins();
  }
  function remove(key){
   if(!key.includes(':'))return changeRecord(document(),key,false);
   const store=tools();
   store.setFileStickerPin(filePinByKey(store.get().fileStickerPins||[],key),false);
-  manager.remove(key);
+  manager.remove(key,{forget:true});
   changedPins();
  }
 
@@ -142,11 +145,12 @@ function register({handle,ipcMain,invokeOwned,notes,tools,favorites,tracking,pre
   if(ids.length)manager.refresh(ids);
  }
  function control(action){
-  if(action==='expand'){manager.restore();manager.setAllCollapsed(false);}
-  else if(action==='collapse')manager.setAllCollapsed(true);
-  else if(action==='clear'){tools().clearStickerPins();manager.close();return changedPins();}
+  if(action==='show'){manager.restore();manager.setHidden(false);}
+  else if(action==='hide')manager.setHidden(true);
+  else if(action==='expand'||action==='collapse'){manager.restore();manager.setAllCollapsed(action==='collapse');}
+  else if(action==='clear'){tools().clearStickerPins();manager.clear();}
   else throw Error('便條操作無效');
-  return counts();
+  return changedPins();
  }
 
  function recordFor(id){

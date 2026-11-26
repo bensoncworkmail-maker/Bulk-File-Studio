@@ -9,7 +9,8 @@ test('global menu activation gives its owner focus and blur dismisses without an
  Object.assign(owner,{isDestroyed:()=>false,isVisible:()=>true,isFocused:()=>focused,show:()=>shown++,focus:()=>focused=true,getNormalBounds:()=>({width:300,height:400}),webContents:{getZoomFactor:()=>1},pinController:{sync:()=>pins++}});
  const controller=new FloatingMenu({Menu:{buildFromTemplate:()=>{const menu={popup:options=>menu.options=options,closePopup:()=>menu.closed=true};menus.push(menu);return menu;}},getWindow:()=>owner,showWindow:()=>{},settings:()=>({floatingCollapsed:false}),defer:fn=>pending.push(fn)});
  controller.popup([{label:'Copy'}]);assert.equal(focused,true);assert.equal(shown,1);assert.equal(owner.nativeMenuOpen,true);assert.equal(menus[0].options.window,owner);
- focused=false;owner.emit('blur');pending.shift()();assert.equal(menus[0].closed,true);assert.equal(owner.nativeMenuOpen,false);assert.equal(controller.current,null);assert.equal(pins,1);
+ focused=false;owner.emit('blur');pending.shift()();assert.equal(menus[0].closed,true);assert.equal(owner.nativeMenuOpen,true);assert.equal(controller.current,null);assert.equal(pins,0);
+ menus[0].options.callback();assert.equal(owner.nativeMenuOpen,false);pending.pop()();assert.equal(pins,1);
 });
 test('old blur and menu callbacks cannot close a replacement menu, and pin maintenance pauses for menus',()=>{
  const owner=new EventEmitter(),pending=[],menus=[];let focused=true,calls=0,tick;
@@ -17,7 +18,7 @@ test('old blur and menu callbacks cannot close a replacement menu, and pin maint
  owner.pinController=new FloatingPin(owner,()=>({floatingOnTop:true}),{setIntervalFn:fn=>(tick=fn,1),clearIntervalFn:()=>{}});
  const controller=new FloatingMenu({Menu:{buildFromTemplate:()=>{const menu={popup:o=>menu.options=o,closePopup(){this.closed=true;}};menus.push(menu);return menu;}},getWindow:()=>owner,showWindow:()=>{},settings:()=>({}),defer:fn=>pending.push(fn)});
  controller.popup([]);const before=calls;tick();assert.equal(calls,before);focused=false;owner.emit('blur');controller.popup([]);menus[0].options.callback();pending.shift()();assert.equal(controller.current.menu,menus[1]);assert.equal(owner.nativeMenuOpen,true);
- owner.emit('hide');assert.equal(menus[1].closed,true);assert.equal(owner.nativeMenuOpen,false);
+ owner.emit('hide');assert.equal(menus[1].closed,true);assert.equal(owner.nativeMenuOpen,true);menus[1].options.callback();assert.equal(owner.nativeMenuOpen,false);
 });
 test('shortcut inventory rejects canonical duplicates in overlapping contexts while allowing separate local contexts',()=>{
  const settings=D.normalize(),favorites={...L.DEFAULTS,search:'Ctrl+N'};assert.equal(K.conflicts(K.rows(settings,[],favorites,L.LABELS)).length,0);

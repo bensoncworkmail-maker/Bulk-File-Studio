@@ -1,12 +1,12 @@
 'use strict';
 (() => {
  const ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,LIMIT=12;
- const TYPES=Object.freeze({'everything-tracking':'Everything 追蹤','new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','open-tool':'開啟工具箱功能','open-share':'開啟共享管理','share-check':'檢查共享更新','share-publish':'發佈共享快照（須確認）','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-drafts':'開啟草稿筆記','open-reminders':'管理提醒排程','view-logs':'查看紀錄','open-planning':'日曆／看板','open-worksets':'工作集','paste-snippet':'立即貼上指定文字片段','open-snippets':'常用文字片段'});
+ const TYPES=Object.freeze({'everything-tracking':'Everything 追蹤','new-record':'新增指定表格紀錄','import-paths':'匯入路徑並套用標籤','open-sheet':'開啟指定表格','open-page':'開啟指定頁面','open-tool':'開啟工具箱功能','open-share':'開啟共享管理','share-check':'檢查共享更新','share-publish':'發佈共享快照（須確認）','open-tag-menu':'開啟標籤收藏清單（外部選單）','copy-tag-paths':'複製標籤收藏路徑','open-search':'開啟浮動全域搜尋','open-drafts':'開啟草稿筆記','open-reminders':'管理提醒排程','view-logs':'查看紀錄','sticker-controls':'桌面便條控制','open-planning':'日曆／看板','open-worksets':'工作集','paste-snippet':'立即貼上指定文字片段','open-snippets':'常用文字片段'});
  const MENU_ITEMS=Object.freeze({main:'在主視窗顯示此分類',copy:'複製此篩選結果全部路徑',batchOpen:'批次開啟檔案／資料夾',batchLocations:'批次開啟所在資料夾'});
  const PAGES=Object.freeze({zip:'ZIP 更新助手',home:'首頁',notes:'資料工作區',tracking:'Everything 追蹤',favorites:'我的收藏',search:'全域搜尋',rename:'檔案工具',settings:'設定',productivity:'工具箱',planning:'日曆／看板',logs:'查看紀錄',info:'資訊與更新紀錄'});
  const TOOLS=(typeof module!=='undefined'&&module.exports?require('./toolbox-model'):window.toolboxModel).tools;
  const TYPE_GROUPS=[
-  ['工作區與共享',['new-record','open-sheet','open-share','share-check','share-publish','open-reminders','view-logs','open-planning']],
+  ['工作區與共享',['new-record','open-sheet','open-share','share-check','share-publish','open-reminders','view-logs','open-planning','sticker-controls']],
   ['收藏與搜尋',['import-paths','open-tag-menu','copy-tag-paths','open-search','everything-tracking']],
   ['頁面與工具',['open-page','open-tool','paste-snippet','open-worksets','open-snippets','open-drafts']]
  ];
@@ -42,7 +42,7 @@
     if(input.query!==undefined&&(typeof input.query!=='string'||input.query.length>256))throw new Error('快捷搜尋最多 256 字元');
     result.sheetId=input.sheetId;result.scope=input.scope||'all';result.query=input.query||'';
    }
-  }else if(input.type==='open-page'){if(!Object.hasOwn(PAGES,input.page))throw new Error('請選擇有效頁面');result.page=input.page;}else if(input.type==='open-tool'){if(!Object.hasOwn(TOOLS,input.tool))throw new Error('請選擇有效工具箱功能');result.tool=input.tool;}else if(['share-check','share-publish','open-share','open-reminders','open-drafts'].includes(input.type)){}else{
+  }else if(input.type==='open-page'){if(!Object.hasOwn(PAGES,input.page))throw new Error('請選擇有效頁面');result.page=input.page;}else if(input.type==='open-tool'){if(!Object.hasOwn(TOOLS,input.tool))throw new Error('請選擇有效工具箱功能');result.tool=input.tool;}else if(['share-check','share-publish','open-share','open-reminders','open-drafts','sticker-controls'].includes(input.type)){}else{
    if(!ID.test(input.sheetId))throw new Error('請選擇快捷動作的表格');result.sheetId=input.sheetId;
    if(input.type==='new-record'&&input.form!==undefined)result.form=form(input.form);if(input.type==='new-record'&&input.tags!==undefined){if(!Array.isArray(input.tags)||input.tags.length>20||input.tags.some(tag=>typeof tag!=='string'||!tag.trim()||tag.length>32))throw new Error('預設標籤無效');result.tags=[...new Set(input.tags.map(tag=>tag.trim()))];}if(input.type==='new-record'&&input.masterId){if(!ID.test(input.masterId))throw new Error('預設主紀錄無效');result.masterId=input.masterId;}
   }

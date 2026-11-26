@@ -463,7 +463,7 @@
   renderBookmark($('notes-bookmark-record'),'record',record.id,'此紀錄');
   const sticker=window.stickerSettingsUI;
   if(sticker?.enabled('workspace'))actions.append(button((tools.logPins?.includes(record.id)?'顯示':'釘選為')+'桌面便條',
-   ()=>run(()=>sticker.pin('workspace',{id:record.id}),'已顯示桌面便條。')));
+   ()=>run(()=>sticker.pin('workspace',{id:record.id}),'已釘選桌面便條。')));
   if(showCopy)actions.append(button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')));
   actions.append(button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(actions);
   const tags=el('div');

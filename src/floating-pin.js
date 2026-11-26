@@ -9,8 +9,8 @@ class FloatingPin{
   for(const event of ['focus','blur','always-on-top-changed'])window.on(event,refresh);
   this.timer=setIntervalFn(refresh,2000);this.timer?.unref?.();window.on('closed',()=>clearIntervalFn(this.timer));this.sync();
  }
- sync({force=false}={}){
-  const win=this.window;if(this.syncing||win.isDestroyed()||win.nativeMenuOpen&&!force)return;
+ sync({force=false,raise=true}={}){
+  const win=this.window;if(this.syncing||win.isDestroyed()||win.nativeMenuOpen)return;
   const desired=this.settings().floatingOnTop===true;if(desired&&!win.isVisible())return;
   if(force||this.desired!==desired){this.failures=0;this.reported=false;}this.desired=desired;
   let actual;this.syncing=true;
@@ -18,7 +18,7 @@ class FloatingPin{
    actual=win.isAlwaysOnTop?.();this.actual=actual;
    if(actual===desired&&!force){this.failures=0;this.reported=false;return;}
    if(this.failures>=this.maxAttempts)return;
-   if(desired&&force){win.setAlwaysOnTop(false);win.setAlwaysOnTop(true,'floating');win.moveTop?.();}
+   if(desired&&force){win.setAlwaysOnTop(true,'floating');if(raise)win.moveTop?.();}
    else if(desired&&actual!==true)win.setAlwaysOnTop(true,'floating');
    else if(!desired&&actual!==false)win.setAlwaysOnTop(false);
    if(typeof win.isAlwaysOnTop==='function'){

@@ -240,7 +240,7 @@ test('native floating item menu uses bookmark IDs, rejects untrusted sources and
 test('header action and drag IPC follow stored preferences and accept only trusted bookmark-window sources',t=>{const h=harness(t);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}},invoke=()=>h.rawHandlers.get('floating-header-double-click')(event);invoke();assert.equal(mini.bounds.width,92);invoke();assert.equal(mini.bounds.width,320);h.handlers.get('desktop-settings-set')(null,{floatingHeaderDoubleClick:false});invoke();assert.equal(mini.bounds.width,320);h.handlers.get('desktop-settings-set')(null,{floatingHeaderDoubleClick:true,floatingHeaderAction:'tools'});invoke();assert.equal(h.handlers.get('desktop-settings-get')().floatingCompact,true);h.handlers.get('desktop-settings-set')(null,{floatingHeaderAction:'pin'});invoke();assert.equal(mini.onTop,false);h.windows[0].hide();h.handlers.get('desktop-settings-set')(null,{floatingHeaderAction:'main'});invoke();assert.equal(h.windows[0].visible,true);h.handlers.get('desktop-settings-set')(null,{floatingMinWidth:160,floatingMinHeight:80});assert.deepEqual(mini.minimum,[160,80]);const {token}=h.rawHandlers.get('floating-drag-start')(event);h.rawHandlers.get('floating-drag-move')(event,token,100,50);h.rawHandlers.get('floating-drag-end')(event,token);assert.throws(()=>h.rawHandlers.get('floating-drag-move')(event,token,0,0),/結束/);for(const channel of ['floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end'])assert.throws(()=>h.rawHandlers.get(channel)({sender:{},senderFrame:{url:mini.url}}),/不受信任/);});
 
 test('tag batch menu confirms once, opens folders and deduplicates locations; cancel has no effects',async t=>{const h=harness(t),a=path.join(h.dir,'a.txt'),folder=path.join(h.dir,'folder');fs.writeFileSync(a,'content');fs.mkdirSync(folder);h.handlers.get('favorites-add')(null,[a,folder],['Work']);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};let confirmed=0;h.dialog.showMessageBox=async(parent,options)=>{assert.equal(parent,mini);assert.equal(options.defaultId,1);confirmed++;return {response:0};};h.rawHandlers.get('floating-tag-menu')(event,'work','');await h.popup().template.find(item=>item.label?.startsWith('批次開啟檔案')).click();assert.deepEqual(h.opened,[a,folder]);assert.equal(confirmed,1);h.opened.length=0;h.rawHandlers.get('floating-tag-menu')(event,'work','');await h.popup().template.find(item=>item.label?.startsWith('批次開啟所在')).click();assert.deepEqual(h.opened,[h.dir]);h.opened.length=0;h.dialog.showMessageBox=async()=>({response:1});h.rawHandlers.get('floating-tag-menu')(event,'work','');await h.popup().template.find(item=>item.label?.startsWith('批次開啟檔案')).click();assert.deepEqual(h.opened,[]);assert.throws(()=>h.rawHandlers.get('favorites-open-locations')(event,[]),/不受信任/);});
-test('header native menu remains available while collapsed and saves, restores and resets default size',async t=>{const h=harness(t);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}},menu=()=>h.rawHandlers.get('floating-header-menu')(event);mini.bounds.width=430;mini.bounds.height=510;h.handlers.get('floating-collapse')(null,true);menu();assert.equal(h.popup().options.window,mini);await h.popup().template.find(item=>item.label?.startsWith('將目前展開大小')).click();assert.equal(h.handlers.get('desktop-settings-get')().floatingDefaultWidth,430);assert.equal(mini.bounds.width,430);mini.bounds.width=300;menu();await h.popup().template.find(item=>item.label?.startsWith('展開並套用預設')).click();assert.equal(mini.bounds.width,430);menu();await h.popup().template.find(item=>item.label==='保持置頂').click();assert.equal(mini.onTop,false);menu();await h.popup().template.find(item=>item.label?.startsWith('重設預設大小')).click();assert.equal(mini.bounds.width,320);assert.equal(mini.bounds.height,400);menu();await h.popup().template.find(item=>item.label==='關閉浮動工具（隱藏）').click();assert.equal(mini.visible,false);assert.equal(h.windows[0].visible,true);assert.throws(()=>h.rawHandlers.get('floating-header-menu')({sender:{},senderFrame:{url:mini.url}}),/不受信任/);});
+test('header native menu remains available while collapsed and saves, restores and resets default size',async t=>{const h=harness(t);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}},menu=()=>h.rawHandlers.get('floating-header-menu')(event);mini.bounds.width=430;mini.bounds.height=510;h.handlers.get('floating-collapse')(null,true);menu();assert.equal(h.popup().options.window,mini);await h.popup().template.find(item=>item.label?.startsWith('將目前展開大小')).click();assert.equal(h.handlers.get('desktop-settings-get')().floatingDefaultWidth,430);assert.equal(mini.bounds.width,430);mini.bounds.width=300;menu();await h.popup().template.find(item=>item.label?.startsWith('展開並套用預設')).click();assert.equal(mini.bounds.width,430);menu();await h.popup().template.find(item=>item.label==='保持置頂').click();h.popup().options.callback();await new Promise(resolve=>setTimeout(resolve,0));assert.equal(mini.onTop,false);menu();await h.popup().template.find(item=>item.label?.startsWith('重設預設大小')).click();assert.equal(mini.bounds.width,320);assert.equal(mini.bounds.height,400);menu();await h.popup().template.find(item=>item.label==='關閉浮動工具（隱藏）').click();assert.equal(mini.visible,false);assert.equal(h.windows[0].visible,true);assert.throws(()=>h.rawHandlers.get('floating-header-menu')({sender:{},senderFrame:{url:mini.url}}),/不受信任/);});
 test('collapsed resize IPC publishes independent width while preserving expanded geometry',t=>{const h=harness(t);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};mini.bounds.width=450;mini.bounds.height=520;h.handlers.get('desktop-settings-set')(null,{floatingCollapsedWidth:170});h.handlers.get('floating-collapse')(null,true);assert.equal(mini.bounds.width,170);const gesture=h.rawHandlers.get('floating-drag-start')(event,'resize-right');h.rawHandlers.get('floating-drag-move')(event,gesture.token,40,0);const result=h.rawHandlers.get('floating-drag-end')(event,gesture.token);assert.equal(result.settings.floatingCollapsedWidth,210);assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsedWidth,210);h.handlers.get('floating-collapse')(null,false);assert.equal(mini.bounds.width,450);assert.equal(mini.bounds.height,520);});
 test('workspace IPC exports directly openable paths and keeps notes routes off the floating bridge',async t=>{const h=harness(t);const state=h.handlers.get('notes-template')(),sheet=state.document.sheets[0],file=path.join(h.dir,'source.txt');fs.writeFileSync(file,'content');const saved=h.handlers.get('favorites-add')(null,[file],[]),input={sheetId:sheet.id,title:'CLIENT_1',notes:'<script>not executed</script>',tags:[],values:{},favoriteIds:saved.ids,keepUnlinked:[]};const result=h.handlers.get('notes-record-save')(null,input),record=result.document.records[0];await h.handlers.get('notes-open-link')(null,record.id,0,'open');assert.deepEqual(h.opened,[file]);assert.throws(()=>h.handlers.get('notes-record-save')(null,{...input,favoriteIds:['not-a-favorite']}));h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};for(const channel of ['notes-share-status','notes-share-choose','notes-share-configure','notes-share-check','notes-share-publish','notes-share-load','notes-context-menu','notes-add-paths','notes-choose-paths','notes-client-details','notes-batch-trash','notes-area-save','notes-area-remove','notes-record-duplicate','notes-copy','notes-get','notes-template','notes-sheet-save','notes-record-save','notes-trash','notes-history','notes-history-restore','notes-favorites','notes-open-link','notes-inspect-links','notes-export-preview','notes-export-save','notes-import-choose','notes-import-preview','notes-import-commit','notes-backup-choose','notes-backup-restore'])assert.throws(()=>h.rawHandlers.get(channel)(event),/不受信任/);const preview=h.handlers.get('notes-export-preview')(null,{scope:'all'}),out=path.join(h.dir,'share.json');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:out});await h.handlers.get('notes-export-save')(null,preview.token);const packageData=JSON.parse(fs.readFileSync(out,'utf8'));assert.equal(packageData.document.records[0].fileLinks[0].favoriteId,null);h.dialog.showOpenDialog=async()=>({canceled:false,filePaths:[out]});await h.handlers.get('notes-import-choose')();const incoming=h.handlers.get('notes-import-preview')(null,'copy');const imported=h.handlers.get('notes-import-commit')(null,incoming.token),copy=imported.document.records.find(item=>item.id!==record.id);await h.handlers.get('notes-open-link')(null,copy.id,0,'open');assert.deepEqual(h.opened,[file,file]);assert.equal(fs.readFileSync(file,'utf8'),'content');});
 test('workspace group and quick-action IPC copies sanitized tables and duplicates local records',t=>{
@@ -997,12 +997,12 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  call('log-record',logContext,'edit',id);
  assert.equal(h.handlers.get('notes-navigation')().editRecord,true);
  assert.equal(call('log-window',logContext,true),true);
- assert.equal(owner.parent,null);
- assert.equal(owner.onTop,false);
+ assert.equal(owner.options.parent,undefined);
+ assert.equal(owner.onTop,true);
  floating.emit('hide');
  assert.equal(owner.isDestroyed(),false);
  call('log-window',logContext,false);
- assert.equal(owner.parent,null);
+ assert.equal(owner.options.parent,undefined);
  assert.equal(owner.onTop,false);
  call('close');
  ({owner,event}=open());
@@ -1309,7 +1309,7 @@ test('retired workflow and context IPC channels are unavailable',t=>{
 });
 
 test('legacy enabled automations remain readable but never execute on record writes',t=>{const h=harness(t),state=h.handlers.get('notes-template')(),sheet=state.document.sheets[0],crypto=require('node:crypto'),store=new(require('../src/workflow-store').WorkflowStore)(path.join(h.dir,'workflow-state.json'));store.change(data=>data.automations.push(require('../src/workflow-model').definition('automations',{id:crypto.randomUUID(),name:'Legacy',sheetId:sheet.id,trigger:'created',enabled:true,action:'draft',value:'must not run'})));h.handlers.get('notes-record-save')(null,{sheetId:sheet.id,title:'No events',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});assert.equal(h.handlers.get('workflow-state')().drafts.length,0);assert.equal(store.read().automations.length,1);assert.equal(h.handlers.has('workflow-save'),false);});
-test('showing the floating tool clears stale menu suppression and explicitly repairs topmost state',t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),calls=[];floating.setAlwaysOnTop=(value,level)=>{calls.push([value,level]);floating.onTop=value;};floating.moveTop=()=>calls.push(['moveTop']);floating.nativeMenuOpen=true;h.handlers.get('floating-show')();assert.equal(floating.nativeMenuOpen,false);assert.deepEqual(calls.slice(-3),[[false,undefined],[true,'floating'],['moveTop']]);assert.equal(h.windows.length,2);});
+test('showing the floating tool clears stale menu suppression and explicitly repairs topmost state',t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),calls=[];floating.setAlwaysOnTop=(value,level)=>{calls.push([value,level]);floating.onTop=value;};floating.moveTop=()=>calls.push(['moveTop']);floating.nativeMenuOpen=true;h.handlers.get('floating-show')();assert.equal(floating.nativeMenuOpen,false);assert.deepEqual(calls.slice(-2),[[true,'floating'],['moveTop']]);assert.equal(h.windows.length,2);});
 test('operation-center list and queue IPCs are gone while ordinary file cancellation remains',t=>{const h=harness(t);for(const name of ['workflow-operation-list','workflow-operation-undo','workflow-queue-add','workflow-queue-remove','workflow-queue-run','workflow-folder'])assert.equal(h.rawHandlers.has(name),false,name);assert.equal(h.rawHandlers.has('workflow-operation-cancel'),true);});
 
 test('floating workspace sends the standalone tracking page and protects idle collapse while native menus are open',async t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),event={sender:floating.webContents,senderFrame:{url:floating.url}};await h.rawHandlers.get('floating-workspace')(event,'page','tracking');assert.ok(h.messages.some(row=>row[0]==='open-app-page'&&row[1]==='tracking'));await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'page','unknown'),/頁面/);assert.throws(()=>h.rawHandlers.get('floating-workspace')({sender:{},senderFrame:{url:floating.url}},'list'),/不受信任/);floating.nativeMenuOpen=true;assert.equal((await h.rawHandlers.get('floating-workspace')(event,'idle-collapse')).skipped,true);assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,false);floating.nativeMenuOpen=false;await h.rawHandlers.get('floating-workspace')(event,'idle-collapse');assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,true);});
@@ -1709,4 +1709,69 @@ test('draft stickers follow edits, reopen the editor, verify attachments and unp
  draft('delete',edited.id,edited.version);await new Promise(setImmediate);
  assert.equal(window.isDestroyed(),true);
  assert.deepEqual(draft('data').stickerIds,[]);assert.equal(fs.existsSync(file),true);
+});
+
+
+test('desktop sticker menu hides and restores existing windows and preserves native close pins',async t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers;
+ const eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
+ H.get('floating-show')();const floating=h.windows.at(-1);
+ const filepath=path.join(h.dir,'picked.png');fs.writeFileSync(filepath,'test');
+ const {ids:[id]}=H.get('favorites-add')(null,[filepath],[]);
+ await H.get('desktop-stickers-pin')(null,'favorites',{id});
+ const sticker=h.windows.at(-1);sticker.emit('ready-to-show');
+ const control=action=>H.get('desktop-stickers-control')(null,action);
+ const get=()=>H.get('desktop-stickers-get')().counts;
+ const menu=()=>raw.get('floating-sticker-menu')(eventFor(floating),{x:15,y:20});
+ const find=label=>h.popup().template.find(item=>item.label===label);
+ const choice=async label=>{const {options}=h.popup();await find(label).click();options.callback();};
+ menu();assert.ok(find('隱藏全部便條').enabled);
+ const quickId=require('node:crypto').randomUUID();
+ H.get('desktop-settings-set')(null,{floatingQuickActions:[{id:quickId,type:'sticker-controls',label:'管理便條'}]});
+ assert.equal(raw.get('floating-quick-action')(eventFor(floating),quickId).menu,true);
+ assert.ok(find('展開全部便條').enabled);assert.ok(find('收合全部便條').enabled);
+ H.get('desktop-settings-set')(null,{desktopStickers:{headerBackground:'#102030',opacity:72,openClick:'single',locationClick:'double'}});
+ const appearance=raw.get('log-sticker-get')(eventFor(sticker));
+ assert.equal(sticker.opacity,0.72);assert.equal(appearance.headerForeground,'#ffffff');
+ assert.equal(appearance.openClick,'single');assert.equal(appearance.locationClick,'double');
+ raw.get('log-sticker-toggle')(eventFor(sticker));sticker.setBounds({x:120,y:80,width:335,height:36});
+ await choice('隱藏全部便條');
+ assert.equal(sticker.isVisible(),false);assert.equal(sticker.isDestroyed(),false);
+ assert.equal(get().hidden,true);assert.equal(get().visible,0);assert.equal(get().files,1);
+ const saved=new(require('../src/desktop-state').DesktopState)(path.join(h.dir,'desktop-state.json')).stickerLayout();
+ assert.equal(saved.hidden,true);
+ assert.deepEqual(saved.layouts['favorite:'+id].bounds,{x:120,y:80,width:335,height:36});
+ menu();await choice('顯示全部便條');assert.equal(sticker.isVisible(),true);
+ assert.equal(sticker.bounds.x,120);assert.equal(sticker.bounds.width,335);
+ assert.equal(raw.get('log-sticker-get')(eventFor(sticker)).collapsed,true);
+ control('hide');control('expand');assert.equal(sticker.isVisible(),false);
+ assert.equal(raw.get('log-sticker-get')(eventFor(sticker)).collapsed,false);
+ control('show');assert.equal(sticker.isVisible(),true);
+ sticker.close();assert.equal(sticker.isDestroyed(),true);assert.equal(get().files,1);
+ control('show');const restored=h.windows.at(-1);restored.emit('ready-to-show');
+ assert.notEqual(restored,sticker);assert.equal(restored.isVisible(),true);
+ raw.get('log-sticker-close')(eventFor(restored));assert.equal(get().files,0);
+});
+
+test('logs keep pin when closed and isolated layout updates preserve other tools',async t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers,settings=()=>H.get('desktop-settings-get')();
+ H.get('desktop-settings-set')(null,{floatingOnTop:false});
+ const {document}=H.get('notes-template')(),sheetId=document.sheets[0].id;
+ const eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
+ const open=()=>{H.get('tool-view-open')(null,{kind:'logs',sheetId});return h.windows.at(-1);};
+ let logs=open(),data=raw.get('tool-overlay-get')(eventFor(logs));
+ raw.get('tool-overlay-log-window')(eventFor(logs),data.logContext,true);
+ assert.equal(logs.onTop,true);assert.equal(settings().floatingLogsPinned,true);
+ logs.close();logs=open();data=raw.get('tool-overlay-get')(eventFor(logs));
+ assert.equal(data.pinnedWindow,true);assert.equal(logs.options.alwaysOnTop,true);
+ await H.get('floating-workspace')(null,'tool','drafts');
+ H.get('desktop-tool-layout-patch')(null,'files',{opacity:80});
+ assert.equal(settings().floatingToolLayout.drafts.pinned,true);
+ assert.equal(settings().floatingToolLayout.files.opacity,80);
+ const draft=h.windows.at(-1),calls=[];
+ draft.setAlwaysOnTop=(...args)=>calls.push(args);
+ draft.isAlwaysOnTop=()=>true;
+ draft.moveTop=()=>assert.fail('Peer recovery must not raise healthy windows explicitly');
+ logs.close();await new Promise(setImmediate);
+ assert.deepEqual(calls,[[true,'floating']]);
 });

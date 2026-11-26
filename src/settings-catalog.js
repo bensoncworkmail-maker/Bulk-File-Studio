@@ -379,7 +379,7 @@ const config={
     "rememberWindow": "system",
     "explorerTagPrompt": "system",
     "floatingView": "floating",
-    "floatingLauncher":"floating","floatingAutoCollapse":"floating","floatingRememberPanel":"floating","floatingLastPanel":"floating","floatingToolLayout":"floating","floatingPanelPinned":"floating","floatingRestorePanels":"floating","floatingDockEdge":"floating","floatingDockReveal":"floating",
+    "floatingLauncher":"floating","floatingAutoCollapse":"floating","floatingRememberPanel":"floating","floatingLastPanel":"floating","floatingToolLayout":"floating","floatingPanelPinned":"floating","floatingLogsPinned":"floating","floatingRestorePanels":"floating","floatingDockEdge":"floating","floatingDockReveal":"floating",
     "floatingOnTop": "floating",
     "floatingStartup": "floating",
     "floatingShortcut": "shortcuts",

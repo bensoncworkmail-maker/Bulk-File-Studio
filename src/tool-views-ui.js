@@ -144,7 +144,7 @@
    if(api.stickers){
     const desktopPins=node('details',undefined,'tool-view-display-options'),buttons=node('div',undefined,'tool-view-filters');
     desktopPins.append(node('summary','桌面便條'),buttons);
-    for(const [action,label] of [['expand','展開全部'],['collapse','收合全部'],['clear','取消全部釘選']]){
+    for(const [action,label] of [['show','顯示全部'],['hide','隱藏全部'],['expand','展開全部'],['collapse','收合全部'],['clear','取消全部釘選']]){
      buttons.append(button(label,async()=>{
       if(action==='clear'&&!window.confirm('取消所有來源的桌面便條釘選？'))return;
       try{await api.stickers(action);desktopPins.open=false;await load();}
