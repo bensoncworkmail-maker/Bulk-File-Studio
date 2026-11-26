@@ -548,6 +548,9 @@
                   <small>視窗、尺寸與工具</small>
                 </span>
               </button>
+              <button id="settings-tab-stickers" class="btn btn-ghost" role="tab" aria-controls="settings-panel-stickers" aria-selected="false" tabindex="-1">
+                <span class="settings-category-icon" aria-hidden="true">▤</span><span class="settings-category-copy"><strong>桌面便條</strong><small>外觀、來源與管理</small></span>
+              </button>
               <button id="settings-tab-shortcuts" class="btn btn-ghost" role="tab" aria-controls="settings-panel-shortcuts" aria-selected="false" tabindex="-1"><span class="settings-category-icon" aria-hidden="true">⌨</span><span class="settings-category-copy"><strong>快捷鍵</strong><small>總覽與重複檢查</small></span></button><button id="settings-tab-draft" class="btn btn-ghost" type="button" role="tab" aria-controls="settings-panel-draft" aria-selected="false" tabindex="-1"><span class="settings-category-icon" aria-hidden="true">✎</span><span class="settings-category-copy"><strong>草稿筆記</strong><small>編輯、提醒與附件</small></span></button><button id="settings-tab-system" class="btn btn-ghost" role="tab" aria-controls="settings-panel-system" aria-selected="false" tabindex="-1">
                 <span class="settings-category-icon" aria-hidden="true">⚙</span>
                 <span class="settings-category-copy">
@@ -737,7 +740,7 @@
                   <label class="check-row"><input id="settings-favorite-show-table-records" type="checkbox"><span>在工作區收藏顯示整表同步的紀錄</span></label>
                   <label class="check-row"><input id="settings-favorite-table-inherit-tags" type="checkbox"><span>整表同步的紀錄繼承表格收藏標籤</span></label>
                   <p class="rule-hint">每張表可個別開關同步。新增及還原的紀錄自動納入；回收的紀錄自動隱藏。單筆收藏與整表同步會合併顯示；可個別排除紀錄，或在表格收藏選單重新納入。</p>
-                  <label class="check-row"><input id="settings-favorite-include-log-pins" type="checkbox"><span>在工作區收藏顯示「查看紀錄」的釘選項目</span></label>
+                  <label class="check-row"><input id="settings-favorite-include-log-pins" type="checkbox"><span>在工作區收藏顯示已釘選的紀錄便條</span></label>
                 </section>
                 <section class="settings-card">
                   <h2>收藏清單</h2>
@@ -1437,6 +1440,42 @@
                   </label>
                   <p>在小視窗切換標籤、搜尋、開啟、複製路徑及拖放收藏；標題列可切換置頂。主程式執行期間可使用全域快捷鍵顯示／隱藏；系統匣及退出行為可於「啟動」設定。</p>
                 </section>
+              </div>
+              <div id="settings-panel-stickers" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-stickers" hidden>
+                <section class="settings-card">
+                  <h2>管理便條</h2>
+                  <p id="sticker-settings-count"></p>
+                  <div class="settings-actions">
+                    <button id="sticker-settings-expand" type="button" class="btn btn-secondary" disabled>展開全部</button>
+                    <button id="sticker-settings-collapse" type="button" class="btn btn-secondary" disabled>收合全部</button>
+                    <button id="sticker-settings-clear" type="button" class="btn btn-danger" disabled>取消全部釘選</button>
+                  </div>
+                </section>
+                <form id="sticker-settings-form" class="settings-card">
+                  <h2>外觀與釘選來源</h2>
+                  <label class="field"><span>內容背景色</span><input id="sticker-settings-color" type="color" value="#ffffff"></label>
+                  <label class="check-row"><input id="sticker-settings-workspace" type="checkbox" checked>資料工作區可釘選</label>
+                  <label class="check-row"><input id="sticker-settings-tracking" type="checkbox" checked>Everything 追蹤可釘選</label>
+                  <label class="check-row"><input id="sticker-settings-favorites" type="checkbox" checked>我的收藏可釘選</label>
+                  <h3>紀錄便條標題</h3>
+                  <label class="field"><span>紀錄表格</span><select id="sticker-settings-table"></select></label>
+                  <div class="settings-actions">
+                    <label class="field"><span>所屬主紀錄欄位</span><select id="sticker-settings-master"></select></label>
+                    <label class="field"><span>這筆紀錄的欄位</span><select id="sticker-settings-item"></select></label>
+                  </div>
+                  <h3>Everything 追蹤便條標題</h3>
+                  <div class="settings-actions">
+                    <label class="field"><span>前綴</span><select id="sticker-settings-tracking-prefix"><option value="none">不顯示</option><option value="query">追蹤搜尋名稱</option><option value="folder">所在資料夾</option></select></label>
+                    <label class="field"><span>標題</span><select id="sticker-settings-tracking-title"><option value="name">檔案／資料夾名稱</option><option value="path">完整路徑</option></select></label>
+                  </div>
+                  <h3>檔案收藏便條標題</h3>
+                  <div class="settings-actions">
+                    <label class="field"><span>前綴</span><select id="sticker-settings-favorite-prefix"><option value="none">不顯示</option><option value="tag">第一個收藏標籤</option><option value="folder">所在資料夾</option></select></label>
+                    <label class="field"><span>標題</span><select id="sticker-settings-favorite-title"><option value="label">收藏名稱</option><option value="name">檔案／資料夾名稱</option><option value="path">完整路徑</option></select></label>
+                  </div>
+                  <button id="sticker-settings-save" type="submit" class="btn btn-primary">儲存便條設定</button>
+                </form>
+                <p id="sticker-settings-status" class="rule-hint" role="status"></p>
               </div>
               <div id="settings-panel-shortcuts" class="settings-grid settings-tab-panel" role="tabpanel" aria-labelledby="settings-tab-shortcuts" hidden><section class="settings-card"><h2>全部快捷鍵</h2><label class="check-row"><input id="settings-focus-mode" type="checkbox"><span>啟用專注模式</span></label><p class="rule-hint">啟用時只註冊下方勾選「專注時保留」的全域快捷鍵。其餘按鍵交還目前使用的程式，視窗內操作照常使用。專注模式切換鍵始終保留；也可從浮動工具或系統匣切換。</p><p>全域按鍵會攔截各情境中的相同按鍵。不同頁面共用 Esc／Enter 等情境按鍵可保留；重複檢查只阻止實際重疊的操作。</p><div class="shortcut-overview-filters"><label class="field"><span>搜尋功能、按鍵或來源</span><input id="shortcut-overview-query" type="search" maxlength="200"></label><label class="field"><span>使用情境</span><select id="shortcut-overview-scope"><option value="">全部</option><option value="global">全域</option><option value="favorites">收藏頁</option><option value="tracking">Everything 追蹤結果</option><option value="draft">草稿</option><option value="main">主視窗</option><option value="record">紀錄表單</option><option value="grid">工作區儲存格</option><option value="rename">檔案工具</option><option value="workspace">工作區導覽</option><option value="cards">工作區卡片</option><option value="split">版面分隔線</option><option value="auxiliary">獨立浮動視窗</option></select></label><button id="shortcut-overview-refresh" class="btn btn-ghost">重新讀取</button></div><p id="shortcut-overview-count"></p><div class="shortcut-overview-scroll"><table class="shortcut-overview-table"><thead><tr><th>功能／來源</th><th>情境</th><th>按鍵</th><th>操作</th></tr></thead><tbody id="shortcut-overview-list"></tbody></table></div><p id="shortcut-overview-status" role="status"></p></section><section class="settings-card"><h2>全域功能快捷鍵</h2><label class="field">
                     <span>快速叫回主視窗（程式執行期間）</span>
@@ -2948,7 +2987,7 @@
     <script src="app-search.js" defer></script>
     <script src="workflow-model.js" defer></script><script src="productivity-model.js" defer></script><script src="tool-views-ui.js" defer></script><script src="snippet-picker-model.js" defer></script><script src="snippet-picker-settings.js" defer></script><script src="floating-panels-model.js" defer></script><script src="floating-panels-settings.js" defer></script><script src="calendar-scope.js" defer></script><script src="calendar-scope-settings.js" defer></script><script src="log-view-settings.js" defer></script><script src="dialog-sizes.js" defer></script><script src="planning-view.js" defer></script><script src="productivity.js" defer></script>
     <script src="layout-editor.js" defer></script><script src="function-directory.js" defer></script><script src="home.js" defer></script><script src="user-guide-model.js" defer></script><script src="user-guide-ui.js" defer></script><script src="app-help.js" defer></script>
-    <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="renderer.js" defer></script>
+    <script src="search-table-presets-settings.js" defer></script><script src="floating-date-settings.js" defer></script><script src="search-criteria-settings.js" defer></script><script src="sticker-settings.js" defer></script><script src="renderer.js" defer></script>
   <dialog id="operation-dialog" class="operation-dialog" aria-labelledby="operation-title" aria-describedby="operation-detail"><span class="operation-spinner" aria-hidden="true"></span><h2 id="operation-title">正在處理…</h2><p id="operation-detail" role="status" aria-live="polite"></p><ul id="operation-list" hidden></ul><button id="operation-cancel-move" hidden type="button" class="btn btn-ghost">取消尚未套用的搬移</button><small>開始套用路徑後會完成整批；取消會在安全檢查點生效。</small></dialog>
 <script src="workflow-guide-model.js" defer></script><script src="workflow-hub.js" defer></script><script src="everything-result-columns.js" defer></script><script src="floating-tool-layout.js" defer></script><script src="floating-tools-settings.js" defer></script><script src="floating-clipboard-ui.js" defer></script><script src="floating-tool-views.js" defer></script><script src="floating-main-tool.js" defer></script><dialog id="floating-main-tool-dialog" class="modal"><header><h2 id="floating-main-tool-title"></h2><button id="floating-main-tool-close" class="btn btn-ghost">關閉</button></header><section id="floating-main-tool-content"></section></dialog></body>
 </html>

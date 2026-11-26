@@ -37,7 +37,7 @@ test('quick removal calls the bookmark action directly and retains independent l
  const remaining=workspaceBookmarks(h.store.get().document,h.tools.get()).find(item=>item.id===h.child);assert.equal(remaining.saved,false);assert.equal(remaining.logPinned,true);
  const pinnedRow=h.$('workspace-favorite-list').children.find(row=>row.textContent.includes('Man'));
  assert.match(pinnedRow.textContent,/僅釘選/);assert.ok(!pinnedRow.querySelectorAll('button').some(button=>button.textContent==='移除收藏'));
- assert.equal(h.toasts.at(-1),'已移除收藏；查看紀錄釘選仍保留');
+ assert.equal(h.toasts.at(-1),'已移除收藏，桌面便條仍保留');
 });
 test('failed quick removal preserves the favorite and open preview',async t=>{
  const h=fixture(t);await flush();await find(h.$('workspace-favorite-list'),'Man').dispatch('click');await flush();

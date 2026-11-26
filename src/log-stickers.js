@@ -34,10 +34,11 @@ class LogStickers {
   if(!detail)return;
   const existing=this.windows.get(id);
   if(existing){existing.window.showInactive();return;}
-  const window=new this.BrowserWindow({...this.bounds(),title:detail.title,frame:false,show:false,skipTaskbar:true,alwaysOnTop:true,
-   backgroundColor:'#fff5bf',autoHideMenuBar:true,
+  const appearance=this.appearance();
+  const window=new this.BrowserWindow({...this.bounds(),title:detail.heading,frame:false,show:false,skipTaskbar:true,alwaysOnTop:true,
+   backgroundColor:appearance.background,autoHideMenuBar:true,
    webPreferences:{preload:path.join(__dirname,'log-sticker-preload.js'),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
-  const entry={id,window,detail,height:window.getNormalBounds().height,collapsed:false};
+  const entry={id,window,detail,appearance,height:window.getNormalBounds().height,collapsed:false};
   this.windows.set(id,entry);
   this.secureWindow(window);
   window.on('ready-to-show',()=>{if(this.windows.get(id)===entry)window.showInactive();});
@@ -52,15 +53,25 @@ class LogStickers {
   if(event?.senderFrame?.url!==pathToFileURL(page).href)return null;
   return [...this.windows.values()].find(({window})=>!window.isDestroyed()&&window.webContents===event.sender)||null;
  }
- payload(entry){return {...entry.detail,collapsed:entry.collapsed};}
- toggle(entry){
+ payload(entry){
+  const {links,...detail}=entry.detail;
+  return {...detail,links:links.map(({label})=>({label})),...entry.appearance,collapsed:entry.collapsed};
+ }
+ toggle(entry){return this.setCollapsed(entry,!entry.collapsed);}
+ setCollapsed(entry,collapsed){
+  if(entry.collapsed===collapsed)return this.payload(entry);
   const {window}=entry;
-  if(!entry.collapsed)entry.height=window.getNormalBounds().height;
-  entry.collapsed=!entry.collapsed;
+  if(collapsed)entry.height=window.getNormalBounds().height;
+  entry.collapsed=collapsed;
   window.setMinimumSize(200,entry.collapsed?headerHeight:120);
   window.setResizable(!entry.collapsed);
   window.setBounds(this.bounds(entry));
   return this.payload(entry);
+ }
+ setAllCollapsed(collapsed){
+  for(const entry of this.windows.values()){
+   if(entry.collapsed!==collapsed)entry.window.webContents.send('log-sticker-changed',this.setCollapsed(entry,collapsed));
+  }
  }
  remove(id){
   const entry=this.windows.get(id);
@@ -73,13 +84,15 @@ class LogStickers {
  }
  refresh(){
   if(!this.windows.size)return;
-  const details=this.read(this.windows.keys());
+  const details=this.read(this.windows.keys()),appearance=this.appearance();
   for(const [id,entry] of this.windows){
    const detail=details.get(id);
    if(!detail){this.remove(id);continue;}
-   if(JSON.stringify(detail)===JSON.stringify(entry.detail))continue;
+   if(appearance.background===entry.appearance.background&&JSON.stringify(detail)===JSON.stringify(entry.detail))continue;
    entry.detail=detail;
-   entry.window.setTitle(detail.title);
+   entry.appearance=appearance;
+   entry.window.setTitle(detail.heading);
+   entry.window.setBackgroundColor?.(appearance.background);
    entry.window.webContents.send('log-sticker-changed',this.payload(entry));
   }
  }

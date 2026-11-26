@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),M=require('./notes-model');
 const T=require('./notes-table-state');
+const stickerModel=require('./desktop-sticker-model');
 const {assertLocalPath}=require('./offline-policy');
 const LIMIT=4*1024*1024,BOOKMARK_LIMIT=500;
 function bookmarkKey(kind,id){
@@ -111,11 +112,26 @@ class NotesToolsStore{
    const ids=current.filter(value=>value!==id&&liveIds.has(value));
    if(pinned){
     if(!liveIds.has(id))throw new Error('紀錄已移除');
-    if(ids.length>=100)throw new Error('最多釘選 100 筆跟進紀錄');
+    if(ids.length+(data.fileStickerPins||[]).length>=stickerModel.LIMIT)throw new Error('最多釘選 100 張桌面便條');
     ids.unshift(id);
    }
    data.logPins=ids;
   });
+ }
+ setFileStickerPin(pin,pinned){
+  if(!pin)return;
+  const current=this.data.fileStickerPins||[];
+  const next=current.filter(item=>item.kind!==pin.kind||item.id!==pin.id);
+  if(pinned){
+   if(next.length+(this.data.logPins||[]).length>=stickerModel.LIMIT)throw Error('最多釘選 100 張桌面便條');
+   next.unshift(pin);
+  }
+  const valid=stickerModel.filePins(next);
+  if(JSON.stringify(valid)!==JSON.stringify(current))this.change(data=>{data.fileStickerPins=valid;});
+ }
+ clearStickerPins(){
+  if(!this.data.logPins?.length&&!this.data.fileStickerPins?.length)return;
+  this.change(data=>{data.logPins=[];data.fileStickerPins=[];});
  }
 }
 function workspaceItems(doc,pins,query=''){
@@ -128,6 +144,7 @@ function normalizeTools(data){if(!data||data.version!==1||!Array.isArray(data.pi
  if(!Array.isArray(data.logPins)||data.logPins.length>100)throw new Error('跟進紀錄釘選設定無效');
  result.logPins=[...new Set(data.logPins.map(M.id))];
 }
+if(data.fileStickerPins!==undefined)result.fileStickerPins=stickerModel.filePins(data.fileStickerPins);
 if(data.bookmarks!==undefined){
  if(!Array.isArray(data.bookmarks)||data.bookmarks.length>BOOKMARK_LIMIT)throw new Error('工作區收藏設定無效');
  const keys=new Set();

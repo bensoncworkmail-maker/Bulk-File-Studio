@@ -458,11 +458,14 @@
   const body=$('notes-detail-body'),heading=el('div',undefined,'notes-copy-row notes-copy-heading');
   heading.append(el('h2',record.title));
   if(showCopy&&options.notesShowTitleCopy)heading.append(copyRecordText(record,'title','標題'));
-  body.replaceChildren(heading,el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const tools=el('div',undefined,'notes-tools');tools.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))));
+  body.replaceChildren(heading,el('p',sheetMap.get(record.sheetId).name,'notes-sub'));const actions=el('div',undefined,'notes-tools');actions.append(button('編輯',()=>editRecord(record)),button('複製紀錄',()=>confirm('建立紀錄副本？','複製欄位、筆記、標籤與現有連結，不複製實體檔案。',()=>run(async()=>{const result=await api.duplicateRecord(record.id,record.version);finishRecord(result);return result;},'已建立副本。'))));
   $('notes-bookmark-record').hidden=!api.batchBookmarks;
   renderBookmark($('notes-bookmark-record'),'record',record.id,'此紀錄');
-  if(showCopy)tools.append(button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')));
-  tools.append(button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(tools);
+  const sticker=window.stickerSettingsUI;
+  if(sticker?.enabled('workspace'))actions.append(button((tools.logPins?.includes(record.id)?'顯示':'釘選為')+'桌面便條',
+   ()=>run(()=>sticker.pin('workspace',{id:record.id}),'已顯示桌面便條。')));
+  if(showCopy)actions.append(button('複製總覽',()=>run(()=>api.copy({kind:'overview',ids:[record.id]}),'已複製紀錄總覽。')),button('複製 CSV',()=>run(()=>api.copy({kind:'csv',ids:[record.id]}),'已複製 CSV。可到目標表格的「貼上／Excel／CSV 建立」匯入。')));
+  actions.append(button('修改歷史',()=>showHistory(record)),button('設定提醒',()=>window.recordRemindersUI?.open(record.id)),button('匯出此紀錄',()=>openTransfer('export','record')),button('移至回收筒',()=>confirmTrash('record',record)));body.append(actions);
   const tags=el('div');
   for(const tag of record.tags)tags.append(el('span',tag,'notes-chip'));
   body.append(tags);

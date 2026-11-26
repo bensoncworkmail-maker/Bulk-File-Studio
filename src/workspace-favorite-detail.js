@@ -104,11 +104,18 @@
   if(back)actions.append(button('返回表格',()=>show(back)));
   if(current.available)actions.append(button('在工作區開啟',()=>callbacks.open(current)));
   actions.append(button(current.saved?'編輯標籤':'加入收藏',()=>callbacks.edit(current)));
+  if(current.kind==='record'&&current.available&&window.stickerSettingsUI?.enabled('favorites')){
+   const id=current.id;
+   actions.append(button(current.logPinned?'顯示桌面便條':'釘選為桌面便條',async()=>{
+    try{await window.stickerSettingsUI.pin('favorites',{kind:'record',id});callbacks.showToast('已顯示桌面便條');}
+    catch(error){callbacks.showFailure('無法釘選桌面便條',error);}
+   }));
+  }
   if(current.saved)actions.append(button('移除收藏',()=>callbacks.remove(current)));
   body.append(actions);tags(body,'收藏標籤',current.tags);
   if(current.tracked)body.append(node('p','由「'+current.trackedBy.title+'」整表同步'+(current.manual?'；亦有單筆收藏':''),'notes-hint'));
   if(current.followRecords)body.append(node('p','整表同步 '+(current.followedCount||0)+' 筆紀錄；已排除 '+(current.excludedRecordIds?.length||0)+' 筆。','notes-hint'));
-  if(current.logPinned)body.append(node('p',current.saved?'查看紀錄已釘選':'僅釘選・尚未加入收藏','notes-hint'));
+  if(current.logPinned)body.append(node('p',current.saved?'已釘選桌面便條':'僅釘選・尚未加入收藏','notes-hint'));
   if(loading){body.append(node('p','讀取詳情…','notes-hint'));return;}
   if(error){body.append(node('p',error,'notes-status error'),button('重新讀取',refresh));return;}
   if(!documentData)return;

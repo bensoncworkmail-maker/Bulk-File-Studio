@@ -137,6 +137,13 @@ contextBridge.exposeInMainWorld('productivityAPI',Object.freeze({
  snippetCopy:(id,customer)=>invoke('productivity-snippet-copy',id,customer),worksetPick:kind=>invoke('productivity-workset-pick',kind),worksetOpen:id=>invoke('productivity-workset-open',id),previewChoose:filepath=>invoke('productivity-preview-choose',filepath),previewLink:(recordId,index)=>invoke('productivity-preview-link',recordId,index),boardMove:(recordId,fieldId,value,revision)=>invoke('productivity-board-move',recordId,fieldId,value,revision)
 }));
 
+contextBridge.exposeInMainWorld('stickersAPI',Object.freeze({
+ get:()=>invoke('desktop-stickers-get'),
+ control:action=>invoke('desktop-stickers-control',action),
+ pin:(source,input)=>invoke('desktop-stickers-pin',source,input),
+ onChanged:callback=>ipcRenderer.on('desktop-stickers-changed',()=>callback())
+}));
+
 contextBridge.exposeInMainWorld('diagnosticsAPI',Object.freeze({report:entry=>ipcRenderer.invoke('diagnostics-report',entry)}));
 
 contextBridge.exposeInMainWorld('remindersAPI',Object.freeze({canPresent:automatic=>invoke('reminders-ready',automatic),list:()=>invoke('reminders-list'),save:input=>invoke('reminders-save',input),remove:id=>invoke('reminders-remove',id),ack:id=>invoke('reminders-ack',id),snooze:(id,minutes)=>invoke('reminders-snooze',id,minutes),onOpen:callback=>ipcRenderer.on('record-reminders-open',(_,value)=>callback(value?.recordId)),onChanged:callback=>ipcRenderer.on('record-reminders-changed',(_,value)=>callback(value))}));
