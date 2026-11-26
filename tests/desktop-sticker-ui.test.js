@@ -20,6 +20,7 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  await Promise.resolve();
  const heading=document.getElementById('heading'),body=document.getElementById('record');
  assert.equal(heading.textContent,'客戶 · 案件');
+ assert.equal(document.getElementById('edit-draft').hidden,true);
  assert.equal(document.getElementById('toggle'),null);
  await heading.dispatch('click');assert.equal(body.hidden,false);
  const header=document.getElementById('sticker-header'),grip=document.getElementById('sticker-grip');
@@ -118,4 +119,39 @@ test('sticker attachment gestures are independent and a double click does not op
  await name.querySelector('button').dispatch('click',{detail:0});
  assert.deepEqual(actions.map(([, ,action])=>action),['open','show','open']);
  assert.match($('attachment-hint').textContent,/單擊名稱開啟，雙擊位置/);
+});
+
+
+test('draft sticker editor loads full text, keeps typing during refresh and saves only after submit',async()=>{
+ const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
+ const $=id=>document.getElementById(id),full='完整正文'.repeat(3500),calls=[];
+ let update,latest={kind:'draft',heading:'草稿',title:'草稿',notes:'預覽',fields:[],links:[]},version=3;
+ const window={logSticker:{
+  get:async()=>latest,onChanged:callback=>update=callback,onError(){},
+  readDraft:async()=>({body:full,version,maxLength:null}),
+  saveDraft:async(expected,body)=>{
+   calls.push({expected,body});
+   if(expected!==version)throw Error('草稿已變更，請重新開啟');
+   return latest={...latest,notes:body};
+  }
+ }};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
+ await Promise.resolve();
+ assert.equal($('edit-draft').hidden,false);
+ await $('edit-draft').dispatch('click');
+ assert.equal($('draft-body').value,full);
+ $('draft-body').value='尚未儲存';version++;
+ latest={...latest,notes:'其他視窗更新'};update(latest);
+ assert.equal($('draft-body').value,'尚未儲存');assert.equal(calls.length,0);
+ await $('draft-editor').dispatch('submit');
+ assert.equal($('draft-editor').hidden,false);
+ assert.equal($('draft-body').value,'尚未儲存');
+ assert.match($('status').textContent,/已有其他修改/);
+ await $('cancel-draft').dispatch('click');
+ assert.equal($('draft-editor').hidden,true);assert.equal($('notes').textContent,'其他視窗更新');
+ await $('edit-draft').dispatch('click');
+ $('draft-body').value='新內容';
+ await $('draft-editor').dispatch('submit');
+ assert.deepEqual(calls,[{expected:3,body:'尚未儲存'},{expected:4,body:'新內容'}]);
+ assert.equal($('draft-editor').hidden,true);assert.equal($('notes').textContent,'新內容');
 });

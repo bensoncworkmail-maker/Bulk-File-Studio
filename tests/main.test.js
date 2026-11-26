@@ -1821,3 +1821,33 @@ test('sticker header menu opens and copies the source, hides one pin and can res
  assert.equal(counts().files,1);assert.equal(other.isVisible(),true);
  assert.equal(fs.readFileSync(paths[0],'utf8'),'keep');
 });
+
+
+test('only the current draft sticker can edit its source body and stale versions cannot overwrite it',async t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers;
+ const eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
+ H.get('draft-open')();const editor=h.windows.at(-1),draft=(method,...args)=>raw.get('draft-'+method)(eventFor(editor),...args);
+ const created=draft('new'),longBody='記錄'.repeat(7000),saved=draft('save',created.id,created.version,{title:'保留標題',body:longBody});
+ const file=path.join(h.dir,'attachment.png');fs.writeFileSync(file,'keep');
+ const linked=await draft('attach',saved.id,saved.version,[file]);
+ draft('sticker-pin',linked.id,linked.version,true);
+ const sticker=h.windows.at(-1),event=eventFor(sticker);
+ const read=raw.get('log-sticker-draft-read'),save=raw.get('log-sticker-draft-save');
+ assert.throws(()=>read(eventFor(editor)),/不受信任/);
+ assert.equal(read(event).body,longBody);
+ assert.equal(raw.get('log-sticker-get')(event).notes.length,12000);
+ assert.throws(()=>save(event,linked.version,'invalid\0body'),/格式無效/);
+ assert.equal(save(event,linked.version,'從便條儲存').notes,'從便條儲存');
+ const result=draft('read',linked.id);
+ assert.equal(result.version,linked.version+1);
+ assert.equal(result.title,linked.title);
+ assert.deepEqual(result.attachments,linked.attachments);
+ assert.throws(()=>save(event,linked.version,'過期文字'),/草稿已變更/);
+ assert.equal(read(event).body,'從便條儲存');
+ assert.equal(h.messages.findLast(([channel])=>channel==='draft-sticker-body-saved')[1].body,'從便條儲存');
+ const {ids:[id]}=H.get('favorites-add')(null,[file],[]);
+ await H.get('desktop-stickers-pin')(null,'favorites',{id});
+ const favoriteEvent=eventFor(h.windows.at(-1));
+ assert.throws(()=>read(favoriteEvent),/只有草稿/);
+ assert.throws(()=>save(favoriteEvent,result.version,'禁止編輯'),/只有草稿/);
+});

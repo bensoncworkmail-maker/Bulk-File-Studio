@@ -10,7 +10,7 @@ const {workspaceBookmarks}=require('./workspace-bookmark-model');
 const {LogStickers}=require('./log-stickers');
 const {FloatingMenu}=require('./floating-menu');
 
-function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,visitFavorite,visitTracking,openFavorite,shell,clipboard,...windowOptions}){
+function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,onDraftBodySaved,visitFavorite,visitTracking,openFavorite,shell,clipboard,...windowOptions}){
  const document=()=>notes().get().document;
  const config=()=>preferences().desktopStickers;
  const filePinByKey=(list,key)=>list.find(pin=>model.fileKey(pin.kind,pin.id)===key);
@@ -159,6 +159,28 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
   if(!record)throw Error('紀錄已移除');
   return {doc,record};
  }
+ function editableDraft(entry){
+  if(entry.detail.kind!=='draft')throw Error('只有草稿筆記便條可以編輯正文');
+  const pin=filePinByKey(tools().get().fileStickerPins||[],entry.id);
+  if(!pin||pin.kind!=='draft')throw Error('便條已取消釘選');
+  return pin.id;
+ }
+ function readDraftBody(entry){
+  const {body,version}=notes().draft(editableDraft(entry));
+  const limit=preferences().draftBodyLimit??100000;
+  return {body,version,maxLength:limit?Math.max(limit,body.length):null};
+ }
+ function saveDraftBody(entry,version,body){
+  const id=editableDraft(entry);
+  if(!Number.isSafeInteger(version)||typeof body!=='string')throw Error('草稿正文無效');
+  const saved=notes().saveDraft(id,version,{body},preferences().draftBodyLimit??100000);
+  if(saved.version!==version){
+   draftChanged(id,false);
+   onDraftBodySaved?.({id,version:saved.version,previousVersion:version,body:saved.body,
+    title:saved.title,summary:(saved.body.trim()||saved.items[0]?.label||'').slice(0,80)});
+  }
+  return manager.payload(entry);
+ }
  async function openTitle(entry){
   if(entry.detail.kind==='record'){recordFor(entry.id);return visitRecord(entry.id);}
   const pin=filePinByKey(tools().get().fileStickerPins||[],entry.id);
@@ -292,6 +314,8 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  for(const [action,task] of [
   ['get',entry=>manager.payload(entry)],
   ['menu',showHeaderMenu],
+  ['draft-read',readDraftBody],
+  ['draft-save',saveDraftBody],
   ['toggle',(entry,point)=>manager.toggle(entry,point)],
   ['drag',(entry,...args)=>manager.drag(entry,...args)],
   ['close',entry=>remove(entry.id)],

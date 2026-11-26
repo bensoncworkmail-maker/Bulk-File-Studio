@@ -1,6 +1,6 @@
 # 應用程式功能與模組盤點
 
-版本：v1.144.0。以 `npm run audit:functions` 重新產生。
+版本：v1.145.0。以 `npm run audit:functions` 重新產生。
 
 讀取 src 全部 247 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 285 個介面／桌面偏好。
 
@@ -163,7 +163,7 @@
 | [draft-export-types.js](../src/draft-export-types.js) | `extension`、`filters` |
 | [draft-file-transfer.js](../src/draft-file-transfer.js) | `copyFile`、`digest`、`inside`、`key`、`scan`、`stat`、`transfer` |
 | [draft-notes-preload.js](../src/draft-notes-preload.js) | `invoke` |
-| [draft-notes-ui.js](../src/draft-notes-ui.js) | `applyPreferences`、`caption`、`changeAttachments`、`closeEditor`、`dirty`、`draftItems`、`el`、`flush`、`inputChanged`、`loadMasters`、`message`、`nextDraft`、`openPendingSelection`、`option`、`refreshTargets`、`remember`、`renderAttachments`、`renderExtra`、`renderItems`、`renderList`、`renderMapping`、`report`、`run`、`setBusy`、`setStickerIds`、`showDraft`、`showPreview`、`targetFields`、`updateCount`、`updateDropHint`、`updateSend`、`updateSticker` |
+| [draft-notes-ui.js](../src/draft-notes-ui.js) | `applyPreferences`、`applyStickerUpdate`、`caption`、`changeAttachments`、`closeEditor`、`dirty`、`draftItems`、`el`、`flush`、`inputChanged`、`loadMasters`、`message`、`nextDraft`、`openPendingSelection`、`option`、`refreshTargets`、`remember`、`renderAttachments`、`renderExtra`、`renderItems`、`renderList`、`renderMapping`、`report`、`run`、`setBusy`、`setStickerIds`、`showDraft`、`showPreview`、`targetFields`、`updateCount`、`updateDropHint`、`updateSend`、`updateSticker` |
 | [draft-notes.css](../src/draft-notes.css) | 版面、主題與互動狀態樣式 |
 | [draft-notes.html](../src/draft-notes.html) | 視窗／頁面結構及本機資源引用 |
 | [draft-notes.js](../src/draft-notes.js) | `attach`、`cancelClose`、`close`、`commit`、`configure`、`constructor`、`data`、`destroy`、`draftText`、`export`、`extraField`、`fileKey`、`image`、`masters`、`open`、`owns`、`paste`、`pngBytes`、`preview`、`remind`、`removeAttachment`、`requestClose`、`save`、`textField`、`updateSettings` |
@@ -184,7 +184,7 @@
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`registerShortcuts`、`setLogin` |
 | [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`saveStickerLayout`、`snippetPickerGroups`、`stickerLayout`、`update`、`validBounds`、`write` |
 | [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`attachmentRow`、`colorText`、`desktopLayout`、`draftDetail`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
-| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`read`、`recordFor`、`register`、`remove`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
+| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
 | [floating-auto-collapse.js](../src/floating-auto-collapse.js) | `reset`、`tick` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
@@ -221,7 +221,7 @@
 | [global-shortcuts.js](../src/global-shortcuts.js) | `fromEvent`、`normalize`、`validatePair` |
 | [layout-editor.js](../src/layout-editor.js) | `bind`、`floating`、`main` |
 | [log-sticker-preload.js](../src/log-sticker-preload.js) | 宣告、設定或共用模型 |
-| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`fileCell`、`finishDrag`、`isClose`、`linkButton`、`locate`、`moveDrag`、`open`、`openHeaderMenu`、`render`、`report`、`text`、`toggle`、`toggleAt` |
+| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`fileCell`、`finishDrag`、`isClose`、`linkButton`、`locate`、`moveDrag`、`open`、`openHeaderMenu`、`render`、`renderEditor`、`report`、`text`、`toggle`、`toggleAt` |
 | [log-sticker.css](../src/log-sticker.css) | 版面、主題與互動狀態樣式 |
 | [log-sticker.html](../src/log-sticker.html) | 視窗／頁面結構及本機資源引用 |
 | [log-stickers.js](../src/log-stickers.js) | `bounds`、`checkpoint`、`clear`、`close`、`constructor`、`currentBounds`、`drag`、`loadLayout`、`open`、`owner`、`payload`、`persist`、`recover`、`refresh`、`remember`、`resize`、`restore`、`setAllCollapsed`、`setCollapsed`、`setHidden`、`show`、`syncTopmost`、`toggle`、`visibleCount` |

@@ -1219,6 +1219,10 @@ app.whenReady().then(() => {
     favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,
     visitTag:(scope,tag)=>showStickerSource('open-app-page',{stickerTag:{scope,tag}}),
     visitDraft:id=>{openDrafts();sendDraftSelection(id);},
+    onDraftBodySaved:value=>{
+      if(drafts?.active)send(drafts.window,'draft-sticker-body-saved',value);
+      toolOverlay.invalidate('drafts');send(floating,'floating-panel-changed','drafts');
+    },
     visitFavorite:id=>showStickerSource('studio-search-target',{kind:'favorite',id}),
     visitTracking:id=>showStickerSource('open-app-page',{everything:id}),
     changed:()=>{
