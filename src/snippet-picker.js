@@ -14,17 +14,38 @@ class SnippetPicker {
   owner.on('ready-to-show',()=>{if(this.window===owner&&!owner.isDestroyed())owner.showInactive();});
   owner.on('closed',()=>{if(this.window===owner)this.close();});
   this.timer=setTimeout(()=>this.close(),60000);this.timer.unref?.();
-  try{this.escape=this.globalShortcut.register('Escape',()=>this.close());}catch{this.escape=false;}
+  this.keys=[];
+  const bind=(key,action)=>{
+   try{if(this.globalShortcut.register(key,action)){this.keys.push(key);return true;}}catch{/* Mouse selection is still available. */}
+   return false;
+  };
+  this.escape=bind('Escape',()=>this.close());
+  const firstNavigationKey=this.keys.length;
+  this.keyboard=['Up','Down','Left','Right','Enter'].every(key=>bind(key,()=>{
+   if(this.window===owner&&!owner.isDestroyed())owner.webContents.send('snippet-picker-key',key);
+  }));
+  if(!this.keyboard)for(const key of this.keys.splice(firstNavigationKey))this.globalShortcut.unregister(key);
+  if(this.isCurrentTarget){
+   let checking=false;
+   this.targetTimer=setInterval(async()=>{
+    if(checking)return;
+    checking=true;
+    try{if(!await this.isCurrentTarget(target)&&this.window===owner)this.close();}
+    catch{if(this.window===owner)this.close();}
+    finally{checking=false;}
+   },250);
+   this.targetTimer.unref?.();
+  }
   Promise.resolve(owner.loadFile(path.join(__dirname,'snippet-picker.html'))).catch(error=>{if(this.window===owner){this.close();this.onError(error);}});
   return {opened:true,popup:true,nonActivating:true};
  }
- data(){return {rows:this.rows.map(({id,title,detail,summary})=>({id,title,groupKey:detail||'',summary})),theme:this.settings().theme,prefs:this.prefs,groupStates:model.history(this.groupStates?.())};}
+ data(){return {keyboard:this.keyboard,escape:this.escape,rows:this.rows.map(({id,title,detail,summary})=>({id,title,groupKey:detail||'',summary})),theme:this.settings().theme,prefs:this.prefs,groupStates:model.history(this.groupStates?.())};}
  setGroups(changes){
   model.updateGroups([],changes,this.rows.map(row=>row.detail||''));
   if(!this.prefs.rememberGroups||!model.normalize(this.settings().snippetPicker).rememberGroups)return {saved:false};
   return this.saveGroups(changes);
  }
  async select(id){if(this.used||!this.window||!this.rows.some(row=>row.id===id))throw new Error('片段選擇已失效');this.used=true;const target=this.target,select=this.onSelect;this.close();return select(id,{...target,noActivate:true});}
- close(){const owner=this.window;this.window=null;clearTimeout(this.timer);if(this.escape){this.globalShortcut.unregister?.('Escape');this.escape=false;}this.rows=[];this.target=null;this.onSelect=null;if(owner&&!owner.isDestroyed())owner.destroy();}
+ close(){const owner=this.window;this.window=null;clearTimeout(this.timer);clearInterval(this.targetTimer);for(const key of this.keys||[])this.globalShortcut.unregister?.(key);this.keys=[];this.rows=[];this.target=null;this.onSelect=null;if(owner&&!owner.isDestroyed())owner.destroy();}
 }
 module.exports={SnippetPicker};

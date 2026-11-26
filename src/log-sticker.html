@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'">
+ <title>釘選紀錄</title>
+ <link rel="stylesheet" href="log-sticker.css">
+ <script src="log-sticker-ui.js" defer></script>
+</head>
+<body>
+ <header>
+  <button id="toggle" type="button" aria-controls="record" aria-expanded="true" aria-label="收合便條">▾</button>
+  <time id="date"></time>
+  <button id="close" type="button" aria-label="關閉並取消釘選" title="取消釘選">×</button>
+ </header>
+ <main id="record">
+  <h1 id="title"></h1>
+  <p id="notes"></p>
+  <dl id="fields"></dl>
+  <button id="visit" type="button">在工作區開啟</button>
+ </main>
+ <p id="status" role="status" hidden></p>
+</body>
+</html>

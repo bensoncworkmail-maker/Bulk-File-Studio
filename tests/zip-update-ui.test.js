@@ -117,7 +117,7 @@ function batchFixture(rows,preferences={},encrypted=(archive,index)=>index===0){
   everythingResultColumns:require('../src/everything-result-columns'),
   everythingViewSettings:require('../src/everything-view-settings'),
   everythingTrackingView:require('../src/everything-tracking-view'),
-  everythingAPI:{trackingList,trackingRefresh:trackingList}
+  everythingAPI:{trackingList,trackingRefresh:trackingList,trackingAction:async(id,token,indices,action)=>h.calls.push(['tracking-action',id,token,...indices,action])}
  });
  const compareCommand=api.command;
  api.command=async(action,value)=>{
@@ -212,6 +212,19 @@ test('Everything ZIP picker sorts persistently and supports ctrl toggles and shi
  await h.batch('add-tracking').dispatch('click');await flush();
  assert.deepEqual(Array.from(h.calls.at(-1)[1].indices),[1,0]);
  assert.match(h.batch('sources').textContent,/a\.zip.*c\.zip/);
+});
+
+test('double-clicking a sorted tracking result opens the ZIP or locates its original snapshot row',async()=>{
+ const h=batchFixture([zipItem('b'),zipItem('a')]);await h.track();
+ const row=h.batch('tracking-rows').querySelector('tr'),[name,location]=row.querySelectorAll('td').slice(1,3);
+ assert.match(name.textContent,/a\.zip/);
+ await name.dispatch('dblclick',{button:0});await flush();
+ await location.dispatch('dblclick',{button:0});await flush();
+ assert.deepEqual(h.calls.filter(([action])=>action==='tracking-action'),[
+  ['tracking-action','query','snapshot',1,'open'],
+  ['tracking-action','query','snapshot',1,'show']
+ ]);
+ assert.ok(!h.calls.some(([action])=>action==='batch-add-tracking'));
 });
 
 test('Everything ZIP keyboard selection crosses pages and respects the batch limit',async()=>{

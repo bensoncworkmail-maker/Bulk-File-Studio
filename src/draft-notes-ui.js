@@ -58,7 +58,7 @@
   if(!current)return;
   for(const [index,item] of current.attachments.entries()){
    const numbered=item.image&&/(?:貼上的圖片 |[0-9a-f-]{36}-)([0-9]{1,6})\.png$/.exec(item.path);const name=item.image?(numbered?'貼上的圖片 '+Number(numbered[1]):'貼上的圖片 '+(images.children.length+1)):item.path;
-   const remove=el('button','移除');remove.type='button';remove.setAttribute('aria-label','移除 '+name);
+   const remove=el('button','移除');remove.type='button';remove.title='解除附件連結，保留檔案或資料夾';remove.setAttribute('aria-label','移除 '+name);
    remove.addEventListener('click',()=>changeAttachments(()=>api.remove(current.id,current.version,index)));
    if(item.image){
     const figure=el('figure'),preview=el('img'),caption=el('figcaption'),zoom=el('button');
@@ -241,7 +241,7 @@
  });
  function updateDropHint(){
   const mode=$('draft-drop-mode').value;
-  $('draft-drop-hint').textContent=(mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。')+(mode==='link'?' 此選項只影響之後拖入的附件。':' 同一份草稿共用一個附件資料夾，不分來源位置或拖放批次；同名項目自動加編號，資料夾保留內部結構。既有附件不會重新搬移。');
+  $('draft-drop-hint').textContent=(mode==='move'?'移入草稿儲存區；移除原位置前會先校驗並儲存附件，執行前會再確認。':mode==='copy'?'建立草稿內附件副本，保留原位置。':'保留原檔案，只儲存路徑。貼上的 PNG 圖片會存入草稿儲存區。')+(mode==='link'?' 此選項只影響之後拖入的附件。':' 同一份草稿共用一個附件資料夾，不分來源位置或拖放批次；同名項目自動加編號，資料夾保留內部結構。既有附件不會重新搬移。')+' 移除附件只會解除連結，檔案或資料夾仍保留。';
  }
  $('draft-drop-mode').addEventListener('change',updateDropHint);
  document.addEventListener('dragover',event=>{

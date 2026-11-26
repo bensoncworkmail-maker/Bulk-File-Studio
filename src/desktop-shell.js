@@ -14,7 +14,6 @@ class DesktopShell {
    tray.setContextMenu(this.Menu.buildFromTemplate([
     {label:'開啟 Bulk File Studio',click:()=>this.showMain()},
     {label:'顯示浮動工具',click:()=>this.showFloating()},
-    ...(this.showContext?[{label:'桌面工作情境',click:()=>this.showContext()}]:[]),
     {label:'隱藏至系統匣',click:()=>this.hideToTray()},
     ...(this.toggleFocusMode?[{label:'切換專注模式',click:()=>this.toggleFocusMode()}]:[]),
     {type:'separator'},

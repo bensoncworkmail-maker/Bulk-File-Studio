@@ -3,7 +3,7 @@
  const {PANELS,FILES_LABEL,normalize,enabledPanels}=window.floatingPanelsModel;
  // Each factory owns its view and per-session filters. The host owns placement and lifecycle.
  const builtins={
-  contexts:{mount:(root,api)=>window.floatingToolViews.mount(root,api,'contexts')},drafts:{mount:(root,api)=>window.floatingToolViews.mount(root,api,'drafts')},
+  drafts:{mount:(root,api)=>window.floatingToolViews.mount(root,api,'drafts')},
   clipboard:{mount:(root,api)=>window.floatingClipboardUI.mount(root,api)},
   planning:{preferences:['planningMode'],mount:(root,api,prefs)=>mountTool(root,api,'planning',{mode:prefs.planningMode})},
   snippets:{preferences:['snippetQuery','snippetLayout'],mount:(root,api,prefs)=>mountTool(root,api,'snippets',{query:prefs.snippetQuery,layout:prefs.snippetLayout})}
@@ -20,7 +20,7 @@
   function remove(id){
    const entry=views.get(id);
    if(!entry)return;
-   if(id==='contexts'){entry.root.hidden=true;return;}entry.view.dispose();if(id==='contexts'){const template=document.getElementById('floating-context-template');if(template){template.hidden=true;document.body.append(template);}}entry.root.remove();views.delete(id);
+   entry.view.dispose();entry.root.remove();views.delete(id);
   }
   function display(){
    tabs.hidden=collapsed||!prefs?.enabled.length;
@@ -61,11 +61,11 @@
      if(!prefs.enabled.includes(id)||preferences.some(key=>previous[key]!==prefs[key]))remove(id);
     }
     if(!previous||previous.defaultPanel!==prefs.defaultPanel)active=settings.floatingRememberPanel!==false&&['files',...prefs.enabled].includes(settings.floatingLastPanel)?settings.floatingLastPanel:prefs.defaultPanel;
-    if(!prefs.enabled.includes(active))active='files';if(settings.floatingToolLayout?.[active]?.placement!=='quick'&&settings.floatingToolLayout)active=['snippets','clipboard','contexts','files','planning','drafts'].find(id=>(id==='files'||prefs.enabled.includes(id))&&settings.floatingToolLayout[id]?.placement==='quick')||'files';
+    if(!prefs.enabled.includes(active))active='files';if(settings.floatingToolLayout?.[active]?.placement!=='quick'&&settings.floatingToolLayout)active=['snippets','clipboard','files','planning','drafts'].find(id=>(id==='files'||prefs.enabled.includes(id))&&settings.floatingToolLayout[id]?.placement==='quick')||'files';
     tabs.replaceChildren();
-    for(const id of (settings.floatingLauncher==='classic'?['files',...enabledPanels(prefs)]:['snippets','clipboard','contexts','files','planning','drafts'].filter(id=>id==='files'||prefs.enabled.includes(id)))){
+    for(const id of (settings.floatingLauncher==='classic'?['files',...enabledPanels(prefs)]:['snippets','clipboard','files','planning','drafts'].filter(id=>id==='files'||prefs.enabled.includes(id)))){
      const button=document.createElement('button');button.type='button';button.dataset.panel=id;
-     button.textContent=settings.floatingLauncher==='classic'?(id==='files'?FILES_LABEL:PANELS[id]):({snippets:'常用文字',clipboard:'剪貼簿',contexts:'工作情境',files:'📁 檔案',planning:'日曆',drafts:'草稿'})[id];
+     button.textContent=settings.floatingLauncher==='classic'?(id==='files'?FILES_LABEL:PANELS[id]):({snippets:'常用文字',clipboard:'剪貼簿',files:'📁 檔案',planning:'日曆',drafts:'草稿'})[id];
      button.addEventListener('click',()=>select(id,true));
      tabs.append(button);
     }

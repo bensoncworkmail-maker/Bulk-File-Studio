@@ -280,7 +280,7 @@
     }catch(error){if(!disposed)status.textContent=error.message;}
     finally{pinBusy=false;toggle.disabled=false;}
    });
-   toggle.title=pinned?'取消釘選':'釘選以便跟進';
+   toggle.title=pinned?'取消釘選':'釘選為桌面便條';
    toggle.setAttribute('aria-label',toggle.title+' '+row.title);
    toggle.setAttribute('aria-pressed',String(pinned));
    toggle.className='btn btn-secondary tool-view-pin-star';
@@ -344,6 +344,14 @@
     }
    }
    if(!readLogDetail)actions.append(reminderButton(row));
+   if(pinned){
+    const sticker=button('顯示便條',async()=>{
+     try{await api.logRecord('sticker',row.id);}
+     catch(error){status.textContent=error.message;}
+    });
+    sticker.setAttribute('aria-label','顯示便條 '+row.title);
+    actions.append(sticker);
+   }
    if(canPin)actions.append(pinButton(row,pinned));
    top.append(actions);item.append(top);
    const meta=node('div',undefined,'log-row-meta');
@@ -511,7 +519,7 @@
   overlay.append(header,viewRoot);
   let view,last;
   const states=new Map();
-  const render=payload=>{const {config,theme,fontSize,logFilters,logContext,pinnedWindow}=payload;presentation=payload;for(const [key,control]of Object.entries(toggles))control.setAttribute('aria-pressed',String(Boolean(({pin:pinnedWindow,topmost:payload.topmost,collapse:payload.collapsed})[key])));viewRoot.hidden=payload.collapsed===true;
+  const render=payload=>{const {config,theme,fontSize,logFilters,logContext,pinnedWindow}=payload;presentation=payload;for(const [key,control]of Object.entries(toggles))control.setAttribute('aria-pressed',String(Boolean(({pin:pinnedWindow,topmost:payload.topmost,collapse:payload.collapsed})[key])));viewRoot.hidden=config.kind!=='logs'&&payload.collapsed===true;
    document.documentElement.dataset.theme=theme;
    document.documentElement.dataset.fontSize=fontSize;
    const signature=JSON.stringify(config);

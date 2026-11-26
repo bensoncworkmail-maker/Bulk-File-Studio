@@ -24,3 +24,5 @@ body[data-group-tone="accent"] .picker-group summary{background:color-mix(in srg
 body[data-group-tone="accent"] :is(.picker-group-count,.picker-group summary::before){color:var(--accent)}
 body[data-group-tone="strong"] .picker-group summary{background:var(--accent);color:var(--panel);border-color:var(--accent)}
 body[data-group-tone="strong"] :is(.picker-group-count,.picker-group summary::before){color:inherit}
+
+.picker-group summary[data-active],.picker-row[data-active]{outline:2px solid var(--accent);outline-offset:-2px;background:color-mix(in srgb,var(--accent) 16%,var(--panel));color:var(--text)}
