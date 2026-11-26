@@ -243,7 +243,7 @@
    ...(token&&window.stickerSettingsUI?.enabled('tracking')?[{label:'釘選此項為桌面便條',run:async()=>{
     try{
      await window.stickerSettingsUI.pin('tracking',{id:query.id,token,index});
-     callbacks.showToast('已顯示桌面便條');
+     callbacks.showToast('已釘選桌面便條');
     }catch(error){callbacks.showFailure('無法釘選桌面便條',error);}
    }}]:[]),
    {label:'複製完整路徑 · Ctrl+C',run:()=>action('copy')},{label:'複製檔名 · Ctrl+Shift+C',run:()=>action('copy-names')},{label:'複製所在資料夾',run:()=>action('copy-folders')},{label:'複製所選表格（可貼到試算表）',run:()=>action('copy-table')},

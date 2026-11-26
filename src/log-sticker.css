@@ -1,17 +1,17 @@
 :root{font:13px/1.45 system-ui,sans-serif;background:var(--sticker-background,#fff);color:var(--sticker-foreground,#171717)}
 body{margin:0;display:flex;flex-direction:column;height:100vh}
 [hidden]{display:none!important}
-header{background:#d5eaf8;color:#203749;height:var(--sticker-header-height,36px);flex:none;display:flex;align-items:stretch;user-select:none;touch-action:none;cursor:grab}
+header{background:var(--sticker-header-background,#d5eaf8);color:var(--sticker-header-foreground,#203749);border-bottom:1px solid color-mix(in srgb,currentColor 23%,transparent);box-sizing:border-box;height:var(--sticker-header-height,36px);flex:none;display:flex;align-items:stretch;user-select:none;touch-action:none;cursor:grab}
 .header-at-bottom header{order:1}
 .drag-handle{width:32px;flex:none;display:grid;place-items:center}
-.drag-handle span{width:14px;height:10px;border-block:2px solid #455f71;position:relative}
-.drag-handle span::after{content:"";position:absolute;inset:4px 0 auto;border-top:2px solid #455f71}
-#heading{display:block;flex:1;min-width:0;align-self:center;padding:4px 6px;text-align:center;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:inherit}
-#heading:focus-visible{outline:2px solid #446881;outline-offset:-3px}
+.drag-handle span{width:14px;height:10px;border-block:2px solid currentColor;position:relative}
+.drag-handle span::after{content:"";position:absolute;inset:4px 0 auto;border-top:2px solid currentColor}
+#heading{display:block;flex:1;min-width:0;align-self:center;padding:4px 8px;text-align:left;font-size:15px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:inherit}
+#heading:focus-visible{outline:2px solid currentColor;outline-offset:-3px}
 #close{width:36px;flex:none;border:0;background:transparent;color:inherit;font-size:18px}
-#close:hover{background:#b8d8ee}
+#close:hover{background:color-mix(in srgb,currentColor 12%,transparent)}
 main{flex:1;min-height:0;overflow:auto;padding:9px 12px 12px;overflow-wrap:anywhere}
-h1{margin:0 0 4px;font-size:1.1rem}p{margin:0 0 8px;white-space:pre-wrap}
+h1{margin:0 0 8px;font-size:1.26rem;font-weight:750;line-height:1.35}p{margin:0 0 8px;white-space:pre-wrap}
 dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:3px 8px;margin:0 0 8px}dd{margin:0}dt{font-weight:600}
 button{cursor:pointer;font:inherit}
 #links{display:flex;gap:6px;flex-wrap:wrap;margin-block:4px 8px}

@@ -1446,6 +1446,7 @@
                   <h2>管理便條</h2>
                   <p id="sticker-settings-count"></p>
                   <div class="settings-actions">
+                    <button id="sticker-settings-visibility" type="button" class="btn btn-secondary" disabled>顯示全部</button>
                     <button id="sticker-settings-expand" type="button" class="btn btn-secondary" disabled>展開全部</button>
                     <button id="sticker-settings-collapse" type="button" class="btn btn-secondary" disabled>收合全部</button>
                     <button id="sticker-settings-clear" type="button" class="btn btn-danger" disabled>取消全部釘選</button>
@@ -1454,6 +1455,12 @@
                 <form id="sticker-settings-form" class="settings-card">
                   <h2>外觀與釘選來源</h2>
                   <label class="field"><span>內容背景色</span><input id="sticker-settings-color" type="color" value="#ffffff"></label>
+                  <label class="field"><span>標題列顏色</span><input id="sticker-settings-header-color" type="color" value="#d5eaf8"></label>
+                  <label class="field"><span>視窗不透明度（%）</span><input id="sticker-settings-opacity" type="number" min="40" max="100" value="100" required></label>
+                  <div class="settings-actions">
+                    <label class="field"><span>檔案名稱開啟方式</span><select id="sticker-settings-open-click"><option value="single">單擊開啟</option><option value="double" selected>雙擊開啟</option></select></label>
+                    <label class="field"><span>所在位置定位方式</span><select id="sticker-settings-location-click"><option value="single">單擊定位</option><option value="double" selected>雙擊定位</option></select></label>
+                  </div>
                   <label class="check-row"><input id="sticker-settings-grip" type="checkbox" checked>顯示標題列左側握把</label>
                   <div class="settings-actions">
                     <label class="field"><span>展開寬度（px）</span><input id="sticker-settings-width" type="number" min="180" max="1200" value="280" required></label>

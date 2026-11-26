@@ -3,6 +3,7 @@
 const path=require('node:path');
 const {pathToFileURL}=require('node:url');
 const {fitBounds}=require('./desktop-state');
+const {FloatingPin}=require('./floating-pin');
 const page=path.join(__dirname,'log-sticker.html');
 const gap=10,minWidth=180,minHeight=130;
 const currentBounds=window=>window.getBounds?.()||window.getNormalBounds();
@@ -11,6 +12,44 @@ class LogStickers {
  constructor(options){
   Object.assign(this,options);
   this.windows=new Map();
+  this.loadLayout();
+ }
+ loadLayout(){
+  const {hidden,layouts}=this.readLayout();
+  this.hidden=hidden;
+  this.layouts=new Map(Object.entries(layouts));
+ }
+ remember(entry){
+  const {id,window,expanded,collapsedWidth,collapsed,headerAtBottom}=entry;
+  if(!window.isDestroyed())this.layouts.set(id,{bounds:currentBounds(window),expanded,collapsedWidth,collapsed,headerAtBottom});
+ }
+ checkpoint(hidden=this.hidden){
+  for(const entry of this.windows.values())this.remember(entry);
+  const pinned=this.pinnedIds();
+  for(const id of this.layouts.keys())if(!pinned.has(id))this.layouts.delete(id);
+  this.saveLayout({hidden,layouts:Object.fromEntries(this.layouts)});
+ }
+ persist(){
+  try{this.checkpoint();}catch(error){this.onError(error);}
+ }
+ visibleCount(){return this.hidden?0:this.windows.size;}
+ show(entry){
+  if(!entry.ready||this.hidden||entry.window.isDestroyed())return;
+  entry.window.showInactive();
+  entry.window.pinController.sync();
+ }
+ setHidden(hidden){
+  this.checkpoint(hidden);
+  this.hidden=hidden;
+  for(const entry of this.windows.values()){
+   if(hidden){entry.dragBounds=null;entry.window.hide();}
+   else this.show(entry);
+  }
+ }
+ clear(){
+  this.close();
+  this.layouts.clear();
+  this.persist();
  }
  bounds(appearance,requested,collapsed=false){
   const displays=this.screen.getAllDisplays(),size=appearance.size;
@@ -32,20 +71,29 @@ class LogStickers {
  open(id,detail=this.read([id]).get(id)){
   if(!detail)return;
   const existing=this.windows.get(id);
-  if(existing){existing.window.showInactive();return;}
-  const appearance=this.appearance();
-  const window=new this.BrowserWindow({...this.bounds(appearance),title:detail.heading,frame:false,show:false,skipTaskbar:true,alwaysOnTop:true,
-   backgroundColor:appearance.background,autoHideMenuBar:true,maxWidth:1200,maxHeight:1000,
+  if(existing){this.show(existing);return;}
+  const appearance=this.appearance(),layout=this.layouts.get(id),collapsed=layout?.collapsed===true;
+  const restored=layout&&{...layout.bounds,...(collapsed?{height:appearance.size.collapsedHeight}:{})};
+  const bounds=this.bounds(appearance,restored,collapsed);
+  const window=new this.BrowserWindow({...bounds,title:detail.heading,frame:false,show:false,skipTaskbar:true,alwaysOnTop:true,
+   backgroundColor:appearance.background,autoHideMenuBar:true,maxWidth:1200,maxHeight:collapsed?bounds.height:1000,
    webPreferences:{preload:path.join(__dirname,'log-sticker-preload.js'),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
-  const entry={id,window,detail,appearance,expanded:null,collapsedWidth:null,collapsed:false,headerAtBottom:false};
+  const entry={id,window,detail,appearance,expanded:layout?.expanded??null,collapsedWidth:layout?.collapsedWidth??null,
+   collapsed,headerAtBottom:layout?.headerAtBottom===true,ready:false};
   this.windows.set(id,entry);
   this.secureWindow(window);
-  window.on('ready-to-show',()=>{if(this.windows.get(id)===entry)window.showInactive();});
-  window.on('close',event=>{
-   event.preventDefault();
-   try{this.unpin(id);}catch(error){window.webContents.send('log-sticker-error',error.message);this.onError(error);}
+  window.setOpacity?.(appearance.opacity/100);
+  window.pinController=new FloatingPin(window,()=>({floatingOnTop:true}),{onError:this.onError});
+  window.on('ready-to-show',()=>{
+   if(this.windows.get(id)!==entry)return;
+   entry.ready=true;
+   this.show(entry);
   });
-  window.on('closed',()=>{if(this.windows.get(id)===entry)this.windows.delete(id);});
+  // Only the named unpin action removes the saved pin. Native close may also come from Windows.
+  window.on('close',()=>this.persist());
+  window.on('closed',()=>{
+   if(this.windows.get(id)===entry){this.windows.delete(id);this.onClosed?.();}
+  });
   Promise.resolve(window.loadFile(page)).catch(error=>{this.remove(id);this.onError(error);});
  }
  owner(event){
@@ -100,6 +148,7 @@ class LogStickers {
   if(collapsed)window.setMaximumSize?.(1200,next.height);
  }
  drag(entry,phase,dx,dy){
+  if(this.hidden)return;
   if(phase==='start'){entry.dragBounds=currentBounds(entry.window);return;}
   if(phase==='end'){entry.dragBounds=null;return;}
   if(phase!=='move'||![dx,dy].every(value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=100000))throw Error('便條拖曳位置無效');
@@ -113,8 +162,12 @@ class LogStickers {
    if(entry.collapsed!==collapsed)entry.window.webContents.send('log-sticker-changed',this.setCollapsed(entry,collapsed));
   }
  }
- remove(id){
+ remove(id,{forget=false}={}){
   const entry=this.windows.get(id);
+  if(forget&&this.layouts.delete(id)){
+   this.windows.delete(id);
+   this.persist();
+  }
   if(!entry)return;
   this.windows.delete(id);
   if(!entry.window.isDestroyed())entry.window.destroy();
@@ -135,12 +188,14 @@ class LogStickers {
    const headerChanged=oldSize.collapsedHeight!==newSize.collapsedHeight;
    if(JSON.stringify(appearance)===JSON.stringify(entry.appearance)&&JSON.stringify(detail)===JSON.stringify(entry.detail))continue;
    entry.detail=detail;
+   const previousOpacity=entry.appearance.opacity;
    entry.appearance=appearance;
    if(expandedChanged)entry.expanded=null;
    if(collapsedWidthChanged)entry.collapsedWidth=null;
    if(headerChanged||(entry.collapsed?collapsedWidthChanged:expandedChanged))this.resize(entry,undefined,oldSize.collapsedHeight);
    entry.window.setTitle(detail.heading);
    entry.window.setBackgroundColor?.(appearance.background);
+   if(appearance.opacity!==previousOpacity)entry.window.setOpacity?.(appearance.opacity/100);
    entry.window.webContents.send('log-sticker-changed',this.payload(entry));
   }
  }
@@ -150,6 +205,7 @@ class LogStickers {
    entry.window.setBounds(this.bounds(entry.appearance,current,entry.collapsed));
   }
  }
+ syncTopmost(options){for(const entry of this.windows.values())entry.window.pinController.sync(options);}
  close(){for(const id of this.windows.keys())this.remove(id);}
 }
 

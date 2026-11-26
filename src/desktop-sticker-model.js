@@ -10,7 +10,7 @@ const SOURCES=['workspace','tracking','favorites','draft'];
 const TAG_SCOPES=['favorites','workspace','tracking'];
 const DIMENSIONS={width:[180,1200,280],height:[130,1000,245],collapsedWidth:[180,1200,280],collapsedHeight:[32,96,36]};
 const FILE_HEADERS={favorite:{prefix:['none','folder','tag'],title:['label','name','path']},tracking:{prefix:['none','folder','query'],title:['name','path']}};
-const DEFAULTS={background:'#ffffff',showGrip:true,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
+const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'double',locationClick:'double',showGrip:true,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
  favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'}};
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const fieldKey=value=>typeof value==='string'&&(value==='title'||M.ID.test(value));
@@ -19,7 +19,9 @@ function settings(input,strict=false){
  const value=object(input)?input:{},result={...structuredClone(DEFAULTS)};
  const requireValid=(valid)=>{if(!valid&&strict)throw Error('桌面便條設定無效');return valid;};
  requireValid(value===input);
- if(Object.hasOwn(value,'background')&&requireValid(typeof value.background==='string'&&/^#[\da-f]{6}$/i.test(value.background)))result.background=value.background.toLowerCase();
+ for(const key of ['background','headerBackground'])if(Object.hasOwn(value,key)&&requireValid(typeof value[key]==='string'&&/^#[\da-f]{6}$/i.test(value[key])))result[key]=value[key].toLowerCase();
+ if(Object.hasOwn(value,'opacity')&&requireValid(Number.isInteger(value.opacity)&&value.opacity>=40&&value.opacity<=100))result.opacity=value.opacity;
+ for(const key of ['openClick','locationClick'])if(Object.hasOwn(value,key)&&requireValid(['single','double'].includes(value[key])))result[key]=value[key];
  if(Object.hasOwn(value,'showGrip')&&requireValid(typeof value.showGrip==='boolean'))result.showGrip=value.showGrip;
  if(Object.hasOwn(value,'size')&&requireValid(object(value.size)))for(const [key,[min,max]] of Object.entries(DIMENSIONS)){
   const size=value.size[key];
@@ -45,6 +47,22 @@ function settings(input,strict=false){
  return result;
 }
 
+function desktopLayout(value){
+ const layouts={};
+ for(const [key,layout] of Object.entries(object(value?.layouts)?value.layouts:{}).slice(0,LIMIT)){
+  const parts=key.split(':'),id=parts.at(-1);
+  if(!M.ID.test(id)||parts.length>2||parts.length===2&&!['favorite','tracking','tag','draft'].includes(parts[0]))continue;
+  const bounds=layout?.bounds;
+  if(!bounds||!['x','y','width','height'].every(field=>Number.isSafeInteger(bounds[field]))||bounds.width<1||bounds.height<1||bounds.width>1200||bounds.height>1000)continue;
+  const {x,y,width,height}=bounds;
+  const size=layout.expanded;
+  const expanded=Number.isInteger(size?.width)&&size.width>0&&size.width<=1200&&Number.isInteger(size.height)&&size.height>0&&size.height<=1000?
+   {width:size.width,height:size.height}:null;
+  const collapsedWidth=Number.isInteger(layout.collapsedWidth)&&layout.collapsedWidth>0&&layout.collapsedWidth<=1200?layout.collapsedWidth:null;
+  layouts[key]={bounds:{x,y,width,height},expanded,collapsedWidth,collapsed:layout.collapsed===true,headerAtBottom:layout.collapsed!==true&&layout.headerAtBottom===true};
+ }
+ return {hidden:value?.hidden===true,layouts};
+}
 function filePins(input){
  if(!Array.isArray(input)||input.length>LIMIT)throw Error('檔案便條釘選資料無效');
  const keys=new Set();
@@ -158,4 +176,4 @@ function draftDetail(draft){
  return {kind:'draft',title,heading:headline('草稿筆記',title),fields:[],notes,links,visit:'在草稿筆記開啟'};
 }
 
-module.exports={attachmentRow,draftDetail,LIMIT,SOURCES,TAG_SCOPES,tagName,tagDetail,DEFAULTS,FILE_HEADERS,settings,filePins,fileKey,tableOptions,recordDetail,locationDetail,colorText};
+module.exports={desktopLayout,attachmentRow,draftDetail,LIMIT,SOURCES,TAG_SCOPES,tagName,tagDetail,DEFAULTS,FILE_HEADERS,settings,filePins,fileKey,tableOptions,recordDetail,locationDetail,colorText};

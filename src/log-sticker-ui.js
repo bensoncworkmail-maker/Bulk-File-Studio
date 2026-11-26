@@ -16,11 +16,12 @@
   if(action)control.addEventListener('click',action);
   return control;
  }
- function fileCell(label,action){
+ function fileCell(label,action,mode){
   const cell=document.createElement('td');
   const control=linkButton(label,event=>{if(event.detail===0)return action();});
   cell.append(control);
-  cell.addEventListener('dblclick',action);
+  if(mode==='single')cell.addEventListener('click',event=>{if(event.detail===1)return action();});
+  else cell.addEventListener('dblclick',action);
   return cell;
  }
  function render(data){
@@ -28,6 +29,8 @@
   const style=document.documentElement.style;
   style.setProperty('--sticker-background',data.background);
   style.setProperty('--sticker-foreground',data.foreground);
+  style.setProperty('--sticker-header-background',data.headerBackground||'#d5eaf8');
+  style.setProperty('--sticker-header-foreground',data.headerForeground||'#203749');
   style.setProperty('--sticker-header-height',(data.size?.collapsedHeight||36)+'px');
   $('sticker-grip').hidden=data.showGrip===false;
   document.body.classList.toggle('header-at-bottom',data.headerAtBottom===true);
@@ -49,9 +52,11 @@
    if(location!==undefined){
     const open=()=>kind==='item'?api.openItem().catch(report):api.openLink(index,ref??data.version,'open',location).catch(report);
     const locate=()=>kind==='item'?api.locate().catch(report):api.openLink(index,ref??data.version,'show',location).catch(report);
-    const row=document.createElement('tr');row.append(fileCell(label,open),fileCell(location,locate));rows.push(row);
+    const row=document.createElement('tr');row.append(fileCell(label,open,data.openClick),fileCell(location,locate,data.locationClick));rows.push(row);
    }else links.push(linkButton(label,()=>api.openLink(index,data.version).catch(report)));
   }
+  const openGesture=data.openClick==='single'?'單擊':'雙擊',locateGesture=data.locationClick==='single'?'單擊':'雙擊';
+  $('attachment-hint').textContent=openGesture+'名稱開啟，'+locateGesture+'位置在檔案總管定位。';
   $('attachment-rows').replaceChildren(...rows);
   $('attachments').hidden=!rows.length;
   $('links').replaceChildren(...links);

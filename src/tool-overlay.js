@@ -9,26 +9,35 @@ class ToolOverlay{
  open(config){
   const key=config.kind;if(!extras.has(key))config=configuration(config);
   const existing=this.windows.get(key);if(existing&&!existing.window.isDestroyed()){existing.config=config;this.save(existing,{visible:true});this.recover(existing);this.refresh(existing);if(existing.window.isMinimized?.())existing.window.restore();existing.window.show();existing.window.focus();return {opened:true,popup:true};}
-  const state=this.layout(key),pinned=state?.pinned===true,parent=pinned||key==='logs'?undefined:this.parent(),displays=this.screen.getAllDisplays(),size=state?.panelSize||this.size(key)||(key==='logs'?{width:430,height:580}:{width:420,height:540});
+  const state=this.layout(key),pinned=key==='logs'?this.settings().floatingLogsPinned===true:state?.pinned===true,parent=pinned||key==='logs'?undefined:this.parent(),displays=this.screen.getAllDisplays(),size=state?.panelSize||this.size(key)||(key==='logs'?{width:430,height:580}:{width:420,height:540});
   const anchor=[...this.windows.values()].find(entry=>!entry.window.isDestroyed())?.window||this.parent();
   const bounds=state?.bounds?fitBounds({...state.bounds,...(state.panelSize||{})},displays,{...size,minWidth:320,minHeight:280}):anchor?captureBounds(anchor.getNormalBounds(),displays,size):fitBounds(null,displays,{...size,minWidth:320,minHeight:280});
-  const window=new this.BrowserWindow({...bounds,parent,frame:key==='logs',show:false,skipTaskbar:true,alwaysOnTop:state?.topmost??this.settings().floatingOnTop,autoHideMenuBar:true,title:'Bulk File Studio',webPreferences:{preload:path.join(__dirname,'tool-overlay-preload.js'),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
+  const window=new this.BrowserWindow({...bounds,parent,frame:key==='logs',show:false,skipTaskbar:true,alwaysOnTop:key==='logs'&&pinned||(state?.topmost??this.settings().floatingOnTop),autoHideMenuBar:true,title:'Bulk File Studio',webPreferences:{preload:path.join(__dirname,'tool-overlay-preload.js'),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
   const entry={window,config,parent,pinned,state:{...state,bounds,collapsed:false}};this.windows.set(key,entry);
   try{
-   this.secureWindow(window);this.remember(key,window);window.setOpacity?.((state?.opacity||100)/100);window.pinController=new FloatingPin(window,()=>({floatingOnTop:this.layout(key)?.topmost??this.settings().floatingOnTop}),{onError:this.error});
+   this.secureWindow(window);this.remember(key,window);window.setOpacity?.((state?.opacity||100)/100);window.pinController=new FloatingPin(window,()=>({floatingOnTop:this.desiredTopmost(entry)}),{onError:this.error});
    const record=()=>{if(!entry.state.collapsed&&!window.isDestroyed()){const b=window.getNormalBounds();this.save(entry,{bounds:b,displayId:this.screen.getAllDisplays().find(d=>b.x>=d.workArea.x&&b.x<d.workArea.x+d.workArea.width&&b.y>=d.workArea.y&&b.y<d.workArea.y+d.workArea.height)?.id??null});}};
    for(const event of ['move','resize','moved','resized'])window.on(event,record);window.on('focus',()=>this.refresh(entry));window.on('blur',()=>{this.onBlur?.();clearTimeout(entry.blurTimer);if(key==='logs'||entry.pinned||!this.settings().floatingAutoCollapse)return;entry.blurTimer=setTimeout(()=>{if(!entry.pinned&&!window.isDestroyed()&&!window.isFocused?.()&&!window.nativeMenuOpen&&!this.blocked?.(key))this.control(entry,'collapse',true);},250);entry.blurTimer.unref?.();});
    window.on('close',event=>{if(this.quitting)return;if(this.blocked?.(key)){event.preventDefault();return;}record();this.save(entry,{visible:false});});
    window.on('closed',()=>{clearTimeout(entry.blurTimer);if(this.windows.get(key)?.window===window)this.windows.delete(key);});
-   window.on('ready-to-show',()=>{this.save(entry,{visible:true});window.show();if(key!=='logs'&&state?.collapsed)this.control(entry,'collapse',true);});
+   window.on('ready-to-show',()=>{if(this.windows.get(key)!==entry||window.isDestroyed())return;this.save(entry,{visible:true});window.show();if(key!=='logs'&&state?.collapsed)this.control(entry,'collapse',true);});
    Promise.resolve(window.loadFile(path.join(__dirname,extras.has(key)?'floating-tool-panel.html':'tool-overlay.html'))).catch(error=>{this.error(error);if(!window.isDestroyed())window.destroy();});
   }catch(error){this.windows.delete(key);if(!window.isDestroyed())window.destroy();throw error;}
   return {opened:true,popup:true};
  }
  owner(event){const url=event?.senderFrame?.url;if(!['tool-overlay.html','floating-tool-panel.html'].some(file=>url===pathToFileURL(path.join(__dirname,file)).href))return null;return [...this.windows.values()].find(entry=>!entry.window.isDestroyed()&&entry.window.webContents===event.sender)||null;}
  switchTab(entry,kind){if(!['planning','snippets'].includes(entry.config.kind)||!['planning','snippets'].includes(kind))throw Error('此浮動工具沒有該分頁');return this.open(configuration({kind}));}
- payload(entry){const {theme,fontSize}=this.settings(),{config,pinned}=entry;return {config,theme,fontSize,pinnedWindow:Boolean(pinned),topmost:this.layout(config.kind)?.topmost??this.settings().floatingOnTop,collapsed:Boolean(entry.state.collapsed),...(config.kind==='logs'?{logFilters:this.logFilters(config),logContext:logFilterKey(config)}:{})};}
- setPinned(entry,pinned){if(typeof pinned!=='boolean')throw Error('視窗釘選設定無效');const parent=pinned||entry.config.kind==='logs'?null:this.parent()||null;entry.window.setParentWindow(parent);entry.parent=parent||undefined;entry.pinned=pinned;this.save(entry,{pinned});entry.window.pinController?.sync();this.refresh(entry);return pinned;}
+ desiredTopmost(entry){return (entry.config.kind==='logs'&&entry.pinned)||(this.layout(entry.config.kind)?.topmost??this.settings().floatingOnTop);}
+ syncTopmost(options){for(const entry of this.windows.values())entry.window.pinController?.sync(options);}
+ payload(entry){const {theme,fontSize}=this.settings(),{config,pinned}=entry;return {config,theme,fontSize,pinnedWindow:Boolean(pinned),topmost:this.desiredTopmost(entry),collapsed:Boolean(entry.state.collapsed),...(config.kind==='logs'?{logFilters:this.logFilters(config),logContext:logFilterKey(config)}:{})};}
+ setPinned(entry,pinned){
+  if(typeof pinned!=='boolean')throw Error('視窗釘選設定無效');
+  const logs=entry.config.kind==='logs',parent=pinned||logs?undefined:this.parent()||undefined;
+  if(entry.parent!==parent)entry.window.setParentWindow(parent||null);
+  if(logs)this.saveLogsPinned?.(pinned);else this.save(entry,{pinned});
+  entry.parent=parent;entry.pinned=pinned;
+  entry.window.pinController?.sync();this.refresh(entry);return pinned;
+ }
  control(entry,action,value){
   if(action==='pin')return this.setPinned(entry,value);
   if(action==='topmost'){if(typeof value!=='boolean')throw Error('置頂狀態無效');this.save(entry,{topmost:value});entry.window.pinController.sync({force:true});}

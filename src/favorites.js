@@ -225,7 +225,7 @@
       {label:'顯示所在位置',disabled:item.status!=='ready',run:()=>run(()=>api.show(item.id))},
       ...(window.stickerSettingsUI?.enabled('favorites')?[{label:'釘選為桌面便條',run:()=>run(async()=>{
        await window.stickerSettingsUI.pin('favorites',{id:item.id,kind:'favorite'});
-       callbacks.showToast('已顯示桌面便條');
+       callbacks.showToast('已釘選桌面便條');
       })}]:[]),
       {label:`批次開啟所選（${ids.length} 項）`,run:()=>{selected=new Set(ids);requestBulkOpen();}},
       {label:`批次開啟所選的所在資料夾（去重）`,run:()=>batchFromMenu(ids,'locations')},
