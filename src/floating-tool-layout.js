@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
- const TOOLS=Object.freeze({snippets:'常用文字',clipboard:'剪貼簿',contexts:'工作情境',files:'檔案',planning:'日曆',drafts:'草稿'});
+ const TOOLS=Object.freeze({snippets:'常用文字',clipboard:'剪貼簿',files:'檔案',planning:'日曆',drafts:'草稿'});
  function normalize(input,strict=false,topmost=true){
   if(strict&&(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(key=>!Object.hasOwn(TOOLS,key))))throw Error('浮動工具配置無效');
   const result={};for(const kind of Object.keys(TOOLS)){const raw=input?.[kind]||{};if(strict&&(typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).some(key=>!['placement','pinned','topmost','visible','collapsed','opacity','displayId','bounds','panelSize'].includes(key))))throw Error('浮動工具配置無效：'+kind);const row={placement:'quick',pinned:false,topmost,visible:false,collapsed:false,opacity:100,displayId:null,bounds:null,panelSize:null};

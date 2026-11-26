@@ -220,7 +220,19 @@
     row.addEventListener('click',selectClick);
     row.addEventListener('contextmenu',selectClick);
     select.append(check);
-    row.append(select,...DEFAULT_COLUMNS.map(column=>fileCell(item,column,display)));
+    const token=query()?.snapshot?.token,trackingId=queryId;
+    row.append(select,...DEFAULT_COLUMNS.map(column=>{
+     const cell=fileCell(item,column,display);
+     if(column==='name'||column==='location'){
+      cell.title+=(column==='name'?' · 雙擊開啟 ZIP':' · 雙擊在檔案總管定位');
+      cell.addEventListener('dblclick',event=>{
+       if(batchBusy||event.button!==0||event.shiftKey||event.ctrlKey||event.metaKey||event.altKey)return;
+       event.stopPropagation();
+       void runTask(()=>trackingAPI.trackingAction(trackingId,token,[index],column==='name'?'open':'show'));
+      });
+     }
+     return cell;
+    }));
     return row;
    }));
    renderHeaders(trackingHeaders,'data-zip-batch-sort',sort());

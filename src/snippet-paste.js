@@ -46,6 +46,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
  try {
   $request = $line | ConvertFrom-Json
   if ($request.op -eq 'capture') { $value = [BFSPaste]::CaptureReleased([uint32]$request.appPid) }
+  elseif ($request.op -eq 'foreground') { $value = [BFSPaste]::Capture([uint32]$request.appPid) }
   elseif ($request.op -eq 'paste') { [BFSPaste]::Paste([uint32]$request.appPid,[long]$request.handle,[uint32]$request.targetPid,[bool]$request.noActivate); $value = $true }
   else { throw 'Unsupported operation' }
   [Console]::WriteLine((@{id=$request.id;ok=$true;value=$value} | ConvertTo-Json -Compress))
@@ -54,4 +55,11 @@ while ($null -ne ($line = [Console]::ReadLine())) {
 `);}
 function warm(){if(process.platform!=='win32')return Promise.resolve();return worker().start().catch(()=>{});}
 function close(){resident?.stop();resident=null;}
-module.exports={paste,capture,warm,close};
+async function isCurrentTarget(target){
+ if(!resident||!target)return false;
+ try{
+  const value=await resident.request({op:'foreground',appPid:process.pid},{readyOnly:true,epoch:target.workerEpoch});
+  return value===target.handle+':'+target.pid;
+ }catch{return false;}
+}
+module.exports={paste,capture,warm,close,isCurrentTarget};

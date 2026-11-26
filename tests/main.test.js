@@ -953,7 +953,7 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  const parent=add(master,'客戶 A'),date=logs.fields.find(field=>field.type==='date'),done=logs.fields.find(field=>field.type==='checkbox');
  const id=add(logs,'跟進報價',{[parentField.id]:[parent],[date.id]:'2026-11-09',[done.id]:false},'要在星期一確認');
  const action={id:randomUUID(),type:'view-logs',label:'查 LOG',sheetId:logs.id,scope:'all',display:'overlay',query:'',enabled:true};
- h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action],floatingOnTop:false});
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action],floatingOnTop:false,floatingAutoCollapse:true});
  h.handlers.get('floating-show')();
  const floating=h.windows.at(-1);
  const run=()=>h.rawHandlers.get('floating-quick-action')({sender:floating.webContents,senderFrame:{url:floating.url}},action.id);
@@ -962,6 +962,10 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  const call=(name,...args)=>h.rawHandlers.get('tool-overlay-'+name)(event,...args);
  let {logContext}=call('get');
  assert.deepEqual(call('data','logs',{}).rows.map(row=>row.id),[id]);
+ assert.equal(owner.options.parent,undefined);
+ owner.emit('blur');
+ assert.equal(call('get').collapsed,false);
+ assert.equal(call('control','collapse',true).collapsed,false);
  assert.throws(()=>call('log-record',logContext,'pin',parent,true),/不在選定表格/);
  assert.throws(()=>call('log-record','stale','pin',id,true),/已切換/);
  assert.match(call('log-record',logContext,'detail',id).notes,/星期一確認/);
@@ -970,7 +974,19 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  call('action','logs','reminder',id);
  assert.ok(h.messages.some(([channel,value])=>channel==='record-reminders-open'&&value.recordId===id));
  call('log-record',logContext,'pin',id,true);
+ const sticker=h.windows.at(-1),stickerEvent={sender:sticker.webContents,senderFrame:{url:sticker.url}};
+ assert.match(sticker.url,/log-sticker.html$/);
+ assert.equal(sticker.options.alwaysOnTop,true);
+ sticker.emit('ready-to-show');
+ assert.equal(sticker.inactiveShown,true);
+ const count=h.windows.length;
  call('log-record',logContext,'pin',id,true);
+ assert.equal(h.windows.length,count);
+ assert.equal(h.rawHandlers.get('log-sticker-get')(stickerEvent).notes,'要在星期一確認');
+ assert.throws(()=>h.rawHandlers.get('log-sticker-get')(event),/不受信任/);
+ assert.equal(h.rawHandlers.get('log-sticker-toggle')(stickerEvent).collapsed,true);
+ assert.equal(sticker.getNormalBounds().height,36);
+ assert.equal(h.rawHandlers.get('log-sticker-toggle')(stickerEvent).collapsed,false);
  const data=call('data','logs',{query:'無符合',from:'2027-01-01',to:'2026-12-31'});
  assert.equal(data.total,0);
  assert.match(data.filterError,/開始日期/);
@@ -986,7 +1002,7 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  floating.emit('hide');
  assert.equal(owner.isDestroyed(),false);
  call('log-window',logContext,false);
- assert.equal(owner.parent,floating);
+ assert.equal(owner.parent,null);
  assert.equal(owner.onTop,false);
  call('close');
  ({owner,event}=open());
@@ -996,9 +1012,21 @@ test('floating log shortcut persists detail pins, limits scope and keeps a pinne
  const stored=new NotesToolsStore(path.join(h.dir,'workspace-tools.json')).get();
  assert.deepEqual(normalizeTools(stored).logPins,[id]);
  assert.deepEqual(stored.pins,[]);
- call('log-record',logContext,'pin',id,false);
+ h.rawHandlers.get('log-sticker-close')(stickerEvent);
+ assert.equal(sticker.isDestroyed(),true);
  assert.deepEqual(call('data','logs',{}).pinned,[]);
  assert.deepEqual(call('data','logs',{}).rows.map(row=>row.id),[id]);
+ const second=add(logs,'第二筆跟進',{[parentField.id]:[parent]});
+ call('log-record',logContext,'pin',id,true);
+ const firstWindow=h.windows.at(-1);
+ call('log-record',logContext,'pin',second,true);
+ const secondWindow=h.windows.at(-1);
+ assert.notDeepEqual(firstWindow.getNormalBounds(),secondWindow.getNormalBounds());
+ assert.equal(firstWindow.isDestroyed(),false);
+ h.windows[0].close();
+ assert.equal(firstWindow.isDestroyed(),true);
+ assert.equal(secondWindow.isDestroyed(),true);
+ assert.deepEqual(new NotesToolsStore(path.join(h.dir,'workspace-tools.json')).get().logPins,[second,id]);
 });
 
 test('floating search closes only after a trusted acknowledgement for the current result',async t=>{
@@ -1271,52 +1299,27 @@ test('OCR image source chooser filters supported formats and permits one file on
  h.dialog.showOpenDialog=async()=>({canceled:true,filePaths:[]});assert.deepEqual(await h.handlers.get('workflow-select')(null,{kind:'image'}),{canceled:true});
 });
 
-test('context IPC broadcasts selection changes, supports clearing and restricts access to the main renderer',t=>{
- const h=harness(t),context=h.handlers.get('workflow-save')(null,'contexts',{name:'專案 A'}),snapshot=h.handlers.get('workflow-context-state')();assert.ok(h.messages.some(row=>row[0]==='workflow-context-changed'));assert.equal(snapshot.contexts[0].name,'專案 A');h.messages.length=0;
- const selected=h.handlers.get('workflow-context')(null,context.id,snapshot.revision);assert.equal(selected.activeContextId,context.id);assert.equal(h.messages.filter(row=>row[0]==='workflow-context-changed').length,1);assert.throws(()=>h.handlers.get('workflow-context')(null,null,snapshot.revision),/已變更/);const cleared=h.handlers.get('workflow-context')(null,null,selected.revision);assert.equal(cleared.activeContextId,null);assert.equal(h.handlers.get('workflow-state')().data.activeContextId,null);
- h.handlers.get('floating-show')();const mini=h.windows.at(-1),event={sender:mini.webContents,senderFrame:{url:mini.url}};for(const name of ['workflow-context','workflow-context-state'])assert.throws(()=>h.rawHandlers.get(name)(event,context.id),/不受信任/);
-});
-test('workflow metadata changes outside the context editor also notify the header of its new revision',t=>{
- const h=harness(t),context=h.handlers.get('workflow-save')(null,'contexts',{name:'專案'}),before=h.handlers.get('workflow-context-state')();h.messages.length=0;h.handlers.get('workflow-save')(null,'contexts',{name:'第二個專案'});const after=h.handlers.get('workflow-context-state')();assert.ok(after.revision>before.revision);assert.equal(h.messages.filter(row=>row[0]==='workflow-context-changed').length,1);assert.equal(h.handlers.get('workflow-context')(null,context.id,after.revision).activeContextId,context.id);
-});
-
-test('desktop context switches through a main-renderer lease without showing the hidden main window',async t=>{
- const h=harness(t),a=h.handlers.get('workflow-save')(null,'contexts',{name:'A'}),b=h.handlers.get('workflow-save')(null,'contexts',{name:'B'});h.handlers.get('workflow-context')(null,a.id);h.windows[0].hide();h.handlers.get('context-desktop-open')();const window=h.windows.at(-1),event={sender:window.webContents,senderFrame:{url:window.url}};assert.match(window.url,/desktop-context.html$/);assert.equal(window.options.parent,undefined);assert.equal(window.options.webPreferences.sandbox,true);assert.throws(()=>h.handlers.get('desktop-context-get')(),/不受信任/);const state=h.rawHandlers.get('desktop-context-get')(event).state;
- const switching=h.rawHandlers.get('desktop-context-select')(event,b.id,state.revision),query=h.messages.findLast(row=>row[0]==='context-external-query');assert.ok(query);assert.equal(h.handlers.get('context-external-reply')(null,'wrong',true).received,false);h.handlers.get('context-external-reply')(null,query[1],true);assert.equal((await switching).activeContextId,b.id);assert.equal(h.windows[0].visible,false);assert.ok(h.messages.some(row=>row[0]==='context-external-finished'&&row[1]===query[1]));
- h.rawHandlers.get('desktop-context-control')(event,'hold',true);assert.throws(()=>h.handlers.get('workflow-context')(null,a.id),/桌面工作情境/);h.rawHandlers.get('desktop-context-control')(event,'hold',false);const rejected=h.rawHandlers.get('desktop-context-select')(event,a.id,h.handlers.get('workflow-context-state')().revision),second=h.messages.findLast(row=>row[0]==='context-external-query');h.handlers.get('context-external-reply')(null,second[1],false);await assert.rejects(rejected,/未儲存/);assert.equal(h.handlers.get('workflow-context-state')().activeContextId,b.id);assert.equal(h.windows[0].visible,false);
- for(const channel of ['desktop-context-get','desktop-context-control','desktop-context-select','desktop-context-resource','desktop-context-file','desktop-context-snippet'])assert.throws(()=>h.rawHandlers.get(channel)({sender:window.webContents,senderFrame:{url:window.url+'?spoof'}}),/不受信任/);
+test('retired workflow and context IPC channels are unavailable',t=>{
+ const h=harness(t);
+ for(const name of ['workflow-summary','workflow-capture','workflow-convert','workflow-dismiss','workflow-automation-preview','workflow-automation-apply','workflow-analyze','workflow-duplicates-trash','workflow-analysis-cancel','workflow-context','workflow-context-state','workflow-save','workflow-remove','context-desktop-open','desktop-context-get'])
+  assert.equal(h.rawHandlers.has(name),false,name);
+ const saved=h.handlers.get('desktop-settings-get')();
+ assert.equal(saved.contextDisplayMode,undefined);
+ assert.equal(saved.floatingToolLayout.contexts,undefined);
 });
 
-test('removed IPC channels are absent and desktop context is separate from the floating tool',t=>{const h=harness(t);for(const suffix of ['summary','capture','convert','dismiss','automation-preview','automation-apply','analyze','duplicates-trash','analysis-cancel'])assert.equal(h.rawHandlers.has('workflow-'+suffix),false,suffix);h.handlers.get('floating-show')();const mini=h.windows.at(-1);h.handlers.get('context-desktop-open')();const context=h.windows.at(-1);assert.notEqual(context,mini);assert.match(context.url,/desktop-context.html$/);assert.equal(context.options.parent,undefined);assert.equal(h.windows.length,3);});
-test('legacy enabled automations remain readable but never execute on record writes',t=>{const h=harness(t),state=h.handlers.get('notes-template')(),sheet=state.document.sheets[0],crypto=require('node:crypto'),store=new(require('../src/workflow-store').WorkflowStore)(path.join(h.dir,'workflow-state.json'));store.change(data=>data.automations.push(require('../src/workflow-model').definition('automations',{id:crypto.randomUUID(),name:'Legacy',sheetId:sheet.id,trigger:'created',enabled:true,action:'draft',value:'must not run'})));h.handlers.get('notes-record-save')(null,{sheetId:sheet.id,title:'No events',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});assert.equal(h.handlers.get('workflow-state')().drafts.length,0);assert.equal(store.read().automations.length,1);assert.throws(()=>h.handlers.get('workflow-save')(null,'automations',{name:'new'}),/移除/);});
-test('closing the main window also destroys its separate desktop context',t=>{const h=harness(t);h.handlers.get('context-desktop-open')();const context=h.windows.at(-1);assert.equal(context.destroyed,false);h.windows[0].close();assert.equal(context.destroyed,true);});
-test('context display mode opens an in-app panel without another desktop window and checks its source',async t=>{const h=harness(t);h.handlers.get('context-desktop-open')();const native=h.windows.at(-1),count=h.windows.length,mainEvent={sender:h.windows[0].webContents,senderFrame:{url:h.windows[0].url}};assert.throws(()=>h.rawHandlers.get('desktop-context-get')(mainEvent),/不受信任/);h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'app'});assert.equal(native.visible,false);assert.equal(h.handlers.get('context-desktop-open')().app,true);assert.equal(h.windows.length,count);assert.ok(h.messages.some(row=>row[0]==='context-app-open'));assert.equal(h.rawHandlers.get('desktop-context-get')(mainEvent).presentation,'app');assert.throws(()=>h.rawHandlers.get('desktop-context-control')(mainEvent,'topmost',true),/不提供/);h.rawHandlers.get('desktop-context-control')(mainEvent,'hold',true);assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'desktop'}),/完成/);h.rawHandlers.get('desktop-context-control')(mainEvent,'hold',false);assert.throws(()=>h.rawHandlers.get('desktop-context-get')({...mainEvent,senderFrame:{url:mainEvent.senderFrame.url+'#spoof'}}),/不受信任/);h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'desktop'});h.handlers.get('context-desktop-open')();assert.equal(native.visible,true);assert.equal(h.windows.length,count);assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'other'}),/無效/);});
+test('legacy enabled automations remain readable but never execute on record writes',t=>{const h=harness(t),state=h.handlers.get('notes-template')(),sheet=state.document.sheets[0],crypto=require('node:crypto'),store=new(require('../src/workflow-store').WorkflowStore)(path.join(h.dir,'workflow-state.json'));store.change(data=>data.automations.push(require('../src/workflow-model').definition('automations',{id:crypto.randomUUID(),name:'Legacy',sheetId:sheet.id,trigger:'created',enabled:true,action:'draft',value:'must not run'})));h.handlers.get('notes-record-save')(null,{sheetId:sheet.id,title:'No events',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});assert.equal(h.handlers.get('workflow-state')().drafts.length,0);assert.equal(store.read().automations.length,1);assert.equal(h.handlers.has('workflow-save'),false);});
 test('showing the floating tool clears stale menu suppression and explicitly repairs topmost state',t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),calls=[];floating.setAlwaysOnTop=(value,level)=>{calls.push([value,level]);floating.onTop=value;};floating.moveTop=()=>calls.push(['moveTop']);floating.nativeMenuOpen=true;h.handlers.get('floating-show')();assert.equal(floating.nativeMenuOpen,false);assert.deepEqual(calls.slice(-3),[[false,undefined],[true,'floating'],['moveTop']]);assert.equal(h.windows.length,2);});
 test('operation-center list and queue IPCs are gone while ordinary file cancellation remains',t=>{const h=harness(t);for(const name of ['workflow-operation-list','workflow-operation-undo','workflow-queue-add','workflow-queue-remove','workflow-queue-run','workflow-folder'])assert.equal(h.rawHandlers.has(name),false,name);assert.equal(h.rawHandlers.has('workflow-operation-cancel'),true);});
 
-test('context worksets use the active presentation window for confirmation before any desktop window exists',async t=>{
- const h=harness(t),file=path.join(h.dir,'context-workset.txt');fs.writeFileSync(file,'content');
- const workset=h.handlers.get('productivity-save')(null,'worksets',{name:'Project files',favoriteIds:[],recordIds:[],paths:[file]}).worksets[0];
- const context=h.handlers.get('workflow-save')(null,'contexts',{name:'Project',worksetId:workset.id});h.handlers.get('workflow-context')(null,context.id);
- h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'app'});h.handlers.get('context-desktop-open')();assert.equal(h.windows.length,1);
- const event=window=>({sender:window.webContents,senderFrame:{url:window.url}});let expected=h.windows[0],accept=true,prompts=0;
- h.dialog.showMessageBox=async(owner,options)=>{assert.equal(owner,expected);assert.equal(options.title,'開啟情境工作集');prompts++;return {response:accept?0:1};};
- let result=await h.rawHandlers.get('desktop-context-resource')(event(expected),'workset',workset.id,context.id);assert.equal(result.opened,1);assert.deepEqual(h.opened,[file]);
- accept=false;result=await h.rawHandlers.get('desktop-context-resource')(event(expected),'workset',workset.id,context.id);assert.equal(result.canceled,true);assert.equal(h.opened.length,1);
- h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'desktop'});h.handlers.get('context-desktop-open')();expected=h.windows.at(-1);accept=true;
- result=await h.rawHandlers.get('desktop-context-resource')(event(expected),'workset',workset.id,context.id);assert.equal(result.opened,1);assert.equal(prompts,3);
- h.handlers.get('desktop-settings-set')(null,{contextDisplayMode:'app'});expected=h.windows[0];result=await h.rawHandlers.get('desktop-context-resource')(event(expected),'workset',workset.id,context.id);assert.equal(result.opened,1);assert.equal(prompts,4);
-});
-
 test('floating workspace sends the standalone tracking page and protects idle collapse while native menus are open',async t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),event={sender:floating.webContents,senderFrame:{url:floating.url}};await h.rawHandlers.get('floating-workspace')(event,'page','tracking');assert.ok(h.messages.some(row=>row[0]==='open-app-page'&&row[1]==='tracking'));await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'page','unknown'),/頁面/);assert.throws(()=>h.rawHandlers.get('floating-workspace')({sender:{},senderFrame:{url:floating.url}},'list'),/不受信任/);floating.nativeMenuOpen=true;assert.equal((await h.rawHandlers.get('floating-workspace')(event,'idle-collapse')).skipped,true);assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,false);floating.nativeMenuOpen=false;await h.rawHandlers.get('floating-workspace')(event,'idle-collapse');assert.equal(h.handlers.get('desktop-settings-get')().floatingCollapsed,true);});
 
-test('all six tool panes reuse canonical records, drafts and favorites with owned IPC and independent topmost',async t=>{
+test('all five tool panes reuse canonical records, drafts and favorites with owned IPC and independent topmost',async t=>{
  const h=harness(t),source=path.join(h.dir,'reference.txt');fs.writeFileSync(source,'keep');h.handlers.get('favorites-add')(null,[source],[]);h.handlers.get('productivity-save')(null,'snippets',{name:'Reply',body:'Existing reply',category:'Work'});
- const context=h.handlers.get('workflow-save')(null,'contexts',{name:'Client A'});h.handlers.get('workflow-context')(null,context.id);
- await h.handlers.get('floating-tool-action')(null,'drafts','new');assert.equal(h.handlers.get('floating-tool-data')(null,'drafts').rows.length,1);assert.equal(h.handlers.get('floating-tool-data')(null,'files').rows[0].path,source);assert.equal(h.handlers.get('floating-tool-data')(null,'snippets',{}).rows[0].title,'Reply');assert.equal(h.handlers.get('floating-tool-data')(null,'contexts').state.activeContextId,context.id);
- const owned=new Map();for(const kind of ['snippets','planning','contexts','files','drafts','clipboard']){await h.handlers.get('floating-workspace')(null,'tool',kind);const owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}};owned.set(kind,{owner,event});assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,kind);}
+ await h.handlers.get('floating-tool-action')(null,'drafts','new');assert.equal(h.handlers.get('floating-tool-data')(null,'drafts').rows.length,1);assert.equal(h.handlers.get('floating-tool-data')(null,'files').rows[0].path,source);assert.equal(h.handlers.get('floating-tool-data')(null,'snippets',{}).rows[0].title,'Reply');assert.throws(()=>h.handlers.get('floating-tool-data')(null,'contexts'),/類型無效/);
+ const owned=new Map();for(const kind of ['snippets','planning','files','drafts','clipboard']){await h.handlers.get('floating-workspace')(null,'tool',kind);const owner=h.windows.at(-1),event={sender:owner.webContents,senderFrame:{url:owner.url}};owned.set(kind,{owner,event});assert.equal(h.rawHandlers.get('tool-overlay-get')(event).config.kind,kind);}
  const count=h.windows.length,{owner,event}=owned.get('snippets');await h.handlers.get('floating-workspace')(null,'tool','snippets');assert.equal(h.windows.length,count);h.rawHandlers.get('tool-overlay-control')(event,'topmost',false);assert.equal(owner.onTop,false);assert.equal(h.rawHandlers.get('tool-overlay-get')(event).pinnedWindow,true);const calendar=owned.get('planning').owner,before={...calendar.getNormalBounds()};h.handlers.get('desktop-settings-set')(null,{floatingLauncher:'dock',floatingDockEdge:'bottom'});assert.deepEqual(calendar.getNormalBounds(),before);assert.equal(calendar.destroyed,false);
- assert.throws(()=>h.rawHandlers.get('floating-tool-data')(owned.get('clipboard').event,'contexts'),/來源不符/);assert.throws(()=>h.rawHandlers.get('floating-tool-data')({sender:{},senderFrame:{url:owner.url}},'files'),/不受信任/);
+ assert.throws(()=>h.rawHandlers.get('floating-tool-data')(owned.get('clipboard').event,'files'),/來源不符/);assert.throws(()=>h.rawHandlers.get('floating-tool-data')({sender:{},senderFrame:{url:owner.url}},'files'),/不受信任/);
  h.rawHandlers.get('tool-overlay-control')(event,'close');assert.equal(owner.isDestroyed(),true);await h.handlers.get('floating-workspace')(null,'tool','snippets');assert.equal(h.windows.length,count+1);assert.equal(h.windows.at(-1).isVisible(),true);
 });
 test('panel settings preserve existing layout and reject writes outside the narrow floating allowlist',async t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),event={sender:floating.webContents,senderFrame:{url:floating.url}};await h.rawHandlers.get('floating-workspace')(event,'options',{floatingDockEdge:'left',floatingDockReveal:'hover',floatingRestorePanels:true});const settings=h.handlers.get('desktop-settings-get')();assert.equal(settings.floatingDockEdge,'left');assert.equal(settings.floatingRestorePanels,true);await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'options',{theme:'light'}),/浮動設定/);await assert.rejects(h.rawHandlers.get('floating-workspace')(event,'options',{floatingOpacity:1}),/浮動設定/);});

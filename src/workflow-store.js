@@ -11,10 +11,8 @@ function normalize(input){
  if(Buffer.byteLength(JSON.stringify(data))>12*1024*1024)throw Error('工作流程資料超過 12 MB');return data;
 }
 class WorkflowStore{
- constructor(filename,onChanged=()=>{}){this.filename=filename;this.onChanged=onChanged;this.read();}
+ constructor(filename){this.filename=filename;this.read();}
  read(){try{return normalize(JSON.parse(readStableBytes(this.filename,{maxBytes:12*1024*1024,label:'工作流程設定'})));}catch(error){if(error.code==='ENOENT')return empty();throw error;}}
- change(task,revision){const data=this.read();if(revision!==undefined&&data.revision!==revision)throw Error('工作流程設定已變更，請重新整理');const result=task(data);data.revision++;writeJSON(this.filename,normalize(data));try{this.onChanged();}catch{/* Persisted changes remain valid if a window has closed. */}return result??data;}
- save(kind,input,revision){return this.change(data=>{if(kind!=='contexts')throw Error('設定類型無效');if(input.id&&!data[kind].some(item=>item.id===input.id))throw Error('設定已移除');const item=M.definition(kind,{...input,id:input.id||crypto.randomUUID()});data[kind]=[...data[kind].filter(value=>value.id!==item.id),item];if(data[kind].length>100)throw Error('每類最多 100 個設定');return item;},revision);}
- remove(kind,id,revision){return this.change(data=>{if(kind!=='contexts'||!data[kind].some(item=>item.id===id))throw Error('設定已移除');data[kind]=data[kind].filter(item=>item.id!==id);if(data.activeContextId===id)data.activeContextId=null;},revision);}
+ change(task,revision){const data=this.read();if(revision!==undefined&&data.revision!==revision)throw Error('工作流程設定已變更，請重新整理');const result=task(data);data.revision++;writeJSON(this.filename,normalize(data));return result??data;}
 }
 module.exports={WorkflowStore,normalize,empty};
