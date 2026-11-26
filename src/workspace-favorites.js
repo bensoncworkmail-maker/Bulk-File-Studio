@@ -55,7 +55,7 @@
    await api.batchBookmarks([{kind:item.kind,id:item.id}],'remove',[]);
    selected.delete(key(item));detail()?.removed(item);
    await refresh();
-   callbacks.showToast(item.logPinned?'已移除收藏；查看紀錄釘選仍保留':'已移除收藏');
+   callbacks.showToast(item.logPinned?'已移除收藏，桌面便條仍保留':'已移除收藏');
   }catch(error){callbacks.showFailure('無法移除收藏',error);}
   finally{saving=false;render();}
  }
@@ -290,7 +290,7 @@
    const chips=node('div',undefined,'workspace-favorite-tags');
    if(item.followRecords)chips.append(node('span','整表同步 · '+(item.followedCount||0)+' 筆','workspace-favorite-pin'));
    if(item.tracked)chips.append(node('span','由「'+item.trackedBy.title+'」整表同步'+(item.manual?' · 亦有單筆收藏':''),'workspace-favorite-pin'));
-   if(item.logPinned)chips.append(node('span',item.saved?'查看紀錄已釘選':'僅釘選・尚未加入收藏','workspace-favorite-pin'));
+   if(item.logPinned)chips.append(node('span',item.saved?'已釘選桌面便條':'僅釘選・尚未加入收藏','workspace-favorite-pin'));
    if(!item.available)chips.append(node('span','項目已移除或在回收筒','workspace-favorite-pin'));
    for(const tag of item.tags)chips.append(action(tag,()=>{activeTag=tag.toLocaleLowerCase();render();},'favorite-badge'));
    if(chips.children.length)body.append(chips);

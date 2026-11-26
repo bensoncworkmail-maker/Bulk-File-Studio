@@ -2,12 +2,12 @@
 
 版本：v1.143.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 244 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、29 項功能導覽與 283 個介面／桌面偏好。
+讀取 src 全部 247 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 284 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
 - 工作集可從工具箱直接開啟，並可使用檔案和資料夾選擇器。情境包與桌面情境入口已移除，舊流程資料保留供相容讀取與備份。
-- 查看紀錄浮窗保留失焦前的內容，每筆釘選對應獨立桌面便條。常用文字外部分類選擇窗支援方向鍵。ZIP 一般解壓可沿用 Everything 快照開啟或定位檔案。草稿移除附件只解除連結。
+- 查看紀錄浮窗保留失焦前的內容，每筆釘選對應獨立桌面便條。資料工作區、Everything 追蹤及我的收藏共用便條管理。背景色、標題欄位及釘選來源可從設定調整。常用文字外部分類選擇窗支援方向鍵。ZIP 一般解壓可沿用 Everything 快照開啟或定位檔案。草稿移除附件只解除連結。
 - Everything 排序由共用驗證模型管理，按追蹤 ID 保存欄位、方向與各欄位上次方向；欄位隱藏時暫用名稱排序，不刪除原偏好。
 - 追蹤定時更新、選取與批次操作共用可收合工具列，啟動立即還原狀態並保留更新摘要、已選數量、所選項目選單、右鍵與快捷鍵，收合狀態納入偏好還原／匯出。
 - 一般收藏既有排序由 favoriteSort／favoriteDirection 保存；工作區由 notes-table-state 管理表格版面與篩選；查看紀錄由 log-view-settings-model 管理各範圍篩選／排序歷史，沒有另建平行資料來源。
@@ -47,7 +47,7 @@
 | [notes-sheet-change.js](../src/notes-sheet-change.js) | `apply`、`populated`、`removedColumns` |
 | [notes-store.js](../src/notes-store.js) | `addTemplate`、`applyCustomTemplate`、`backup`、`batchAreas`、`batchSheets`、`batchTrash`、`bulkCommit`、`bulkPreview`、`cancelPreview`、`close`、`completeClientDetails`、`constructor`、`createDraft`、`deleteDraft`、`draft`、`draftAttachmentPaths`、`draftList`、`duplicateRecord`、`exportPreview`、`get`、`hasSharedBase`、`history`、`importDetails`、`isUNC`、`key`、`planImport`、`removeArea`、`restoreCommit`、`restoreHistory`、`restorePreview`、`saveArea`、`saveCopies`、`saveDraft`、`saveSharedBase`、`saveSheet`、`sharedBase`、`sheetCommit`、`sheetPreview`、`tabularCommit`、`tabularFileLinks`、`tabularPaths`、`tabularPreview`、`tabularPreviewIntranet`、`takePreview`、`trash`、`updateCells` |
 | [notes-table-state.js](../src/notes-table-state.js) | `filter`、`normalizeFilter`、`normalizeFilters`、`normalizeViewModes`、`selection`、`statusField`、`statusOptions`、`viewGroup`、`viewKey` |
-| [notes-tools-store.js](../src/notes-tools-store.js) | `bookmarkKey`、`bookmarkTags`、`change`、`cleanTemplate`、`constructor`、`contactText`、`get`、`manageBookmarkTag`、`normalizeTools`、`pin`、`remove`、`saveTemplate`、`saveView`、`setBookmark`、`setBookmarkTags`、`setLogPin`、`view`、`workspaceItems` |
+| [notes-tools-store.js](../src/notes-tools-store.js) | `bookmarkKey`、`bookmarkTags`、`change`、`cleanTemplate`、`clearStickerPins`、`constructor`、`contactText`、`get`、`manageBookmarkTag`、`normalizeTools`、`pin`、`remove`、`saveTemplate`、`saveView`、`setBookmark`、`setBookmarkTags`、`setFileStickerPin`、`setLogPin`、`view`、`workspaceItems` |
 | [notes-web-links.js](../src/notes-web-links.js) | `openRecordWebsite` |
 | [notes-xlsx.js](../src/notes-xlsx.js) | `add`、`content`、`decodeExcelText`、`encodeExcelText`、`excelColumn`、`excelDate`、`lname`、`parse`、`preflight`、`readSpreadsheetFile`、`readXlsx`、`relation`、`writeXlsx`、`xml` |
 | [notes.css](../src/notes.css) | 版面、主題與互動狀態樣式 |
@@ -78,7 +78,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`setFloatingCollapsed`、`setLogStickerPin`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [navigation-model.js](../src/navigation-model.js) | `normalize` |
 | [navigation-settings.js](../src/navigation-settings.js) | `mount`、`render` |
@@ -98,6 +98,7 @@
 | [relocation-perform.js](../src/relocation-perform.js) | `perform` |
 | [renderer.js](../src/renderer.js) | `$`、`addFromResult`、`append`、`applyFontSize`、`applyRules`、`applyTheme`、`basename`、`bind`、`bindFileSelection`、`choose`、`chooseFiles`、`chooseFolder`、`clearFiles`、`confirmRename`、`describe`、`dirname`、`dragOver`、`dropTarget`、`element`、`enqueuePreview`、`executeRename`、`executeUndo`、`expandGroups`、`exportCSV`、`filterFiles`、`getRules`、`groupHeader`、`grouped`、`init`、`initPresets`、`isFileDrag`、`moveListedSelection`、`norm`、`paintPreviewSort`、`previewOrder`、`render`、`renderFiles`、`renderSavedPresets`、`renderTable`、`renderWorkspaceControls`、`saveCollapsedLocations`、`saveRulePreferences`、`selectFiltered`、`setBusy`、`setRuleTab`、`shortDir`、`showDrop`、`showFailure`、`showToast`、`single`、`storeSavedPresets`、`undo`、`updatePreview`、`updateRuleControls`、`visibleGroupRows`、`wireEvents`、`withoutPrefix` |
 | [scheduled-backup.js](../src/scheduled-backup.js) | `tick` |
+| [sticker-settings.js](../src/sticker-settings.js) | `$`、`choices`、`enabled`、`init`、`pin`、`refresh`、`renderCounts`、`renderHeader`、`status`、`sync` |
 | [style.css](../src/style.css) | 版面、主題與互動狀態樣式 |
 | [table-selection.js](../src/table-selection.js) | `add`、`begin`、`bind`、`choose`、`clear`、`control`、`create`、`editable`、`enhance`、`guard`、`modifier`、`paint`、`primary`、`range`、`reorder`、`selectAll`、`sort` |
 | [theme.js](../src/theme.js) | 宣告、設定或共用模型 |
@@ -182,6 +183,8 @@
 | --- | --- |
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`registerShortcuts`、`setLogin` |
 | [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`snippetPickerGroups`、`update`、`validBounds`、`write` |
+| [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`colorText`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions` |
+| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeRecord`、`changedPins`、`config`、`control`、`counts`、`document`、`filePinByKey`、`openLink`、`openLocation`、`pinFile`、`read`、`recordFor`、`register`、`remove`、`sourceEnabled` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
 | [floating-auto-collapse.js](../src/floating-auto-collapse.js) | `reset`、`tick` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
@@ -218,10 +221,10 @@
 | [global-shortcuts.js](../src/global-shortcuts.js) | `fromEvent`、`normalize`、`validatePair` |
 | [layout-editor.js](../src/layout-editor.js) | `bind`、`floating`、`main` |
 | [log-sticker-preload.js](../src/log-sticker-preload.js) | 宣告、設定或共用模型 |
-| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`render` |
+| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`render`、`report`、`toggle` |
 | [log-sticker.css](../src/log-sticker.css) | 版面、主題與互動狀態樣式 |
 | [log-sticker.html](../src/log-sticker.html) | 視窗／頁面結構及本機資源引用 |
-| [log-stickers.js](../src/log-stickers.js) | `bounds`、`close`、`constructor`、`open`、`owner`、`payload`、`recover`、`refresh`、`remove`、`restore`、`toggle` |
+| [log-stickers.js](../src/log-stickers.js) | `bounds`、`close`、`constructor`、`open`、`owner`、`payload`、`recover`、`refresh`、`remove`、`restore`、`setAllCollapsed`、`setCollapsed`、`toggle` |
 | [log-view-settings-model.js](../src/log-view-settings-model.js) | `allowedSheet`、`logFilterKey`、`normalize`、`normalizeFilters`、`normalizeHistory` |
 | [log-view-settings.js](../src/log-view-settings.js) | `$`、`init`、`refreshTables`、`renderTables`、`sync` |
 | [resizable-split.js](../src/resizable-split.js) | `attach`、`bounds`、`end`、`persist`、`set` |

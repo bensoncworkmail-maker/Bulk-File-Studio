@@ -21,7 +21,7 @@ const {tagMenu,tagListMenu}=require('./floating-tag-menu');
 const {prepareBatch,executeBatch}=require('./favorites-batch');
 const {tagList,basename}=require('./favorites-model');
 let displayRecovery,pasteTargetSession,workspaceService;
-let recordReminders,recordNotification,recordAttention,floatingSearch,productivity,toolOverlay,snippetPicker,logStickers;
+let recordReminders,recordNotification,recordAttention,floatingSearch,productivity,toolOverlay,snippetPicker,logStickers,stickerService;
 const quickActions=require('./quick-actions-model');
 const panelModel=require('./floating-panels-model');
 const {prepareTrash,executeTrash,executeTrashBatch}=require('./favorites-trash');
@@ -157,7 +157,7 @@ let queuedFavorites = favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
 let favoriteNotice = null;
 function send(window,channel,payload){if(window&&!window.isDestroyed())window.webContents.send(channel,payload);}
-function notifyFavorites(payload = {}) {toolOverlay?.invalidate('files');closeFloatingMenu();send(win,'favorites-changed',payload);send(floating,'favorites-changed',{});send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();}
+function notifyFavorites(payload = {}) {logStickers?.refresh();toolOverlay?.invalidate('files');closeFloatingMenu();send(win,'favorites-changed',payload);send(floating,'favorites-changed',{});send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();}
 function receiveFavorites(argv, transferredPaths) {
   queuedFavorites.push(...(transferredPaths===undefined?favoriteArguments(argv):validFavoritePaths(transferredPaths)));
   if (queuedFavorites.length && favorites) {
@@ -721,6 +721,7 @@ app.whenReady().then(() => {
     if(Object.hasOwn(patch,'snippetPicker'))require('./snippet-picker-model').normalize(patch.snippetPicker,true);
     if(Object.hasOwn(patch,'floatingPanels'))panelModel.normalize(patch.floatingPanels,true);
     if(Object.hasOwn(patch,'calendarScope'))require('./calendar-scope').normalize(patch.calendarScope,true);
+    if(Object.hasOwn(patch,'desktopStickers'))require('./desktop-sticker-model').settings(patch.desktopStickers,true);
     if(Object.hasOwn(patch,'logView'))require('./log-view-settings-model').normalize(patch.logView,true);
     if(Object.hasOwn(patch,'globalSearchCriteria'))require('./search-criteria').normalize(patch.globalSearchCriteria,true);
     if(Object.hasOwn(patch,'renameVerification')&&!['fast','full'].includes(patch.renameVerification))throw new Error('改名校驗模式無效');
@@ -745,6 +746,7 @@ app.whenReady().then(() => {
     if(settings.closeToTray||settings.startHidden){shellWarning='';desktopShell.ensureTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
     if(floating&&!floating.isDestroyed()){floating.setTitle('Bulk File Studio · '+(settings.floatingTitle||'浮動工具'));floating.pinController?.sync();floatingWindow.apply();}
+    if(Object.hasOwn(patch,'desktopStickers'))logStickers?.refresh();
     drafts?.updateSettings();floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   };
   function saveToolLayout(kind,patch){const layout=require('./floating-tool-layout').normalize({...desktop.settings.floatingToolLayout,[kind]:{...desktop.settings.floatingToolLayout[kind],...patch}},true),settings=desktop.update({floatingToolLayout:layout});send(win,'desktop-settings-changed',{settings});send(floating,'desktop-settings-changed',{settings});return settings;}
@@ -1148,7 +1150,7 @@ app.whenReady().then(() => {
     const model=require('./tool-views-model'),doc=notesStore().get().document;
     const record=model.logRecord(doc,config,desktop.settings.logView,id);
     if(action==='pin'){
-      setLogStickerPin(doc,id,pinned);return;
+      stickerService.changeRecord(doc,id,pinned);return;
     }
     if(action==='sticker'){logStickers.open(id);return;}
     if(action==='detail')return model.logDetail(doc,record);
@@ -1168,37 +1170,22 @@ app.whenReady().then(() => {
   ipcMain.handle('tool-overlay-control',(event,action,value)=>overlayAction(event,entry=>toolOverlay.control(entry,action,value)));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
-  function setLogStickerPin(doc,id,pinned){
-    toolsStore().setLogPin(doc,id,pinned);
-    if(pinned)logStickers.open(id);
-    else logStickers.remove(id);
-    toolsChanged();
-    toolOverlay.invalidate('logs');
-  }
-  logStickers=new(require('./log-stickers').LogStickers)({
-    BrowserWindow,screen,secureWindow,
-    read:ids=>{
-      const pinned=toolsStore().get().logPins||[];
-      const requested=ids?new Set(ids):null;
-      const wanted=new Set(requested?pinned.filter(id=>requested.has(id)):pinned);
-      if(!wanted.size)return new Map();
-      const doc=notesStore().get().document,{live}=require('./notes-model'),{logDetail}=require('./tool-views-model');
-      return new Map(doc.records.filter(record=>wanted.has(record.id)&&live(doc,record))
-       .map(record=>[record.id,logDetail(doc,record)]));
+  stickerService=require('./desktop-sticker-service').register({
+    handle,ipcMain,BrowserWindow,screen,secureWindow,notes:notesStore,tools:toolsStore,
+    favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,
+    changed:()=>{
+      toolsChanged();toolOverlay.invalidate('logs');send(win,'desktop-stickers-changed');
     },
-    unpin:id=>setLogStickerPin(notesStore().get().document,id,false),
-    onError:error=>diagnostics.record('main','log-sticker',error)
+    invokeOwned:(action,task)=>loggedInvocation('desktop-sticker',action,()=>{
+      if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw Error('請先完成資料復原');
+      return task();
+    }),
+    onError:error=>diagnostics.record('main','desktop-sticker',error)
   });
-  for(const [action,task] of [
-    ['get',entry=>logStickers.payload(entry)],
-    ['toggle',entry=>logStickers.toggle(entry)],
-    ['close',entry=>logStickers.unpin(entry.id)],
-    ['visit',entry=>navigateWorkspace(entry.id)]
-  ])ipcMain.handle('log-sticker-'+action,event=>loggedInvocation('log-sticker',action,()=>{
-    const entry=logStickers.owner(event);
-    if(!entry)throw Error('不受信任的便條操作來源');
-    if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw Error('請先完成資料復原');
-    return task(entry);
+  logStickers=stickerService.manager;
+  ipcMain.handle('tool-overlay-sticker-control',(event,action)=>overlayAction(event,({config})=>{
+    if(config.kind!=='logs')throw Error('此視窗沒有便條管理功能');
+    return stickerService.control(action);
   }));
   productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');send(floating,'floating-panel-changed','snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();toolOverlay.invalidate('logs');logStickers.refresh();send(win,'record-reminders-changed',recordReminders.list());}});
   try{journal().recover();}catch(error){diagnostics.record('main','operation-journal-recovery',error);}

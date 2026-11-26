@@ -26,6 +26,7 @@
   {group:'快捷與工具',title:'文件預覽',description:'本機文件與內容預覽',tool:'preview'},
   {group:'設定與資料',title:'備份／還原',description:'整體資料備份、設定匯入匯出、本機備份、還原與版本',tool:'backup'},
   {group:'設定與資料',title:'浮動工具與快捷動作',description:'按鈕、目標表格、Everything 追蹤、搜尋、收合列、外部選單',settings:'floating'},
+  {group:'設定與資料',title:'桌面便條',description:'查看紀錄、資料工作區、Everything 追蹤與我的收藏釘選，設定顏色、標題及批次管理',settings:'stickers'},
   {group:'設定與資料',title:'快捷鍵與專注模式',description:'全域與視窗快捷鍵、衝突檢查、專注保留、切換狀態',settings:'shortcuts'},
   {group:'設定與資料',title:'外觀與版面',description:'主題、字級、密度、拖曳編輯、尺寸與面板',settings:'appearance'},
   {group:'設定與資料',title:'啟動與 Everything 整合',description:'啟動頁、es.exe、本機索引、啟用與停用',settings:'system'},

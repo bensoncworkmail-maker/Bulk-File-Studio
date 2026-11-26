@@ -141,6 +141,18 @@
    const filterFooter=node('div',undefined,'tool-view-log-filter-footer');
    filterFooter.append(advanced);
    if(pinnedOnlyButton)filterFooter.append(pinnedOnlyButton);
+   if(api.stickers){
+    const desktopPins=node('details',undefined,'tool-view-display-options'),buttons=node('div',undefined,'tool-view-filters');
+    desktopPins.append(node('summary','桌面便條'),buttons);
+    for(const [action,label] of [['expand','展開全部'],['collapse','收合全部'],['clear','取消全部釘選']]){
+     buttons.append(button(label,async()=>{
+      if(action==='clear'&&!window.confirm('取消所有來源的桌面便條釘選？'))return;
+      try{await api.stickers(action);desktopPins.open=false;await load();}
+      catch(error){status.textContent=error.message;}
+     }));
+    }
+    filterFooter.append(desktopPins);
+   }
    filterPanel.append(filterFooter);
    const viewPanel=node('details',undefined,'tool-view-display-options'),viewFields=node('div',undefined,'tool-view-filters');
    viewPanel.append(node('summary','檢視'),viewFields);filterFooter.append(viewPanel);
@@ -535,7 +547,7 @@
     data:filters=>api.data(config.kind,filters),
     action:(action,value,customer)=>api.action(config.kind,action,value,customer),
     ...(config.kind==='logs'?{
-     close:api.close,saveFilters:filters=>api.saveLogFilters(logContext,filters),
+     close:api.close,stickers:api.stickers,saveFilters:filters=>api.saveLogFilters(logContext,filters),
      ...(api.logRecord?{logRecord:(...args)=>api.logRecord(logContext,...args)}:{}),
      ...(api.pinLogWindow?{pinWindow:value=>api.pinLogWindow(logContext,value)}:{})
     }:{})

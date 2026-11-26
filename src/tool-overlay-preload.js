@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('toolOverlayAPI',Object.freeze({
  pinLogWindow:(context,pinned)=>ipcRenderer.invoke('tool-overlay-log-window',context,pinned),
  switchTab:kind=>ipcRenderer.invoke('tool-overlay-switch',kind),
  close:()=>ipcRenderer.invoke('tool-overlay-close'),
+ stickers:action=>ipcRenderer.invoke('tool-overlay-sticker-control',action),
  onRefresh:callback=>ipcRenderer.on('tool-overlay-refresh',(_,config)=>callback(config))
 }));

@@ -188,5 +188,5 @@
     });
     refreshInfo();
   }
-  window.settingsUI=Object.freeze({openCategory:group=>{if(!tabs.includes(group)||callbacks?.isBusy()||window.notesUI&&!window.notesUI.canLeave())return false;workbench?.clear();update({settingsTab:group});return window.favoritesUI.show('settings');},get:()=>({...settings}),init,update,refreshInfo,hasOpenDialog:()=>$('settings-reset-dialog').open});
+  window.settingsUI=Object.freeze({openCategory:group=>{if(!tabs.includes(group)||callbacks?.isBusy()||window.notesUI&&!window.notesUI.canLeave())return false;workbench?.clear();update({settingsTab:group});if(group==='stickers')void window.stickerSettingsUI?.refresh();return window.favoritesUI.show('settings');},get:()=>({...settings}),init,update,refreshInfo,hasOpenDialog:()=>$('settings-reset-dialog').open});
 })();
