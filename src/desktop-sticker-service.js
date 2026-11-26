@@ -8,8 +8,9 @@ const {inspectPath,sameIdentity}=require('./favorites-store');
 const {assertOpenableLocation,inspectLocation,openRecordLink}=require('./notes-location-links');
 const {workspaceBookmarks}=require('./workspace-bookmark-model');
 const {LogStickers}=require('./log-stickers');
+const {FloatingMenu}=require('./floating-menu');
 
-function register({handle,ipcMain,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,visitFavorite,visitTracking,openFavorite,shell,clipboard,...windowOptions}){
+function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,visitFavorite,visitTracking,openFavorite,shell,clipboard,...windowOptions}){
  const document=()=>notes().get().document;
  const config=()=>preferences().desktopStickers;
  const filePinByKey=(list,key)=>list.find(pin=>model.fileKey(pin.kind,pin.id)===key);
@@ -168,6 +169,29 @@ function register({handle,ipcMain,invokeOwned,notes,tools,favorites,tracking,pre
   tracking().query(pin.queryId);
   return visitTracking(pin.queryId);
  }
+ function showHeaderMenu(entry,anchor){
+  const {window,id}=entry;
+  if(manager.hidden||!window.isVisible())return;
+  entry.menu??=new FloatingMenu({Menu,getWindow:()=>window,showWindow:()=>{},settings:preferences,
+   onError:windowOptions.onError,onSettled:onMenuSettled});
+  const command=(action,task)=>async()=>{
+   if(manager.hidden||manager.windows.get(id)!==entry||window.isDestroyed()||!window.isVisible())return;
+   try{await invokeOwned(action,task);}
+   catch(error){if(!window.isDestroyed())window.webContents.send('log-sticker-error',error.message);}
+  };
+  const collapsed=entry.collapsed;
+  entry.menu.popup([
+   {label:'在程式內開啟原項目',enabled:Boolean(entry.detail.visit),click:command('visit',()=>openTitle(entry))},
+   {label:'複製內文標題',click:command('copy-title',()=>clipboard.writeText(entry.detail.title))},
+   {type:'separator'},
+   {label:collapsed?'展開這張便條':'收合這張便條',click:command('toggle',()=>{
+    window.webContents.send('log-sticker-changed',manager.setCollapsed(entry,!collapsed));
+   })},
+   {label:'暫時隱藏這張便條',click:command('hide',()=>window.close())},
+   {type:'separator'},
+   {label:'取消釘選這張便條',click:command('close',()=>remove(id))}
+  ],{allowCollapsed:true,anchor});
+ }
  async function openLocation(entry,locate=false){
   const pin=filePinByKey(tools().get().fileStickerPins||[],entry.id);
   if(!pin)throw Error('便條已取消釘選');
@@ -267,6 +291,7 @@ function register({handle,ipcMain,invokeOwned,notes,tools,favorites,tracking,pre
 
  for(const [action,task] of [
   ['get',entry=>manager.payload(entry)],
+  ['menu',showHeaderMenu],
   ['toggle',(entry,point)=>manager.toggle(entry,point)],
   ['drag',(entry,...args)=>manager.drag(entry,...args)],
   ['close',entry=>remove(entry.id)],

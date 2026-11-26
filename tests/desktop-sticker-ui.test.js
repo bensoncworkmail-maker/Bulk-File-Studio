@@ -9,9 +9,10 @@ const {documentFromHTML}=require('./helpers/dom');
 test('sticker title toggles repeatedly at the same point, drags from the header and routes attachment cells',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  let collapsed=false,updates;
+ const menuPoints=[];
  const data={heading:'客戶 · 案件',title:'案件',links:[{kind:'file',label:'圖片.png',location:'C:/測試'},{kind:'url',label:'相關網址'}],version:12,fields:[],notes:'內容',visit:'在工作區開啟',background:'#ffffff',foreground:'#171717'};
  const actions=[],window={logSticker:{
-  get:async()=>({...data,collapsed}),toggle:async()=>({...data,collapsed:collapsed=!collapsed}),drag:async(...input)=>actions.push(input),
+  menu:async point=>menuPoints.push([point.x,point.y]),get:async()=>({...data,collapsed}),toggle:async()=>({...data,collapsed:collapsed=!collapsed}),drag:async(...input)=>actions.push(input),
   onChanged:callback=>updates=callback,onError:()=>{},visit:async()=>actions.push(['visit']),locate:async()=>{},close:async()=>{},
   openLink:async(...input)=>actions.push(input)
  }};
@@ -22,6 +23,12 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  assert.equal(document.getElementById('toggle'),null);
  await heading.dispatch('click');assert.equal(body.hidden,false);
  const header=document.getElementById('sticker-header'),grip=document.getElementById('sticker-grip');
+ assert.equal(grip.hidden,true);
+ await header.dispatch('contextmenu',{clientX:14,clientY:16});
+ heading.getBoundingClientRect=()=>({left:8,bottom:32});
+ await heading.dispatch('keydown',{key:'F10',shiftKey:true});
+ assert.deepEqual(menuPoints,[[14,16],[8,32]]);
+ assert.equal(body.hidden,false);
  const click={target:grip,button:0,pointerId:3,screenX:125,screenY:210};
  for(const [time,expected] of [[10,true],[450,false],[1300,true],[1710,false]]){
   await header.dispatch('pointerdown',{...click,timeStamp:time});
@@ -42,6 +49,8 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  await document.getElementById('links').querySelector('button').dispatch('click');
  await document.getElementById('title').querySelector('button').dispatch('click');
  assert.deepEqual(actions,[[0,12,'open','C:/測試'],[0,12,'show','C:/測試'],[0,12,'show','C:/測試'],[1,12],['visit']]);
+ updates({...data,collapsed:false,showGrip:true});
+ assert.equal(grip.hidden,false);
  updates({...data,heading:'更新內容',collapsed:false,showGrip:false,headerAtBottom:true});
  assert.equal(heading.textContent,'更新內容');assert.equal(grip.hidden,true);
  assert.equal(document.body.classList.contains('header-at-bottom'),true);
@@ -60,7 +69,9 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
 test('sticker settings save both sizes and grip while retaining header fields across tables',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/index.html'),'utf8'));
  const $=id=>document.getElementById('sticker-settings-'+id);
- const preferences=require('../src/desktop-sticker-model').settings();
+ const {settings}=require('../src/desktop-sticker-model'),preferences=settings();
+ assert.equal(preferences.showGrip,false);
+ assert.equal(settings({showGrip:true}).showGrip,true);
  const options=[
   {id:'logs',name:'紀錄',group:'客戶',itemFields:[{id:'title',label:'紀錄標題'},{id:'date',label:'日期'}],masterFields:[{id:'title',label:'紀錄標題'},{id:'code',label:'客戶代號'}]},
   {id:'projects',name:'專案',group:'',itemFields:[{id:'title',label:'紀錄標題'}],masterFields:[]}

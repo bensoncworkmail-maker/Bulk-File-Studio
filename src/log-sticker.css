@@ -11,7 +11,7 @@ header{background:var(--sticker-header-background,#d5eaf8);color:var(--sticker-h
 #close{width:36px;flex:none;border:0;background:transparent;color:inherit;font-size:18px}
 #close:hover{background:color-mix(in srgb,currentColor 12%,transparent)}
 main{flex:1;min-height:0;overflow:auto;padding:9px 12px 12px;overflow-wrap:anywhere}
-h1{margin:0 0 8px;font-size:1.26rem;font-weight:750;line-height:1.35}p{margin:0 0 8px;white-space:pre-wrap}
+#title{margin:0 0 4px;font-size:1.1rem;color:color-mix(in srgb,var(--sticker-foreground,#171717) 68%,#2978e6)}p{margin:0 0 8px;white-space:pre-wrap}
 dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:3px 8px;margin:0 0 8px}dd{margin:0}dt{font-weight:600}
 button{cursor:pointer;font:inherit}
 #links{display:flex;gap:6px;flex-wrap:wrap;margin-block:4px 8px}
