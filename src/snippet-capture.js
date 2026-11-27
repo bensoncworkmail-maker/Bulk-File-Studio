@@ -11,8 +11,8 @@ class SnippetCapture{
   if(!body)throw Error('選取文字為空白或超過 20,000 字元');
   this.openEditor(body,{onShown,foreground:Boolean(onShown)});
  }
- openBlank(){
-  const editor=this.blankEditor;
+ async openFromShortcut(){
+  const editor=this.shortcutEditor;
   if(editor&&!editor.window.isDestroyed()){
    if(editor.ready){
     if(editor.window.isMinimized())editor.window.restore();
@@ -21,9 +21,15 @@ class SnippetCapture{
    }
    return;
   }
-  this.openEditor('',{foreground:true,blank:true});
+  if(this.readingShortcutSelection)return;
+  this.readingShortcutSelection=true;
+  let body;
+  try{body=selectionText(await this.readSelection());}
+  catch{/* Open the editor even if the selection could not be read. */}
+  finally{this.readingShortcutSelection=false;}
+  this.openEditor(body??'',{foreground:true,shortcut:true});
  }
- openEditor(body,{onShown,foreground,blank}){
+ openEditor(body,{onShown,foreground,shortcut}){
   const window=new this.BrowserWindow({
    title:'新增常用文字片段',width:560,height:460,minWidth:340,minHeight:370,
    show:false,alwaysOnTop:foreground,autoHideMenuBar:true,backgroundColor:'#f3f5fb',
@@ -33,10 +39,10 @@ class SnippetCapture{
   const editor={window,body,ready:false};
   const contents=window.webContents;
   this.editors.set(contents,editor);
-  if(blank)this.blankEditor=editor;
+  if(shortcut)this.shortcutEditor=editor;
   window.on('closed',()=>{
    this.editors.delete(contents);
-   if(this.blankEditor===editor)this.blankEditor=null;
+   if(this.shortcutEditor===editor)this.shortcutEditor=null;
   });
   if(foreground)window.once('blur',()=>{if(!window.isDestroyed())window.setAlwaysOnTop(false);});
   window.once('ready-to-show',()=>{

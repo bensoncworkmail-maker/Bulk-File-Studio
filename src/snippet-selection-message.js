@@ -1,9 +1,10 @@
 'use strict';
 const FLAG='--snippet-selection';
 const MAX_BYTES=128*1024;
+const MAX_SELECTION_LENGTH=20000;
 
 function selectionText(value){
- return typeof value==='string'&&value.length<=20000&&value.trim()&&!value.includes('\0')?value:null;
+ return typeof value==='string'&&value.length<=MAX_SELECTION_LENGTH&&value.trim()&&!value.includes('\0')?value:null;
 }
 
 function encodeMessage(value){
@@ -36,4 +37,4 @@ async function readMessage(stream){
 }
 
 function selectionFromMessage(value){return value?.action==='capture-snippet'?selectionText(value.text):null;}
-module.exports={FLAG,selectionText,selectionFromMessage,encodeMessage,readMessage};
+module.exports={FLAG,MAX_SELECTION_LENGTH,selectionText,selectionFromMessage,encodeMessage,readMessage};

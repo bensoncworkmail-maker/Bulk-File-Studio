@@ -119,7 +119,7 @@ npm test
 npm start
 ```
 
-在 Windows 執行 `Build-Windows-EXE.cmd` 或 `npm run dist:win`，在 `dist/` 產生 Setup 與 Portable EXE。只建置其中一種可用 `npm run dist:setup` 或 `npm run dist:portable`。建置只輸出本機檔案。
+在 Windows 執行 `Build-Windows-EXE.cmd` 或 `npm run dist:win`，在 `dist/` 產生 Setup 與 Portable EXE。只建置其中一種可用 `npm run dist:setup` 或 `npm run dist:portable`。建置會使用 Windows 內建的 .NET Framework 編譯並附上讀取選取文字的輔助程式。建置只輸出本機檔案。
 
 發行前在未安裝 Node.js 的離線 Windows 環境測試兩種 EXE，並核對首次啟動、收藏、改名／搬移、復原及安裝版右鍵登記。涉及網路磁碟、原生選單或多螢幕的改動，應以 Windows 實機檢查。
 

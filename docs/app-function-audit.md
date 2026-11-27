@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.151.0。以 `npm run audit:functions` 重新產生。
+版本：v1.152.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 249 個 JS／HTML／CSS 檔案；核對 13 個頁面、9 個工具入口、30 項功能導覽與 235 個介面／桌面偏好。
+讀取 src 全部 250 個 JS／HTML／CSS 檔案；核對 13 個頁面、9 個工具入口、30 項功能導覽與 235 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -173,7 +173,7 @@
 | [snippet-capture-ui.js](../src/snippet-capture-ui.js) | `close`、`showError` |
 | [snippet-capture.css](../src/snippet-capture.css) | 版面、主題與互動狀態樣式 |
 | [snippet-capture.html](../src/snippet-capture.html) | 視窗／頁面結構及本機資源引用 |
-| [snippet-capture.js](../src/snippet-capture.js) | `close`、`commit`、`constructor`、`data`、`open`、`openBlank`、`owner`、`snippetContextMenu` |
+| [snippet-capture.js](../src/snippet-capture.js) | `close`、`commit`、`constructor`、`data`、`open`、`openFromShortcut`、`owner`、`snippetContextMenu` |
 | [snippet-import.js](../src/snippet-import.js) | `csv`、`key`、`preview` |
 | [snippet-paste-worker.js](../src/snippet-paste-worker.js) | `fail`、`start`、`stop` |
 | [snippet-paste.js](../src/snippet-paste.js) | `capture`、`close`、`isCurrentTarget`、`paste`、`warm`、`worker` |
@@ -186,6 +186,7 @@
 | [snippet-picker.js](../src/snippet-picker.js) | `bind`、`close`、`constructor`、`data`、`open`、`owns`、`select`、`setGroups` |
 | [snippet-selection-inbox.js](../src/snippet-selection-inbox.js) | `discard`、`inboxFile`、`isShown`、`markShown`、`receiveSelection`、`stageSelection` |
 | [snippet-selection-message.js](../src/snippet-selection-message.js) | `encodeMessage`、`readMessage`、`selectionFromMessage`、`selectionText` |
+| [snippet-selection-reader.js](../src/snippet-selection-reader.js) | `readFocusedText`、`readWindowSelection`、`readWindowsSelection` |
 ### 設定與桌面整合
 
 | 原始檔 | 函式索引／用途 |
