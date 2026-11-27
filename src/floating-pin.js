@@ -3,8 +3,11 @@
 // Maintenance never raises a healthy window, and repeated failures exhaust a budget.
 class FloatingPin{
  constructor(window,settings,{setIntervalFn=setInterval,clearIntervalFn=clearInterval,onError=()=>{},maxAttempts=3,
-  canRecover=()=>settings().floatingOnTop===true}={}){
+  canRecover=()=>settings().floatingOnTop===true,platform=process.platform}={}){
   Object.assign(this,{window,settings,clearIntervalFn,onError,maxAttempts,canRecover});this.syncing=false;this.failures=0;
+  // Electron places the 'floating' level behind the Windows taskbar, which
+  // can drop the window out of the topmost band when the taskbar is not topmost.
+  this.topmostLevel=platform==='win32'?'pop-up-menu':'floating';
   const refresh=()=>this.sync(),recover=()=>this.sync({force:true});
   for(const event of ['show','restore'])window.on(event,recover);
   for(const event of ['focus','blur','always-on-top-changed'])window.on(event,refresh);
@@ -26,20 +29,21 @@ class FloatingPin{
  }
  sync({force=false,raise=true}={}){
   const win=this.window;if(this.syncing||win.isDestroyed()||win.nativeMenuOpen)return;
-  const desired=this.settings().floatingOnTop===true;if(desired&&!win.isVisible())return;
+  const desired=this.settings().floatingOnTop===true;if(desired&&(!win.isVisible()||win.isMinimized?.()))return;
   if(force||this.desired!==desired){this.failures=0;this.reported=false;}this.desired=desired;
   let actual;this.syncing=true;
   try{
    actual=win.isAlwaysOnTop?.();this.actual=actual;
    if(actual===desired&&!force){this.failures=0;this.reported=false;return;}
    if(this.failures>=this.maxAttempts)return;
-   if(desired&&force){win.setAlwaysOnTop(true,'floating');if(raise)win.moveTop?.();}
-   else if(desired&&actual!==true)win.setAlwaysOnTop(true,'floating');
+   if(desired&&(force||actual!==true))win.setAlwaysOnTop(true,this.topmostLevel);
    else if(!desired&&actual!==false)win.setAlwaysOnTop(false);
    if(typeof win.isAlwaysOnTop==='function'){
-    this.actual=win.isAlwaysOnTop();if(this.actual!==desired){win.setAlwaysOnTop(desired,...(desired?['floating']:[]));this.actual=win.isAlwaysOnTop();}
-    if(this.actual!==desired)this.failed(new Error('置頂未同步：desired='+desired+', actual='+this.actual));else this.failures=0;
+    this.actual=win.isAlwaysOnTop();if(this.actual!==desired){win.setAlwaysOnTop(desired,...(desired?[this.topmostLevel]:[]));this.actual=win.isAlwaysOnTop();}
+    if(this.actual!==desired){this.failed(new Error('置頂未同步：desired='+desired+', actual='+this.actual));return;}
+    this.failures=0;
    }
+   if(desired&&force&&raise)win.moveTop?.();
   }catch(error){this.failed(error);}finally{this.syncing=false;}
  }
  failed(error){this.failures++;if(this.failures>=this.maxAttempts&&!this.reported){this.reported=true;this.onError(error);}}

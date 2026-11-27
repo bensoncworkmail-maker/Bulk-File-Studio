@@ -38,7 +38,8 @@ function harness(t, overrides = {}) {
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
-    __dirname:path.dirname(main), process, setTimeout, clearTimeout, setImmediate
+    __dirname:path.dirname(main), process, setTimeout:overrides.setTimeoutFn??setTimeout,
+    clearTimeout:overrides.clearTimeoutFn??clearTimeout, setImmediate
   }, { filename:main });
   return {app:electron.app,clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
@@ -1315,7 +1316,7 @@ test('retired workflow and context IPC channels are unavailable',t=>{
 });
 
 test('legacy enabled automations remain readable but never execute on record writes',t=>{const h=harness(t),state=h.handlers.get('notes-template')(),sheet=state.document.sheets[0],crypto=require('node:crypto'),store=new(require('../src/workflow-store').WorkflowStore)(path.join(h.dir,'workflow-state.json'));store.change(data=>data.automations.push(require('../src/workflow-model').definition('automations',{id:crypto.randomUUID(),name:'Legacy',sheetId:sheet.id,trigger:'created',enabled:true,action:'draft',value:'must not run'})));h.handlers.get('notes-record-save')(null,{sheetId:sheet.id,title:'No events',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});assert.equal(h.handlers.get('workflow-state')().drafts.length,0);assert.equal(store.read().automations.length,1);assert.equal(h.handlers.has('workflow-save'),false);});
-test('showing the floating tool clears stale menu suppression and explicitly repairs topmost state',t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),calls=[];floating.setAlwaysOnTop=(value,level)=>{calls.push([value,level]);floating.onTop=value;};floating.moveTop=()=>calls.push(['moveTop']);floating.nativeMenuOpen=true;h.handlers.get('floating-show')();assert.equal(floating.nativeMenuOpen,false);assert.deepEqual(calls.slice(-2),[[true,'floating'],['moveTop']]);assert.equal(h.windows.length,2);});
+test('showing the floating tool clears stale menu suppression and explicitly repairs topmost state',t=>{const h=harness(t);h.handlers.get('floating-show')();const floating=h.windows.at(-1),calls=[];floating.setAlwaysOnTop=(value,level)=>{calls.push([value,level]);floating.onTop=value;};floating.moveTop=()=>calls.push(['moveTop']);floating.nativeMenuOpen=true;h.handlers.get('floating-show')();assert.equal(floating.nativeMenuOpen,false);assert.deepEqual(calls.slice(-2),[[true,process.platform==='win32'?'pop-up-menu':'floating'],['moveTop']]);assert.equal(h.windows.length,2);});
 test('operation-center list and queue IPCs are gone while ordinary file cancellation remains',t=>{const h=harness(t);for(const name of ['workflow-operation-list','workflow-operation-undo','workflow-queue-add','workflow-queue-remove','workflow-queue-run','workflow-folder'])assert.equal(h.rawHandlers.has(name),false,name);assert.equal(h.rawHandlers.has('workflow-operation-cancel'),true);});
 
 test('all five tool panes reuse canonical records, drafts and favorites with owned IPC and independent topmost',async t=>{
@@ -1734,6 +1735,11 @@ test('desktop sticker menu hides and restores existing windows and preserves nat
  const find=label=>h.popup().template.find(item=>item.label===label);
  const choice=async label=>{const {options}=h.popup();await find(label).click();options.callback();};
  menu();assert.ok(find('隱藏全部便條').enabled);
+ assert.ok(find('顯示全部便條').enabled);
+ let raised=false;
+ sticker.moveTop=()=>{raised=true;};
+ await choice('顯示全部便條');
+ assert.equal(raised,true);
  assert.equal(menu().menu,true);
  assert.ok(find('展開全部便條').enabled);assert.ok(find('收合全部便條').enabled);
  H.get('desktop-settings-set')(null,{desktopStickers:{headerBackground:'#102030',opacity:72,openClick:'single',locationClick:'double'}});
@@ -1824,7 +1830,7 @@ test('logs keep pin when closed and isolated layout updates preserve other tools
  draft.isAlwaysOnTop=()=>true;
  draft.moveTop=()=>assert.fail('Peer recovery must not raise healthy windows explicitly');
  logs.close();await new Promise(setImmediate);
- assert.deepEqual(calls,[[true,'floating']]);
+ assert.deepEqual(calls,[[true,process.platform==='win32'?'pop-up-menu':'floating']]);
 });
 
 
@@ -2065,8 +2071,18 @@ test('desktop stickers apply saved opacity on blur and stay opaque while focused
  assert.equal(first.opacity,1);
 });
 
-test('opening a sticker attachment and locating a folder repair topmost state without reclaiming focus',async t=>{
- const h=harness(t),H=h.handlers,raw=h.rawHandlers;
+test('opening a sticker attachment and locating a folder restore the native stacking order without reclaiming focus',async t=>{
+ const timers=new Set();
+ const h=harness(t,{
+  setTimeoutFn:(callback,ms)=>{const timer={callback,ms};timers.add(timer);return timer;},
+  clearTimeoutFn:timer=>timers.delete(timer)
+ }),H=h.handlers,raw=h.rawHandlers;
+ async function fireTimer(ms){
+  const due=[...timers].filter(timer=>timer.ms===ms);
+  assert.equal(due.length,1);
+  timers.delete(due[0]);due[0].callback();
+  await new Promise(setImmediate);
+ }
  const [image,folder,next]=['picture.png','folder','next.txt'].map(name=>path.join(h.dir,name));
  fs.writeFileSync(image,'image');fs.mkdirSync(folder);fs.writeFileSync(next,'next');
  const {ids}=H.get('favorites-add')(null,[image,folder,next],[]);
@@ -2080,14 +2096,16 @@ test('opening a sticker attachment and locating a folder repair topmost state wi
  const imageSticker=await pin(0),folderSticker=await pin(1);
  H.get('desktop-tool-layout-patch')(null,'files',{placement:'pinned',pinned:true,topmost:true,visible:true});
  const panel=h.windows.at(-1);panel.emit('ready-to-show');
+ H.get('desktop-tool-layout-patch')(null,'planning',{placement:'pinned',pinned:true,topmost:false,visible:true});
+ const normal=h.windows.at(-1);normal.emit('ready-to-show');
  const windows=[strip,imageSticker,folderSticker,panel];
- for(const window of windows){
+ for(const window of [...windows,normal]){
   window.isAlwaysOnTop=()=>window.onTop;
   window.focus=()=>assert.fail('External file actions must leave focus with the destination');
-  window.moveTop=()=>assert.fail('Pin recovery must not raise a window');
+  window.moveTop=()=>{window.front=true;};
  }
  const displace=()=>{
-  for(const window of windows){window.onTop=false;window.emit('blur');}
+  for(const window of [...windows,normal]){window.front=false;window.emit('blur');}
  };
  let imageFocused=true,finishLaunch,launched;
  imageSticker.isFocused=()=>imageFocused;
@@ -2098,10 +2116,6 @@ test('opening a sticker attachment and locating a folder repair topmost state wi
  };
  h.shell.showItemInFolder=filepath=>{h.shown.push(filepath);displace();};
  const act=(window,action)=>raw.get('log-sticker-'+action)({sender:window.webContents,senderFrame:{url:window.url}});
- const settled=async()=>{
-  await new Promise(resolve=>setTimeout(resolve,275));
-  await new Promise(setImmediate);
- };
  imageSticker.emit('focus');
  await new Promise(resolve=>setTimeout(resolve,120));
  assert.equal(imageSticker.opacity,1);
@@ -2109,18 +2123,28 @@ test('opening a sticker attachment and locating a folder repair topmost state wi
  await launchStarted;
  await new Promise(resolve=>setTimeout(resolve,120));
  assert.equal(imageSticker.opacity,1);
+ assert.ok(windows.every(window=>!window.front));
  finishLaunch('');
  await opening;
- await settled();
+ await fireTimer(250);
  assert.equal(imageSticker.opacity,0.65);
  assert.deepEqual(h.opened,[image]);
- assert.ok(windows.every(window=>window.onTop===true&&window.isVisible()&&!window.isDestroyed()));
+ assert.ok(windows.every(window=>window.onTop===true&&window.front&&window.isVisible()&&!window.isDestroyed()));
+ assert.equal(normal.front,false);
+ displace();
+ await fireTimer(1000);
+ assert.ok(windows.every(window=>window.front));
  strip.hide();
+ panel.isMinimized=()=>true;
  await act(folderSticker,'locate');
- await settled();
+ await fireTimer(250);
+ await fireTimer(1000);
  assert.deepEqual(h.shown,[folder]);
  assert.equal(strip.isVisible(),false);
- assert.ok(windows.slice(1).every(window=>window.onTop===true&&window.isVisible()&&!window.isDestroyed()));
+ assert.equal(strip.front,false);
+ assert.equal(panel.front,false);
+ assert.equal(normal.front,false);
+ assert.ok([imageSticker,folderSticker].every(window=>window.onTop===true&&window.front&&window.isVisible()&&!window.isDestroyed()));
  assert.equal(H.get('desktop-settings-get')().floatingToolLayout.files.pinned,true);
  assert.equal(H.get('desktop-stickers-get')().counts.files,2);
  assert.equal((await pin(2)).onTop,true);
