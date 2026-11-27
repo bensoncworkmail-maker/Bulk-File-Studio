@@ -4,7 +4,9 @@
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;};
  const button=(label,task,cls='btn btn-ghost')=>{const el=node('button',label,cls);el.type='button';el.addEventListener('click',()=>{if(!busy)task();});return el;};
  let callbacks,busy=false,dirty=true,loaded=false,section='worksets',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),editingWorkset=true,refreshRequest=0,planning,pendingSource;
- const selectedTools={rules:null,worksets:null,snippets:null},snippetSelection=new Set(),backupSelection=new Set();const splitControls=[];let advancedConditions;let nativePreferences={toolSplitWidths:{}};
+ let snippetRefreshPending=false;
+ const selectedTools={rules:null,worksets:null,snippets:null},snippetSelection=new Set(),backupSelection=new Set();const splitControls=[];let advancedConditions;
+ const snippetsOpen=()=>!$('snippets-page').classList.contains('hidden');
  const liveRecords=()=>state?.workspace.document.records.filter(record=>!record.deletedAt&&state.workspace.document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt))||[];
  const configuration=()=>({settings:window.settingsUI.get(),shortcuts:window.studioShortcuts.getBindings(),...callbacks.configuration()});
  function status(text,error=false,id='productivity-status'){
@@ -14,9 +16,10 @@
  async function run(task,message){
   if(busy||callbacks.isBusy())return;
   const onPlanning=!$('planning-page').classList.contains('hidden');
-  const target=onPlanning?'planning-status':'productivity-status';
+  const target=snippetsOpen()?'snippets-status':onPlanning?'planning-status':'productivity-status';
   busy=true;status('處理中…',false,target);
-  const disabled=[...$('productivity-page').querySelectorAll('button,input,textarea,select')].map(el=>[el,el.disabled]);
+  const controls=$(snippetsOpen()?'snippets-page':'productivity-page');
+  const disabled=[...controls.querySelectorAll('button,input,textarea,select')].map(el=>[el,el.disabled]);
   disabled.forEach(([el])=>el.disabled=true);
   try{
    const result=await task();
@@ -27,10 +30,16 @@
    return undefined;
   }finally{
    busy=false;disabled.forEach(([el,value])=>{if(el.isConnected)el.disabled=value;});updateActions();
+   if(snippetRefreshPending&&snippetsOpen())void run(load);
   }
  }
- async function load(){const request=++refreshRequest,data=await api.get();if(request!==refreshRequest)return;state=data;loaded=true;dirty=false;render();}
- function canSwitch(value){if(busy)return false;if(value===section)return true;if(window.workflowHub?.canLeave?.()===false)return false;const kind={rules:'rules',worksets:'worksets',snippets:'snippets'}[section];return !kind||discard(kind);}
+ async function load(){
+  snippetRefreshPending=false;
+  const request=++refreshRequest,data=await api.get();
+  if(request!==refreshRequest)return;
+  state=data;loaded=true;dirty=snippetRefreshPending;render();
+ }
+ function canSwitch(value){if(busy)return false;if(value===section)return true;if(window.workflowHub?.canLeave?.()===false)return false;const kind={rules:'rules',worksets:'worksets'}[section];return !kind||discard(kind);}
  function show(value,source){
   if(value==='calendar'||value==='logs')return window.favoritesUI.show(value==='calendar'?'planning':'logs');
   const route=T.get(value);if(!route||!canSwitch(value))return false;const wasWorkflow=Boolean(T.get(section)?.workflow);section=value;const parent=T.parent(value);
@@ -44,7 +53,7 @@
 
  function options(id,items,empty='請選擇'){const select=$(id),old=select.value;select.replaceChildren();if(empty!==null){const option=node('option',empty);option.value='';select.append(option);}for(const item of items){const option=node('option',item.label);option.value=item.id;select.append(option);}if(items.some(item=>item.id===old))select.value=old;}
  function empty(root,text){if(!root.children.length)root.append(node('p',text,'productivity-empty'));}
- function render(){renderBackups();renderRules();renderSnippets();renderWorksets();renderWorkChoices();planning.update(state);updateActions();}
+ function render(){renderBackups();renderRules();updateSnippetCategories(state.data.snippets);renderSnippets();renderWorksets();renderWorkChoices();planning.update(state);updateActions();}
  function renderRepair(){const root=$('repair-list');root.replaceChildren();for(const row of repair?.rows||[]){const label=node('label',undefined,'productivity-check'),check=node('input');check.type='checkbox';check.dataset.key=row.key;check.disabled=!row.ready;check.checked=row.ready;const content=node('span',({favorite:'收藏／標籤位置',link:'紀錄檔案連結',field:'紀錄路徑欄位'}[row.scope]||'位置')+' · '+row.label);content.append(node('small',row.source+'\n→ '+row.destination+(row.error?'\n無法修復：'+row.error:'')));label.append(check,content);root.append(label);}empty(root,'沒有符合舊根路徑的連結。');const rows=repair?.rows||[];$('repair-summary').textContent=repair?'符合 '+rows.length+' 項，可修復 '+rows.filter(row=>row.ready).length+' 項；請核對新舊路徑。':'';updateActions();}
  function repairKeys(){return [...$('repair-list').querySelectorAll('input:checked')].map(el=>el.dataset.key);}
  function updateBackupSelection(){const valid=new Set(state?.backups.map(item=>item.name)||[]);for(const name of backupSelection)if(!valid.has(name))backupSelection.delete(name);$('backup-selection-count').textContent='已選 '+backupSelection.size+' 份';$('backup-export-selected').disabled=busy||!backupSelection.size;$('backup-delete-selected').disabled=busy||!backupSelection.size;const all=$('backup-select-all');all.checked=Boolean(valid.size)&&backupSelection.size===valid.size;all.indeterminate=backupSelection.size>0&&backupSelection.size<valid.size;}
@@ -148,15 +157,100 @@
   detail.append(list);
  }
 
- function clearSnippet(){selectedTools.snippets=null;$('snippet-form').dataset.dirty='false';window.shortcutControls.set($('snippet-shortcut'),'');for(const key of ['id','name','category','body'])$('snippet-'+key).value='';}
- function selectSnippet(value){if(!discard('snippets'))return;selectedTools.snippets=value.id;for(const key of ['id','name','category','body'])$('snippet-'+key).value=value[key];window.shortcutControls.set($('snippet-shortcut'),value.shortcut);renderSnippets();}
- function renderSnippets(){const root=$('snippet-list'),query=$('snippet-query').value.toLocaleLowerCase();for(const id of snippetSelection)if(!state.data.snippets.some(item=>item.id===id))snippetSelection.delete(id);root.replaceChildren();const rows=state.data.snippets.filter(value=>(value.name+' '+value.category+' '+value.body).toLocaleLowerCase().includes(query)).sort((a,b)=>a.category.localeCompare(b.category,'zh-Hant')||a.name.localeCompare(b.name,'zh-Hant'));let category=null;for(const value of rows){if(category!==value.category){category=value.category;root.append(node('h3',category||'未分類','tool-category'));}const row=node('div',undefined,'tool-master-row'),check=node('input');check.type='checkbox';check.checked=snippetSelection.has(value.id);check.setAttribute('aria-label','選取 '+value.name);check.addEventListener('change',()=>{if(check.checked)snippetSelection.add(value.id);else snippetSelection.delete(value.id);updateSnippetBulk();});const item=button(value.name,()=>selectSnippet(value),'tool-master-item');item.setAttribute('aria-current',String(selectedTools.snippets===value.id));item.title=value.body;item.append(node('small',M.expandSnippet(value.body,{customer:$('snippet-customer').value}).slice(0,70)));row.append(check,item);root.append(row);}empty(root,'新增文字片段，或調整搜尋條件。');const detail=$('snippet-detail');if(detail){detail.replaceChildren();const value=state.data.snippets.find(item=>item.id===selectedTools.snippets);if(value)detail.append(button('複製已儲存內容',()=>run(()=>api.snippetCopy(value.id,$('snippet-customer').value),'已複製文字片段'),'btn btn-secondary'),button('刪除此片段',()=>remove('snippets',value.id)));}updateSnippetBulk();}
+ const snippetQuery=()=>$('snippet-query').value.trim().toLocaleLowerCase();
+ const snippetCategory=value=>'category:'+value;
+ function snippetResults(){
+  const query=snippetQuery(),category=$('snippet-filter-category').value;
+  return (state?.data.snippets||[]).filter(value=>
+   (!category||category===snippetCategory(value.category))&&
+   (value.name+' '+value.category+' '+value.body).toLocaleLowerCase().includes(query));
+ }
+ function setSnippet(value){
+  selectedTools.snippets=value?.id||null;
+  $('snippet-form').dataset.dirty='false';
+  for(const key of ['id','name','category','body'])$('snippet-'+key).value=value?.[key]||'';
+  window.shortcutControls.set($('snippet-shortcut'),value?.shortcut||'');
+  $('snippet-editor-title').textContent=value?'編輯片段':'新增片段';
+  $('snippet-delete-current').hidden=!value;
+  updateSnippetPreview();
+ }
+ function updateSnippetPreview(){
+  $('snippet-shortcut-label').textContent=$('snippet-shortcut').value;
+  $('snippet-preview-text').textContent=M.expandSnippet($('snippet-body').value,{customer:$('snippet-customer').value})||'輸入文字即可預覽。';
+ }
+ function updateSnippetCategories(items){
+  const categories=[...new Set(items.map(value=>value.category))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  // Keep the empty category available when there are uncategorized snippets.
+  const choices=categories.map(value=>({id:snippetCategory(value),label:value||'未分類'}));
+  const filter=$('snippet-filter-category');
+  const previous=filter.value;
+  options('snippet-filter-category',choices,'全部分類');
+  filter.value=choices.some(choice=>choice.id===previous)?previous:'';
+  $('snippet-categories').replaceChildren(...categories.filter(Boolean).map(value=>{
+   const item=node('option');item.value=value;return item;
+  }));
+ }
+ function renderSnippets(focusId){
+  const root=$('snippet-list'),items=state?.data.snippets||[],ids=new Set(items.map(item=>item.id));
+  for(const id of snippetSelection)if(!ids.has(id))snippetSelection.delete(id);
+  if(selectedTools.snippets&&!ids.has(selectedTools.snippets)){
+   if($('snippet-form').dataset.dirty==='true'){
+    selectedTools.snippets=null;
+    $('snippet-id').value='';
+    $('snippet-editor-title').textContent='另存為新片段';
+    $('snippet-delete-current').hidden=true;
+   }else setSnippet();
+  }
+  const rows=snippetResults().sort((a,b)=>a.category.localeCompare(b.category,'zh-Hant')||a.name.localeCompare(b.name,'zh-Hant'));
+  $('snippet-count').textContent=rows.length===items.length?items.length+' 個片段':rows.length+'／'+items.length+' 個片段';
+  let category=null;
+  root.replaceChildren();
+  for(const value of rows){
+   if(category!==value.category){category=value.category;root.append(node('h3',category||'未分類','tool-category'));}
+   const row=node('div',undefined,'tool-master-row'),check=node('input');
+   check.type='checkbox';check.checked=snippetSelection.has(value.id);
+   check.setAttribute('aria-label','選取 '+value.name);
+   check.addEventListener('change',()=>{
+    if(check.checked)snippetSelection.add(value.id);else snippetSelection.delete(value.id);
+    updateSnippetActions();
+   });
+   const item=button(value.name,()=>{
+    if(!discard('snippets'))return;
+    setSnippet(value);renderSnippets(value.id);
+   },'tool-master-item');
+   item.setAttribute('aria-current',String(selectedTools.snippets===value.id));
+   item.append(node('small',value.body.trim().slice(0,100)));
+   row.append(check,item);root.append(row);
+   if(value.id===focusId)item.focus();
+  }
+  empty(root,items.length?'沒有符合的片段。':'尚無片段，請按「新增片段」。');
+  updateSnippetActions(rows);
+ }
+ function updateSnippetActions(rows=snippetResults()){
+  const count=snippetSelection.size;
+  const hidden=count-rows.filter(item=>snippetSelection.has(item.id)).length;
+  $('snippet-selected-count').textContent=count?'（已選 '+count+' 項'+(hidden?'，'+hidden+' 項在篩選結果之外':'')+'）':'';
+  $('snippet-select-results').disabled=busy||!rows.length;
+  for(const id of ['snippet-clear-selection','snippet-apply-category','snippet-delete-selected'])$(id).disabled=busy||!count;
+  $('snippet-copy').disabled=busy||!selectedTools.snippets;
+ }
+ async function snippetBulk(action){
+  const ids=[...snippetSelection];
+  if(!ids.length)return;
+  if(action==='delete'&&!window.confirm('刪除選取的 '+ids.length+' 個文字片段？'))return;
+  if(action==='delete'&&snippetSelection.has(selectedTools.snippets)&&!discard('snippets'))return;
+  await run(async()=>{
+   await api.snippetsBulk(ids,action,$('snippet-bulk-category').value);
+   snippetSelection.clear();
+   await load();
+  },'批次操作已完成。');
+ }
  async function remove(kind,id){if(!window.confirm('確定刪除此項目？'))return;await run(async()=>{await api.remove(kind,id);await load();},'已刪除。');}
  async function moveCard(id,fieldId,value){
   await run(async()=>{await api.boardMove(id,fieldId,value,state.workspace.revision);await load();},'狀態已更新。');
  }
  async function showPreview(value){if(!value||value.canceled)return;if(value.opened||value.type==='pdf'){status('已開啟 PDF 預覽視窗：'+value.name);return;}$('document-preview-title').textContent=value.name;$('document-preview-path').textContent=value.path;const root=$('document-preview-content');root.replaceChildren();if(value.type==='image'){const image=node('img');image.alt=value.name;image.addEventListener('error',()=>root.replaceChildren(node('p','此圖片無法解碼，請確認格式與檔案是否完整。')));image.src=value.data;root.append(image);}else root.append(node('pre',value.text));$('document-preview-dialog').showModal();}
- function updateActions(){const hasRepair=Boolean(repair?.rows.some(row=>row.ready));$('repair-select').disabled=busy||!hasRepair;$('repair-apply').disabled=busy||!hasRepair||!repairKeys().length;for(const action of ['tag','rename','move'])$('rule-'+action).disabled=busy||!suggestions||!rulePaths().length;$('backup-restore').disabled=busy||!restore;if(state)updateBackupSelection();}
+ function updateActions(){const hasRepair=Boolean(repair?.rows.some(row=>row.ready));$('repair-select').disabled=busy||!hasRepair;$('repair-apply').disabled=busy||!hasRepair||!repairKeys().length;for(const action of ['tag','rename','move'])$('rule-'+action).disabled=busy||!suggestions||!rulePaths().length;$('backup-restore').disabled=busy||!restore;if(state)updateBackupSelection();updateSnippetActions();}
  let logView,pendingLogs;
  function openLogs(reset=false){
   const config=pendingLogs||{kind:'logs'};
@@ -206,27 +300,36 @@
  }
  function previewRules(dropped){return run(async()=>{suggestions=null;renderSuggestions();if(!$('rule-select').value)throw new Error('請先選擇整理規則');const paths=dropped??await api.rulesChoose();if(!paths.length)return;suggestions=await api.rulesPreview($('rule-select').value,paths);renderSuggestions();},'已產生建議，確認後才套用。');}
  function discard(kind){const form=$({rules:'rule-form',worksets:'workset-form',snippets:'snippet-form'}[kind]);if(form.dataset.dirty==='true'&&!window.confirm('放棄尚未儲存的修改並切換項目？'))return false;form.dataset.dirty='false';return true;}
- function updateSnippetBulk(){if($('snippet-selected-count'))$('snippet-selected-count').textContent='已選 '+snippetSelection.size+' 項';}
+ function attachSplit(kind,layout){
+  const split=window.resizableSplit.attach(layout,{width:250,save:async width=>{
+   const toolSplitWidths={...(await window.desktopAPI.get()).toolSplitWidths,[kind]:width};
+   await window.desktopAPI.configure({toolSplitWidths});
+  }});
+  splitControls.push([kind,split]);
+ }
  function setupToolSplits(){
-  const splits=splitControls;
-  for(const [kind,listId,formId] of [['rules','rule-list','rule-form'],['worksets','workset-list','workset-form'],['snippets','snippet-list','snippet-form']]){
+  for(const [kind,listId,formId] of [['rules','rule-list','rule-form'],['worksets','workset-list','workset-form']]){
    const panel=$('productivity-'+kind),list=$(listId),form=$(formId),layout=node('div',undefined,'tool-split'),master=node('aside',undefined,'tool-master'),detail=node('div',undefined,'tool-detail');
    const children=[...panel.children],description=children.find(item=>item.tagName==='P');
    for(const child of children){if(child===list||child===description||child.tagName==='H2'||child.classList.contains('tool-view-heading'))continue;detail.append(child);}
-   const listHeader=node('div',undefined,'tool-master-header');listHeader.append(node('strong','已儲存項目'),button('＋ 新增',()=>{if(!discard(kind))return;if(kind==='rules'){clearRule();renderRules();}else if(kind==='worksets'){clearWorkset();renderWorksets();}else{clearSnippet();renderSnippets();}form.querySelector('input:not([type=hidden])')?.focus();}));master.append(listHeader);if(kind!=='snippets'){const search=node('input');search.id=kind+'-master-query';search.type='search';search.placeholder='搜尋名稱或位置';search.setAttribute('aria-label','搜尋已儲存項目');search.addEventListener('input',()=>kind==='rules'?renderRules():renderWorksets());master.append(search);}master.append(list);layout.append(master,detail);panel.append(layout);
-   if(kind==='snippets'){
-    const query=$('snippet-query').closest('.productivity-fields');master.prepend(query);
-    const bulk=node('div',undefined,'snippet-bulk');const all=button('全選搜尋結果',()=>{const text=$('snippet-query').value.toLocaleLowerCase();for(const item of state.data.snippets)if((item.name+' '+item.category+' '+item.body).toLocaleLowerCase().includes(text))snippetSelection.add(item.id);renderSnippets();});
-    const category=node('input');category.id='snippet-bulk-category';category.maxLength=60;category.placeholder='批次分類名稱';category.setAttribute('aria-label','批次分類名稱');
-    const apply=action=>run(async()=>{const ids=[...snippetSelection];if(!ids.length)throw new Error('請先選取文字片段');if(action==='delete'&&!window.confirm('刪除選取的 '+ids.length+' 個文字片段？'))return;await api.snippetsBulk(ids,action,category.value);snippetSelection.clear();if(action==='delete')clearSnippet();await load();},'批次操作已完成');
-    bulk.append(all,button('取消選取',()=>{snippetSelection.clear();renderSnippets();}),node('span','','notes-hint'),category,button('套用分類',()=>apply('category')),button('刪除所選',()=>apply('delete')));bulk.children[2].id='snippet-selected-count';master.insertBefore(bulk,list);
-    const actions=node('div',undefined,'productivity-actions');actions.id='snippet-detail';detail.prepend(actions);
-   }else if(kind==='worksets'){const actions=node('div',undefined,'productivity-card');actions.id='workset-detail';detail.append(actions);}
-   else{const removeButton=button('刪除目前規則',()=>{if($('rule-id').value)remove('rules',$('rule-id').value);});form.append(removeButton);}
+   const listHeader=node('div',undefined,'tool-master-header');
+   listHeader.append(node('strong','已儲存項目'),button('＋ 新增',()=>{
+    if(!discard(kind))return;
+    if(kind==='rules'){clearRule();renderRules();}else{clearWorkset();renderWorksets();}
+    form.querySelector('input:not([type=hidden])')?.focus();
+   }));
+   const search=node('input');search.id=kind+'-master-query';search.type='search';search.placeholder='搜尋名稱或位置';search.setAttribute('aria-label','搜尋已儲存項目');
+   search.addEventListener('input',()=>kind==='rules'?renderRules():renderWorksets());
+   master.append(listHeader,search,list);layout.append(master,detail);panel.append(layout);
+   if(kind==='worksets'){const actions=node('div',undefined,'productivity-card');actions.id='workset-detail';detail.append(actions);}
+   else form.append(button('刪除目前規則',()=>{if($('rule-id').value)remove('rules',$('rule-id').value);}));
    form.addEventListener('input',()=>form.dataset.dirty='true');
-   splits.push([kind,window.resizableSplit.attach(layout,{width:250,save:async width=>{const widths={...(await window.desktopAPI.get()).toolSplitWidths,[kind]:width};nativePreferences.toolSplitWidths=widths;await window.desktopAPI.configure({toolSplitWidths:widths});}})]);
+   attachSplit(kind,layout);
   }
-  window.desktopAPI.get().then(prefs=>{nativePreferences=prefs;for(const [kind,split] of splits)split.set(prefs.toolSplitWidths?.[kind]||250);}).catch(()=>{});
+  attachSplit('snippets',$('snippets-split'));
+  window.desktopAPI.get().then(prefs=>{
+   for(const [kind,split] of splitControls)split.set(prefs.toolSplitWidths?.[kind]||250);
+  }).catch(()=>{});
  }
  function init(config){callbacks=config;setupToolSplits();window.shortcutControls.bind($('snippet-shortcut'));
   let importSheets=[],importToken=null,importRequest=0;
@@ -238,11 +341,11 @@
   $('snippet-import-commit').addEventListener('click',()=>{const token=importToken;if(!token)return;invalidateImport();run(async()=>{const result=await api.snippetImportCommit(token);await load();$('snippet-import-status').textContent='已新增 '+result.count+' 筆文字片段。';},'片段匯入完成。');});
   $('tab-planning')?.addEventListener('click',()=>window.favoritesUI.show('planning'));
   $('tab-logs')?.addEventListener('click',()=>window.favoritesUI.show('logs'));
+  $('tab-snippets').addEventListener('click',()=>window.favoritesUI.show('snippets'));
   for(const [id,kind] of [['planning-overlay','planning'],['snippets-overlay','snippets']]){
    $(id)?.addEventListener('click',()=>window.desktopAPI.openFloatingTool(kind).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
   }
   api.onToolOpen?.(config=>{
-   if(config.kind==='snippets'){if(!openSection('snippets'))callbacks.showFailure('請先完成目前操作','原有輸入已保留');return;}
    const page=config.kind;
    if(config.kind==='logs')pendingLogs=config;
    if(!window.favoritesUI.show(page)){
@@ -293,7 +396,47 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   for(const kind of ['files','folders'])$('workset-pick-'+kind).addEventListener('click',()=>{
    void run(async()=>addWorksetPaths(await api.worksetPick(kind)));
   });
-  $('snippet-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{const result=await api.save('snippets',{id:$('snippet-id').value,name:$('snippet-name').value,category:$('snippet-category').value,body:$('snippet-body').value,shortcut:window.shortcutControls.get($('snippet-shortcut'))});clearSnippet();await load();const saved=state.data.snippets.find(item=>item.id===result.snippets.at(-1)?.id);if(saved)selectSnippet(saved);},'文字片段已儲存。');});$('snippet-new').addEventListener('click',()=>{if(discard('snippets')){clearSnippet();renderSnippets();}});$('snippet-query').addEventListener('input',renderSnippets);$('snippet-customer').addEventListener('input',renderSnippets);
+  $('snippet-form').addEventListener('input',()=>{
+   $('snippet-form').dataset.dirty='true';updateSnippetPreview();
+  });
+  $('snippet-shortcut').addEventListener('keydown',()=>{
+   if($('snippet-shortcut-label').textContent!==$('snippet-shortcut').value)$('snippet-form').dataset.dirty='true';
+   updateSnippetPreview();
+  });
+  $('snippet-form').addEventListener('submit',event=>{
+   event.preventDefault();
+   void run(async()=>{
+    const result=await api.save('snippets',{
+     id:$('snippet-id').value,name:$('snippet-name').value,category:$('snippet-category').value,
+     body:$('snippet-body').value,shortcut:window.shortcutControls.get($('snippet-shortcut'))
+    });
+    setSnippet(result.snippets.at(-1));
+    await load();
+   },'文字片段已儲存。');
+  });
+  $('snippet-new').addEventListener('click',()=>{
+   if(!discard('snippets'))return;
+   setSnippet();
+   $('snippet-category').value=$('snippet-filter-category').value.slice('category:'.length);
+   renderSnippets();$('snippet-name').focus();
+  });
+  $('snippet-delete-current').addEventListener('click',()=>{
+   if(selectedTools.snippets&&discard('snippets'))void remove('snippets',selectedTools.snippets);
+  });
+  $('snippet-copy').addEventListener('click',()=>{
+   if(selectedTools.snippets)void run(()=>api.snippetCopy(selectedTools.snippets,$('snippet-customer').value),'已複製文字片段。');
+  });
+  $('snippet-select-results').addEventListener('click',()=>{
+   for(const item of snippetResults())snippetSelection.add(item.id);
+   renderSnippets();
+  });
+  $('snippet-clear-selection').addEventListener('click',()=>{snippetSelection.clear();renderSnippets();});
+  $('snippet-apply-category').addEventListener('click',()=>void snippetBulk('category'));
+  $('snippet-delete-selected').addEventListener('click',()=>void snippetBulk('delete'));
+  $('snippet-query').addEventListener('input',()=>renderSnippets());
+  $('snippet-filter-category').addEventListener('change',()=>renderSnippets());
+  $('snippet-customer').addEventListener('input',updateSnippetPreview);
+  setSnippet();updateSnippetActions();
   planning=window.planningView.init({openRecord,moveCard,isBusy:()=>busy||callbacks.isBusy()});
   $('document-choose').addEventListener('click',async()=>showPreview(await run(()=>api.previewChoose())));$('document-preview-close').addEventListener('click',()=>$('document-preview-dialog').close());$('document-preview-dialog').addEventListener('close',()=>$('document-preview-content').replaceChildren());
   let logSettings;
@@ -301,7 +444,7 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   setInterval(()=>void backupTick(),60000);void backupTick();
   window.desktopAPI.onChanged(({settings})=>{
    if(!settings)return;
-   nativePreferences=settings;for(const [kind,split] of splitControls)split.set(settings.toolSplitWidths?.[kind]||250);if(state){state.preferences=settings;planning?.update(state);}
+   for(const [kind,split] of splitControls)split.set(settings.toolSplitWidths?.[kind]||250);if(state){state.preferences=settings;planning?.update(state);}
    const next=JSON.stringify(settings.logView);
    if(next!==logSettings)logView?.refresh();
    logSettings=next;
@@ -313,10 +456,13 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   };window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
   api.onShortcutSources?.(()=>{
    dirty=true;
-   if(section==='snippets'&&!$('productivity-page').classList.contains('hidden'))void run(load);
+   if(snippetsOpen()){
+    snippetRefreshPending=true;
+    void run(load);
+   }
   });
   const install=$('snippet-browser-setup');
   install?.addEventListener('click',()=>void run(()=>api.setupBrowserSnippets(),()=> '擴充功能資料夾已開啟，請在瀏覽器載入。'));
  }
- window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
+ window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(snippetsOpen())window.workflowHub?.deactivate?.();if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();

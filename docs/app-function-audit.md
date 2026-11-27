@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.149.0。以 `npm run audit:functions` 重新產生。
+版本：v1.150.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 249 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
+讀取 src 全部 249 個 JS／HTML／CSS 檔案；核對 13 個頁面、9 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -193,7 +193,7 @@
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`openTraySettings`、`refreshTrayMenu`、`registerShortcuts`、`setLogin`、`syncTray` |
 | [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`saveStickerLayout`、`snippetPickerGroups`、`stickerLayout`、`update`、`validBounds`、`write` |
 | [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`attachmentRow`、`colorText`、`desktopLayout`、`draftDetail`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
-| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`previewFavorite`、`previewImage`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
+| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`previewFavorite`、`previewImage`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`resolveLink`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
 | [floating-capture-ui.js](../src/floating-capture-ui.js) | `$`、`collect`、`field`、`init`、`invalidate`、`lock`、`node`、`refreshChoices`、`renderAttachments`、`renderFavorites`、`renderTags`、`status` |
@@ -296,7 +296,7 @@
 | [productivity-model.js](../src/productivity-model.js) | `agenda`、`board`、`entry`、`expandSnippet`、`ids`、`masterLabels`、`matches`、`normalize`、`text` |
 | [productivity-store.js](../src/productivity-store.js) | `constructor`、`get`、`reload`、`remove`、`replace`、`save`、`writeJSON` |
 | [productivity.css](../src/productivity.css) | 版面、主題與互動狀態樣式 |
-| [productivity.js](../src/productivity.js) | `$`、`addWorksetPaths`、`apply`、`applyRestored`、`button`、`canSwitch`、`changed`、`clearRule`、`clearSnippet`、`clearWorkset`、`configuration`、`discard`、`editRule`、`empty`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`moveCard`、`node`、`openLogs`、`openRecord`、`openSection`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectSnippet`、`selectWorkset`、`setFolder`、`setupToolSplits`、`show`、`showPreview`、`snippetPicker`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetBulk`、`updateWorkCounts`、`worksetPaths` |
+| [productivity.js](../src/productivity.js) | `$`、`addWorksetPaths`、`applyRestored`、`attachSplit`、`button`、`canSwitch`、`changed`、`clearRule`、`clearWorkset`、`configuration`、`discard`、`editRule`、`empty`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`moveCard`、`node`、`openLogs`、`openRecord`、`openSection`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectWorkset`、`setFolder`、`setSnippet`、`setupToolSplits`、`show`、`showPreview`、`snippetBulk`、`snippetCategory`、`snippetPicker`、`snippetQuery`、`snippetResults`、`snippetsOpen`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetActions`、`updateSnippetCategories`、`updateSnippetPreview`、`updateWorkCounts`、`worksetPaths` |
 | [profile-extra.js](../src/profile-extra.js) | `exportAuxiliary`、`normalize`、`normalizeAssets`、`packAssets`、`replaceAuxiliary`、`sha`、`unpackAssets` |
 | [profile-service.js](../src/profile-service.js) | `captureFiles`、`cleanUI`、`deleteHistory`、`hash`、`history`、`historyPath`、`normalizeBundle`、`preview`、`readJSON`、`recoverProfile`、`restore`、`restoreFiles`、`signature`、`take`、`trial` |
 | [rename-core.js](../src/rename-core.js) | `assertFingerprint`、`createPreview`、`emit`、`executeMoves`、`fileIdentity`、`filenameProblem`、`fingerprintFile`、`formatDate`、`hashReporter`、`key`、`listPaths`、`localDate`、`normalizeOptions`、`pathExists`、`prepareUndo`、`renameOne`、`reportProgress`、`safe`、`sameIdentity`、`snapshotMoves`、`splitName`、`validateMoves`、`visit` |

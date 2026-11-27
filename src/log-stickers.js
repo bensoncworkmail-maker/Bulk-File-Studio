@@ -41,7 +41,7 @@ class LogStickers {
  show(entry){
   if(!entry.ready||this.hidden||entry.window.isDestroyed())return;
   entry.window.showInactive();
-  entry.window.pinController.sync();
+  entry.window.pinController.sync({force:true,raise:false});
  }
  setHidden(hidden){
   this.checkpoint(hidden);
@@ -76,7 +76,8 @@ class LogStickers {
  open(id,detail=this.read([id]).get(id)){
   if(!detail)return;
   const existing=this.windows.get(id);
-  if(existing){this.show(existing);return;}
+  if(existing&&!existing.window.isDestroyed()){this.show(existing);return;}
+  this.windows.delete(id);
   const appearance=this.appearance(),layout=this.layouts.get(id),collapsed=layout?.collapsed===true;
   const restored=layout&&{...layout.bounds,...(collapsed?{height:appearance.size.collapsedHeight}:{})};
   const bounds=this.bounds(appearance,restored,collapsed);
@@ -101,7 +102,9 @@ class LogStickers {
   window.on('closed',()=>{
    if(this.windows.get(id)===entry){this.windows.delete(id);this.onClosed?.();}
   });
-  Promise.resolve(window.loadFile(page)).catch(error=>{this.remove(id);this.onError(error);});
+  Promise.resolve(window.loadFile(page)).catch(error=>{
+   if(this.windows.get(id)===entry){this.remove(id);this.onError(error);}
+  });
  }
  owner(event){
   if(event?.senderFrame?.url!==pathToFileURL(page).href)return null;

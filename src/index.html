@@ -46,6 +46,7 @@
           <button id="tab-favorites" class="studio-tab" aria-pressed="false">☆ 我的收藏 <span id="favorite-count" class="count-pill">0</span></button>
           <button id="tab-tracking" class="studio-tab" aria-pressed="false">⌕ Everything 追蹤</button>
           <button id="tab-planning" class="studio-tab" aria-pressed="false">日曆／看板</button>
+          <button id="tab-snippets" class="studio-tab" type="button" aria-pressed="false">常用文字片段</button>
           <details class="app-nav-group" id="nav-files">
             <summary class="studio-tab" title="更多頁面"><span class="app-nav-label" data-default-label="更多">更多</span> ▾</summary>
             <div class="app-nav-menu">
@@ -201,6 +202,84 @@
         </div>
       </form>
     </dialog>
+      <section id="snippets-page" class="productivity-page snippets-page hidden" aria-labelledby="snippets-title">
+        <header class="productivity-heading snippets-heading">
+          <h1 id="snippets-title">常用文字片段</h1>
+          <div class="productivity-actions">
+            <button id="snippets-overlay" type="button" class="btn btn-secondary">開啟浮動片段</button>
+            <button id="snippet-new" type="button" class="btn btn-primary">＋ 新增片段</button>
+          </div>
+        </header>
+        <div class="productivity-panel">
+          <div id="snippets-split" class="tool-split snippets-split">
+            <aside class="tool-master snippet-library" aria-label="文字片段清單">
+              <div class="snippet-filters">
+                <input id="snippet-query" type="search" maxlength="200" aria-label="搜尋片段" placeholder="搜尋名稱、分類或內容">
+                <label class="field"><span>分類</span><select id="snippet-filter-category"></select></label>
+                <p id="snippet-count" class="notes-hint" aria-live="polite"></p>
+                <details id="snippet-bulk">
+                  <summary>批次管理 <span id="snippet-selected-count" class="notes-hint"></span></summary>
+                  <div class="snippet-bulk-actions">
+                    <button id="snippet-select-results" type="button" class="btn btn-ghost">全選篩選結果</button>
+                    <button id="snippet-clear-selection" type="button" class="btn btn-ghost">取消選取</button>
+                    <input id="snippet-bulk-category" maxlength="60" list="snippet-categories" placeholder="批次分類名稱" aria-label="批次分類名稱">
+                    <button id="snippet-apply-category" type="button" class="btn btn-secondary">套用分類</button>
+                    <button id="snippet-delete-selected" type="button" class="btn btn-ghost">刪除所選</button>
+                  </div>
+                </details>
+              </div>
+              <div id="snippet-list"></div>
+            </aside>
+            <div class="tool-detail snippet-editor">
+              <h2 id="snippet-editor-title">新增片段</h2>
+              <form id="snippet-form">
+                <input id="snippet-id" type="hidden">
+                <div class="productivity-fields">
+                  <label class="field"><span>名稱</span><input id="snippet-name" required maxlength="100"></label>
+                  <label class="field"><span>分類</span><input id="snippet-category" maxlength="60" list="snippet-categories" placeholder="未分類"></label>
+                  <datalist id="snippet-categories"></datalist>
+                </div>
+                <label class="field"><span>文字內容</span><textarea id="snippet-body" required maxlength="20000" rows="10" aria-describedby="snippet-variables"></textarea></label>
+                <p id="snippet-variables" class="notes-hint">可用變數 <code>{{today}}</code>（今天）、<code>{{customer}}</code>（客戶／稱呼）。</p>
+                <details>
+                  <summary>複製全域快捷鍵 <span id="snippet-shortcut-label" class="notes-hint"></span></summary>
+                  <label class="field"><span>按下組合鍵，或按 Backspace 清除</span><input id="snippet-shortcut" type="text" readonly></label>
+                  <p class="notes-hint">使用全域快捷鍵時，稱呼變數留空。</p>
+                </details>
+                <div class="productivity-actions snippet-edit-actions">
+                  <button type="submit" class="btn btn-primary">儲存片段</button>
+                  <button id="snippet-copy" type="button" class="btn btn-secondary">複製已儲存片段</button>
+                  <button id="snippet-delete-current" type="button" class="btn btn-ghost" hidden>刪除此片段</button>
+                </div>
+              </form>
+              <details class="snippet-preview">
+                <summary>預覽內容</summary>
+                <label class="field"><span>客戶／稱呼變數</span><input id="snippet-customer" maxlength="200"></label>
+                <pre id="snippet-preview-text"></pre>
+              </details>
+              <p id="snippets-status" class="productivity-status" role="status"></p>
+            </div>
+          </div>
+          <div class="snippet-page-options">
+            <details id="snippet-import">
+              <summary>匯入 Excel／CSV／貼上文字</summary>
+              <p>第一列請填名稱、分類、文字內容（或 name,category,body）。每次最多新增 500 筆，略過完全相同的片段。快捷鍵請在匯入後設定。</p>
+              <div class="productivity-actions">
+                <button id="snippet-import-file" type="button" class="btn btn-secondary">選擇 Excel／CSV（可拖放）</button>
+                <select id="snippet-import-sheet" aria-label="匯入工作表" hidden></select>
+              </div>
+              <textarea id="snippet-import-text" rows="4" aria-label="貼上 CSV 文字" placeholder="name,category,body"></textarea>
+              <div class="productivity-actions">
+                <button id="snippet-import-preview" type="button" class="btn btn-secondary">預覽匯入</button>
+                <button id="snippet-import-commit" type="button" class="btn btn-primary" disabled>確認新增</button>
+              </div>
+              <p id="snippet-import-status" role="status"></p>
+              <div id="snippet-import-rows"></div>
+            </details>
+            <details><summary>瀏覽器右鍵選單（Windows 安裝版）</summary><p>先開啟擴充功能資料夾。在 Chrome 或 Edge 的擴充功能管理頁開啟開發人員模式，選擇「載入未封裝項目」並選取該資料夾。已安裝此擴充功能時，可在管理頁按「重新載入」套用更新。</p><button id="snippet-browser-setup" type="button" class="btn btn-secondary">設定連線並開啟擴充功能資料夾</button></details>
+          </div>
+        </div>
+      </section>
       <section id="productivity-page" class="productivity-page hidden" aria-labelledby="productivity-title">
         <div class="productivity-heading"><div><h1 id="productivity-title">工具箱</h1><p>開啟工作集、管理常用文字、使用參數範本或管理檔案與備份。</p></div><button id="productivity-refresh" class="btn btn-ghost">重新整理</button></div>
         <p id="productivity-status" class="productivity-status" role="status" aria-live="polite"></p>
@@ -209,7 +288,6 @@
 
             <button type="button" class="btn btn-secondary" data-productivity="worksets" aria-pressed="false"><strong>工作集</strong><small>一次開啟同一工作的資源</small></button>
             <button type="button" class="btn btn-secondary" data-productivity="parameters" aria-pressed="false"><strong>參數範本</strong><small>填寫、預覽與複製文字</small></button>
-            <button type="button" class="btn btn-secondary" data-productivity="snippets" aria-pressed="false"><strong>常用文字片段</strong><small>分類、搜尋與管理常用文字</small></button>
             <button type="button" class="btn btn-secondary" data-productivity="tracking" aria-pressed="false"><strong>追蹤變更</strong><small>查看文件清單的變化</small></button>
             <button type="button" class="btn btn-secondary" data-productivity="ocr" aria-pressed="false"><strong>離線 OCR</strong><small>圖片文字轉成草稿</small></button>
 
@@ -238,7 +316,7 @@
           <section id="productivity-rules" class="productivity-panel" hidden><h2>檔案整理規則</h2><p>依副檔名、名稱及日期提出建議。可拖放檔案／資料夾到「產生建議」按鈕；資料夾只檢查第一層，確認後才執行。</p><form id="rule-form"><div id="rule-advanced-notice" class="notes-hint" hidden>此規則使用條件樹，比對以條件樹為準；前綴、目的地及標籤仍可在這裡編輯。<button id="rule-open-conditions" type="button" class="btn btn-ghost">編輯條件樹</button><button id="rule-use-basic" type="button" class="btn btn-ghost">改用下方簡單條件</button></div><input id="rule-id" type="hidden"><label class="field"><span>規則名稱</span><input id="rule-name" required maxlength="100" placeholder="例如 每月收據"></label><div class="productivity-fields"><label class="field"><span>副檔名（逗號分隔；留空為全部）</span><input id="rule-extensions" maxlength="200" placeholder="pdf,jpg,png"></label><label class="field"><span>名稱包含</span><input id="rule-contains" maxlength="100" placeholder="例如 收據"></label><label class="field"><span>修改日期由（選填）</span><input id="rule-after" type="date"></label><label class="field"><span>修改日期至（選填）</span><input id="rule-before" type="date"></label><label class="field"><span>建議加上檔名前綴</span><input id="organize-prefix" maxlength="100" placeholder="例如 收據_"></label><label class="field"><span>建議標籤（逗號分隔）</span><input id="rule-tags" maxlength="650" placeholder="家庭,收據"></label></div><label class="field"><span>建議搬移至（選填）</span><input id="rule-folder" maxlength="4096"></label><div class="productivity-actions"><button id="rule-pick-folder" type="button" class="btn btn-ghost" title="亦可拖放目標資料夾">選擇目標資料夾</button><button type="submit" class="btn btn-primary">儲存規則</button><button id="rule-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div id="rule-list"></div><div class="productivity-actions"><label>套用規則 <select id="rule-select"></select></label><button id="rule-preview" class="btn btn-secondary">選擇檔案並產生建議</button></div><div id="rule-results" class="productivity-list"></div><div class="productivity-actions"><button id="rule-tag" class="btn btn-secondary" disabled>收藏並套用標籤</button><button id="rule-rename" class="btn btn-secondary" disabled>交給改名工具</button><button id="rule-move" class="btn btn-secondary" disabled>交給搬移工具</button></div></section>
           <section id="productivity-preview" class="productivity-panel" hidden><h2>文件內建預覽</h2><p>本機及內網文件均可預覽。支援圖片、PDF、純文字及 HTML 原始碼。也可以從工作區紀錄的「相關檔案」按「預覽」。文字上限 2 MB，圖片／PDF 上限 25 MB。</p><button id="document-choose" class="btn btn-primary">選擇文件預覽</button></section>
           <section id="productivity-worksets" class="productivity-panel" hidden><h2>工作集</h2><p>把同一工作需要的檔案、資料夾和紀錄放在一起，確認後一次開啟。</p><form id="workset-form"><input id="workset-id" type="hidden"><label class="field"><span>工作集名稱</span><input id="workset-name" required maxlength="100"></label><label class="field"><span>直接檔案／資料夾位置（每行一個，可拖放）</span><textarea id="workset-paths" rows="3" placeholder="例如：\\FileServer\Share\Project"></textarea></label><div class="productivity-actions"><button id="workset-pick-files" type="button" class="btn btn-secondary">選擇檔案</button><button id="workset-pick-folders" type="button" class="btn btn-secondary">選擇資料夾</button></div><label class="field"><span>篩選收藏與紀錄</span><input id="workset-query" type="search" maxlength="200" placeholder="搜尋名稱、路徑或表格"></label><details id="workset-favorites-section" class="workset-resource-section"><summary>收藏位置 <span id="workset-favorites-count">0 項已選</span></summary><div id="workset-favorites" class="productivity-choice-list"></div></details><details id="workset-records-section" class="workset-resource-section"><summary>工作區紀錄 <span id="workset-records-count">0 項已選</span></summary><div id="workset-records" class="productivity-choice-list"></div></details><p id="workset-count" class="notes-hint"></p><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存工作集</button><button id="workset-cancel" type="button" class="btn btn-ghost">取消編輯</button></div></form><div id="workset-list"></div></section>
-          <section id="productivity-snippets" class="productivity-panel" hidden><div class="tool-view-heading"><h2>常用文字片段</h2><button id="snippets-overlay" class="btn btn-secondary">開啟浮動片段</button></div><p>選取程式中的文字，按右鍵即可加入常用文字片段。可使用 {{today}}（今天）及 {{customer}}（客戶／稱呼）。</p><details class="toolbox-options"><summary>瀏覽器右鍵選單（Windows 安裝版）</summary><p>先開啟擴充功能資料夾。在 Chrome 或 Edge 的擴充功能管理頁開啟開發人員模式，選擇「載入未封裝項目」並選取該資料夾。已安裝此擴充功能時，可在管理頁按「重新載入」套用更新。</p><button id="snippet-browser-setup" type="button" class="btn btn-secondary">設定連線並開啟擴充功能資料夾</button></details><details id="snippet-import"><summary>匯入 Excel／CSV／貼上文字</summary><p>第一列：名稱、分類、文字內容（或 name,category,body）。只新增，完全相同的片段略過；不匯入快捷鍵。每次最多 500 筆。</p><button id="snippet-import-file" type="button" class="btn btn-secondary">選擇 Excel／CSV（可拖放）</button><select id="snippet-import-sheet" aria-label="匯入工作表" hidden></select><textarea id="snippet-import-text" rows="4" placeholder="name,category,body"></textarea><button id="snippet-import-preview" type="button" class="btn btn-secondary">預覽匯入</button><button id="snippet-import-commit" type="button" class="btn btn-primary" disabled>確認新增</button><p id="snippet-import-status" role="status"></p><div id="snippet-import-rows"></div></details><form id="snippet-form"><input id="snippet-id" type="hidden"><div class="productivity-fields"><label class="field"><span>名稱</span><input id="snippet-name" required maxlength="100"></label><label class="field"><span>分類</span><input id="snippet-category" maxlength="60"></label></div><label class="field"><span>複製全域快捷鍵（預設未設定；Backspace 清除；稱呼變數為空白）</span><input id="snippet-shortcut" type="text" readonly></label><label class="field"><span>文字內容</span><textarea id="snippet-body" required maxlength="20000" rows="5"></textarea></label><div class="productivity-actions"><button type="submit" class="btn btn-primary">儲存片段</button><button id="snippet-new" type="button" class="btn btn-ghost">清空／新增</button></div></form><div class="productivity-fields"><label class="field"><span>搜尋名稱、分類或內容</span><input id="snippet-query" type="search" maxlength="200"></label><label class="field"><span>客戶／稱呼變數</span><input id="snippet-customer" maxlength="200"></label></div><div id="snippet-list"></div></section>
+
 
         </div></div>
       </section>

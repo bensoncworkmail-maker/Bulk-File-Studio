@@ -46,11 +46,11 @@
    const figure=document.createElement('figure'),image=document.createElement('img');
    const button=linkButton(label,()=>{
     const [i,version,location]=imageArgs(index);
-    return api.openLink(i,version,'open',location).catch(report);
+    return api.openLink(i,version,'enlarge',location).catch(report);
    });
    button.className='sticker-image-button';
-   button.setAttribute('aria-label','在圖片檢視器開啟 '+label);
-   button.title='在圖片檢視器開啟';
+   button.setAttribute('aria-label','放大圖片 '+label);
+   button.title='放大圖片';
    image.alt='';image.decoding='async';image.addEventListener('error',()=>{figure.hidden=true;});
    button.replaceChildren(image);
    figure.append(button,text('figcaption',label));
