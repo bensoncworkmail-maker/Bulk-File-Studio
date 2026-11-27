@@ -1,12 +1,10 @@
 'use strict';
 const { randomUUID } = require('node:crypto');
-const { fitBounds } = require('./desktop-state');
+const { fitBounds, FLOATING_WIDTH } = require('./desktop-state');
 
 const HEIGHT = 40;
-const MIN_WIDTH = 220;
-const MAX_WIDTH = 800;
 function windowDefaults(settings) {
-  return { width: settings.floatingCollapsedWidth, height: HEIGHT, minWidth: MIN_WIDTH, minHeight: HEIGHT };
+  return { width: settings.floatingCollapsedWidth, height: HEIGHT, minWidth: FLOATING_WIDTH.min, minHeight: HEIGHT };
 }
 function initialBounds(desktop, screen) {
   const defaults = windowDefaults(desktop.settings);
@@ -68,7 +66,7 @@ class FloatingWindow {
       return;
     }
     const left = mode === 'resize-left';
-    const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(bounds.width + (left ? -dx : dx))));
+    const width = Math.max(FLOATING_WIDTH.min, Math.min(FLOATING_WIDTH.max, Math.round(bounds.width + (left ? -dx : dx))));
     this.place({ ...bounds, width, x: bounds.x + (left ? bounds.width - width : 0) });
   }
   endDrag(token) {

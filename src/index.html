@@ -1147,7 +1147,7 @@
                     <button id="btn-settings-floating" type="button" class="btn btn-primary">顯示浮動工具</button>
                     <button type="button" class="btn btn-ghost" data-open-shortcuts>設定快捷鍵</button>
                   </div>
-                  <label class="field"><span>工具列寬度（px）</span><input id="settings-floating-collapsed-width" type="number" min="220" max="800" step="1"></label>
+                  <label class="field"><span>工具列寬度（80–800 px）</span><input id="settings-floating-collapsed-width" type="number" min="80" max="800" step="1"></label>
                   <label class="check-row"><input id="settings-floating-show-focus-button" type="checkbox" checked>顯示專注模式按鈕</label>
                   <p class="rule-hint">拖曳空白處移動，拖曳左右邊緣調整寬度。可用滑鼠滾輪瀏覽快捷按鈕，或用右鍵選單調整浮動工具，按 Esc 隱藏。</p>
                 </section>
@@ -1159,8 +1159,8 @@
                   <label class="field"><span>不透明度 <output id="settings-floating-opacity-value">100%</output></span><input id="settings-floating-opacity" type="range" min="40" max="100" step="5" value="100"></label>
                   <label class="check-row"><input id="settings-floating-opaque-focus" type="checkbox">取得焦點時使用 100% 不透明度</label>
                 </section>
-                <section class="settings-card"><h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示自訂快捷動作</span></label>
-                  <p class="rule-hint">在下方新增要顯示的快捷按鈕，例如全域搜尋、草稿筆記、桌面便條或新增主檔。最多可設定 12 項。</p>
+                <section class="settings-card"><h2>浮動快捷動作</h2><label class="check-row"><input id="settings-floating-quick-enabled" type="checkbox"><span>顯示自訂快捷按鈕</span></label>
+                  <p class="rule-hint">在下方新增要顯示的快捷按鈕，例如全域搜尋、草稿筆記、桌面便條或新增主檔。每列的勾選只控制按鈕顯示，已設定的全域快捷鍵仍可使用。最多可設定 12 項。</p>
                   <label class="field"><span>新增與匯入快捷動作的開啟位置</span><select id="settings-floating-quick-mode"><option value="popup">浮動工具旁的獨立彈出表單</option><option value="main">主視窗</option></select></label><label class="check-row"><input id="settings-capture-keep-values" type="checkbox"><span>快捷表單連續新增時，預設保留欄位與標籤（名稱與筆記清空）</span></label>
                   <label class="check-row"><input id="settings-floating-keep-quick" type="checkbox"><span>快捷動作轉到主視窗後，保留浮動工具（已置頂時一律保留）</span></label>
                   <p class="rule-hint">「開啟指定表格」仍使用主視窗；獨立表單不會叫出主視窗，離開焦點也保留未完成輸入。</p>
