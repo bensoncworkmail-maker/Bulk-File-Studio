@@ -10,7 +10,7 @@ const SOURCES=['workspace','tracking','favorites','draft'];
 const TAG_SCOPES=['favorites','workspace','tracking'];
 const DIMENSIONS={width:[180,1200,280],height:[130,1000,245],collapsedWidth:[180,1200,280],collapsedHeight:[32,96,36]};
 const FILE_HEADERS={favorite:{prefix:['none','folder','tag'],title:['label','name','path']},tracking:{prefix:['none','folder','query'],title:['name','path']}};
-const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'double',locationClick:'double',showGrip:false,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
+const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'single',locationClick:'single',showGrip:false,showAttachmentHint:false,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
  favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'}};
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const fieldKey=value=>typeof value==='string'&&(value==='title'||M.ID.test(value));
@@ -22,7 +22,7 @@ function settings(input,strict=false){
  for(const key of ['background','headerBackground'])if(Object.hasOwn(value,key)&&requireValid(typeof value[key]==='string'&&/^#[\da-f]{6}$/i.test(value[key])))result[key]=value[key].toLowerCase();
  if(Object.hasOwn(value,'opacity')&&requireValid(Number.isInteger(value.opacity)&&value.opacity>=40&&value.opacity<=100))result.opacity=value.opacity;
  for(const key of ['openClick','locationClick'])if(Object.hasOwn(value,key)&&requireValid(['single','double'].includes(value[key])))result[key]=value[key];
- if(Object.hasOwn(value,'showGrip')&&requireValid(typeof value.showGrip==='boolean'))result.showGrip=value.showGrip;
+ for(const key of ['showGrip','showAttachmentHint'])if(Object.hasOwn(value,key)&&requireValid(typeof value[key]==='boolean'))result[key]=value[key];
  if(Object.hasOwn(value,'size')&&requireValid(object(value.size)))for(const [key,[min,max]] of Object.entries(DIMENSIONS)){
   const size=value.size[key];
   if(Object.hasOwn(value.size,key)&&requireValid(Number.isInteger(size)&&size>=min&&size<=max))result.size[key]=size;
@@ -168,12 +168,12 @@ function tagDetail(pin,items,links,overflow){
   visit:items.length?'開啟標籤分類':''};
 }
 
-function draftDetail(draft){
+function draftDetail(draft,limit){
  const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,160)||draft.items[0]?.label||'未命名草稿';
  const items=M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
- const notes=[draft.body,items].filter(Boolean).join('\n\n').slice(0,12000);
  const links=draft.attachments.map((item,index)=>({...attachmentRow('draft-file',item.path),index,version:draft.version}));
- return {kind:'draft',title,heading:headline('草稿筆記',title),fields:[],notes,links,visit:'在草稿筆記開啟'};
+ return {kind:'draft',title,heading:headline('草稿筆記',title),fields:[],notes:items.slice(0,12000),links,visit:'在草稿筆記開啟',
+  draft:{body:draft.body,version:draft.version,maxLength:limit?Math.max(limit,draft.body.length):null}};
 }
 
 module.exports={desktopLayout,attachmentRow,draftDetail,LIMIT,SOURCES,TAG_SCOPES,tagName,tagDetail,DEFAULTS,FILE_HEADERS,settings,filePins,fileKey,tableOptions,recordDetail,locationDetail,colorText};

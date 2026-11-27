@@ -39,6 +39,7 @@
   $('sticker-settings-open-click').value=prefs.openClick;
   $('sticker-settings-location-click').value=prefs.locationClick;
   $('sticker-settings-grip').checked=prefs.showGrip;
+  $('sticker-settings-attachment-hint').checked=prefs.showAttachmentHint;
   for(const key of dimensions)$('sticker-settings-'+key).value=prefs.size[key];
   for(const key of sources)$('sticker-settings-'+key).checked=prefs.sources[key];
   for(const kind of ['favorite','tracking'])for(const key of ['prefix','title'])$('sticker-settings-'+kind+'-'+key).value=prefs[kind][key];
@@ -79,6 +80,7 @@
      headerBackground:$('sticker-settings-header-color').value,opacity:Number($('sticker-settings-opacity').value),
      openClick:$('sticker-settings-open-click').value,locationClick:$('sticker-settings-location-click').value,
      showGrip:$('sticker-settings-grip').checked,
+     showAttachmentHint:$('sticker-settings-attachment-hint').checked,
      size:Object.fromEntries(dimensions.map(key=>[key,Number($('sticker-settings-'+key).value)])),
      sources:Object.fromEntries(sources.map(key=>[key,$('sticker-settings-'+key).checked])),
      favorite:{prefix:$('sticker-settings-favorite-prefix').value,title:$('sticker-settings-favorite-title').value},

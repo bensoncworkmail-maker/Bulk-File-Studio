@@ -1192,7 +1192,7 @@
                 </section>
                 <section class="settings-card">
                   <h2>文字片段分類選擇窗</h2>
-                  <p class="rule-hint">用全域快捷鍵選取片段並立即貼上時使用。保留原欄位焦點，可用方向鍵、Enter 或滑鼠選取。版面變更於下次開啟生效。</p>
+                  <p class="rule-hint">用全域快捷鍵選取片段並立即貼上時使用。保留原欄位焦點，可用方向鍵、Enter 或滑鼠選取，點擊選擇窗外可關閉。版面變更於下次開啟生效。</p>
                   <form id="snippet-picker-settings">
                     <fieldset disabled>
                       <legend class="sr-only">文字片段分類選擇窗設定</legend>
@@ -1205,6 +1205,8 @@
                         <label class="field"><span>片段內容預覽</span><select id="snippet-picker-previewLines"><option value="0">僅名稱</option><option value="1">名稱＋1 行預覽</option><option value="2">名稱＋2 行預覽</option></select></label>
                         <label class="field"><span>新分類預設狀態</span><select id="snippet-picker-defaultExpanded"><option value="true">展開</option><option value="false">收合</option></select></label>
                       </div>
+                      <label class="check-row"><input id="snippet-picker-custom-accent" type="checkbox">使用自訂主色</label>
+                      <label class="field"><span>選擇窗主色</span><input id="snippet-picker-accent" type="color" value="#6644bd" disabled></label>
                       <label class="check-row"><input id="snippet-picker-showCounts" type="checkbox"><span>顯示分類筆數與片段總數</span></label>
                       <label class="check-row"><input id="snippet-picker-showHint" type="checkbox"><span>顯示底部操作提示</span></label>
                       <label class="check-row"><input id="snippet-picker-rememberGroups" type="checkbox"><span>記住各分類展開／收合狀態（重新啟動後保留）</span></label>
@@ -1232,10 +1234,11 @@
                   <label class="field"><span>標題列顏色</span><input id="sticker-settings-header-color" type="color" value="#d5eaf8"></label>
                   <label class="field"><span>失去焦點時的不透明度（%）</span><input id="sticker-settings-opacity" type="number" min="40" max="100" value="100" required></label>
                   <div class="settings-actions">
-                    <label class="field"><span>檔案名稱開啟方式</span><select id="sticker-settings-open-click"><option value="single">單擊開啟</option><option value="double" selected>雙擊開啟</option></select></label>
-                    <label class="field"><span>所在位置定位方式</span><select id="sticker-settings-location-click"><option value="single">單擊定位</option><option value="double" selected>雙擊定位</option></select></label>
+                    <label class="field"><span>檔案名稱開啟方式</span><select id="sticker-settings-open-click"><option value="single" selected>單擊開啟</option><option value="double">雙擊開啟</option></select></label>
+                    <label class="field"><span>所在位置定位方式</span><select id="sticker-settings-location-click"><option value="single" selected>單擊定位</option><option value="double">雙擊定位</option></select></label>
                   </div>
                   <label class="check-row"><input id="sticker-settings-grip" type="checkbox">顯示標題列左側握把</label>
+                  <label class="check-row"><input id="sticker-settings-attachment-hint" type="checkbox">顯示附件開啟與定位提示</label>
                   <div class="settings-actions">
                     <label class="field"><span>展開寬度（px）</span><input id="sticker-settings-width" type="number" min="180" max="1200" value="280" required></label>
                     <label class="field"><span>展開高度（px）</span><input id="sticker-settings-height" type="number" min="130" max="1000" value="245" required></label>

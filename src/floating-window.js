@@ -31,6 +31,7 @@ class FloatingWindow {
   place(bounds) {
     const { x, y, width, height } = fitBounds(bounds, this.screen.getAllDisplays(), windowDefaults(this.desktop.settings));
     this.window.setContentBounds({ x, y, width, height });
+    return width;
   }
   opacity(focused = this.window.isFocused()) {
     const settings = this.desktop.settings;
@@ -38,6 +39,7 @@ class FloatingWindow {
   }
   record() { this.desktop.record('floating', this.window); }
   ensureVisible() {
+    if (this.drag) return;
     const bounds = this.liveBounds();
     this.place({ ...bounds, width: this.desktop.settings.floatingCollapsedWidth, height: HEIGHT });
     this.record();
@@ -67,14 +69,14 @@ class FloatingWindow {
     }
     const left = mode === 'resize-left';
     const width = Math.max(FLOATING_WIDTH.min, Math.min(FLOATING_WIDTH.max, Math.round(bounds.width + (left ? -dx : dx))));
-    this.place({ ...bounds, width, x: bounds.x + (left ? bounds.width - width : 0) });
+    this.drag.width = this.place({ ...bounds, width, x: bounds.x + (left ? bounds.width - width : 0) });
   }
   endDrag(token) {
     if (!this.drag || token !== this.drag.token) return;
-    const { mode } = this.drag;
+    const { mode, width } = this.drag;
     this.drag = null;
-    if (mode !== 'move') {
-      const settings = this.desktop.update({ floatingCollapsedWidth: this.liveBounds().width });
+    if (mode !== 'move' && width !== undefined) {
+      const settings = this.desktop.update({ floatingCollapsedWidth: width });
       this.appliedWidth = settings.floatingCollapsedWidth;
       this.record();
       return { settings };
