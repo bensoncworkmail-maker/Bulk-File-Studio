@@ -153,7 +153,7 @@
       }
       const result=await window.desktopAPI.configure({[key]:el.type==='checkbox'?el.checked:numericKeys.includes(key)?Number(el.value):el.value});syncNative(result.settings);$('desktop-settings-status').textContent=result.warning||'設定已儲存';$('desktop-shell-status').textContent=result.warning||'設定已儲存';}catch(e){$('desktop-settings-status').textContent=String(e.message||e);$('desktop-shell-status').textContent=String(e.message||e);window.desktopAPI.get().then(syncNative).catch(()=>{});}});
     for(const id of ['btn-floating','btn-settings-floating'])$(id).addEventListener('click',()=>window.desktopAPI.showFloating().catch(e=>callbacks.showFailure('無法開啟浮動工具',e)));
-    for(const kind of ['main','floating','collapse','search','draft','snippets','calendar','focus']){
+    for(const kind of ['main','floating','collapse','search','draft','snippets','snippetNew','calendar','focus']){
       const key=kind+'Shortcut',input=$('settings-'+kind+'-shortcut');window.shortcutControls?.capture(input);let saving=false;
       const status=message=>{if($('shortcut-global-status'))$('shortcut-global-status').textContent=message;$('desktop-settings-status').textContent=message;$('desktop-shell-status').textContent=message;};
       const save=async value=>{if(saving)return;saving=true;input.disabled=true;try{const result=await window.desktopAPI.configure({[key]:value});syncNative(result.settings);status(result.warning||'全域快捷鍵已儲存');}catch(e){status(String(e.message||e));try{syncNative(await window.desktopAPI.get());}catch{}}finally{saving=false;input.disabled=false;}};

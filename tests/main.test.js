@@ -10,6 +10,7 @@ const { createRequire } = require('node:module');
 function harness(t, overrides = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brs-main-test-'));
   t.after(() => {events.get('will-quit')?.();fs.rmSync(dir, { recursive:true, force:true });});
+  overrides.prepareProfile?.(dir);
   const handlers = new Map();
   const main = path.resolve(__dirname, '../src/main.js');
   const realRequire = createRequire(main);
@@ -99,6 +100,38 @@ test('browser capture opens independently of the main window and cancel keeps th
  h.rawHandlers.get('snippet-capture-close')(event);
  assert.equal(editor.isDestroyed(),true);
  assert.equal(h.handlers.get('productivity-get')().data.snippets.length,0);
+});
+test('the configurable global shortcut opens one independent blank snippet editor and preserves browser capture',t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers,main=h.windows[0];
+ const key='CommandOrControl+Alt+Shift+J';
+ assert.equal(H.get('desktop-settings-get')().snippetNewShortcut,'');
+ H.get('desktop-settings-set')(null,{snippetNewShortcut:'Ctrl+Alt+Shift+J'});
+ assert.throws(()=>H.get('desktop-settings-set')(null,{snippetNewShortcut:'Ctrl+Alt+D'}),/相同/);
+ assert.equal(H.get('desktop-settings-get')().snippetNewShortcut,key);
+ main.hide();
+ const launch=h.registered.get(key);
+ launch();launch();
+ const editor=h.windows[1],event={sender:editor.webContents,senderFrame:{url:editor.url}};
+ assert.match(editor.url,/snippet-capture\.html$/);
+ editor.emit('ready-to-show');
+ launch();
+ assert.equal(h.windows.length,2);
+ assert.equal(main.isVisible(),false);
+ assert.equal(raw.get('snippet-capture-get')(event).body,'');
+ h.events.get('second-instance')({},[],h.dir,{snippetSelection:'瀏覽器選取文字'});
+ const browser=h.windows[2];
+ assert.equal(raw.get('snippet-capture-get')({sender:browser.webContents,senderFrame:{url:browser.url}}).body,'瀏覽器選取文字');
+ assert.equal(raw.get('snippet-capture-save')(event,{name:'快捷新增',category:'工作',body:'測試內容'}).saved,true);
+ assert.equal(H.get('productivity-get')().data.snippets[0].body,'測試內容');
+ launch();
+ const next=h.windows[3],nextEvent={sender:next.webContents,senderFrame:{url:next.url}};
+ raw.get('snippet-capture-close')(nextEvent);
+ H.get('desktop-settings-set')(null,{focusMode:true});
+ assert.equal(h.registered.has(key),false);
+ H.get('desktop-settings-set')(null,{focusShortcutIds:['snippetNewShortcut']});
+ assert.equal(h.registered.has(key),true);
+ H.get('desktop-settings-set')(null,{snippetNewShortcut:''});
+ assert.equal(h.registered.has(key),false);
 });
 test('an unfinished profile journal blocks further renderer writes until restart recovery',t=>{const h=harness(t);fs.writeFileSync(path.join(h.dir,'profile-transaction.json'),'{}');assert.throws(()=>h.handlers.get('productivity-save')(null,'snippets',{name:'x',body:'x',category:''}),/重新啟動/);assert.throws(()=>h.handlers.get('notes-template')(),/重新啟動/);assert.equal(fs.existsSync(path.join(h.dir,'productivity.json')),false);});
 test('backup export requires its own extension and cannot replace a selected profile JSON',async t=>{const h=harness(t),file=path.join(h.dir,'a.txt');fs.writeFileSync(file,'a');h.handlers.get('favorites-add')(null,[file],[]);const backup=h.handlers.get('productivity-backup-create')(null,{}),target=path.join(h.dir,'favorites.json'),before=fs.readFileSync(target,'utf8');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:target});await assert.rejects(h.handlers.get('productivity-backup-export')(null,backup.name),/副檔名/);assert.equal(fs.readFileSync(target,'utf8'),before);const exported=path.join(h.dir,'export.bfsbackup');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:exported});await h.handlers.get('productivity-backup-export')(null,backup.name);assert.equal(JSON.parse(fs.readFileSync(exported,'utf8')).format,'BulkFileStudio.Profile');});
@@ -1763,6 +1796,56 @@ test('desktop sticker menu hides and restores existing windows and preserves nat
  control('show');const restored=h.windows.at(-1);restored.emit('ready-to-show');
  assert.notEqual(restored,sticker);assert.equal(restored.isVisible(),true);
  raw.get('log-sticker-close')(eventFor(restored));assert.equal(get().files,0);
+});
+
+test('sticker startup modes restore saved visibility without clearing individually hidden stickers',async t=>{
+ const h=harness(t),H=h.handlers,files=['hidden.txt','visible.txt'].map(name=>path.join(h.dir,name));
+ for(const file of files)fs.writeFileSync(file,file);
+ const {ids}=H.get('favorites-add')(null,files,[]);
+ for(const id of ids){
+  await H.get('desktop-stickers-pin')(null,'favorites',{id});
+  h.windows.at(-1).emit('ready-to-show');
+ }
+ const [hidden,visible]=h.windows.slice(-2),bounds={x:90,y:105,width:311,height:211};
+ hidden.setBounds(bounds);
+ hidden.close();
+ assert.equal(visible.isVisible(),true);
+ const {DesktopState}=require('../src/desktop-state'),savedName='desktop-state.json',layoutKey='favorite:'+ids[0];
+ const savedLayout=dir=>new DesktopState(path.join(dir,savedName)).stickerLayout();
+ assert.equal(savedLayout(h.dir).layouts[layoutKey].hidden,true);
+ H.get('desktop-stickers-control')(null,'hide');
+ for(const [mode,restore,expected] of [
+  ['hide',true,[]],['visible',false,['visible.txt']],['show',false,['hidden.txt','visible.txt']],
+  ['previous',true,[]],['previous',false,[]]
+ ]){
+  await t.test(mode+' / '+restore,async t=>{
+   const next=harness(t,{prepareProfile:dir=>{
+    for(const file of [savedName,'favorites.json','workspace-tools.json'])fs.copyFileSync(path.join(h.dir,file),path.join(dir,file));
+    const state=new DesktopState(path.join(dir,savedName));
+    state.update({floatingRestorePanels:restore,desktopStickers:{...state.settings.desktopStickers,startupVisibility:mode}});
+   }});
+   const active=()=>next.windows.filter(w=>w.url?.endsWith('/log-sticker.html')&&!w.isDestroyed());
+   const actual=()=>active().filter(w=>w.isVisible()).map(w=>w.options.title).sort();
+   for(const w of active()){w.hide();w.emit('ready-to-show');}
+   assert.deepEqual(actual(),expected);
+   const control=action=>next.handlers.get('desktop-stickers-control')(null,action);
+   assert.equal(next.handlers.get('desktop-stickers-get')().counts.files,2);
+   if(mode==='visible'){
+    control('expand');
+    assert.deepEqual(actual(),expected);
+    assert.equal(active().length,1);
+    control('show');
+    active().at(-1).emit('ready-to-show');
+    assert.equal(actual().length,2);
+    assert.equal(savedLayout(next.dir).layouts[layoutKey].hidden,undefined);
+   }else{
+    next.events.get('before-quit')({preventDefault(){assert.fail('quit should proceed');}});
+    assert.equal(savedLayout(next.dir).hidden,true);
+    assert.equal(savedLayout(next.dir).layouts[layoutKey].hidden,true);
+    assert.deepEqual(savedLayout(next.dir).layouts[layoutKey].bounds,bounds);
+   }
+  });
+ }
 });
 
 test('closing a sticker image preview leaves other windows pinned and can open the next sticker',async t=>{

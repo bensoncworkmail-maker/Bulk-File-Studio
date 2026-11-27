@@ -18,18 +18,25 @@ class LogStickers {
  }
  loadLayout(){
   const {hidden,layouts}=this.readLayout();
-  this.hidden=hidden;
+  this.hidden=this.savedHidden=hidden;
   this.layouts=new Map(Object.entries(layouts));
  }
  remember(entry){
   const {id,window,expanded,collapsedWidth,collapsed,headerAtBottom}=entry;
-  if(!window.isDestroyed())this.layouts.set(id,{bounds:currentBounds(window),expanded,collapsedWidth,collapsed,headerAtBottom});
+  if(!window.isDestroyed())this.layouts.set(id,{bounds:currentBounds(window),expanded,collapsedWidth,collapsed,headerAtBottom,
+   ...(this.layouts.get(id)?.hidden?{hidden:true}:{})});
  }
- checkpoint(hidden=this.hidden){
+ checkpoint(hidden=this.savedHidden,reveal=()=>false){
   for(const entry of this.windows.values())this.remember(entry);
   const pinned=this.pinnedIds();
-  for(const id of this.layouts.keys())if(!pinned.has(id))this.layouts.delete(id);
-  this.saveLayout({hidden,layouts:Object.fromEntries(this.layouts)});
+  const layouts=new Map();
+  for(const [id,layout] of this.layouts)if(pinned.has(id)){
+   const next={...layout};
+   if(reveal(id))delete next.hidden;
+   layouts.set(id,next);
+  }
+  this.saveLayout({hidden,layouts:Object.fromEntries(layouts)});
+  this.layouts=layouts;
  }
  persist(){
   try{this.checkpoint();}catch(error){this.onError(error);}
@@ -59,12 +66,30 @@ class LogStickers {
   entry.window.showInactive();
   entry.window.pinController.sync({force:true});
  }
- setHidden(hidden){
-  this.checkpoint(hidden);
-  this.hidden=hidden;
+ setHidden(hidden,reveal){
+  this.checkpoint(hidden,reveal);
+  this.hidden=this.savedHidden=hidden;
   for(const entry of this.windows.values()){
    if(hidden){entry.dragBounds=null;entry.window.hide();}
    else this.show(entry);
+  }
+ }
+ showAll(){
+  this.setHidden(false,()=>true);
+  this.restore();
+ }
+ reveal(id){
+  if(this.layouts.get(id)?.hidden)this.checkpoint(this.savedHidden,key=>key===id);
+  this.open(id);
+ }
+ restoreOnStartup(mode,restorePanels){
+  if(mode==='previous'){
+   if(restorePanels)this.restore();
+  }else if(mode==='hide'){
+   this.hidden=true;
+  }else{
+   this.hidden=false;
+   this.restore({includeHidden:mode==='show'});
   }
  }
  clear(){
@@ -114,10 +139,14 @@ class LogStickers {
    this.show(entry);
   });
   // Only the named unpin action removes the saved pin. Native close may also come from Windows.
-  window.on('close',()=>this.persist());
+  window.on('close',()=>{entry.nativeClosing=true;this.persist();});
   window.on('closed',()=>{
    clearTimeout(entry.opacityTimer);
-   if(this.windows.get(id)===entry){this.windows.delete(id);this.onClosed?.();}
+   if(this.windows.get(id)!==entry)return;
+   this.windows.delete(id);
+   const layout=this.layouts.get(id);
+   if(entry.nativeClosing&&layout){layout.hidden=true;this.persist();}
+   this.onClosed?.();
   });
   Promise.resolve(window.loadFile(page)).catch(error=>{
    if(this.windows.get(id)===entry){this.remove(id);this.onError(error);}
@@ -203,8 +232,8 @@ class LogStickers {
   this.windows.delete(id);
   if(!entry.window.isDestroyed())entry.window.destroy();
  }
- restore(){
-  for(const [id,detail] of this.read())this.open(id,detail);
+ restore({includeHidden=false}={}){
+  for(const [id,detail] of this.read())if(includeHidden||!this.layouts.get(id)?.hidden)this.open(id,detail);
  }
  refresh(ids=this.windows.keys()){
   if(!this.windows.size)return;
