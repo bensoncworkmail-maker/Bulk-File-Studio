@@ -37,6 +37,8 @@ const { FavoritesStore,inspectPath } = require('./favorites-store');
 const {EverythingBridge}=require('./everything-bridge');
 const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('./windows-context-menu');
 const {SnippetCapture,snippetContextMenu}=require('./snippet-capture');
+const {readWindowSelection,readWindowsSelection}=require('./snippet-selection-reader');
+const securedWindows=new WeakSet();
 const snippetSelection=require('./snippet-selection-message');
 const snippetInbox=require('./snippet-selection-inbox');
 
@@ -313,6 +315,7 @@ function createWindow(hidden=false) {
 }
 
 function secureWindow(window){
+  securedWindows.add(window);
   installOfflinePolicy(window.webContents.session,__dirname);
   window.webContents.on('render-process-gone',(_,details)=>{
     if(details.reason==='clean-exit')return;
@@ -392,7 +395,7 @@ app.whenReady().then(() => {
       menu.popup({window:win,callback:()=>setImmediate(()=>resolve(null))});
     })});
   pasteTargetSession=new(require('./paste-target-session').PasteTargetSession)({capture:()=>require('./snippet-paste').capture(),onError:error=>diagnostics.record('floating','paste-target',error)});
-  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,isMainVisible:()=>Boolean(win&&!win.isDestroyed()&&win.isVisible()),stickerMenu:()=>stickerMenuItems(),openTaskbarSettings:()=>shell.openExternal('ms-settings:taskbar'),showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),newSnippet:floatingAction(()=>snippetCapture.openBlank()),showCalendar:floatingAction(()=>openToolOverlay('planning')),toggleFocusMode:floatingAction(()=>configureDesktop({focusMode:!desktop.settings.focusMode})),extraShortcuts:settings=>{
+  desktopShell=new DesktopShell({readLoginRegistration:process.platform==='win32'?require('./startup-registration').readRegistration:undefined,app,Tray,Menu,nativeImage,globalShortcut,platform:process.platform,packaged:app.isPackaged,portable:Boolean(process.env.PORTABLE_EXECUTABLE_FILE),executable:process.execPath,getSettings:()=>desktop.settings,showMain:focusMain,showFloating,isMainVisible:()=>Boolean(win&&!win.isDestroyed()&&win.isVisible()),stickerMenu:()=>stickerMenuItems(),openTaskbarSettings:()=>shell.openExternal('ms-settings:taskbar'),showDrafts:floatingAction(openDrafts),showSnippets:floatingAction(()=>openToolOverlay('snippets')),newSnippet:floatingAction(()=>snippetCapture.openFromShortcut()),showCalendar:floatingAction(()=>openToolOverlay('planning')),toggleFocusMode:floatingAction(()=>configureDesktop({focusMode:!desktop.settings.focusMode})),extraShortcuts:settings=>{
    const actions=settings.floatingQuickActions.filter(item=>item.shortcut);
    const snippets=(productivity?.store.get().snippets||[]).filter(item=>item.shortcut);
    const actionBinding=item=>['accelerator:'+item.shortcut,item.label,floatingAction(()=>runShortcutQuickAction(item.id)),'action:'+item.id];
@@ -1285,6 +1288,11 @@ app.whenReady().then(() => {
   productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;logStickers.close();logStickers.loadLayout();restoreDesktopStickers();desktopShell.syncTray();desktopShell.refreshTrayMenu();recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();toolOverlay.invalidate('logs');logStickers.refresh();send(win,'record-reminders-changed',recordReminders.list());}});
   snippetCapture=new SnippetCapture({
     BrowserWindow,secureWindow,theme:()=>desktop.settings.theme,
+    readSelection:()=>{
+      const focused=BrowserWindow.getFocusedWindow();
+      if(focused)return securedWindows.has(focused)?readWindowSelection(focused):'';
+      return readWindowsSelection({packaged:app.isPackaged,resourcesPath:process.resourcesPath});
+    },
     onError:error=>diagnostics.record('main','snippet-capture-load',error),
     categories:()=>[...new Set(productivity.store.get().snippets.map(item=>item.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant')),
     save:input=>{

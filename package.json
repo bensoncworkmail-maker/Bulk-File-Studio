@@ -1,6 +1,6 @@
 {
   "name": "bulk-rename-studio",
-  "version": "1.151.0",
+  "version": "1.152.0",
   "description": "離線收藏、標籤、自訂資料工作區、批次重新命名與檔案搬移工具",
   "main": "src/main.js",
   "author": "Bulk File Studio",
@@ -14,7 +14,7 @@
     "dist:portable": "electron-builder --win portable --publish never",
     "dist:setup": "electron-builder --win nsis --publish never",
     "check:deps": "node build/check-dependencies.js",
-    "prestart": "node build/check-dependencies.js",
+    "prestart": "node build/check-dependencies.js && node build/windows-snippet-selection.js",
     "predist:win": "node build/check-dependencies.js",
     "predist:portable": "node build/check-dependencies.js",
     "predist:setup": "node build/check-dependencies.js",
@@ -39,6 +39,7 @@
       "LICENSE"
     ],
     "asar": true,
+    "beforePack": "./build/windows-snippet-selection.js",
     "win": {
       "target": [
         "nsis",
@@ -64,7 +65,8 @@
       "src/document-preview.js",
       "src/bounded-file-read.js",
       "src/intranet-path.js",
-      "src/notes-location-links.js"
+      "src/notes-location-links.js",
+      "src/native/SnippetSelection.exe"
     ]
   },
   "dependencies": {

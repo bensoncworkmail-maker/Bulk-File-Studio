@@ -19,6 +19,7 @@ function harness(t, overrides = {}) {
   let contents;const windows=[],registered=new Map();const rawHandlers=new Map(),opened=[],shown=[];let copied='',popup;let popupClosed=0;
   const network={},messages=[];
   class Window {
+    static getFocusedWindow(){return overrides.focusedWindow?.()??null;}
     constructor(options) { this.options=options;this.bounds={x:options.x||0,y:options.y||0,width:options.width,height:options.height};this.events=new Map();this.visible=true;this.destroyed=false;windows.push(this);this.webContents = contents = { on:(name,callback)=>network[name]=callback,setWindowOpenHandler:callback=>network.windowOpen=callback,send(...args){messages.push(args);},session:{webRequest:{onBeforeRequest:callback=>network.request=callback},setPermissionRequestHandler:callback=>network.permission=callback,setPermissionCheckHandler:callback=>network.check=callback,on:(name,callback)=>network[name]=callback} }; }
     loadFile(filepath) {this.url=require('node:url').pathToFileURL(filepath).href;}
     on(name,callback){const callbacks=this.events.get(name)||[];callbacks.push(callback);this.events.set(name,callbacks);return this;}
@@ -101,8 +102,12 @@ test('browser capture opens independently of the main window and cancel keeps th
  assert.equal(editor.isDestroyed(),true);
  assert.equal(h.handlers.get('productivity-get')().data.snippets.length,0);
 });
-test('the configurable global shortcut opens one independent blank snippet editor and preserves browser capture',t=>{
- const h=harness(t),H=h.handlers,raw=h.rawHandlers,main=h.windows[0];
+test('the configurable global shortcut prefills one independent snippet editor and preserves browser capture',async t=>{
+ let deliverSelection;
+ const body='  回覆 📝\r\n第二行  ';
+ const h=harness(t,{'./snippet-selection-reader':{
+  readWindowsSelection:()=>new Promise(resolve=>{deliverSelection=resolve;})
+ }}),H=h.handlers,raw=h.rawHandlers,main=h.windows[0];
  const key='CommandOrControl+Alt+Shift+J';
  assert.equal(H.get('desktop-settings-get')().snippetNewShortcut,'');
  H.get('desktop-settings-set')(null,{snippetNewShortcut:'Ctrl+Alt+Shift+J'});
@@ -110,21 +115,29 @@ test('the configurable global shortcut opens one independent blank snippet edito
  assert.equal(H.get('desktop-settings-get')().snippetNewShortcut,key);
  main.hide();
  const launch=h.registered.get(key);
- launch();launch();
+ const first=launch();
+ await launch();
+ assert.equal(h.windows.length,1);
+ deliverSelection(body);
+ await first;
  const editor=h.windows[1],event={sender:editor.webContents,senderFrame:{url:editor.url}};
  assert.match(editor.url,/snippet-capture\.html$/);
  editor.emit('ready-to-show');
- launch();
+ await launch();
  assert.equal(h.windows.length,2);
  assert.equal(main.isVisible(),false);
- assert.equal(raw.get('snippet-capture-get')(event).body,'');
+ assert.equal(raw.get('snippet-capture-get')(event).body,body);
+ assert.equal(h.getCopied(),'');
  h.events.get('second-instance')({},[],h.dir,{snippetSelection:'瀏覽器選取文字'});
  const browser=h.windows[2];
  assert.equal(raw.get('snippet-capture-get')({sender:browser.webContents,senderFrame:{url:browser.url}}).body,'瀏覽器選取文字');
  assert.equal(raw.get('snippet-capture-save')(event,{name:'快捷新增',category:'工作',body:'測試內容'}).saved,true);
  assert.equal(H.get('productivity-get')().data.snippets[0].body,'測試內容');
- launch();
+ const nextLaunch=launch();
+ deliverSelection('');
+ await nextLaunch;
  const next=h.windows[3],nextEvent={sender:next.webContents,senderFrame:{url:next.url}};
+ assert.equal(raw.get('snippet-capture-get')(nextEvent).body,'');
  raw.get('snippet-capture-close')(nextEvent);
  H.get('desktop-settings-set')(null,{focusMode:true});
  assert.equal(h.registered.has(key),false);
@@ -132,6 +145,32 @@ test('the configurable global shortcut opens one independent blank snippet edito
  assert.equal(h.registered.has(key),true);
  H.get('desktop-settings-set')(null,{snippetNewShortcut:''});
  assert.equal(h.registered.has(key),false);
+});
+test('the shortcut reads the focused app renderer and skips passwords and lost focus',async t=>{
+ let focused;
+ const h=harness(t,{focusedWindow:()=>focused}),main=h.windows[0];
+ focused=main;
+ main.isFocused=()=>focused===main;
+ class HTMLInputElement{}
+ const input=Object.assign(new HTMLInputElement(),{type:'text',value:'prefix 選取的文字 suffix',selectionStart:7,selectionEnd:12});
+ const document={hasFocus:()=>true,activeElement:input};
+ const window={getSelection:()=>({toString:()=>'頁面選取文字'})};
+ main.webContents.executeJavaScriptInIsolatedWorld=(_,scripts)=>vm.runInNewContext(scripts[0].code,{document,window,HTMLInputElement,HTMLTextAreaElement:class{}});
+ h.handlers.get('desktop-settings-set')(null,{snippetNewShortcut:'Ctrl+Alt+Shift+J'});
+ const launch=h.registered.get('CommandOrControl+Alt+Shift+J');
+ async function verify(expected){
+  await launch();
+  const editor=h.windows.at(-1),event={sender:editor.webContents,senderFrame:{url:editor.url}};
+  assert.equal(h.rawHandlers.get('snippet-capture-get')(event).body,expected);
+  h.rawHandlers.get('snippet-capture-close')(event);
+ }
+ await verify('選取的文字');
+ input.type='password';
+ await verify('');
+ document.activeElement=null;
+ await verify('頁面選取文字');
+ main.webContents.executeJavaScriptInIsolatedWorld=async()=>{focused=null;return '已離開的選取文字';};
+ await verify('');
 });
 test('an unfinished profile journal blocks further renderer writes until restart recovery',t=>{const h=harness(t);fs.writeFileSync(path.join(h.dir,'profile-transaction.json'),'{}');assert.throws(()=>h.handlers.get('productivity-save')(null,'snippets',{name:'x',body:'x',category:''}),/重新啟動/);assert.throws(()=>h.handlers.get('notes-template')(),/重新啟動/);assert.equal(fs.existsSync(path.join(h.dir,'productivity.json')),false);});
 test('backup export requires its own extension and cannot replace a selected profile JSON',async t=>{const h=harness(t),file=path.join(h.dir,'a.txt');fs.writeFileSync(file,'a');h.handlers.get('favorites-add')(null,[file],[]);const backup=h.handlers.get('productivity-backup-create')(null,{}),target=path.join(h.dir,'favorites.json'),before=fs.readFileSync(target,'utf8');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:target});await assert.rejects(h.handlers.get('productivity-backup-export')(null,backup.name),/副檔名/);assert.equal(fs.readFileSync(target,'utf8'),before);const exported=path.join(h.dir,'export.bfsbackup');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:exported});await h.handlers.get('productivity-backup-export')(null,backup.name);assert.equal(JSON.parse(fs.readFileSync(exported,'utf8')).format,'BulkFileStudio.Profile');});
