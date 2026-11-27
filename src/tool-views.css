@@ -71,9 +71,6 @@ dialog.modal.dialog-has-size:is(.notes-record-dialog,.notes-table-dialog){overfl
 .dialog-size-grip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .dialog-size-row{display:flex;justify-content:flex-end}
 
-#floating-panel-settings fieldset{min-width:0;padding:0;border:0;margin:0}
-.floating-panel-setting-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.floating-panel-setting-row label{flex:1 1 130px}
 
 .tool-view-result:has(.tool-view-snippet-copy){padding:0}
 .tool-view-snippet-copy{

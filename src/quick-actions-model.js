@@ -14,7 +14,7 @@
   if(type==='view-logs')return [['overlay','浮動視窗'],['main','主視窗']];
   if(type==='open-worksets')return [['menu','外部選單'],['main','主視窗']];
   if(['open-planning','open-snippets'].includes(type))return [
-   ['overlay','浮動工具內'],['menu','外部選單'],['main','主視窗']
+   ['overlay','獨立視窗'],['menu','外部選單'],['main','主視窗']
   ];
   return [];
  }

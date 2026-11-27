@@ -16,18 +16,12 @@ test('metadata sorting supports size/time/type and keeps unavailable values last
 test('favorite metadata updates after editing and missing paths do not retain stale size',t=>{const folder=dir(t),file=path.join(folder,'one.txt'),store=new FavoritesStore(path.join(folder,'favorites.json'));fs.writeFileSync(file,'one');const added=store.addPaths([file]);assert.equal(added.ids.length,1);assert.equal(store.list()[0].size,3);fs.writeFileSync(file,'longer text');assert.equal(store.list()[0].size,11);fs.unlinkSync(file);assert.equal(store.list()[0].size,null);});
 test('quick tags merge without erasing existing tags and validation is atomic',t=>{const folder=dir(t),a=path.join(folder,'a'),b=path.join(folder,'b'),store=new FavoritesStore(path.join(folder,'favorites.json'));fs.writeFileSync(a,'A');fs.writeFileSync(b,'B');store.addPaths([a],['A']);store.addPaths([b],['B']);const ids=store.list().map(i=>i.id);store.addTags(ids,['common']);assert.deepEqual(store.list().map(i=>i.tags),[['A','common'],['B','common']]);const before=fs.readFileSync(store.filename,'utf8');assert.throws(()=>store.addTags(ids,['X'.repeat(33)]));assert.equal(fs.readFileSync(store.filename,'utf8'),before);});
 
-test('mixed floating sources and item limit persist within supported bounds',()=>{
- const {normalize}=require('../src/desktop-state');let settings=normalize({floatingView:'mixed',floatingMixedFiles:false,floatingMixedTags:true,floatingMixedWorkspace:false,floatingMixedLimit:100});assert.equal(settings.floatingView,'mixed');assert.equal(settings.floatingMixedFiles,false);assert.equal(settings.floatingMixedWorkspace,false);assert.equal(settings.floatingMixedLimit,30);assert.equal(normalize({floatingMixedLimit:1}).floatingMixedLimit,3);assert.equal(normalize({floatingMixedLimit:'12'}).floatingMixedLimit,8);assert.deepEqual(normalize(JSON.parse(JSON.stringify(settings))),settings);
-});
-
-test('floating contextual caption visibility is a persisted boolean preference',t=>{const file=path.join(dir(t),'desktop.json'),state=new DesktopState(file);assert.equal(state.settings.floatingShowCaption,true);state.update({floatingShowCaption:false});assert.equal(new DesktopState(file).settings.floatingShowCaption,false);assert.equal(normalize({floatingShowCaption:'false'}).floatingShowCaption,true);});
-
 test('draft window keeps independent geometry, fits a removed display, and can disable memory',t=>{
  const file=path.join(dir(t),'desktop.json'),desktop=new DesktopState(file),normal={x:120,y:85,width:830,height:625};
- desktop.update({rememberWindow:false,floatingCollapsedItems:['draft'],draftWindowWidth:600,draftWindowHeight:500});
+ desktop.update({rememberWindow:false,floatingCollapsedItems:['caption'],draftWindowWidth:600,draftWindowHeight:500});
  desktop.record('draft',{isDestroyed:()=>false,isMinimized:()=>false,isMaximized:()=>false,getNormalBounds:()=>normal});
  const restored=new DesktopState(file),options={width:600,height:500,minWidth:460,minHeight:460};
- assert.deepEqual(restored.settings.floatingCollapsedItems,['draft']);
+ assert.deepEqual(restored.settings.floatingCollapsedItems,['caption']);
  assert.deepEqual(restored.bounds('draft',displays,options),{...normal,minWidth:460,minHeight:460});
  const moved=restored.bounds('draft',[{workArea:{x:-900,y:0,width:900,height:700}}],options);
  assert.equal(moved.x,-865);assert.equal(moved.width,830);

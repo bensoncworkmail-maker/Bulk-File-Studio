@@ -46,7 +46,7 @@
   }
   function actionButton(text,run){const button=node('button',text);button.type='button';button.className='btn btn-ghost';button.disabled=saving;button.addEventListener('click',run);return button;}
   function dropOptions(){
-   const select=$('quick-action-drop-target');select.replaceChildren();const empty=node('option',dropMode==='records'?'請選擇新增紀錄快捷動作':'目前標籤／不指定表格');empty.value='';select.append(empty);
+   const select=$('quick-action-drop-target');select.replaceChildren();const empty=node('option',dropMode==='records'?'請選擇新增紀錄快捷動作':'使用拖放收藏標籤');empty.value='';select.append(empty);
    const allowed=actions.filter(item=>item.enabled&&['new-record','import-paths'].includes(item.type)&&(dropMode!=='records'||item.type==='new-record')&&(dropMode!=='import'||item.type==='import-paths'));for(const item of allowed){const option=node('option',item.label+' · '+M.TYPES[item.type]);option.value=item.id;select.append(option);}
    if(dropTarget&&!allowed.some(item=>item.id===dropTarget)){const missing=node('option','原設定與用途不符或已停用，請重新選擇');missing.value=dropTarget;select.append(missing);}select.value=dropTarget;select.disabled=saving||['favorites','ask'].includes(dropMode);
   }

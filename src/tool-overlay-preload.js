@@ -3,7 +3,6 @@ const {contextBridge,ipcRenderer}=require('electron');
 
 contextBridge.exposeInMainWorld('toolOverlayAPI',Object.freeze({
  control:(action,value)=>ipcRenderer.invoke('tool-overlay-control',action,value),
- workspace:(action,value)=>ipcRenderer.invoke('floating-workspace',action,value),
  toolData:(kind,filters)=>ipcRenderer.invoke('floating-tool-data',kind,filters),toolAction:(kind,action,value)=>ipcRenderer.invoke('floating-tool-action',kind,action,value),
  get:()=>ipcRenderer.invoke('tool-overlay-get'),
  data:(kind,filters)=>ipcRenderer.invoke('tool-overlay-data',kind,filters),

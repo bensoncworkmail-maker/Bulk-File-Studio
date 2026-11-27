@@ -2,7 +2,7 @@
 
 版本：v1.145.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 247 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 285 個介面／桌面偏好。
+讀取 src 全部 240 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 237 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -78,7 +78,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`inlinePanelConfig`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInlinePanel`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`publish`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`setFloatingCollapsed`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showStickerSource`、`showTagMenu`、`showToolRows`、`syncFavoriteMoves`、`toggleFloatingCollapse`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showStickerSource`、`showTagMenu`、`showToolRows`、`stickerMenuItems`、`syncFavoriteMoves`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [navigation-model.js](../src/navigation-model.js) | `normalize` |
 | [navigation-settings.js](../src/navigation-settings.js) | `mount`、`render` |
@@ -181,12 +181,11 @@
 
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
-| [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`registerShortcuts`、`setLogin` |
+| [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`openTraySettings`、`refreshTrayMenu`、`registerShortcuts`、`setLogin`、`syncTray` |
 | [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`saveStickerLayout`、`snippetPickerGroups`、`stickerLayout`、`update`、`validBounds`、`write` |
 | [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`attachmentRow`、`colorText`、`desktopLayout`、`draftDetail`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
 | [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
-| [floating-auto-collapse.js](../src/floating-auto-collapse.js) | `reset`、`tick` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
 | [floating-capture-ui.js](../src/floating-capture-ui.js) | `$`、`collect`、`field`、`init`、`invalidate`、`lock`、`node`、`refreshChoices`、`renderAttachments`、`renderFavorites`、`renderTags`、`status` |
 | [floating-capture.css](../src/floating-capture.css) | 版面、主題與互動狀態樣式 |
@@ -196,30 +195,24 @@
 | [floating-date-settings.js](../src/floating-date-settings.js) | `$`、`apply`、`changed`、`control`、`field`、`init`、`load`、`node`、`render`、`status` |
 | [floating-displays.js](../src/floating-displays.js) | `close`、`recover` |
 | [floating-header.js](../src/floating-header.js) | `control`、`finish`、`init`、`menu`、`move`、`queue` |
-| [floating-layout.js](../src/floating-layout.js) | `capsule`、`defaults`、`horizontal`、`inputRegions`、`minimum`、`modern`、`surfaces`、`visibleSlots` |
-| [floating-live-search.js](../src/floating-live-search.js) | `activate`、`cancel`、`clear`、`create`、`enabled`、`fail`、`input`、`prepare`、`settingsChanged` |
 | [floating-main-tool.js](../src/floating-main-tool.js) | 宣告、設定或共用模型 |
 | [floating-menu.js](../src/floating-menu.js) | `activeFor`、`bind`、`close`、`closeAndWait`、`done`、`release` |
-| [floating-panels-model.js](../src/floating-panels-model.js) | `enabledPanels`、`ids`、`known`、`normalize` |
-| [floating-panels-settings.js](../src/floating-panels-settings.js) | `$`、`edit`、`init`、`receive`、`rows`、`selectOptions` |
-| [floating-panels.js](../src/floating-panels.js) | `create`、`display`、`mountTool`、`refresh`、`remove`、`select`、`sync` |
 | [floating-pin.js](../src/floating-pin.js) | `failed`、`refresh` |
-| [floating-render-guard.js](../src/floating-render-guard.js) | `begin`、`create`、`finish`、`request` |
 | [floating-tag-menu.js](../src/floating-tag-menu.js) | `entry`、`escape`、`tagListMenu`、`tagMenu` |
 | [floating-tool-layout.js](../src/floating-tool-layout.js) | `normalize` |
+| [floating-tool-panel.css](../src/floating-tool-panel.css) | 版面、主題與互動狀態樣式 |
 | [floating-tool-panel.html](../src/floating-tool-panel.html) | 視窗／頁面結構及本機資源引用 |
 | [floating-tool-panel.js](../src/floating-tool-panel.js) | `render` |
 | [floating-tool-views.js](../src/floating-tool-views.js) | `button`、`mount`、`node`、`refresh`、`render` |
 | [floating-tools-settings.js](../src/floating-tools-settings.js) | `mount`、`node`、`save`、`select`、`sync`、`syncSizes` |
-| [floating-window.js](../src/floating-window.js) | `apply`、`captureExpanded`、`collapsedMinimumWidth`、`compactSize`、`constructor`、`endDrag`、`ensureVisible`、`inputShape`、`launcherBounds`、`launcherPosition`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`restoreDefaultSize`、`saveDefaultSize`、`savedBounds`、`selectPanel`、`setModal`、`startDrag`、`windowDefaults` |
-| [floating-workspace-ui.js](../src/floating-workspace-ui.js) | `button`、`cancel`、`geometry`、`mount`、`node`、`openCommands`、`openSettings`、`openTool`、`sync` |
+| [floating-window.js](../src/floating-window.js) | `apply`、`constructor`、`endDrag`、`ensureVisible`、`initialBounds`、`liveBounds`、`moveDrag`、`opacity`、`place`、`record`、`startDrag`、`windowDefaults` |
 | [floating-workspace.css](../src/floating-workspace.css) | 版面、主題與互動狀態樣式 |
-| [floating-workspace.js](../src/floating-workspace.js) | `register` |
+| [floating-workspace.js](../src/floating-workspace.js) | `createClipboardHistory` |
 | [floating.css](../src/floating.css) | 版面、主題與互動狀態樣式 |
 | [floating.html](../src/floating.html) | 視窗／頁面結構及本機資源引用 |
-| [floating.js](../src/floating.js) | `$`、`action`、`activate`、`buttonSearch`、`copyPaths`、`hideDrop`、`makeCopy`、`makeShow`、`menu`、`node`、`open`、`openButtonSearch`、`paint`、`quickFeedback`、`quickLabel`、`refresh`、`refreshWorkspace`、`render`、`renderCollapsed`、`renderMixed`、`renderQuickActions`、`renderWorkspace`、`runQuickAction`、`section`、`showMenu`、`showTagMenu` |
+| [floating.js](../src/floating.js) | `$`、`anchor`、`click`、`isFileDrag`、`notify`、`render`、`report`、`run`、`updateOverflow` |
 | [global-shortcuts.js](../src/global-shortcuts.js) | `fromEvent`、`normalize`、`validatePair` |
-| [layout-editor.js](../src/layout-editor.js) | `bind`、`floating`、`main` |
+| [layout-editor.js](../src/layout-editor.js) | `bind`、`main` |
 | [log-sticker-preload.js](../src/log-sticker-preload.js) | 宣告、設定或共用模型 |
 | [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`fileCell`、`finishDrag`、`isClose`、`linkButton`、`locate`、`moveDrag`、`open`、`openHeaderMenu`、`render`、`renderEditor`、`report`、`text`、`toggle`、`toggleAt` |
 | [log-sticker.css](../src/log-sticker.css) | 版面、主題與互動狀態樣式 |
@@ -232,7 +225,7 @@
 | [settings-export.js](../src/settings-export.js) | `createSettingsExport`、`writeSettingsExport` |
 | [settings-model.js](../src/settings-model.js) | `applyRoot`、`entries`、`load`、`normalize` |
 | [settings-workbench.js](../src/settings-workbench.js) | `$`、`add`、`category`、`clear`、`create`、`inCategory`、`reveal`、`search` |
-| [settings.js](../src/settings.js) | `$`、`checkPackage`、`init`、`loginMessage`、`makeCheck`、`readLogin`、`refreshInfo`、`refreshTagOptions`、`releaseCard`、`renderCollapsedSettings`、`renderTags`、`requestReset`、`save`、`saveNative`、`showReleaseHistory`、`status`、`syncControls`、`syncLogin`、`syncNative`、`update` |
+| [settings.js](../src/settings.js) | `$`、`checkPackage`、`init`、`loginMessage`、`readLogin`、`refreshInfo`、`refreshTagOptions`、`releaseCard`、`renderTags`、`requestReset`、`save`、`saveNative`、`showReleaseHistory`、`status`、`syncControls`、`syncLogin`、`syncNative`、`update` |
 | [shortcut-controls.js](../src/shortcut-controls.js) | `bind`、`capture`、`set` |
 | [shortcut-inventory-model.js](../src/shortcut-inventory-model.js) | `assertGlobal`、`canonical`、`conflicts`、`overlap`、`rows` |
 | [shortcut-menu-trigger.js](../src/shortcut-menu-trigger.js) | `abort`、`close`、`finish`、`input` |
@@ -261,10 +254,10 @@
 | [calendar-scope.js](../src/calendar-scope.js) | `allows`、`normalize` |
 | [floating-search-preload.js](../src/floating-search-preload.js) | `listen`、`listener` |
 | [floating-search-state.js](../src/floating-search-state.js) | `normalize`、`tablePresets` |
-| [floating-search-ui.js](../src/floating-search-ui.js) | `$`、`act`、`button`、`changed`、`filterChanged`、`focusResults`、`lock`、`node`、`persistConditions`、`readFilters`、`receiveSettings`、`render`、`renderDatePresets`、`renderFilters`、`renderTablePresets`、`run`、`state`、`updateFilterSummary` |
+| [floating-search-ui.js](../src/floating-search-ui.js) | `$`、`act`、`button`、`changed`、`filterChanged`、`lock`、`node`、`persistConditions`、`readFilters`、`receiveSettings`、`render`、`renderDatePresets`、`renderFilters`、`renderTablePresets`、`run`、`state`、`updateFilterSummary` |
 | [floating-search.css](../src/floating-search.css) | 版面、主題與互動狀態樣式 |
 | [floating-search.html](../src/floating-search.html) | 視窗／頁面結構及本機資源引用 |
-| [floating-search.js](../src/floating-search.js) | `action`、`anchoredBounds`、`cancelLive`、`close`、`constructor`、`data`、`destroy`、`invalidate`、`owns`、`prepareLive`、`previewLive`、`saveState`、`targetOpened`、`updateSettings` |
+| [floating-search.js](../src/floating-search.js) | `action`、`anchoredBounds`、`close`、`constructor`、`data`、`destroy`、`invalidate`、`owns`、`saveState`、`targetOpened`、`updateSettings` |
 | [planning-view.css](../src/planning-view.css) | 版面、主題與互動狀態樣式 |
 | [planning-view.js](../src/planning-view.js) | `$`、`button`、`init`、`node`、`openEvent`、`render`、`renderBoard`、`renderCalendar`、`select`、`setFields`、`setOptions`、`setSheets`、`today` |
 | [record-reminders-ui.js](../src/record-reminders-ui.js) | `$`、`button`、`editMessage`、`fail`、`idle`、`messageFields`、`node`、`open`、`pick`、`previewMessage`、`render`、`reset` |

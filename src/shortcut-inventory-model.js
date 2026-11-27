@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const GLOBALS={mainShortcut:'叫回主視窗',floatingShortcut:'顯示／隱藏浮動工具',collapseShortcut:'收合／展開浮動工具',searchShortcut:'浮動搜尋面板',draftShortcut:'草稿筆記',snippetsShortcut:'分類文字面板',calendarShortcut:'小月曆',focusShortcut:'啟用／關閉專注模式'};
+ const GLOBALS={mainShortcut:'叫回主視窗',floatingShortcut:'顯示／隱藏浮動工具',collapseShortcut:'顯示／隱藏浮動工具（替代）',searchShortcut:'浮動搜尋面板',draftShortcut:'草稿筆記',snippetsShortcut:'分類文字面板',calendarShortcut:'小月曆',focusShortcut:'啟用／關閉專注模式'};
  const FIXED=[
   ['tracking-filter','聚焦追蹤結果篩選','Ctrl+F','tracking'],
   ['tracking-all','追蹤結果全選','Ctrl+A','tracking'],['tracking-invert','追蹤結果反向選取','Ctrl+Shift+A','tracking'],['tracking-clear','追蹤結果取消選取','Escape','tracking'],

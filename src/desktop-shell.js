@@ -11,23 +11,39 @@ class DesktopShell {
    if(image.isEmpty())throw new Error('系統匣圖示無法載入');
    const tray=new this.Tray(image);this.tray=tray;
    tray.setToolTip('Bulk File Studio');
-   tray.setContextMenu(this.Menu.buildFromTemplate([
-    {label:'開啟 Bulk File Studio',click:()=>this.showMain()},
-    {label:'顯示浮動工具',click:()=>this.showFloating()},
-    {label:'隱藏至系統匣',click:()=>this.hideToTray()},
-    ...(this.toggleFocusMode?[{label:'切換專注模式',click:()=>this.toggleFocusMode()}]:[]),
-    {type:'separator'},
-    {label:'結束程式',click:()=>{this.quitting=true;this.app.quit();}}
-   ]));
+   this.refreshTrayMenu();
    tray.on('click',()=>this.showMain());tray.on('double-click',()=>this.showMain());return true;
   }catch(e){this.tray?.destroy();this.tray=null;this.onWarning('無法建立系統匣，主視窗會保持可見：'+e.message);return false;}
+ }
+ refreshTrayMenu(){
+  if(!this.tray)return;
+  const stickers=this.stickerMenu?.()||[];
+  this.tray.setContextMenu(this.Menu.buildFromTemplate([
+   {label:'開啟 Bulk File Studio',click:()=>this.showMain()},
+   {label:'顯示浮動工具',click:()=>this.showFloating()},
+   ...(stickers.length?[{label:'桌面便條',submenu:stickers}]:[]),
+   {label:'隱藏至系統匣',click:()=>this.hideToTray()},
+   ...(this.toggleFocusMode?[{label:'切換專注模式',click:()=>this.toggleFocusMode()}]:[]),
+   {type:'separator'},
+   {label:'結束程式',click:()=>{this.quitting=true;this.app.quit();}}
+  ]));
+ }
+ syncTray(){
+  const settings=this.getSettings();
+  if(settings.trayAlwaysVisible||settings.closeToTray||settings.startHidden)return this.ensureTray();
+  if(this.tray&&this.isMainVisible?.()){this.tray.destroy();this.tray=null;}
+  return Boolean(this.tray);
+ }
+ openTraySettings(){
+  if(this.platform!=='win32')throw Error('此選項僅適用於 Windows');
+  return this.openTaskbarSettings();
  }
  hideFloatingForTray(){const settings=this.getSettings();if(!(settings.floatingKeepPinnedOnTray&&settings.floatingOnTop))this.hideFloating();}
  hideToTray(){if(!this.ensureTray())return false;this.hideMain();this.hideFloatingForTray();return true;}
  onClose(event){if(this.quitting||!this.getSettings().closeToTray)return false;if(!this.ensureTray())return false;event.preventDefault();this.hideMain();this.hideFloatingForTray();return true;}
  registerShortcuts(settings=this.getSettings()){
   this.globalShortcut.unregisterAll();const warnings=[];
-  for(const [key,label,callback,actionId=key] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','收合／展開浮動工具',()=>this.toggleFloatingCollapse()],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],['focusShortcut','專注模式切換',()=>this.toggleFocusMode?.()],...(this.extraShortcuts?.(settings)||[]) ]){
+  for(const [key,label,callback,actionId=key] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','浮動工具替代快捷鍵',()=>this.showFloating(true)],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],['focusShortcut','專注模式切換',()=>this.toggleFocusMode?.()],...(this.extraShortcuts?.(settings)||[]) ]){
    if(key!=='focusShortcut'&&settings.focusMode===true&&!settings.focusShortcutIds?.includes(actionId))continue;
    const accelerator=key.startsWith('accelerator:')?key.slice(12):settings[key];if(!accelerator)continue;
    try{if(!this.globalShortcut.register(accelerator,callback))warnings.push(label+'快捷鍵已被其他程式使用，請在設定選擇另一組。');}
