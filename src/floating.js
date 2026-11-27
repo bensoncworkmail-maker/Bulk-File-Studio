@@ -38,6 +38,7 @@
 
   function render(next) {
     document.documentElement.dataset.theme = next.theme;
+    focus.hidden = next.floatingShowFocusButton === false;
     focus.setAttribute('aria-pressed', String(next.focusMode));
     focus.textContent = next.focusMode ? '專注：開' : '專注：關';
     focus.title = next.focusMode ? '關閉專注模式' : '開啟專注模式';

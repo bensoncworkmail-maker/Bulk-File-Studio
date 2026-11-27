@@ -166,3 +166,20 @@ test('tracking rename mode is searchable, persists, exports and resets with the 
  const exported=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},{},'1.120.0');assert.equal(exported.settings.everythingRenameMode,'dialog');assert.equal(exported.settings.everythingSelectedTag,'elearning');
  await h.$('settings-reset-category').dispatch('click');await h.$('btn-settings-reset-confirm').dispatch('click');assert.equal(h.ui.get().everythingRenameMode,'inline');assert.equal(h.ui.get().everythingSelectedTag,null);
 });
+
+test('floating focus button visibility saves and resets independently of focus mode',async()=>{
+ const h=setup({settingsTab:'floating'},{focusMode:true});
+ await flush();
+ const control=h.$('settings-floating-show-focus-button');
+ assert.equal(control.checked,true);
+ control.checked=false;
+ await control.dispatch('change');
+ assert.equal(h.values().floatingShowFocusButton,false);
+ assert.equal(h.values().focusMode,true);
+ const packet=require('../src/settings-export').createSettingsExport({settings:h.ui.get(),rules:{}},h.values(),'1.146.0');
+ assert.equal(packet.desktop.floatingShowFocusButton,false);
+ await h.$('settings-reset-category').dispatch('click');
+ await h.$('btn-settings-reset-confirm').dispatch('click');
+ assert.equal(control.checked,true);
+ assert.equal(h.values().focusMode,true);
+});
