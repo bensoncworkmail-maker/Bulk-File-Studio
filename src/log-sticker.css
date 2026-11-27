@@ -10,29 +10,28 @@ header{display:grid;grid-template-columns:36px minmax(0,1fr) 36px;background:var
 #heading:focus-visible{outline:2px solid currentColor;outline-offset:-3px}
 #close{grid-column:3;grid-row:1;border:0;background:transparent;color:inherit;font-size:18px}
 #close:hover{background:color-mix(in srgb,currentColor 12%,transparent)}
-main{flex:1;min-height:0;overflow:auto;padding:9px 12px 12px;overflow-wrap:anywhere}
-#title{margin:0 0 4px;font-size:1.1rem;color:color-mix(in srgb,var(--sticker-foreground,#171717) 68%,#2978e6)}p{margin:0 0 8px;white-space:pre-wrap}
-dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:3px 8px;margin:0 0 8px}dd{margin:0}dt{font-weight:600}
+main{flex:1;min-height:0;overflow:auto;padding:12px 14px 14px;overflow-wrap:anywhere;display:flex;flex-direction:column;gap:8px}
+main > *{flex:none;margin:0;padding-block:4px}
+#title{font-size:1.1rem;color:color-mix(in srgb,var(--sticker-foreground,#171717) 68%,#2978e6)}p{margin:0;white-space:pre-wrap}
+dl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:6px 10px}dd{margin:0}dt{font-weight:600}
 button{cursor:pointer;font:inherit}
-#links{display:flex;gap:6px;flex-wrap:wrap;margin-block:4px 8px}
+#links{display:flex;gap:6px;flex-wrap:wrap}
 .sticker-link{border:0;background:transparent;color:inherit;text-align:left;text-decoration:underline;overflow-wrap:anywhere;padding:2px 0}
 .sticker-title-link{background:none;border:0;color:inherit;padding:0;text-align:left;text-decoration:underline;text-underline-offset:3px;font-weight:inherit;overflow-wrap:anywhere}
-#status{padding:0 12px;color:inherit}
-#draft-editor{margin-block:6px 10px}
-#draft-editor label{display:block;margin-bottom:3px}
-#draft-body{box-sizing:border-box;width:100%;padding:5px 6px;border:1px solid color-mix(in srgb,currentColor 45%,transparent);border-radius:4px;resize:vertical;background:var(--sticker-background,#fff);color:inherit;font:inherit}
-.draft-editor-actions{display:flex;gap:6px;justify-content:flex-end}
-.draft-editor-actions button{border:1px solid color-mix(in srgb,currentColor 45%,transparent);border-radius:4px;padding:2px 9px;background:transparent;color:inherit}
-#save-draft{background:var(--sticker-header-background,#d5eaf8);color:var(--sticker-header-foreground,#203749)}
+#status{padding:6px 14px;color:inherit}
+#draft-body{box-sizing:border-box;display:block;width:100%;min-height:2.4em;field-sizing:content;padding:3px 0;border:0;resize:none;background:transparent;color:inherit;font:inherit}
+#draft-body:focus-visible{outline:1px solid currentColor;outline-offset:3px;border-radius:2px}
+.draft-status-row{margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:.88em}
+#draft-status{color:color-mix(in srgb,currentColor 85%,transparent)}
 
-#attachments{margin-block:8px}
 #attachments table{width:100%;table-layout:fixed;border-collapse:collapse}
 #attachments caption{text-align:left;font-size:11px;margin-bottom:5px}
-#attachments th,#attachments td{text-align:left;vertical-align:top;border-bottom:1px solid color-mix(in srgb,currentColor 22%,transparent);padding:4px 6px;overflow-wrap:anywhere}
+#attachments th,#attachments td{text-align:left;vertical-align:top;border-bottom:1px solid color-mix(in srgb,currentColor 22%,transparent);padding:7px 8px;overflow-wrap:anywhere}
 #attachments th:first-child{width:42%}
 #attachments .sticker-link{max-width:100%}
 #tag-items{padding-inline-start:20px}
-#image-preview { margin: 8px 0 0; }
-#image-preview img { display: block; max-width: 100%; max-height: 240px; object-fit: contain; }
-#image-caption { margin-top: 4px; overflow-wrap: anywhere; }
-.image-preview-button { margin-top: 4px; font-size: .9em; }
+#image-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,112px),1fr));gap:8px}
+#image-previews figure{margin:0;min-width:0}
+.sticker-image-button{display:grid;place-items:center;width:100%;height:96px;padding:4px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:5px;background:transparent;cursor:zoom-in}
+.sticker-image-button img{display:block;max-width:100%;max-height:86px;object-fit:contain}
+#image-previews figcaption{font-size:.88em;margin-top:3px;overflow-wrap:anywhere}

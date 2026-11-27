@@ -4,6 +4,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
+const os=require('node:os');
+const {EventEmitter}=require('node:events');
 const {Readable}=require('node:stream');
 const {createHash}=require('node:crypto');
 const {encodeMessage,readMessage,selectionFromMessage}=require('../src/snippet-selection-message');
@@ -45,6 +47,42 @@ test('extension forwards only clicks on its selection context menu',()=>{
  assert.equal(calls[0][0],HOST);
  assert.equal(calls[0][1].text,'  選取內容\n');
  assert.equal(tabs.length,0);
+ chrome.runtime.sendNativeMessage=(_name,_value,callback)=>callback({ok:false,reason:'window-not-opened'});
+ click({menuItemId:menu.id,selectionText:'又一個片段'});
+ assert.equal(tabs[0].url,'connection.html?reason=window-not-opened');
+});
+
+test('the browser host acknowledges only a shown editor and removes the handoff files',async t=>{
+ const inbox=require('../src/snippet-selection-inbox'),{deliverToApp}=require('../src/snippet-browser-host');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'bfs-snippet-handoff-'));
+ t.after(()=>fs.rmSync(dir,{force:true,recursive:true}));
+ const text='  瀏覽器選取的文字 🌏\r\n第二行';
+ const input=()=>Readable.from([encodeMessage({action:'capture-snippet',text})]);
+ let shown,launchStarted;
+ const started=new Promise(resolve=>{launchStarted=resolve;});
+ const fakeChild=()=>{
+  const child=new EventEmitter();child.unref=()=>{};
+  setImmediate(()=>child.emit('spawn'));
+  return child;
+ };
+ const pending=deliverToApp(input(),{folder:dir,launch:(_file,[flag,id],options)=>{
+  assert.equal(flag,inbox.INBOX_FLAG);assert.equal(options.stdio,'ignore');
+  assert.equal(inbox.receiveSelection(dir,id),text);
+  assert.throws(()=>inbox.receiveSelection(dir,id),/ENOENT/);
+  shown=()=>inbox.markShown(dir,id);
+  launchStarted();
+  return fakeChild();
+ }});
+ let completed=false;
+ void pending.then(()=>{completed=true;});
+ await started;
+ assert.equal(completed,false);
+ shown();
+ assert.deepEqual(await pending,{ok:true});
+ assert.deepEqual(fs.readdirSync(dir),[]);
+ assert.deepEqual(await deliverToApp(input(),{folder:dir,launch:fakeChild,timeout:0}),{ok:false,reason:'window-not-opened'});
+ assert.deepEqual(fs.readdirSync(dir),[]);
+ assert.throws(()=>inbox.receiveSelection(dir,'../invalid'),/無效/);
 });
 
 test('parameter templates and snippet management are top-level toolbox destinations',()=>{

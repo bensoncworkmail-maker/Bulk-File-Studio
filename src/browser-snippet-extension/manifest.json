@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bulk File Studio｜常用文字片段",
   "description": "把右鍵選取的文字傳到本機 Bulk File Studio 以便儲存。",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuk5/lm2aOkmKHAp/pFYEbfjYLRthXNfiRV8XZPS+mvmwGkEPT6YIIAqXmmGT1Y4uZx3PMfjZKaH4vgD/DKQhsg8F9WN4AFV7AuWoHj3bS8puWsXbf/edekBDw1AQ7MbCWzRpx/jfi24FFLru4pcMoqLckvukcaYO16I1Kg194iW7b53SjcCZq9YGRQbU7S415E/EqyqmSFXg7gyvA13hCDM2rqG/lpP5sPjqX5RqkaFBuKrchMoYvfSDjg03OhR6WWjW49SPEhc20dMMvEKBOfYqSClwgWjO83dbGN7r317aCotBTpuMvZQW2sjBXWq8TSzxA5osm9jLRWBXXKFzTwIDAQAB",
   "permissions": [
     "contextMenus",

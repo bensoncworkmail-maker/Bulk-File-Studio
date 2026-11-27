@@ -1,6 +1,7 @@
 'use strict';
 
 const path=require('node:path');
+const {createHash}=require('node:crypto');
 const {pathToFileURL}=require('node:url');
 const {fitBounds}=require('./desktop-state');
 const {FloatingPin}=require('./floating-pin');
@@ -108,8 +109,11 @@ class LogStickers {
  }
  payload(entry){
   const {links,...detail}=entry.detail;
-  return {...detail,links:links.map(link=>({kind:link.kind,label:link.label,location:link.location,
-   ref:this.linkRef(link),image:Boolean(link.path&&isPreviewImage(link.path))})),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
+  return {...detail,links:links.map(link=>{
+   const image=Boolean(link.path&&isPreviewImage(link.path));
+   return {kind:link.kind,label:link.label,location:link.location,ref:this.linkRef(link),image,
+    ...(image?{imageKey:createHash('sha256').update(link.path).digest('hex')}:{})};
+  }),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
  }
  toggle(entry,point){
   const content=point&&entry.window.getContentBounds?.();

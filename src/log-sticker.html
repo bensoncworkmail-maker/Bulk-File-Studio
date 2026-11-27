@@ -16,17 +16,17 @@
  </header>
  <main id="record">
   <h1 id="title"></h1>
-  <form id="draft-editor" hidden>
-   <label for="draft-body">草稿正文</label>
-   <textarea id="draft-body" rows="4" spellcheck="false"></textarea>
-   <div class="draft-editor-actions">
-    <button id="save-draft" type="submit">儲存</button>
-    <button id="cancel-draft" type="button">取消</button>
+  <section id="draft-editor" aria-label="草稿正文" hidden>
+   <textarea id="draft-body" rows="1" spellcheck="false" aria-label="草稿正文" placeholder="輸入草稿正文"></textarea>
+   <div class="draft-status-row">
+    <span id="draft-status" role="status"></span>
+    <button id="recover-draft" class="sticker-link" type="button" hidden></button>
    </div>
-  </form>
+  </section>
   <p id="notes"></p>
   <dl id="fields"></dl>
   <ul id="tag-items" hidden></ul>
+  <section id="image-previews" aria-label="圖片預覽" hidden></section>
   <div id="attachments" hidden>
    <table>
     <caption id="attachment-hint" hidden></caption>
@@ -34,7 +34,6 @@
     <tbody id="attachment-rows"></tbody>
    </table>
   </div>
-  <figure id="image-preview" hidden><img id="sticker-image" alt=""><figcaption id="image-caption"></figcaption></figure>
   <div id="links" aria-label="相關網址" hidden></div>
  </main>
  <p id="status" role="status" hidden></p>
