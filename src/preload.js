@@ -79,22 +79,18 @@ contextBridge.exposeInMainWorld('favoritesAPI', Object.freeze({
 
 contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({retryShortcuts:()=>invoke('shortcuts-retry'),toolData:(kind,filters)=>invoke('floating-tool-data',kind,filters),toolAction:(kind,action,value)=>invoke('floating-tool-action',kind,action,value),onMainTool:callback=>ipcRenderer.on('floating-main-tool-open',(_,kind)=>callback(kind)),captureShortcuts:enabled=>invoke('shortcuts-recording',enabled),
  dropFiles:paths=>invoke('floating-drop',paths),
- openFloatingSearch:(query,anchor)=>invoke('floating-search-open',query,anchor),bulkPreview:(input,revision)=>invoke('notes-bulk-preview',input,revision),bulkCommit:token=>invoke('notes-bulk-commit',token),openDrafts:()=>invoke('draft-open'),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:(id,anchor)=>invoke('floating-quick-action',id,anchor),
+ bulkPreview:(input,revision)=>invoke('notes-bulk-preview',input,revision),bulkCommit:token=>invoke('notes-bulk-commit',token),openDrafts:()=>invoke('draft-open'),quickActionOptions:()=>invoke('quick-action-options'),runQuickAction:(id,anchor)=>invoke('floating-quick-action',id,anchor),
  defaults:()=>invoke('desktop-settings-defaults'),
  openFloatingHeaderMenu:anchor=>invoke('floating-header-menu',anchor),
- openStickerMenu:anchor=>invoke('floating-sticker-menu',anchor),
  patchToolLayout:(kind,patch)=>invoke('desktop-tool-layout-patch',kind,patch),
  toggleFocusMode:()=>invoke('focus-mode-toggle'),
- headerDoubleClick:()=>invoke('floating-header-double-click'),
  beginFloatingDrag:mode=>invoke('floating-drag-start',mode),moveFloatingDrag:(token,dx,dy)=>invoke('floating-drag-move',token,dx,dy),endFloatingDrag:token=>invoke('floating-drag-end',token),
  floatingTagOptions:()=>invoke('floating-tag-options'),
  openTraySettings:()=>invoke('tray-open-settings'),openStartupSettings:()=>invoke('startup-open-settings'),startup:()=>invoke('startup-get'),setStartup:enabled=>invoke('startup-set',enabled),hideToTray:()=>invoke('app-hide-to-tray'),
  openFloatingTool:kind=>invoke('floating-open-tool',kind),
- newWorkspaceMaster:()=>invoke('floating-workspace-new'),
- togglePin:()=>invoke('floating-pin'),
  diagnosticsStatus:recent=>invoke('diagnostics-status',recent),openDiagnostics:()=>invoke('diagnostics-open'),exportDiagnostics:()=>invoke('diagnostics-export'),clearDiagnostics:()=>invoke('diagnostics-clear'),
  resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),resetSnippetPickerGroups:()=>invoke('snippet-picker-reset-groups'),
- resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),showMain:tag=>invoke('floating-main',tag),
+ resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),
  onChanged:callback=>{const listener=(_,payload)=>callback(payload);ipcRenderer.on('desktop-settings-changed',listener);return ()=>ipcRenderer.removeListener('desktop-settings-changed',listener);}
 }));
 

@@ -168,16 +168,13 @@ const config={
     "floatingCaptureKeepValues":"settings-capture-keep-values",
     "diagnosticsEnabled":"settings-diagnostics-enabled","diagnosticsIncludeStack":"settings-diagnostics-stack","diagnosticsIncludePaths":"settings-diagnostics-paths","diagnosticsRetentionDays":"settings-diagnostics-days",
     "renameVerification": "settings-rename-verification",
-    "floatingTitle": "settings-floating-title",
     "floatingQuickMode": "settings-floating-quick-mode",
     "floatingKeepAfterQuick": "settings-floating-keep-quick",
     "floatingDropMode": "settings-floating-drop-mode",
     "floatingDropTag": "settings-floating-drop-tag",
     "floatingShowQuickActions": "settings-floating-quick-enabled",
-    "floatingShowNewMaster": "settings-floating-show-new-master",
 
     "floatingCollapsedWidth": "settings-floating-collapsed-width",
-    "floatingHeaderAction": "settings-floating-header-action",
 
     "collapseShortcut": "settings-collapse-shortcut",
     "floatingKeepPinnedOnTray": "settings-floating-keep-tray",
@@ -197,7 +194,7 @@ const config={
     "floatingShortcut": "settings-floating-shortcut"
   },
   "groupsByKey": {"desktopStickers":"stickers","workspaceFavoriteSorts":"favorites","zipBatchTrackingId":"workspace","zipBatchSelections":"workspace","zipBatchSourceSort":"workspace","zipStartMode":"workspace","zipDefaultExtractMode":"workspace","zipRememberExtractMode":"workspace","zipAskRecycle":"workspace","zipUpdateView":"appearance",
-    "navigation":"appearance","draftDropMode":"draft","calendarScope":"planning","snippetPicker":"floating","favoriteShortcuts":"shortcuts","snippetsShortcut":"shortcuts","calendarShortcut":"shortcuts","draftReminders":"draft","draftLocalShortcuts":"draft","draftBodyLimit":"draft","draftPreviewMode":"draft","draftAfterTransfer":"draft","draftImageHeight":"draft","focusMode":"shortcuts","focusShortcut":"shortcuts","focusShortcutIds":"shortcuts","draftListWidth":"draft","draftBodyHeight":"draft","workspacePreviewMode":"notes","toolSplitWidths":"appearance","calendarShowCount":"planning","calendarWeekStart":"planning","calendarDayHeight":"planning","calendarEventLimit":"planning","calendarFontSize":"planning","calendarShowAgenda":"planning","backupIntervalHours":"data","draftRememberWindow":"draft","draftWindowWidth":"draft","draftWindowHeight":"draft","draftShortcut":"shortcuts","planningDayShowMaster":"planning","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"shortcuts","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search","floatingCollapsedItems":"floating",
+    "navigation":"appearance","draftDropMode":"draft","calendarScope":"planning","snippetPicker":"floating","favoriteShortcuts":"shortcuts","snippetsShortcut":"shortcuts","calendarShortcut":"shortcuts","draftReminders":"draft","draftLocalShortcuts":"draft","draftBodyLimit":"draft","draftPreviewMode":"draft","draftAfterTransfer":"draft","draftImageHeight":"draft","focusMode":"shortcuts","focusShortcut":"shortcuts","focusShortcutIds":"shortcuts","draftListWidth":"draft","draftBodyHeight":"draft","workspacePreviewMode":"notes","toolSplitWidths":"appearance","calendarShowCount":"planning","calendarWeekStart":"planning","calendarDayHeight":"planning","calendarEventLimit":"planning","calendarFontSize":"planning","calendarShowAgenda":"planning","backupIntervalHours":"data","draftRememberWindow":"draft","draftWindowWidth":"draft","draftWindowHeight":"draft","draftShortcut":"shortcuts","planningDayShowMaster":"planning","logView":"planning","toolWindowSizes":"appearance","dialogSizes":"appearance","notesCardWidthMode":"notes","notesCardMaxWidth":"notes","searchShortcut":"shortcuts","floatingSearchRememberConditions":"search","floatingSearchLastState":"search","floatingSearchTablePresets":"search",
     "globalSearchCriteria":"search","floatingSearchDatePresets":"search","floatingSearchCloseOnVisit":"search","floatingSearchFiltersExpanded":"search",
 
     "notesGridEnter":"notes","notesGridTab":"notes","notesGridEditNext":"notes","notesDeleteKey":"notes","layoutEditing":"appearance","filePanelSide":"appearance",
@@ -210,14 +207,12 @@ const config={
     "notesImportMode":"sharing","notesSharedImportMode":"sharing",
     "diagnosticsEnabled":"data","diagnosticsIncludeStack":"data","diagnosticsIncludePaths":"data","diagnosticsRetentionDays":"data",
     "renameVerification": "workspace",
-    "floatingTitle": "floating",
     "floatingQuickMode": "floating",
     "floatingKeepAfterQuick": "floating",
     "floatingDropMode": "floating",
     "floatingDropTag": "floating",
     "floatingDropActionId": "floating",
     "floatingShowQuickActions": "floating",
-    "floatingShowNewMaster": "floating",
     "floatingQuickActions": "floating",
     "notesExpandFilters": "notes",
     "notesDetailToolsExpanded": "notes",
@@ -304,7 +299,6 @@ const config={
     "defaultSortDirection": "workspace",
 
     "floatingCollapsedWidth": "floating",
-    "floatingHeaderAction": "floating",
 
     "collapseShortcut": "shortcuts",
     "floatingKeepPinnedOnTray": "floating",

@@ -1,19 +1,33 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {init}=require('../src/floating-header');
-function setup(options={}){
- const events={},calls=[],errors=[];let settings={floatingHeaderDoubleClick:true},clock=1000,sequence=0;
+function setup(){
+ const events={},calls=[],errors=[];let sequence=0;
  const header={addEventListener:(event,callback)=>events[event]=callback,setPointerCapture:id=>calls.push(['capture',id]),releasePointerCapture:id=>calls.push(['release',id])};
- const api={openFloatingHeaderMenu:async()=>calls.push(['menu']),headerDoubleClick:async()=>calls.push(['double']),beginFloatingDrag:async()=>{const token=String(++sequence);calls.push(['start',token]);return {token};},moveFloatingDrag:async(...args)=>calls.push(['move',...args]),endFloatingDrag:async token=>calls.push(['end',token])};
- const controller=init({header,api,getSettings:()=>settings,onError:error=>errors.push(error.message),now:()=>clock,...options});
+ const api={openFloatingHeaderMenu:async anchor=>calls.push(['menu',anchor]),beginFloatingDrag:async()=>{const token=String(++sequence);calls.push(['start',token]);return {token};},moveFloatingDrag:async(...args)=>calls.push(['move',...args]),endFloatingDrag:async token=>calls.push(['end',token])};
+ const controller=init({header,api,onError:error=>errors.push(error.message)});
  const event=(extra={})=>({button:0,isPrimary:true,pointerId:1,screenX:100,screenY:200,target:{closest:()=>false},preventDefault(){},stopPropagation(){},...extra});
- return {api,events,calls,errors,controller,event,settings:value=>settings=value,advance:()=>clock+=400};
+ return {api,events,calls,errors,controller,event};
 }
-test('header double click receives DOM events directly, respects switch and excludes buttons',async()=>{const h=setup();h.events.dblclick(h.event());assert.equal(h.calls.filter(call=>call[0]==='double').length,1);h.events.dblclick(h.event({target:{closest:()=>true}}));h.settings({floatingHeaderDoubleClick:false});h.events.dblclick(h.event());assert.equal(h.calls.filter(call=>call[0]==='double').length,1);assert.deepEqual(h.errors,[]);});
-test('normal clicks and tiny pointer jitter preserve double click without moving the native window',async()=>{const h=setup();let cancelled=false;h.events.pointerdown(h.event({preventDefault:()=>cancelled=true}));h.events.pointermove(h.event({screenX:102,screenY:201}));h.events.pointerup(h.event({screenX:102,screenY:201}));h.events.dblclick(h.event());await h.controller.settled();assert.equal(cancelled,false);assert.equal(h.calls.some(call=>call[0]==='start'),false);assert.equal(h.calls.some(call=>call[0]==='double'),true);});
-test('header drag serializes native moves, saves final position and does not trigger double-click action',async()=>{const h=setup();h.events.pointerdown(h.event());h.events.pointermove(h.event({screenX:120,screenY:260}));h.events.pointerup(h.event({screenX:130,screenY:270}));await h.controller.settled();assert.deepEqual(h.calls.filter(call=>['start','move','end'].includes(call[0])),[['start','1'],['move','1',20,60],['move','1',30,70],['end','1']]);h.events.dblclick(h.event());assert.equal(h.calls.some(call=>call[0]==='double'),false);h.advance();h.events.dblclick(h.event());assert.equal(h.calls.some(call=>call[0]==='double'),true);});
 test('cancel finishes a drag and failed moves still release the native gesture',async()=>{const h=setup();h.api.moveFloatingDrag=async()=>{throw new Error('move failed');};h.events.pointerdown(h.event());h.events.pointermove(h.event({screenX:140}));h.controller.cancel();await h.controller.settled();assert.deepEqual(h.errors,['move failed']);assert.ok(h.calls.some(call=>call[0]==='end'));h.events.pointerdown(h.event({target:{closest:()=>true}}));h.events.pointermove(h.event({screenX:160}));h.events.pointerup(h.event());await h.controller.settled();assert.equal(h.calls.filter(call=>call[0]==='start').length,1);});
 
-test('header right click and keyboard menu work without executing the double-click action',async()=>{const h=setup();await h.events.contextmenu(h.event());await h.events.keydown(h.event({key:'F10',shiftKey:true}));await h.events.contextmenu(h.event({target:{closest:()=>true}}));assert.equal(h.calls.filter(call=>call[0]==='menu').length,2);assert.equal(h.calls.some(call=>call[0]==='double'),false);});
-test('collapsed resize handles send the resize side instead of moving and ignore double-click actions',async()=>{const h=setup();let mode;h.api.beginFloatingDrag=async value=>{mode=value;return {token:'resize'};};const target={closest:selector=>selector==='[data-resize]'?{dataset:{resize:'right'}}:false};h.events.pointerdown(h.event({target}));h.events.pointermove(h.event({target,screenX:150}));h.events.pointerup(h.event({target,screenX:155}));await h.controller.settled();assert.equal(mode,'resize-right');h.advance();h.events.dblclick(h.event({target}));assert.equal(h.calls.some(call=>call[0]==='double'),false);});
-test('ordinary orb clicks never capture the pointer on their parent',async()=>{const h=setup({dragControl:event=>Boolean(event.target?.appmark)}),target={appmark:true,closest:selector=>selector==='button'?{}:null};h.events.pointerdown(h.event({target}));assert.equal(h.calls.some(c=>c[0]==='capture'),false);h.events.pointerup(h.event({target}));let prevented=false;h.events.click(h.event({target,preventDefault(){prevented=true;}}));assert.equal(prevented,false);});
+
+test('toolbar drag serializes native moves and commits the final position',async()=>{
+ const h=setup();h.events.pointerdown(h.event());h.events.pointermove(h.event({screenX:120,screenY:260}));h.events.pointerup(h.event({screenX:130,screenY:270}));await h.controller.settled();
+ assert.deepEqual(h.calls.filter(call=>['start','move','end'].includes(call[0])),[['start','1'],['move','1',20,60],['move','1',30,70],['end','1']]);
+});
+test('resize handle passes the side and ordinary clicks do not capture the pointer',async()=>{
+ const h=setup();let mode;
+ h.api.beginFloatingDrag=async value=>{mode=value;return {token:'resize'};};
+ h.events.pointerdown(h.event());h.events.pointermove(h.event({screenX:102}));h.events.pointerup(h.event({screenX:102}));
+ assert.equal(h.calls.some(([name])=>name==='capture'),false);
+ const target={closest:selector=>selector==='[data-resize]'?{dataset:{resize:'right'}}:null};
+ h.events.pointerdown(h.event({target}));h.events.pointermove(h.event({target,screenX:150}));h.events.pointerup(h.event({target,screenX:155}));await h.controller.settled();
+ assert.equal(mode,'resize-right');
+});
+test('right click and menu keys offer the configured action menu without moving the toolbar',async()=>{
+ const h=setup(),target={closest:selector=>selector==='button'};
+ await h.events.contextmenu(h.event({target,type:'contextmenu',button:2,clientX:40,clientY:10}));
+ await h.events.keydown(h.event({target,key:'F10',shiftKey:true}));
+ assert.deepEqual(h.calls,[['menu',{x:40,y:10}],['menu',undefined]]);
+});

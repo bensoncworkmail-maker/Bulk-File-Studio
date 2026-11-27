@@ -1,14 +1,14 @@
 'use strict';
 (() => {
- function init({header,api,getSettings,onError,now=Date.now,dragControl=()=>false}){
-  let active=null,lastDrag=-Infinity,finished=Promise.resolve();
-  const control=event=>Boolean(event.target?.closest?.('button'))&&!dragControl(event);
+ function init({header,api,onError}){
+  let active=null,finished=Promise.resolve();
+  const control=event=>Boolean(event.target?.closest?.('button'));
   const queue=(session,task)=>{session.queue=session.queue.then(()=>session.failed?undefined:task()).catch(error=>{session.failed=true;onError(error);});};
   const move=(session,event)=>{
    const dx=event.screenX-session.x,dy=event.screenY-session.y;
    if(!Number.isFinite(dx)||!Number.isFinite(dy)||!session.moved&&Math.hypot(dx,dy)<4)return;
    if(!session.moved){session.moved=true;try{header.setPointerCapture(session.id);}catch{}session.queue=finished;queue(session,async()=>{session.token=(await api.beginFloatingDrag(session.mode)).token;});}
-   queue(session,()=>api.moveFloatingDrag(session.token,dx,dy));lastDrag=now();
+   queue(session,()=>api.moveFloatingDrag(session.token,dx,dy));
   };
   const finish=(event,finalPosition=false)=>{
    const session=active;if(!session||event?.pointerId!==undefined&&event.pointerId!==session.id)return;
@@ -20,19 +20,16 @@
    if(event.button!==0||event.isPrimary===false||control(event)||active)return;
    const side=event.target?.closest?.('[data-resize]')?.dataset?.resize;
    active={id:event.pointerId,x:event.screenX,y:event.screenY,moved:false,failed:false,mode:side==='left'||side==='right'?'resize-'+side:'move'};
-   // Do not cancel pointerdown: browser dblclick events must remain available.
-   // Capture only after the drag threshold; capturing a button's pointerdown
-   // can retarget its ordinary click to the parent launcher.
+   // Capture only after the drag threshold so ordinary clicks keep their target.
   });
   header.addEventListener('pointermove',event=>{if(active&&event.pointerId===active.id)move(active,event);});
   header.addEventListener('pointerup',event=>finish(event,true));
   for(const event of ['pointercancel','lostpointercapture'])header.addEventListener(event,value=>finish(value));
-  header.addEventListener('click',event=>{if(now()-lastDrag<350&&dragControl(event)){event.preventDefault();event.stopImmediatePropagation?.();event.stopPropagation();}},true);
-  header.addEventListener('dblclick',event=>{
-   if(dragControl(event)||event.target?.closest?.('[data-resize]')?.dataset?.resize||control(event)||getSettings().floatingHeaderDoubleClick===false||now()-lastDrag<350)return;
-   event.preventDefault();api.headerDoubleClick().catch(onError);
-  });
-  const menu=event=>{if(control(event))return;event.preventDefault();event.stopPropagation();finish();return finished.then(()=>api.openFloatingHeaderMenu()).catch(onError);};
+  const menu=event=>{
+   event.preventDefault();finish();
+   const anchor=event.type==='contextmenu'&&event.button===2?{x:event.clientX,y:event.clientY}:undefined;
+   return finished.then(()=>api.openFloatingHeaderMenu(anchor)).catch(onError);
+  };
   header.addEventListener('contextmenu',menu);
   header.addEventListener('keydown',event=>{if((event.shiftKey&&event.key==='F10')||event.key==='ContextMenu')return menu(event);});
   return {cancel:()=>finish(),settled:()=>finished};

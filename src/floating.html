@@ -11,24 +11,10 @@
   <script src="floating.js" defer></script>
 </head>
 <body>
-  <main id="mini-header" aria-label="浮動工具">
+  <main id="mini-header" aria-label="浮動工具" title="拖曳空白處移動工具列">
     <span class="resize resize-left" data-resize="left" aria-hidden="true"></span>
-    <div id="mini-grip" title="拖曳移動；按右鍵開啟工具選單">
-      <button id="mini-menu" type="button" aria-label="工具選單" title="工具選單">⠿</button>
-    </div>
-    <span id="mini-title" hidden></span>
-    <div id="mini-actions" role="group" aria-label="快捷動作">
-      <button id="mini-search" type="button" title="全域搜尋（Ctrl+F）">搜尋</button>
-      <button id="mini-draft" type="button">草稿筆記</button>
-      <button id="mini-stickers" type="button">桌面便條</button>
-      <button id="mini-new-master" type="button" hidden>＋新增主檔</button>
-      <div id="mini-quick-actions"></div>
-    </div>
-    <button id="mini-overflow" type="button" aria-label="所有快捷動作" title="所有快捷動作" hidden>⋯</button>
-    <button id="mini-focus" type="button" aria-pressed="false" title="切換專注模式" hidden>專注：關</button>
-    <button id="mini-pin" type="button" aria-label="保持置頂" title="保持置頂" aria-pressed="true">⌖</button>
-    <button id="mini-main" type="button" aria-label="開啟主視窗" title="開啟主視窗" hidden>↗</button>
-    <button id="mini-close" type="button" aria-label="隱藏浮動工具" title="隱藏浮動工具（Esc）">×</button>
+    <button id="mini-focus" type="button" aria-pressed="false" title="切換專注模式">專注：關</button>
+    <div id="mini-quick-actions" role="group" aria-label="浮動快捷動作"></div>
     <span class="resize resize-right" data-resize="right" aria-hidden="true"></span>
     <p id="mini-status" role="status" hidden></p>
   </main>

@@ -193,10 +193,17 @@ test('bulk open validates the entire selection, limits volume, and copies paths'
  const executable=path.join(dir,'danger.exe');fs.writeFileSync(executable,'data');handlers.get('favorites-add')(null,[executable]);const executableId=handlers.get('favorites-list')().items.find(item=>item.path===executable).id;await assert.rejects(()=>handlers.get('favorites-bulk-open')(null,[ids[0],executableId]),/自行開啟/);assert.equal(opened.length,2);
 });
 
+function configureQuickAction(h, type, options = {}) {
+ const action = {id:require('node:crypto').randomUUID(),type,label:type,...options};
+ h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[action]});
+ return (event, anchor) => event?h.rawHandlers.get('floating-quick-action')(event,action.id,anchor):h.handlers.get('floating-quick-action')(null,action.id);
+}
+
 test('floating window has offline policy, limited IPC and can focus a tag in the main window',t=>{
- const {handlers,rawHandlers,windows,registered,dir}=harness(t);assert.ok(registered.has('CommandOrControl+Alt+B'));handlers.get('floating-show')();assert.equal(windows.length,2);const mini=windows[1];assert.equal(mini.options.alwaysOnTop,true);assert.equal(mini.options.webPreferences.sandbox,true);const event={sender:mini.webContents,senderFrame:{url:mini.url}};
+ const h=harness(t),{handlers,rawHandlers,windows,registered,dir}=h;assert.ok(registered.has('CommandOrControl+Alt+B'));handlers.get('floating-show')();assert.equal(windows.length,2);const mini=windows[1];assert.equal(mini.options.alwaysOnTop,true);assert.equal(mini.options.webPreferences.sandbox,true);const event={sender:mini.webContents,senderFrame:{url:mini.url}};
  assert.ok(rawHandlers.get('desktop-settings-get')(event).floatingOnTop);for(const channel of ['rename','move-files','undo','favorites-add','favorites-update','favorites-add-tags','favorites-manage-tag','everything-status','everything-configure','everything-choose','everything-search','everything-cancel','everything-favorite','everything-to-rename','everything-tracking-list','everything-tracking-save','everything-tracking-remove','everything-tracking-configure','everything-tracking-refresh','everything-tracking-icons','everything-tracking-action','favorites-remove','context-menu-set','export-csv'])assert.throws(()=>rawHandlers.get(channel)(event),/不受信任/);assert.throws(()=>rawHandlers.get('desktop-settings-set')(event,{floatingOnTop:false}),/不受信任/);
- rawHandlers.get('floating-main')(event,'work');assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
+ const source=path.join(dir,'work.txt');fs.writeFileSync(source,'work');handlers.get('favorites-add')(null,[source],['Work']);
+ configureQuickAction(h,'open-tag-menu',{tag:'work'})(event);{const {template,options}=h.popup();template.find(item=>item.label==='在主視窗顯示此分類').click();options.callback();}assert.equal(handlers.get('favorites-list')().filterTag.tag,'work');assert.equal(handlers.get('favorites-list')().filterTag,null);
  registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,false);registered.get('CommandOrControl+Alt+B')();assert.equal(mini.visible,true);
  handlers.get('desktop-settings-set')(null,{floatingOnTop:false,floatingShortcut:''});assert.equal(mini.onTop,false);assert.deepEqual([...registered.keys()],['CommandOrControl+Alt+S','CommandOrControl+Alt+D','CommandOrControl+Alt+Shift+F']);assert.ok(fs.existsSync(path.join(dir,'desktop-state.json')));
 });
@@ -220,19 +227,15 @@ test('tag rename/delete IPC updates catalog without deleting bookmarks or files'
 
 test('Everything IPC gates selected result actions and preserves actual file contents',async t=>{let chosen,enabled=true;class Bridge{status(){return {supported:true,enabled,configured:true};}selection(token,indices){if(!enabled||token!=='valid'||JSON.stringify(indices)!=='[0]')throw Error('搜尋結果已過期');return [chosen];}configure(value){enabled=value;return this.status();}cancel(){}}const h=harness(t,{'./everything-bridge':{EverythingBridge:Bridge}});chosen=path.join(h.dir,'everything-result.txt');fs.writeFileSync(chosen,'original');assert.throws(()=>h.handlers.get('everything-favorite')(null,'fake',[0],[]),/過期/);assert.equal(h.handlers.get('everything-favorite')(null,'valid',[0],['工作']).added,1);assert.deepEqual(h.handlers.get('favorites-list')().items[0].tags,['工作']);assert.deepEqual(Array.from(h.handlers.get('everything-to-rename')(null,'valid',[0]).paths),[chosen]);assert.equal(fs.readFileSync(chosen,'utf8'),'original');h.handlers.get('everything-configure')(null,false,'');assert.throws(()=>h.handlers.get('everything-to-rename')(null,'valid',[0]),/過期/);});
 
-test('settings tag choices read does not consume main activation or queued filters',t=>{const h=harness(t),a=path.join(h.dir,'a');fs.writeFileSync(a,'a');h.handlers.get('favorites-add')(null,[a],['Work']);h.handlers.get('floating-main')(null,'work');assert.equal(h.handlers.get('floating-tag-options')()[0].name,'Work');assert.equal(h.handlers.get('favorites-list')().filterTag.tag,'work');});
+test('settings tag choices read does not consume main activation or queued filters',t=>{const h=harness(t),a=path.join(h.dir,'a');fs.writeFileSync(a,'a');h.handlers.get('favorites-add')(null,[a],['Work']);configureQuickAction(h,'open-tag-menu',{tag:'work'})(null);{const {template,options}=h.popup();template.find(item=>item.label==='在主視窗顯示此分類').click();options.callback();}assert.equal(h.handlers.get('floating-tag-options')()[0].name,'Work');assert.equal(h.handlers.get('favorites-list')().filterTag.tag,'work');});
 
-test('compact toolbar header acts on preferences and only its own window can move or resize',t=>{
+test('compact toolbar applies window preferences and only its own window can move or resize',t=>{
  const h=harness(t);h.handlers.get('floating-show')();
  const strip=h.windows[1],event={sender:strip.webContents,senderFrame:{url:strip.url}};
  const invoke=(channel,...args)=>h.rawHandlers.get(channel)(event,...args);
  const set=patch=>h.handlers.get('desktop-settings-set')(null,patch);
  assert.equal(strip.bounds.height,40);
- invoke('floating-header-double-click');assert.equal(strip.bounds.height,40);
- set({floatingHeaderAction:'pin',floatingOpacity:65});
- invoke('floating-header-double-click');assert.equal(strip.onTop,false);assert.equal(strip.opacity,.65);
- h.windows[0].hide();set({floatingHeaderAction:'main'});
- invoke('floating-header-double-click');assert.equal(h.windows[0].visible,true);
+ set({floatingOnTop:false,floatingOpacity:65});assert.equal(strip.onTop,false);assert.equal(strip.opacity,.65);
  const before=strip.bounds.x,move=invoke('floating-drag-start');
  invoke('floating-drag-move',move.token,100,50);invoke('floating-drag-end',move.token);
  assert.equal(strip.bounds.x,before+100);
@@ -241,7 +244,7 @@ test('compact toolbar header acts on preferences and only its own window can mov
  assert.equal(invoke('floating-drag-end',resize.token).settings.floatingCollapsedWidth,610);
  assert.equal(strip.bounds.height,40);
  assert.throws(()=>invoke('floating-drag-move',resize.token,0,0),/結束/);
- for(const channel of ['floating-header-double-click','floating-drag-start','floating-drag-move','floating-drag-end']){
+ for(const channel of ['floating-drag-start','floating-drag-move','floating-drag-end']){
   assert.throws(()=>h.rawHandlers.get(channel)({sender:{},senderFrame:{url:strip.url}}),/不受信任/);
  }
  set({collapseShortcut:'Ctrl+Alt+Space'});h.windows[0].hide();
@@ -271,7 +274,7 @@ test('shared workspace snapshots require opt-in and import through the existing 
 
 test('release history and all visible version surfaces use the app version; floating quick create remains curated',async t=>{
  const h=harness(t),info=h.handlers.get('app-info')();assert.equal(info.version,require('../package.json').version);assert.equal(info.history[0].version,info.version);for(const version of ['1.26.0','1.27.0','1.28.0'])assert.ok(info.history.some(item=>item.version===version));const html=fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8');assert.match(html,/id="app-version"/);assert.match(html,/id="info-history"/);assert.doesNotMatch(html,/class="version">v1\.25/);
- const state=h.handlers.get('notes-template')(),root=state.document.sheets[0],id=h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'Acme',notes:'Not copied',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id;h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};h.rawHandlers.get('floating-workspace-new')(event);h.popup().template[0].click();assert.equal(h.handlers.get('notes-navigation')().newMasterSheetId,root.id);for(const channel of ['notes-tabular-file','notes-tabular-preview','notes-tabular-commit'])assert.throws(()=>h.rawHandlers.get(channel)(event),/不受信任/);
+ const state=h.handlers.get('notes-template')(),root=state.document.sheets[0],id=h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'Acme',notes:'Not copied',tags:[],values:{},favoriteIds:[],keepUnlinked:[]}).result.id;h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};assert.equal(configureQuickAction(h,'new-master')(event).menu,true);h.popup().template[0].click();assert.equal(h.handlers.get('notes-navigation')().newMasterSheetId,root.id);for(const channel of ['notes-tabular-file','notes-tabular-preview','notes-tabular-commit'])assert.throws(()=>h.rawHandlers.get(channel)(event),/不受信任/);
 });
 
 test('native Excel choose, mapping preview and confirmed commit create details with no changes before confirmation',async t=>{
@@ -282,7 +285,7 @@ test('app-wide search uses stored metadata and clipboard only, and rejects float
  const h=harness(t),state=h.handlers.get('notes-template')(),root=state.document.sheets[0];h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'SearchClient',notes:'Search note',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});const r=h.handlers.get('studio-search')(null,'SearchClient',{sources:['records']},{});assert.equal(r.sections[0].items[0].title,'SearchClient');assert.equal(h.opened.length,0);h.handlers.get('studio-search-copy')(null,'C:\\Pending\\path.txt');assert.equal(h.getCopied(),'C:\\Pending\\path.txt');h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};for(const channel of ['studio-search','studio-search-copy'])assert.throws(()=>h.rawHandlers.get(channel)(event,'SearchClient'),/不受信任/);assert.throws(()=>h.handlers.get('studio-search')(null,'x'.repeat(257)),/搜尋文字/);
 });
 
-test('native preference defaults are complete, detached and restricted to the main window',t=>{const h=harness(t),defaults=h.handlers.get('desktop-settings-defaults')();assert.deepEqual(JSON.parse(JSON.stringify(defaults)),JSON.parse(JSON.stringify(require('../src/desktop-state').DEFAULTS)));defaults.floatingCollapsedItems.push('main');assert.equal(h.handlers.get('desktop-settings-defaults')().floatingCollapsedItems.includes('main'),false);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};assert.throws(()=>h.rawHandlers.get('desktop-settings-defaults')(event),/不受信任/);});
+test('native preference defaults are complete, detached and restricted to the main window',t=>{const h=harness(t),defaults=h.handlers.get('desktop-settings-defaults')();assert.deepEqual(JSON.parse(JSON.stringify(defaults)),JSON.parse(JSON.stringify(require('../src/desktop-state').DEFAULTS)));defaults.floatingQuickActions.push({type:'open-page'});assert.equal(h.handlers.get('desktop-settings-defaults')().floatingQuickActions.length,0);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};assert.throws(()=>h.rawHandlers.get('desktop-settings-defaults')(event),/不受信任/);});
 
 test('home returns local overview metadata and only the main window can request the snapshot',t=>{const h=harness(t),state=h.handlers.get('notes-template')(),root=state.document.sheets[0];h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'DashboardClient',notes:'Hidden note',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});const snapshot=h.handlers.get('studio-home')();assert.equal(snapshot.counts.groups,1);assert.equal(snapshot.counts.masters,1);assert.equal(snapshot.recentRecords[0].title,'DashboardClient');assert.doesNotMatch(JSON.stringify(snapshot),/Hidden note/);assert.equal(h.opened.length,0);h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};assert.throws(()=>h.rawHandlers.get('studio-home')(event),/不受信任/);});
 
@@ -348,12 +351,6 @@ test('configured file drops route to record previews or an outside native choice
  h.handlers.get('desktop-settings-set')(null,{floatingDropMode:'ask'});assert.equal(h.rawHandlers.get('floating-drop')(event,[file],null).menu,true);assert.equal(h.popup().options.window,mini);assert.match(h.popup().template[2].label,/建立表格紀錄/);h.popup().template[2].click();popup=h.windows[3];assert.ok(popup);assert.equal(main.visible,false);assert.equal(mini.visible,true);assert.equal(fs.readFileSync(file,'utf8'),'unchanged');
 });
 
-test('custom floating titles persist, update native windows immediately, restore blank defaults and reject invalid input',t=>{
- const h=harness(t);h.handlers.get('desktop-settings-set')(null,{floatingTitle:'  我的資料 <工作>  '});assert.equal(h.handlers.get('desktop-settings-get')().floatingTitle,'我的資料 <工作>');h.handlers.get('floating-show')();let mini=h.windows[1];assert.equal(mini.options.title,'Bulk File Studio · 我的資料 <工作>');h.handlers.get('desktop-settings-set')(null,{floatingTitle:'快捷工作台'});assert.equal(mini.title,'Bulk File Studio · 快捷工作台');assert.equal(JSON.parse(fs.readFileSync(path.join(h.dir,'desktop-state.json'),'utf8')).settings.floatingTitle,'快捷工作台');
- for(const value of [null,42,'x'.repeat(41),'line\nfeed','bad\x00title'])assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{floatingTitle:value}),/標題最多 40/);assert.equal(h.handlers.get('desktop-settings-get')().floatingTitle,'快捷工作台');h.handlers.get('desktop-settings-set')(null,{floatingTitle:''});assert.equal(mini.title,'Bulk File Studio · 浮動工具');mini.destroy();h.handlers.get('floating-show')();mini=h.windows[2];assert.equal(mini.options.title,'Bulk File Studio · 浮動工具');
- const desktop=require('../src/desktop-state');assert.equal(desktop.normalize({floatingTitle:'bad\nvalue'}).floatingTitle,'浮動工具');const exported=require('../src/settings-export').createSettingsExport({settings:{},rules:{}},{floatingTitle:'我的資料'},'1.39.2');assert.equal(exported.desktop.floatingTitle,'我的資料');
-});
-
 test('fast mode is the default and history retains it after settings change; mismatched confirmation never renames',async t=>{
  const h=harness(t),source=path.join(h.dir,'a.txt');fs.writeFileSync(source,'A');assert.equal(h.handlers.get('desktop-settings-get')().renameVerification,'fast');assert.throws(()=>h.handlers.get('rename')(null,[source],{prefix:'x_'},undefined,'full'),/模式已變更/);assert.equal(fs.existsSync(source),true);const result=h.handlers.get('rename')(null,[source],{prefix:'x_'}),saved=JSON.parse(fs.readFileSync(h.historyPath));assert.equal(saved.version,4);assert.equal(saved.verification,'fast');assert.equal(saved.moves[0].expectedFingerprint.sha256,undefined);h.handlers.get('desktop-settings-set')(null,{renameVerification:'full'});assert.equal(h.handlers.get('history')().verification,'fast');assert.equal((await h.handlers.get('undo')()).changed,1);assert.equal(fs.readFileSync(source,'utf8'),'A');assert.equal(result.changed,1);
 });
@@ -415,8 +412,8 @@ test('strong reminder IPC isolates its window, persists snooze and leaves worksp
 });
 
 test('floating global search uses an outside owned panel, guards tokens and preserves the hidden main window until requested',async t=>{
- const h=harness(t),file=path.join(h.dir,'Readable.txt');fs.writeFileSync(file,'unchanged');h.handlers.get('notes-add-paths')(null,[file]);h.handlers.get('floating-show')();const main=h.windows[0],mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};main.hide();h.rawHandlers.get('floating-search-open')(event,'Readable');const panel=h.windows[2],pe={sender:panel.webContents,senderFrame:{url:panel.url}};assert.equal(main.visible,false);assert.equal(mini.visible,true);assert.equal(panel.options.parent,mini);assert.equal(panel.options.modal,false);assert.throws(()=>h.rawHandlers.get('floating-search-get')(event),/不受信任/);assert.throws(()=>h.rawHandlers.get('notes-record-save')(pe,{}),/不受信任/);let result=h.rawHandlers.get('floating-search-run')(pe,'Readable',{kind:'favorites'});assert.equal(result.total,1);await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'copy');assert.equal(h.getCopied(),file);await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'open');assert.equal(h.opened.at(-1),file);assert.equal(main.visible,false);
- h.handlers.get('favorites-update')(null,[result.sections[0].items[0].id],{label:'Changed'});await assert.rejects(h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'open'),/已更新/);result=h.rawHandlers.get('floating-search-run')(pe,'Changed',{kind:'favorites'});await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'visit');assert.equal(main.visible,true);assert.ok(h.messages.some(([channel,item])=>channel==='studio-search-target'&&item.kind==='favorite'));mini.emit('hide');assert.equal(panel.destroyed,true);h.rawHandlers.get('floating-search-open')(event,'Changed');const nextPanel=h.windows.at(-1);h.handlers.get('desktop-settings-set')(null,{floatingGlobalSearch:false});assert.equal(nextPanel.destroyed,true);assert.throws(()=>h.rawHandlers.get('floating-search-open')(event,''),/停用/);assert.equal(fs.readFileSync(file,'utf8'),'unchanged');
+ const h=harness(t),file=path.join(h.dir,'Readable.txt');fs.writeFileSync(file,'unchanged');h.handlers.get('notes-add-paths')(null,[file]);h.handlers.get('floating-show')();const main=h.windows[0],mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};main.hide();configureQuickAction(h,'open-search',{query:'Readable'})(event);const panel=h.windows[2],pe={sender:panel.webContents,senderFrame:{url:panel.url}};assert.equal(main.visible,false);assert.equal(mini.visible,true);assert.equal(panel.options.parent,mini);assert.equal(panel.options.modal,false);assert.throws(()=>h.rawHandlers.get('floating-search-get')(event),/不受信任/);assert.throws(()=>h.rawHandlers.get('notes-record-save')(pe,{}),/不受信任/);let result=h.rawHandlers.get('floating-search-run')(pe,'Readable',{kind:'favorites'});assert.equal(result.total,1);await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'copy');assert.equal(h.getCopied(),file);await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'open');assert.equal(h.opened.at(-1),file);assert.equal(main.visible,false);
+ h.handlers.get('favorites-update')(null,[result.sections[0].items[0].id],{label:'Changed'});await assert.rejects(h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'open'),/已更新/);result=h.rawHandlers.get('floating-search-run')(pe,'Changed',{kind:'favorites'});await h.rawHandlers.get('floating-search-action')(pe,result.token,'favorites',0,'visit');assert.equal(main.visible,true);assert.ok(h.messages.some(([channel,item])=>channel==='studio-search-target'&&item.kind==='favorite'));mini.emit('hide');assert.equal(panel.destroyed,true);configureQuickAction(h,'open-search',{query:'Changed'})(event);const nextPanel=h.windows.at(-1);h.handlers.get('desktop-settings-set')(null,{floatingGlobalSearch:false});assert.equal(nextPanel.destroyed,true);assert.throws(()=>configureQuickAction(h,'open-search',{query:''})(event),/停用/);assert.equal(fs.readFileSync(file,'utf8'),'unchanged');
 });
 
 test('main search omits retired workspace group actions even if the caller requests them',t=>{const h=harness(t);h.handlers.get('notes-template')();const result=h.handlers.get('studio-search')(null,'客戶',{sources:['structure'],includeAreas:true});assert.ok(result.sections.some(section=>section.items.length));assert.ok(result.sections.flatMap(section=>section.items).every(item=>item.kind!=='area'));});
@@ -425,7 +422,7 @@ test('new floating quick actions open catalog-backed menus, copy paths and route
  const h=harness(t),crypto=require('node:crypto'),file=path.join(h.dir,'contract.txt');fs.writeFileSync(file,'intact');const added=h.handlers.get('favorites-add')(null,[file]),favorite=h.handlers.get('favorites-list')().items[0];h.handlers.get('favorites-add-tags')(null,[favorite.id],['Legal']);const types=['open-tag-menu','copy-tag-paths','open-search','open-reminders'],actions=types.map(type=>({id:crypto.randomUUID(),type,label:type,tag:'Legal',query:''}));h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:actions});h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};h.windows[0].hide();assert.equal(h.rawHandlers.get('floating-quick-action')(event,actions[0].id).menu,true);assert.ok(h.popup().template.some(item=>item.toolTip===file));assert.equal(h.windows[0].visible,false);assert.equal(h.rawHandlers.get('floating-quick-action')(event,actions[1].id).copied,1);assert.equal(h.getCopied(),file);h.rawHandlers.get('floating-quick-action')(event,actions[2].id);assert.ok(h.windows.at(-1).url.endsWith('/floating-search.html'));assert.equal(h.windows[0].visible,false);h.rawHandlers.get('floating-quick-action')(event,actions[3].id);assert.ok(h.messages.some(([channel])=>channel==='record-reminders-open'));assert.equal(fs.readFileSync(file,'utf8'),'intact');h.handlers.get('favorites-manage-tag')(null,'Legal',null,1);assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,actions[0].id),/不存在/);
 });
 test('shared search criteria apply on the main and floating search and revoke old result actions on change',t=>{
- const h=harness(t),state=h.handlers.get('notes-template')(),[root,contacts]=state.document.sheets;const a=h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'ScopeMatch',values:{},notes:'',tags:[],favoriteIds:[],keepUnlinked:[]}).result.id;h.handlers.get('notes-record-save')(null,{sheetId:contacts.id,title:'Person',values:{[contacts.fields[0].id]:[a]},notes:'',tags:[],favoriteIds:[],keepUnlinked:[]});h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{tableMode:'selected',sheetIds:[contacts.id],sources:['records']}});let r=h.handlers.get('studio-search')(null,'ScopeMatch',{includeRelated:true});assert.equal(r.sections.length,1);assert.ok(r.sections[0].items.every(item=>item.title==='Person'));h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};h.rawHandlers.get('floating-search-open')(event,'ScopeMatch');const panel=h.windows[2],pe={sender:panel.webContents,senderFrame:{url:panel.url}};r=h.rawHandlers.get('floating-search-run')(pe,'ScopeMatch',{});assert.ok(r.sections[0].items.every(item=>item.title==='Person'));h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{sources:[]}});assert.equal(h.handlers.get('studio-search')(null,'ScopeMatch',{}).total,0);assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{modifiedFrom:'2026-11-03',modifiedTo:'2026-11-01'}}),/起日/);
+ const h=harness(t),state=h.handlers.get('notes-template')(),[root,contacts]=state.document.sheets;const a=h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'ScopeMatch',values:{},notes:'',tags:[],favoriteIds:[],keepUnlinked:[]}).result.id;h.handlers.get('notes-record-save')(null,{sheetId:contacts.id,title:'Person',values:{[contacts.fields[0].id]:[a]},notes:'',tags:[],favoriteIds:[],keepUnlinked:[]});h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{tableMode:'selected',sheetIds:[contacts.id],sources:['records']}});let r=h.handlers.get('studio-search')(null,'ScopeMatch',{includeRelated:true});assert.equal(r.sections.length,1);assert.ok(r.sections[0].items.every(item=>item.title==='Person'));h.handlers.get('floating-show')();const mini=h.windows[1],event={sender:mini.webContents,senderFrame:{url:mini.url}};configureQuickAction(h,'open-search',{query:'ScopeMatch'})(event);const panel=h.windows[2],pe={sender:panel.webContents,senderFrame:{url:panel.url}};r=h.rawHandlers.get('floating-search-run')(pe,'ScopeMatch',{});assert.ok(r.sections[0].items.every(item=>item.title==='Person'));h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{sources:[]}});assert.equal(h.handlers.get('studio-search')(null,'ScopeMatch',{}).total,0);assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{modifiedFrom:'2026-11-03',modifiedTo:'2026-11-01'}}),/起日/);
 });
 
 test('Windows reminders include only explicitly configured message contents, resolved at delivery time',t=>{
@@ -440,11 +437,11 @@ test('shared profile IPC scopes source cloning to A, preserves B and revokes pre
 });
 
 test('floating panel sends temporary table filters through real IPC without rewriting saved defaults',t=>{
- const h=harness(t),state=h.handlers.get('notes-template')(),root=state.document.sheets[0];h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'Filtered record',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{sources:[]}});h.handlers.get('floating-show')();h.handlers.get('floating-search-open')(null,'Filtered');const panel=h.windows[2],event={sender:panel.webContents,senderFrame:{url:panel.url}};const data=h.rawHandlers.get('floating-search-get')(event);assert.ok(data.tables.some(table=>table.id===root.id));assert.deepEqual(data.criteria.sources,[]);const result=h.rawHandlers.get('floating-search-run')(event,'',{kind:'records',criteria:{sources:['records'],tableMode:'selected',sheetIds:[root.id]}});assert.equal(result.total,1);assert.deepEqual(h.handlers.get('desktop-settings-get')().globalSearchCriteria.sources,[]);
+ const h=harness(t),state=h.handlers.get('notes-template')(),root=state.document.sheets[0];h.handlers.get('notes-record-save')(null,{sheetId:root.id,title:'Filtered record',notes:'',tags:[],values:{},favoriteIds:[],keepUnlinked:[]});h.handlers.get('desktop-settings-set')(null,{globalSearchCriteria:{sources:[]}});h.handlers.get('floating-show')();configureQuickAction(h,'open-search',{query:'Filtered'})();const panel=h.windows[2],event={sender:panel.webContents,senderFrame:{url:panel.url}};const data=h.rawHandlers.get('floating-search-get')(event);assert.ok(data.tables.some(table=>table.id===root.id));assert.deepEqual(data.criteria.sources,[]);const result=h.rawHandlers.get('floating-search-run')(event,'',{kind:'records',criteria:{sources:['records'],tableMode:'selected',sheetIds:[root.id]}});assert.equal(result.total,1);assert.deepEqual(h.handlers.get('desktop-settings-get')().globalSearchCriteria.sources,[]);
 });
 
 test('floating date preferences reject invalid writes, reach the panel and preserve global date defaults',t=>{
- const h=harness(t),presets=[{id:'fortnight',label:'最近 14 天',type:'last-days',days:14,enabled:true}],initial=h.handlers.get('desktop-settings-get')();assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{floatingSearchDatePresets:[{...presets[0],days:0}]}),/1–3650/);assert.deepEqual(h.handlers.get('desktop-settings-get')().floatingSearchDatePresets,initial.floatingSearchDatePresets);h.handlers.get('desktop-settings-set')(null,{floatingSearchDatePresets:presets,floatingSearchFiltersExpanded:true});h.handlers.get('floating-show')();h.handlers.get('floating-search-open')(null,'');const panel=h.windows[2],event={sender:panel.webContents,senderFrame:{url:panel.url}},data=h.rawHandlers.get('floating-search-get')(event);assert.equal(data.filtersExpanded,true);assert.deepEqual(data.datePresets,presets);assert.equal(data.criteria.modifiedFrom,'');h.handlers.get('desktop-settings-set')(null,{floatingSearchDatePresets:[]});assert.deepEqual(h.handlers.get('desktop-settings-get')().globalSearchCriteria,initial.globalSearchCriteria);
+ const h=harness(t),presets=[{id:'fortnight',label:'最近 14 天',type:'last-days',days:14,enabled:true}],initial=h.handlers.get('desktop-settings-get')();assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{floatingSearchDatePresets:[{...presets[0],days:0}]}),/1–3650/);assert.deepEqual(h.handlers.get('desktop-settings-get')().floatingSearchDatePresets,initial.floatingSearchDatePresets);h.handlers.get('desktop-settings-set')(null,{floatingSearchDatePresets:presets,floatingSearchFiltersExpanded:true});h.handlers.get('floating-show')();configureQuickAction(h,'open-search')();const panel=h.windows[2],event={sender:panel.webContents,senderFrame:{url:panel.url}},data=h.rawHandlers.get('floating-search-get')(event);assert.equal(data.filtersExpanded,true);assert.deepEqual(data.datePresets,presets);assert.equal(data.criteria.modifiedFrom,'');h.handlers.get('desktop-settings-set')(null,{floatingSearchDatePresets:[]});assert.deepEqual(h.handlers.get('desktop-settings-get')().globalSearchCriteria,initial.globalSearchCriteria);
 });
 
 test('search panel saves only filter memory through owned IPC and custom global shortcut opens it without expanding the tool',async t=>{
@@ -996,7 +993,7 @@ test('floating search closes only after a trusted acknowledgement for the curren
  h.handlers.get('floating-show')();
  const eventFor=window=>({sender:window.webContents,senderFrame:{url:window.url}});
  const main=eventFor(h.windows[0]),mini=eventFor(h.windows[1]);
- h.rawHandlers.get('floating-search-open')(mini,'Visit');
+ configureQuickAction(h,'open-search',{query:'Visit'})(mini);
  const panel=h.windows.at(-1),pe=eventFor(panel);
  const search=()=>h.rawHandlers.get('floating-search-run')(pe,'Visit',{kind:'favorites'});
  const visit=async result=>{
@@ -1680,13 +1677,12 @@ test('desktop sticker menu hides and restores existing windows and preserves nat
  const sticker=h.windows.at(-1);sticker.emit('ready-to-show');
  const control=action=>H.get('desktop-stickers-control')(null,action);
  const get=()=>H.get('desktop-stickers-get')().counts;
- const menu=()=>raw.get('floating-sticker-menu')(eventFor(floating),{x:15,y:20});
+ const openMenu=configureQuickAction(h,'sticker-controls');
+ const menu=()=>openMenu(eventFor(floating),{x:15,y:20});
  const find=label=>h.popup().template.find(item=>item.label===label);
  const choice=async label=>{const {options}=h.popup();await find(label).click();options.callback();};
  menu();assert.ok(find('隱藏全部便條').enabled);
- const quickId=require('node:crypto').randomUUID();
- H.get('desktop-settings-set')(null,{floatingQuickActions:[{id:quickId,type:'sticker-controls',label:'管理便條'}]});
- assert.equal(raw.get('floating-quick-action')(eventFor(floating),quickId).menu,true);
+ assert.equal(menu().menu,true);
  assert.ok(find('展開全部便條').enabled);assert.ok(find('收合全部便條').enabled);
  H.get('desktop-settings-set')(null,{desktopStickers:{headerBackground:'#102030',opacity:72,openClick:'single',locationClick:'double'}});
  const appearance=raw.get('log-sticker-get')(eventFor(sticker));
@@ -1767,7 +1763,7 @@ test('sticker header menu opens and copies the source, hides one pin and can res
  const counts=()=>H.get('desktop-stickers-get')().counts;
  assert.equal(counts().files,2);assert.equal(counts().visible,1);
  H.get('floating-show')();
- raw.get('floating-sticker-menu')(event(h.windows.at(-1)),{x:20,y:10});
+ configureQuickAction(h,'sticker-controls')(event(h.windows.at(-1)),{x:20,y:10});
  assert.ok(h.popup().template.some(item=>item.label==='隱藏全部便條'));
  await pick('顯示全部便條');
  current=h.windows.at(-1);current.emit('ready-to-show');
@@ -1880,4 +1876,25 @@ test('legacy inline shortcut choices launch standalone windows and retain their 
  }
  assert.deepEqual(Array.from(H.get('desktop-settings-get')().floatingQuickActions,item=>item.label),actions.map(item=>item.label));
  for(const name of ['floating-panel-open','floating-panel-action','floating-collapse'])assert.equal(h.rawHandlers.has(name),false);
+});
+
+test('the floating menu lists only enabled custom actions and opens the selected independent tool', async t => {
+ const h=harness(t);
+ const H=h.handlers,raw=h.rawHandlers;
+ H.get('floating-show')();
+ const strip=h.windows[1],event={sender:strip.webContents,senderFrame:{url:strip.url}};
+ const menu=()=>raw.get('floating-header-menu')(event);
+ assert.equal(menu().menu,false);
+ const actions=[
+  {type:'open-floating-tool',label:'剪貼簿',tool:'clipboard'},
+  {type:'open-drafts',label:'停用草稿',enabled:false},
+  {type:'sticker-controls',label:'便條控制'}
+ ].map(action=>({id:require('node:crypto').randomUUID(),...action}));
+ H.get('desktop-settings-set')(null,{floatingQuickActions:actions});
+ assert.equal(menu().menu,true);
+ assert.deepEqual(Array.from(h.popup().template,item=>item.label),['剪貼簿','便條控制']);
+ await h.popup().template[0].click();
+ assert.match(h.windows.at(-1).url,/floating-tool-panel.html$/);
+ H.get('desktop-settings-set')(null,{floatingShowQuickActions:false});
+ assert.equal(menu().menu,false);
 });
