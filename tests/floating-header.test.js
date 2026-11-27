@@ -14,7 +14,7 @@ test('cancel finishes a drag and failed moves still release the native gesture',
 
 test('toolbar drag serializes native moves and commits the final position',async()=>{
  const h=setup();h.events.pointerdown(h.event());h.events.pointermove(h.event({screenX:120,screenY:260}));h.events.pointerup(h.event({screenX:130,screenY:270}));await h.controller.settled();
- assert.deepEqual(h.calls.filter(call=>['start','move','end'].includes(call[0])),[['start','1'],['move','1',20,60],['move','1',30,70],['end','1']]);
+ assert.deepEqual(h.calls.filter(call=>['start','move','end'].includes(call[0])),[['start','1'],['move','1',30,70],['end','1']]);
 });
 test('resize handle passes the side and ordinary clicks do not capture the pointer',async()=>{
  const h=setup();let mode;
@@ -22,8 +22,12 @@ test('resize handle passes the side and ordinary clicks do not capture the point
  h.events.pointerdown(h.event());h.events.pointermove(h.event({screenX:102}));h.events.pointerup(h.event({screenX:102}));
  assert.equal(h.calls.some(([name])=>name==='capture'),false);
  const target={closest:selector=>selector==='[data-resize]'?{dataset:{resize:'right'}}:null};
- h.events.pointerdown(h.event({target}));h.events.pointermove(h.event({target,screenX:150}));h.events.pointerup(h.event({target,screenX:155}));await h.controller.settled();
+ h.events.pointerdown(h.event({target}));
+ assert.deepEqual(h.calls.at(-1),['capture',1]);
+ h.events.pointerleave(h.event({target,screenX:150}));
+ h.events.pointerup(h.event({target,screenX:155}));await h.controller.settled();
  assert.equal(mode,'resize-right');
+ assert.deepEqual(h.calls.filter(call=>call[0]==='move'),[['move','resize',55,0]]);
 });
 test('right click and menu keys offer the configured action menu without moving the toolbar',async()=>{
  const h=setup(),target={closest:selector=>selector==='button'};

@@ -4,6 +4,7 @@ const path=require('node:path');
 const {pathToFileURL}=require('node:url');
 const {fitBounds}=require('./desktop-state');
 const {FloatingPin}=require('./floating-pin');
+const {isPreviewImage}=require('./document-preview');
 const page=path.join(__dirname,'log-sticker.html');
 const gap=10,minWidth=180,minHeight=130;
 const currentBounds=window=>window.getBounds?.()||window.getNormalBounds();
@@ -107,7 +108,8 @@ class LogStickers {
  }
  payload(entry){
   const {links,...detail}=entry.detail;
-  return {...detail,links:links.map(link=>({kind:link.kind,label:link.label,location:link.location,ref:this.linkRef(link)})),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
+  return {...detail,links:links.map(link=>({kind:link.kind,label:link.label,location:link.location,
+   ref:this.linkRef(link),image:Boolean(link.path&&isPreviewImage(link.path))})),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
  }
  toggle(entry,point){
   const content=point&&entry.window.getContentBounds?.();

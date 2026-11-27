@@ -471,7 +471,7 @@ app.whenReady().then(() => {
     if(action.type==='open-snippets'&&action.snippetAction==='paste'&&!pasteTarget){const error=new Error('尚未取得有效貼上目標。'+(captureFailure?String(captureFailure.message||captureFailure).slice(0,300)+'。':'')+'請先在目標程式的文字欄位按一下，再按快捷鍵。');if(Notification?.isSupported?.())try{new Notification({title:'尚未開啟貼上選單',body:error.message}).show();}catch{}throw error;}
     if(action.type==='open-snippets'&&action.snippetAction==='paste'){
       closeFloatingMenu();
-      snippetPicker??=new(require('./snippet-picker').SnippetPicker)({BrowserWindow,screen,secureWindow,globalShortcut,isCurrentTarget:require('./snippet-paste').isCurrentTarget,settings:()=>desktop.settings,groupStates:()=>desktop.snippetPickerGroups(),saveGroups:changes=>desktop.saveSnippetPickerGroups(changes,productivity.store.get().snippets.map(item=>item.category)),onError:error=>{diagnostics.record('floating','snippet-picker-open',error);send(floating,'desktop-settings-changed',{error:'片段選擇窗未能開啟：'+String(error.message||error)});}});
+      snippetPicker??=new(require('./snippet-picker').SnippetPicker)({BrowserWindow,screen,secureWindow,globalShortcut,isCurrentTarget:require('./snippet-paste').isCurrentTarget,watchPicker:require('./snippet-paste').watchPicker,settings:()=>desktop.settings,groupStates:()=>desktop.snippetPickerGroups(),saveGroups:changes=>desktop.saveSnippetPickerGroups(changes,productivity.store.get().snippets.map(item=>item.category)),onError:error=>{diagnostics.record('floating','snippet-picker-open',error);send(floating,'desktop-settings-changed',{error:'片段選擇窗未能開啟：'+String(error.message||error)});}});
       const rows=require('./tool-views-model').snippetRows(productivity.store.get().snippets,'');
       return snippetPicker.open(rows,pasteTarget,async(snippetId,target)=>{try{const current=configuredQuick(id);if(current.type!=='open-snippets'||current.snippetAction!=='paste')throw new Error('快捷動作已變更，請重新開啟');return await productivity.pasteSnippet(snippetId,target);}catch(error){reportSnippetPasteFailure(error);throw error;}});
     }
@@ -841,7 +841,7 @@ app.whenReady().then(() => {
     if(previous.trayAlwaysVisible!==settings.trayAlwaysVisible||previous.closeToTray!==settings.closeToTray||previous.startHidden!==settings.startHidden){shellWarning='';desktopShell.syncTray();}
     const warning=[shortcutWarning,shellWarning].filter(Boolean).join('\n');
     if(floating&&!floating.isDestroyed()){floating.pinController?.sync();floatingWindow.apply();}
-    if(Object.hasOwn(patch,'desktopStickers'))logStickers?.refresh();
+    if(Object.hasOwn(patch,'desktopStickers')||Object.hasOwn(patch,'draftBodyLimit'))logStickers?.refresh();
     drafts?.updateSettings();floatingSearch?.updateSettings();toolOverlay?.updateSettings(previous);recordAttention?.sync();const result={settings,warning};send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);return result;
   };
   function saveToolLayout(kind,patch){const layout=require('./floating-tool-layout').normalize({...desktop.settings.floatingToolLayout,[kind]:{...desktop.settings.floatingToolLayout[kind],...patch}},true),settings=desktop.update({floatingToolLayout:layout});send(win,'desktop-settings-changed',{settings});send(floating,'desktop-settings-changed',{settings});return settings;}

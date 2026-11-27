@@ -1,7 +1,7 @@
 'use strict';
 const path=require('node:path');
 // Script is fixed source; snippet text is carried only by Electron's clipboard.
-const SCRIPT=`Add-Type -TypeDefinition @'
+const NATIVE_SOURCE=`Add-Type -TypeDefinition @'
 using System;using System.Runtime.InteropServices;using System.Threading;
 public class BFSPaste {
 [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public UNION u; }
@@ -27,17 +27,19 @@ if(GetForegroundWindow()!=requested)throw new Exception("目標焦點已變更�
 GetWindowThreadProcessId(target,out pid);if(target==IntPtr.Zero||pid==appPid)throw new Exception("請在目標程式的文字欄位按貼上快捷鍵");
 for(int i=0;i<100;i++){if(GetForegroundWindow()!=target)throw new Exception("目標視窗已切換，已取消貼上");bool held=false;foreach(int key in new int[]{16,17,18,91,92})if((GetAsyncKeyState(key)&0x8000)!=0)held=true;if(!held){Thread.Sleep(40);if(GetForegroundWindow()!=target)throw new Exception("目標視窗已切換");var keys=new INPUT[4];for(int j=0;j<4;j++){keys[j].type=1;keys[j].u.ki.vk=(ushort)(j==0||j==3?17:86);keys[j].u.ki.flags=(uint)(j>=2?2:0);}if(SendInput(4,keys,Marshal.SizeOf(typeof(INPUT)))!=4){SendInput(2,new INPUT[]{keys[2],keys[3]},Marshal.SizeOf(typeof(INPUT)));throw new Exception("系統拒絕貼上，請手動按 Ctrl+V");}return;}Thread.Sleep(20);}throw new Exception("快捷鍵尚未放開，已取消貼上");}
 }
+${require('./snippet-click-watch')}
 '@
-try { [BFSPaste]::Paste(APP_PID); exit 0 } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`;
+`;
+const SCRIPT=NATIVE_SOURCE+`try { [BFSPaste]::Paste(APP_PID); exit 0 } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`;
 function paste({platform=process.platform,pid=process.pid,run,target}={}){if(platform!=='win32')return Promise.reject(new Error('立即貼上目前僅支援 Windows；文字已複製，可手動貼上'));if(target&&(!/^\d{1,18}$/.test(target.handle)||!Number.isSafeInteger(target.pid)||target.pid<=0||!Number.isFinite(target.at)||Date.now()-target.at>60000||target.at>Date.now()+1000))return Promise.reject(new Error('貼上目標已過期或無效，文字已複製'));if(!run){const helper=target?resident:worker();if(!helper)return Promise.reject(new Error('貼上程序已停止，文字已複製；請重新開啟選單或手動貼上'));return helper.request({op:'paste',appPid:pid,handle:target?.handle||'0',targetPid:target?.pid||0,noActivate:target?.noActivate===true},{readyOnly:Boolean(target),epoch:target?.workerEpoch}).then(()=>({pasted:true}));}const script=SCRIPT.replace('APP_PID',target?String(pid)+','+target.handle+','+target.pid+(target.noActivate===true?',$true':''):String(pid));return new Promise((resolve,reject)=>run(path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,timeout:10000,maxBuffer:16384},(error,stdout,stderr)=>error?reject(new Error((stderr||'系統未能貼上，文字已複製，請手動按 Ctrl+V').slice(0,500))):resolve({pasted:true})));}
 async function capture({platform=process.platform,pid=process.pid,run,onError}={}){
  if(platform!=='win32')return null;
  if(!run){try{const helper=worker(),value=await helper.request({op:'capture',appPid:pid}),parts=String(value).match(/^(\d{1,18}):(\d+)$/);return parts?{handle:parts[1],pid:Number(parts[2]),at:Date.now(),released:true,workerEpoch:helper.epoch}:null;}catch(error){onError?.(error);return null;}}
- const script=SCRIPT.slice(0,SCRIPT.indexOf('try {'))+'try { [Console]::WriteLine([BFSPaste]::Capture('+pid+')); exit 0 } catch { exit 1 }';
+ const script=NATIVE_SOURCE+'try { [Console]::WriteLine([BFSPaste]::Capture('+pid+')); exit 0 } catch { exit 1 }';
  return new Promise(resolve=>run(path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,timeout:10000,maxBuffer:16384},(error,stdout)=>{const parts=String(stdout||'').trim().match(/^(\d{1,18}):(\d+)$/);resolve(!error&&parts?{handle:parts[1],pid:Number(parts[2]),at:Date.now()}:null);}));
 }
 let resident;
-function worker(){return resident??=new(require('./snippet-paste-worker').PasteWorker)("$ErrorActionPreference='Stop'\n"+SCRIPT.slice(0,SCRIPT.indexOf('try {'))+`
+function worker(){return resident??=new(require('./snippet-paste-worker').PasteWorker)("$ErrorActionPreference='Stop'\n"+NATIVE_SOURCE+`
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false)
 [BFSPaste]::Warm()
@@ -46,7 +48,11 @@ while ($null -ne ($line = [Console]::ReadLine())) {
  try {
   $request = $line | ConvertFrom-Json
   if ($request.op -eq 'capture') { $value = [BFSPaste]::CaptureReleased([uint32]$request.appPid) }
-  elseif ($request.op -eq 'foreground') { $value = [BFSPaste]::Capture([uint32]$request.appPid) }
+  elseif ($request.op -eq 'foreground') {
+   $value = if ([BFSPickerClick]::Outside([long]$request.pickerHandle)) { '' } else { [BFSPaste]::Capture([uint32]$request.appPid) }
+  }
+  elseif ($request.op -eq 'picker-start') { $value = [BFSPickerClick]::Start([long]$request.handle) }
+  elseif ($request.op -eq 'picker-stop') { [BFSPickerClick]::Stop([long]$request.handle); $value = $true }
   elseif ($request.op -eq 'paste') { [BFSPaste]::Paste([uint32]$request.appPid,[long]$request.handle,[uint32]$request.targetPid,[bool]$request.noActivate); $value = $true }
   else { throw 'Unsupported operation' }
   [Console]::WriteLine((@{id=$request.id;ok=$true;value=$value} | ConvertTo-Json -Compress))
@@ -55,11 +61,18 @@ while ($null -ne ($line = [Console]::ReadLine())) {
 `);}
 function warm(){if(process.platform!=='win32')return Promise.resolve();return worker().start().catch(()=>{});}
 function close(){resident?.stop();resident=null;}
-async function isCurrentTarget(target){
+function watchPicker(window,target){
+ const helper=resident,options={readyOnly:true,epoch:target.workerEpoch},buffer=window.getNativeWindowHandle();
+ const handle=String(buffer.length>=8?buffer.readBigInt64LE():buffer.readInt32LE());
+ if(!helper)return null;
+ return {handle,ready:helper.request({op:'picker-start',handle},options),
+  stop:()=>helper.request({op:'picker-stop',handle},options).catch(()=>{})};
+}
+async function isCurrentTarget(target,pickerHandle='0'){
  if(!resident||!target)return false;
  try{
-  const value=await resident.request({op:'foreground',appPid:process.pid},{readyOnly:true,epoch:target.workerEpoch});
+  const value=await resident.request({op:'foreground',appPid:process.pid,pickerHandle},{readyOnly:true,epoch:target.workerEpoch});
   return value===target.handle+':'+target.pid;
  }catch{return false;}
 }
-module.exports={paste,capture,warm,close,isCurrentTarget};
+module.exports={paste,capture,warm,close,isCurrentTarget,watchPicker};

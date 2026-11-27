@@ -3,8 +3,10 @@
 (() => {
  const api=window.logSticker,$=id=>document.getElementById(id),header=$('sticker-header'),heading=$('heading');
  let updated=false,changing=false,drag=null,lastTap=null,lastPointerToggle=-Infinity,finishedDrag=Promise.resolve();
- let current,editSession=null,editPending=false;
+ let current,editSession=null,editPending=false,previewRequest=0,previewButton=null;
  const draftBody=$('draft-body');
+ const normalizeLines=value=>value.replace(/\r\n?/g,'\n');
+ const draftDirty=()=>editSession&&normalizeLines(editSession.body)!==draftBody.value;
  function error(message){const status=$('status');status.hidden=false;status.textContent=message;}
  const report=failure=>error(failure.message);
  function text(tag,label){
@@ -22,12 +24,33 @@
   const cell=document.createElement('td');
   const control=linkButton(label,event=>{if(event.detail===0)return action();});
   cell.append(control);
-  if(mode==='single')cell.addEventListener('click',event=>{if(event.detail===1)return action();});
-  else cell.addEventListener('dblclick',action);
+  const isPreview=event=>event.target?.closest?.('.image-preview-button');
+  if(mode==='single')cell.addEventListener('click',event=>{if(event.detail===1&&!isPreview(event))return action();});
+  else cell.addEventListener('dblclick',event=>{if(!isPreview(event))return action();});
   return cell;
  }
+ function clearPreview(){
+  previewRequest++;
+  if(previewButton){previewButton.textContent='預覽';previewButton.setAttribute('aria-expanded','false');}
+  previewButton=null;$('image-preview').hidden=true;$('sticker-image').removeAttribute('src');
+ }
+ async function preview(index,version,location,label,button){
+  const same=previewButton===button;
+  clearPreview();
+  if(same)return;
+  const request=previewRequest;
+  previewButton=button;button.textContent='取消預覽';
+  try{
+   const source=await api.openLink(index,version,'preview',location);
+   if(request!==previewRequest)return;
+   $('sticker-image').src=source;$('image-caption').textContent=label;$('image-preview').hidden=false;
+   button.textContent='收合預覽';button.setAttribute('aria-expanded','true');
+  }catch(failure){if(request===previewRequest){clearPreview();report(failure);}}
+ }
+ $('sticker-image').addEventListener('error',()=>{clearPreview();error('無法顯示圖片預覽');});
  function render(data){
   updated=true;current=data;
+  clearPreview();
   const style=document.documentElement.style;
   style.setProperty('--sticker-background',data.background);
   style.setProperty('--sticker-foreground',data.foreground);
@@ -44,61 +67,59 @@
   if(data.visit){label.className='sticker-title-link';label.title=data.visit;label.setAttribute('aria-label',data.title+' · '+data.visit);}
   title.replaceChildren(label);
   $('notes').textContent=data.notes;
+  if(!draftDirty()&&!editPending)resetEditor();
   renderEditor();
   $('fields').replaceChildren(...data.fields.flatMap(({label,value})=>[text('dt',label),text('dd',value)]));
   const items=data.items||[];
   $('tag-items').replaceChildren(...items.map(label=>text('li',label)));
   $('tag-items').hidden=!items.length;
   const rows=[],links=[];
-  for(const [index,{kind,label,location,ref}] of data.links.entries()){
+  for(const [index,{kind,label,location,ref,image}] of data.links.entries()){
    if(location!==undefined){
     const open=()=>kind==='item'?api.openItem().catch(report):api.openLink(index,ref??data.version,'open',location).catch(report);
     const locate=()=>kind==='item'?api.locate().catch(report):api.openLink(index,ref??data.version,'show',location).catch(report);
-    const row=document.createElement('tr');row.append(fileCell(label,open,data.openClick),fileCell(location,locate,data.locationClick));rows.push(row);
+    const row=document.createElement('tr'),name=fileCell(label,open,data.openClick);
+    if(image){
+     const button=linkButton('預覽',()=>preview(index,ref??data.version,location,label,button));
+     button.classList.add('image-preview-button');button.setAttribute('aria-label','預覽 '+label);
+     button.setAttribute('aria-controls','image-preview');button.setAttribute('aria-expanded','false');name.append(button);
+    }
+    row.append(name,fileCell(location,locate,data.locationClick));rows.push(row);
    }else links.push(linkButton(label,()=>api.openLink(index,data.version).catch(report)));
   }
   const openGesture=data.openClick==='single'?'單擊':'雙擊',locateGesture=data.locationClick==='single'?'單擊':'雙擊';
   $('attachment-hint').textContent=openGesture+'名稱開啟，'+locateGesture+'位置在檔案總管定位。';
+  $('attachment-hint').hidden=data.showAttachmentHint!==true;
   $('attachment-rows').replaceChildren(...rows);
   $('attachments').hidden=!rows.length;
   $('links').replaceChildren(...links);
   $('links').hidden=!links.length;
   $('record').hidden=data.collapsed;
-  if(!editSession)$('status').hidden=true;
+  if(!draftDirty())$('status').hidden=true;
  }
 
- function renderEditor(){
-  const editable=current?.kind==='draft',editing=editable&&editSession!==null;
-  $('edit-draft').hidden=!editable||editing;
-  $('edit-draft').disabled=editPending;
-  $('draft-editor').hidden=!editing;
-  $('notes').hidden=editing||!current?.notes;
-  draftBody.readOnly=editPending;
-  $('save-draft').disabled=editPending;
-  $('cancel-draft').disabled=editPending;
+ function resetEditor(){
+  editSession=current?.draft||null;
+  if(!editSession)return;
+  if(draftBody.value!==normalizeLines(editSession.body))draftBody.value=normalizeLines(editSession.body);
+  if(editSession.maxLength===null)draftBody.removeAttribute('maxlength');
+  else draftBody.maxLength=editSession.maxLength;
  }
- $('edit-draft').addEventListener('click',async()=>{
-  if(editPending)return;
-  editPending=true;renderEditor();
-  try{
-   editSession=await api.readDraft();
-   draftBody.value=editSession.body;
-   if(editSession.maxLength===null)draftBody.removeAttribute('maxlength');
-   else draftBody.maxLength=editSession.maxLength;
-   $('status').hidden=true;
-  }catch(failure){report(failure);}
-  finally{editPending=false;renderEditor();if(editSession)draftBody.focus();}
- });
+ function renderEditor(){
+  $('draft-editor').hidden=!current?.draft;
+  $('notes').hidden=!current?.notes;
+  draftBody.readOnly=editPending;
+  $('save-draft').disabled=$('cancel-draft').disabled=editPending||!draftDirty();
+ }
+ draftBody.addEventListener('input',()=>{$('status').hidden=true;renderEditor();});
  $('draft-editor').addEventListener('submit',async event=>{
   event.preventDefault();
-  if(!editSession||editPending)return;
+  if(!draftDirty()||editPending)return;
   editPending=true;renderEditor();
   try{
-   const body=editSession.body.replace(/\r\n?/g,'\n')===draftBody.value?editSession.body:draftBody.value;
-   const data=await api.saveDraft(editSession.version,body);
-   editSession=null;render(data);
+   const data=await api.saveDraft(editSession.version,draftBody.value);
+   editPending=false;editSession=null;render(data);
    error('已儲存草稿正文');
-   $('edit-draft').focus();
   }catch(failure){
    if(/草稿已變更/.test(failure.message))error('草稿已有其他修改。可先複製這裡的文字，再取消並重新編輯。');
    else report(failure);
@@ -106,7 +127,7 @@
  });
  $('cancel-draft').addEventListener('click',()=>{
   if(editPending)return;
-  editSession=null;$('status').hidden=true;renderEditor();$('edit-draft').focus();
+  resetEditor();$('status').hidden=true;renderEditor();draftBody.focus();
  });
 
  async function toggle(point){
@@ -184,7 +205,7 @@
  header.addEventListener('pointerleave',event=>{if(!drag?.moved){lastTap=null;finishDrag(event);}});
  $('close').addEventListener('click',()=>{
   if(editPending)return;
-  if(editSession&&draftBody.value!==editSession.body.replace(/\r\n?/g,'\n')&&!window.confirm('關閉便條並放棄未儲存的正文？'))return;
+  if(draftDirty()&&!window.confirm('關閉便條並放棄未儲存的正文？'))return;
   return api.close().catch(report);
  });
  window.addEventListener?.('blur',()=>{lastTap=null;});

@@ -72,3 +72,16 @@ test('the toolbar can resize below 220 px and remembers 92 px without resetting'
   assert.deepEqual(reopened.window.bounds, { x: 272, y: 90, width: 80, height: 40 });
   assert.equal(reopened.toolbar.endDrag(left.token).settings.floatingCollapsedWidth, 80);
 });
+
+test('resize commits the last requested width through recovery and delayed native bounds', () => {
+  const h = createToolbar({ floatingCollapsedWidth: 260 });
+  const original = h.window.bounds;
+  let pending;
+  h.window.setContentBounds = bounds => { pending = bounds; };
+  const resize = h.toolbar.startDrag('resize-right');
+  h.toolbar.moveDrag(resize.token, 124, 0);
+  h.toolbar.ensureVisible();
+  assert.equal(h.window.bounds, original);
+  assert.equal(pending.width, 384);
+  assert.equal(h.toolbar.endDrag(resize.token).settings.floatingCollapsedWidth, 384);
+});

@@ -15,11 +15,13 @@ function readPreview(filename){
  return decodePreview(filename,type,readStableBytes(filename,previewLimit(type)));
 }
 
-async function readSelectedPreview(input){
+const isPreviewImage=filename=>Object.hasOwn(TYPES,path.extname(filename).toLowerCase());
+async function readSelectedPreview(input,{imageOnly=false}={}){
  const filename=require('./notes-location-links').locationPath(input);
+ if(imageOnly&&!isPreviewImage(filename))throw Error('此附件不是支援預覽的圖片');
  await require('./intranet-path').withIntranetPaths([filename],()=>/^\\\\/.test(filename)?require('./notes-location-links').inspectIntranetLocation(filename):require('./notes-location-links').inspectLocation(filename));
  const selected=await fs.promises.lstat(filename);
- if(selected.isDirectory()&&!selected.isSymbolicLink()){const rows=[];const directory=await fs.promises.opendir(filename);let truncated=false;try{for await(const entry of directory){if(rows.length===200){truncated=true;break;}rows.push((entry.isDirectory()?'[資料夾] ':'[檔案] ')+entry.name);}}finally{/* for-await closes the directory even when truncated. */}return {type:'folder',name:path.basename(filename)||filename,path:filename,text:rows.sort((a,b)=>a.localeCompare(b,'zh-Hant')).join('\n')+(truncated?'\n…僅顯示前 200 項':'')||'空資料夾'};}
+ if(!imageOnly&&selected.isDirectory()&&!selected.isSymbolicLink()){const rows=[];const directory=await fs.promises.opendir(filename);let truncated=false;try{for await(const entry of directory){if(rows.length===200){truncated=true;break;}rows.push((entry.isDirectory()?'[資料夾] ':'[檔案] ')+entry.name);}}finally{/* for-await closes the directory even when truncated. */}return {type:'folder',name:path.basename(filename)||filename,path:filename,text:rows.sort((a,b)=>a.localeCompare(b,'zh-Hant')).join('\n')+(truncated?'\n…僅顯示前 200 項':'')||'空資料夾'};}
  const type=previewType(filename);
  const paths=/^(?:[a-z]:|\\\\)/i.test(filename)?path.win32:path;
  for(let current=filename;;){
@@ -53,4 +55,4 @@ window.webContents.session.webRequest.onBeforeRequest((details,callback)=>callba
  }
  close(){for(const window of this.windows)window.destroy();}
 }
-module.exports={readPreview,readSelectedPreview,DocumentPreview,allowedPreviewRequest};
+module.exports={isPreviewImage,readPreview,readSelectedPreview,DocumentPreview,allowedPreviewRequest};

@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8">
  <meta name="viewport" content="width=device-width,initial-scale=1">
- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'">
  <title>桌面便條</title>
  <link rel="stylesheet" href="log-sticker.css">
  <script src="log-sticker-ui.js" defer></script>
@@ -16,8 +16,6 @@
  </header>
  <main id="record">
   <h1 id="title"></h1>
-  <p id="notes"></p>
-  <button id="edit-draft" class="sticker-link" type="button" hidden>編輯正文</button>
   <form id="draft-editor" hidden>
    <label for="draft-body">草稿正文</label>
    <textarea id="draft-body" rows="4" spellcheck="false"></textarea>
@@ -26,15 +24,17 @@
     <button id="cancel-draft" type="button">取消</button>
    </div>
   </form>
+  <p id="notes"></p>
   <dl id="fields"></dl>
   <ul id="tag-items" hidden></ul>
   <div id="attachments" hidden>
    <table>
-    <caption id="attachment-hint">雙擊名稱開啟，雙擊位置在檔案總管定位。</caption>
+    <caption id="attachment-hint" hidden></caption>
     <thead><tr><th scope="col">檔案名稱</th><th scope="col">所在位置</th></tr></thead>
     <tbody id="attachment-rows"></tbody>
    </table>
   </div>
+  <figure id="image-preview" hidden><img id="sticker-image" alt=""><figcaption id="image-caption"></figcaption></figure>
   <div id="links" aria-label="相關網址" hidden></div>
  </main>
  <p id="status" role="status" hidden></p>

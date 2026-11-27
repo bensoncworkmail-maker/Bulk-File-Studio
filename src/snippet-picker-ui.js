@@ -34,6 +34,10 @@
   const data=await api.get(),prefs=M.normalize(data.prefs);
   document.documentElement.dataset.theme=data.theme;document.body.dataset.density=prefs.density;document.body.dataset.groupTone=prefs.groupTone;
   document.body.style.setProperty('--picker-font-size',prefs.fontSize+'px');document.body.style.setProperty('--picker-preview-lines',String(prefs.previewLines));
+  if(prefs.accent){
+   document.body.style.setProperty('--picker-accent',prefs.accent);
+   document.body.style.setProperty('--picker-on-accent',M.accentForeground(prefs.accent));
+  }
   $('hint').hidden=!prefs.showHint;
   $('hint').textContent=(data.keyboard?'↑ ↓ 移動 · ← → 收合／展開 · Enter 選取':'點選片段即貼上')+(data.escape?' · Esc 關閉':' · 點擊 × 關閉');
   const grouped=M.grouped(data.rows,prefs,data.groupStates);

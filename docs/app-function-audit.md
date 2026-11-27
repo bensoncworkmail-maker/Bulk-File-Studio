@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.147.0。以 `npm run audit:functions` 重新產生。
+版本：v1.148.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 248 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
+讀取 src 全部 249 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -69,7 +69,7 @@
 | [diagnostic-log.js](../src/diagnostic-log.js) | `clear`、`entries`、`escape`、`exportData`、`files`、`masked`、`prepareFolder`、`prune`、`record`、`scrub`、`settings`、`status`、`text` |
 | [diagnostics-runtime.js](../src/diagnostics-runtime.js) | `report` |
 | [diagnostics-settings.js](../src/diagnostics-settings.js) | `$`、`init`、`refresh`、`render`、`run` |
-| [document-preview.js](../src/document-preview.js) | `allowedPreviewRequest`、`close`、`decodePreview`、`escape`、`previewLimit`、`previewType`、`readPreview`、`readSelectedPreview`、`show`、`showContent` |
+| [document-preview.js](../src/document-preview.js) | `allowedPreviewRequest`、`close`、`decodePreview`、`escape`、`isPreviewImage`、`previewLimit`、`previewType`、`readPreview`、`readSelectedPreview`、`show`、`showContent` |
 | [function-directory.js](../src/function-directory.js) | `search` |
 | [graphite-theme.css](../src/graphite-theme.css) | 版面、主題與互動狀態樣式 |
 | [home-model.js](../src/home-model.js) | `name`、`recordItem`、`snapshot` |
@@ -174,10 +174,11 @@
 | [snippet-capture.css](../src/snippet-capture.css) | 版面、主題與互動狀態樣式 |
 | [snippet-capture.html](../src/snippet-capture.html) | 視窗／頁面結構及本機資源引用 |
 | [snippet-capture.js](../src/snippet-capture.js) | `close`、`commit`、`constructor`、`data`、`open`、`owner`、`snippetContextMenu` |
+| [snippet-click-watch.js](../src/snippet-click-watch.js) | `BFSPickerClick` |
 | [snippet-import.js](../src/snippet-import.js) | `csv`、`key`、`preview` |
 | [snippet-paste-worker.js](../src/snippet-paste-worker.js) | `fail`、`start`、`stop` |
-| [snippet-paste.js](../src/snippet-paste.js) | `capture`、`close`、`isCurrentTarget`、`paste`、`warm`、`worker` |
-| [snippet-picker-model.js](../src/snippet-picker-model.js) | `grouped`、`history`、`normalize`、`updateGroups` |
+| [snippet-paste.js](../src/snippet-paste.js) | `capture`、`close`、`isCurrentTarget`、`paste`、`warm`、`watchPicker`、`worker` |
+| [snippet-picker-model.js](../src/snippet-picker-model.js) | `accentForeground`、`grouped`、`history`、`normalize`、`updateGroups` |
 | [snippet-picker-preload.js](../src/snippet-picker-preload.js) | 宣告、設定或共用模型 |
 | [snippet-picker-settings.js](../src/snippet-picker-settings.js) | `init`、`receive` |
 | [snippet-picker-ui.js](../src/snippet-picker-ui.js) | `activate`、`failure`、`navigate`、`persist` |
@@ -192,7 +193,7 @@
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`openTraySettings`、`refreshTrayMenu`、`registerShortcuts`、`setLogin`、`syncTray` |
 | [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`saveStickerLayout`、`snippetPickerGroups`、`stickerLayout`、`update`、`validBounds`、`write` |
 | [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`attachmentRow`、`colorText`、`desktopLayout`、`draftDetail`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
-| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
+| [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`previewFavorite`、`previewImage`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
 | [floating-capture-preload.js](../src/floating-capture-preload.js) | `listener` |
 | [floating-capture-ui.js](../src/floating-capture-ui.js) | `$`、`collect`、`field`、`init`、`invalidate`、`lock`、`node`、`refreshChoices`、`renderAttachments`、`renderFavorites`、`renderTags`、`status` |
@@ -222,7 +223,7 @@
 | [global-shortcuts.js](../src/global-shortcuts.js) | `fromEvent`、`normalize`、`validatePair` |
 | [layout-editor.js](../src/layout-editor.js) | `bind`、`main` |
 | [log-sticker-preload.js](../src/log-sticker-preload.js) | 宣告、設定或共用模型 |
-| [log-sticker-ui.js](../src/log-sticker-ui.js) | `error`、`fileCell`、`finishDrag`、`isClose`、`linkButton`、`locate`、`moveDrag`、`open`、`openHeaderMenu`、`render`、`renderEditor`、`report`、`text`、`toggle`、`toggleAt` |
+| [log-sticker-ui.js](../src/log-sticker-ui.js) | `clearPreview`、`draftDirty`、`error`、`fileCell`、`finishDrag`、`isClose`、`isPreview`、`linkButton`、`locate`、`moveDrag`、`normalizeLines`、`open`、`openHeaderMenu`、`preview`、`render`、`renderEditor`、`report`、`resetEditor`、`text`、`toggle`、`toggleAt` |
 | [log-sticker.css](../src/log-sticker.css) | 版面、主題與互動狀態樣式 |
 | [log-sticker.html](../src/log-sticker.html) | 視窗／頁面結構及本機資源引用 |
 | [log-stickers.js](../src/log-stickers.js) | `applyOpacity`、`bounds`、`checkpoint`、`clear`、`close`、`constructor`、`currentBounds`、`drag`、`loadLayout`、`open`、`owner`、`payload`、`persist`、`recover`、`refresh`、`remember`、`resize`、`restore`、`setAllCollapsed`、`setCollapsed`、`setHidden`、`show`、`syncTopmost`、`toggle`、`visibleCount` |

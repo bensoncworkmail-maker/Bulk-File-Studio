@@ -20,7 +20,7 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
  await Promise.resolve();
  const heading=document.getElementById('heading'),body=document.getElementById('record');
  assert.equal(heading.textContent,'客戶 · 案件');
- assert.equal(document.getElementById('edit-draft').hidden,true);
+ assert.equal(document.getElementById('draft-editor').hidden,true);
  assert.equal(document.getElementById('toggle'),null);
  await heading.dispatch('click');assert.equal(body.hidden,false);
  const header=document.getElementById('sticker-header'),grip=document.getElementById('sticker-grip');
@@ -72,6 +72,8 @@ test('sticker settings save both sizes and grip while retaining header fields ac
  const $=id=>document.getElementById('sticker-settings-'+id);
  const {settings}=require('../src/desktop-sticker-model'),preferences=settings();
  assert.equal(preferences.showGrip,false);
+ assert.equal(preferences.showAttachmentHint,false);
+ assert.equal(preferences.openClick,'single');assert.equal(preferences.locationClick,'single');
  assert.equal(settings({showGrip:true}).showGrip,true);
  const options=[
   {id:'logs',name:'紀錄',group:'客戶',itemFields:[{id:'title',label:'紀錄標題'},{id:'date',label:'日期'}],masterFields:[{id:'title',label:'紀錄標題'},{id:'code',label:'客戶代號'}]},
@@ -93,12 +95,13 @@ test('sticker settings save both sizes and grip while retaining header fields ac
  $('table').value='logs';await $('table').dispatch('change');
  assert.equal($('item').value,'date');assert.equal($('master').value,'code');
  $('header-color').value='#20304a';$('opacity').value='70';$('open-click').value='single';$('location-click').value='double';
- $('color').value='#fafafa';$('tracking').checked=false;$('grip').checked=false;
+ $('color').value='#fafafa';$('tracking').checked=false;$('grip').checked=false;$('attachment-hint').checked=true;
  $('width').value='420';$('height').value='350';$('collapsedWidth').value='220';$('collapsedHeight').value='44';
  await $('form').dispatch('submit');
  assert.equal(JSON.stringify(saved.headers.logs),JSON.stringify({master:'code',item:'date'}));
  assert.equal(saved.headerBackground,'#20304a');assert.equal(saved.opacity,70);
  assert.equal(saved.openClick,'single');assert.equal(saved.locationClick,'double');
+ assert.equal(saved.showAttachmentHint,true);
  assert.equal(saved.background,'#fafafa');assert.equal(saved.showGrip,false);
  assert.deepEqual({...saved.size},{width:420,height:350,collapsedWidth:220,collapsedHeight:44});
  assert.equal(window.stickerSettingsUI.enabled('tracking'),false);
@@ -125,33 +128,56 @@ test('sticker attachment gestures are independent and a double click does not op
 test('draft sticker editor loads full text, keeps typing during refresh and saves only after submit',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  const $=id=>document.getElementById(id),full='完整正文'.repeat(3500),calls=[];
- let update,latest={kind:'draft',heading:'草稿',title:'草稿',notes:'預覽',fields:[],links:[]},version=3;
+ let update,version=3,latest={kind:'draft',heading:'草稿',title:'草稿',notes:'清單項目',fields:[],links:[],draft:{body:full,version,maxLength:null}};
  const window={logSticker:{
   get:async()=>latest,onChanged:callback=>update=callback,onError(){},
-  readDraft:async()=>({body:full,version,maxLength:null}),
   saveDraft:async(expected,body)=>{
    calls.push({expected,body});
    if(expected!==version)throw Error('草稿已變更，請重新開啟');
-   return latest={...latest,notes:body};
+   return latest={...latest,draft:{...latest.draft,body,version:++version}};
   }
  }};
  vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
  await Promise.resolve();
- assert.equal($('edit-draft').hidden,false);
- await $('edit-draft').dispatch('click');
+ assert.equal($('edit-draft'),null);
+ assert.equal($('draft-editor').hidden,false);
+ assert.equal($('save-draft').disabled,true);
  assert.equal($('draft-body').value,full);
  $('draft-body').value='尚未儲存';version++;
- latest={...latest,notes:'其他視窗更新'};update(latest);
+ latest={...latest,draft:{...latest.draft,body:'其他視窗更新',version}};update(latest);
  assert.equal($('draft-body').value,'尚未儲存');assert.equal(calls.length,0);
  await $('draft-editor').dispatch('submit');
  assert.equal($('draft-editor').hidden,false);
  assert.equal($('draft-body').value,'尚未儲存');
  assert.match($('status').textContent,/已有其他修改/);
  await $('cancel-draft').dispatch('click');
- assert.equal($('draft-editor').hidden,true);assert.equal($('notes').textContent,'其他視窗更新');
- await $('edit-draft').dispatch('click');
+ assert.equal($('draft-editor').hidden,false);assert.equal($('draft-body').value,'其他視窗更新');
  $('draft-body').value='新內容';
  await $('draft-editor').dispatch('submit');
  assert.deepEqual(calls,[{expected:3,body:'尚未儲存'},{expected:4,body:'新內容'}]);
- assert.equal($('draft-editor').hidden,true);assert.equal($('notes').textContent,'新內容');
+ assert.equal($('draft-editor').hidden,false);assert.equal($('draft-body').value,'新內容');
+ assert.equal($('save-draft').disabled,true);assert.equal($('notes').textContent,'清單項目');
+});
+
+test('image preview opens in the sticker and has its own action and visibility',async()=>{
+ const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
+ const $=id=>document.getElementById(id),calls=[];
+ const data={heading:'圖片',title:'圖片',fields:[],notes:'',
+  links:[{kind:'file',label:'圖.png',location:'C:/圖',image:true}],version:1,openClick:'single',locationClick:'single'};
+ let update;
+ const window={logSticker:{get:async()=>data,onChanged:callback=>update=callback,onError(){},
+  openLink:async(...args)=>{calls.push(args);return 'data:image/png;base64,AA==';}
+ }};
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
+ await Promise.resolve();
+ assert.equal($('attachment-hint').hidden,true);
+ const preview=$('attachment-rows').querySelector('.image-preview-button');
+ await preview.dispatch('click',{detail:1});
+ assert.deepEqual(calls,[[0,1,'preview','C:/圖']]);
+ assert.equal($('image-preview').hidden,false);
+ assert.equal(preview.getAttribute('aria-expanded'),'true');
+ await preview.dispatch('click',{detail:1});
+ assert.equal($('image-preview').hidden,true);
+ update({...data,showAttachmentHint:true});
+ assert.equal($('attachment-hint').hidden,false);
 });

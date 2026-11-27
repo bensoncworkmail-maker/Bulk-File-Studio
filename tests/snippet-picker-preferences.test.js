@@ -3,9 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const M=require('../src/snippet-picker-model'),{DesktopState,normalize}=require('../src/desktop-state'),{documentFromHTML}=require('./helpers/dom');
 const plain=value=>JSON.parse(JSON.stringify(value)),flush=()=>new Promise(setImmediate);
 test('picker layout validates sizes and exports/resets independently of group memory',()=>{
- const prefs=M.normalize({width:500,height:700,fontSize:18,density:'comfortable',previewLines:2,groupTone:'strong',defaultExpanded:false},true);
+ const prefs=M.normalize({width:500,height:700,fontSize:18,density:'comfortable',previewLines:2,groupTone:'strong',accent:'#2467AB',defaultExpanded:false},true);
+ assert.equal(prefs.accent,'#2467ab');
  assert.equal(normalize({snippetPicker:prefs}).snippetPicker.width,500);
- for(const patch of [{width:0},{height:Infinity},{fontSize:'13'},{previewLines:3},{rememberGroups:'yes'},{density:'bad'},{groupTone:'bad'}])assert.throws(()=>M.normalize(patch,true),/設定無效/);
+ for(const patch of [{width:0},{height:Infinity},{fontSize:'13'},{previewLines:3},{rememberGroups:'yes'},{density:'bad'},{groupTone:'bad'},{accent:'red'}])assert.throws(()=>M.normalize(patch,true),/設定無效/);
  assert.deepEqual(M.normalize({width:0,unknown:true}),M.DEFAULTS);
  const exported=require('../src/settings-export').createSettingsExport({settings:{},rules:{}},{snippetPicker:prefs},'1.83.0');
  assert.deepEqual(exported.desktop.snippetPicker,prefs);assert.equal(exported.desktop.snippetPickerGroups,undefined);
@@ -53,8 +54,10 @@ test('settings form saves booleans and numbers, reports invalid values and reset
  const window={snippetPickerModel:M,desktopAPI:{get:async()=>current,onChanged:callback=>changed=callback,configure:async patch=>{current={...current,...plain(patch)};return {settings:current};},resetSnippetPickerGroups:async()=>resets++}};
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../src/snippet-picker-settings.js'),'utf8'),{window,document});window.snippetPickerSettings.init();await flush();const $=id=>document.getElementById(id);
  assert.equal($('snippet-picker-width').value,'360');$('snippet-picker-width').value='450';$('snippet-picker-defaultExpanded').value='false';$('snippet-picker-rememberGroups').checked=false;await $('snippet-picker-width').dispatch('input');
+ $('snippet-picker-custom-accent').checked=true;$('snippet-picker-accent').value='#245bc9';await $('snippet-picker-custom-accent').dispatch('input');
  changed({settings:{snippetPicker:M.normalize({width:700})}});assert.equal($('snippet-picker-width').value,'450');
  await $('snippet-picker-settings').dispatch('submit');assert.equal(current.snippetPicker.width,450);assert.equal(current.snippetPicker.defaultExpanded,false);assert.equal(current.snippetPicker.rememberGroups,false);
+ assert.equal(current.snippetPicker.accent,'#245bc9');
  $('snippet-picker-width').value='1';await $('snippet-picker-settings').dispatch('submit');assert.match($('snippet-picker-settings-status').textContent,/設定無效/);assert.equal(current.snippetPicker.width,450);
  await $('snippet-picker-reset-groups').dispatch('click');assert.equal(resets,1);assert.equal(current.snippetPicker.width,450);
 });

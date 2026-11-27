@@ -9,6 +9,7 @@ const {assertOpenableLocation,inspectLocation,openRecordLink}=require('./notes-l
 const {workspaceBookmarks}=require('./workspace-bookmark-model');
 const {LogStickers}=require('./log-stickers');
 const {FloatingMenu}=require('./floating-menu');
+const {readSelectedPreview}=require('./document-preview');
 
 function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,onDraftBodySaved,visitFavorite,visitTracking,openFavorite,shell,clipboard,...windowOptions}){
  const document=()=>notes().get().document;
@@ -16,15 +17,15 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  const filePinByKey=(list,key)=>list.find(pin=>model.fileKey(pin.kind,pin.id)===key);
  const sourceEnabled=source=>{if(config().sources[source]!==true)throw Error('此來源的桌面便條已在設定停用');};
  const manager=new LogStickers({...windowOptions,linkRef,appearance:()=>{
-  const {background,headerBackground,opacity,showGrip,size,openClick,locationClick}=config();
-  return {background,foreground:model.colorText(background),headerBackground,headerForeground:model.colorText(headerBackground),opacity,showGrip,size,openClick,locationClick};
+  const {background,headerBackground,opacity,showGrip,size,openClick,locationClick,showAttachmentHint}=config();
+  return {background,foreground:model.colorText(background),headerBackground,headerForeground:model.colorText(headerBackground),opacity,showGrip,size,openClick,locationClick,showAttachmentHint};
  },read,pinnedIds:()=>{
   const {logPins=[],fileStickerPins=[]}=tools().get();
   return new Set([...logPins,...fileStickerPins.map(pin=>model.fileKey(pin.kind,pin.id))]);
  }});
 
  function linkRef(link){
-  if(!['file','url','item'].includes(link.kind))return crypto.createHash('sha256').update(JSON.stringify(link)).digest('hex');
+  if(!['file','url'].includes(link.kind))return crypto.createHash('sha256').update(JSON.stringify(link)).digest('hex');
  }
  function* tagAttachments(scope,items,records,favoritesById){
   for(const item of items){
@@ -97,7 +98,7 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
     if(!tagged.has(pin.scope))tagged.set(pin.scope,tagItems(pin.scope,catalog,doc,saved));
     result.set(key,tagPreview(pin,matchingTag(tagged.get(pin.scope),pin.tag),records,favoritesById));
    }else if(pin.kind==='draft'){
-    if(draftIds.has(pin.id))result.set(key,model.draftDetail(notes().draft(pin.id)));
+    if(draftIds.has(pin.id))result.set(key,model.draftDetail(notes().draft(pin.id),preferences().draftBodyLimit??100000));
    }else result.set(key,model.locationDetail(pin,pin.kind==='favorite'?favoritesById.get(pin.id):pin,prefs));
   }
   return result;
@@ -214,30 +215,43 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
    {label:'取消釘選這張便條',click:command('close',()=>remove(id))}
   ],{allowCollapsed:true,anchor});
  }
- async function openLocation(entry,locate=false){
+ async function previewImage(filepath,type){
+  if(type!=='file')throw Error('只支援預覽圖片檔案');
+  const {data}=await readSelectedPreview(filepath,{imageOnly:true});
+  return data;
+ }
+ async function previewFavorite(id,expectedPath){
+  return network.withIntranetPaths([expectedPath],()=>{
+   const item=favorites.get(id,true);
+   if(item.path!==expectedPath)throw Error('收藏位置已變更');
+   return previewImage(item.path,item.type);
+  });
+ }
+ async function openLocation(entry,action='open',expectedPath){
   const pin=filePinByKey(tools().get().fileStickerPins||[],entry.id);
   if(!pin)throw Error('便條已取消釘選');
   if(!['favorite','tracking'].includes(pin.kind))throw Error('便條沒有單一檔案位置');
-  if(pin.kind==='favorite')return openFavorite(pin.id,locate?'show':'open');
+  if(pin.kind==='favorite')return action==='preview'?previewFavorite(pin.id,expectedPath):openFavorite(pin.id,action);
+  if(action==='preview'&&pin.path!==expectedPath)throw Error('追蹤位置已變更');
   return network.withIntranetPaths([pin.path],async()=>{
    const current=inspectPath(pin.path);
    if(current.type!==pin.type||!sameIdentity(current.identity,pin.identity))throw Error('追蹤位置已變更，請回 Everything 重新釘選');
-   if(locate){shell.showItemInFolder(pin.path);return;}
-   assertOpenableLocation(pin.path);
-   const error=await shell.openPath(pin.path);
-   if(error)throw Error(error);
+   if(action==='open'&&pin.type==='folder')assertOpenableLocation(pin.path);
+   return openPathAction(pin.path,pin.type,action);
   });
  }
  async function openPathAction(filepath,type,action){
+  if(action==='preview')return previewImage(filepath,type);
   if(action==='show'){shell.showItemInFolder(filepath);return;}
   if(type==='file')assertOpenableLocation(filepath);
   const error=await shell.openPath(filepath);
   if(error)throw Error(error);
  }
  async function openAttachment(entry,link,action){
+  if(link.kind==='item')return openLocation(entry,action,link.path);
   if(link.kind==='tag-favorite'){
    if(favorites.get(link.id).path!==link.path)throw Error('收藏位置已變更');
-   return openFavorite(link.id,action);
+   return action==='preview'?previewFavorite(link.id,link.path):openFavorite(link.id,action);
   }
   if(link.kind==='tag-tracking'){
    const service=tracking(),indices=[link.index],selection=service.entries(link.id,link.token,indices);
@@ -262,10 +276,14 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
   const {doc,record}=recordFor(id);
   const current=record.fileLinks[link.index],favorite=current?.favoriteId&&favorites.read().items.find(row=>row.id===current.favoriteId);
   if(record.version!==version||link.path!==(favorite?.path||current?.path))throw Error('連結位置已更新，請重新選取');
+  if(action==='preview'){
+   if(current?.type!=='file')throw Error('只支援預覽圖片檔案');
+   return favorite?previewFavorite(favorite.id,link.path):previewImage(link.path,current.type);
+  }
   return openRecordLink({document:doc,recordId:id,index:link.index,action,favorites,shell,clipboard});
  }
  async function openLink(entry,index,version,action='open',displayedLocation){
-  if(!Number.isSafeInteger(index)||index<0||!['open','show'].includes(action))throw Error('位置無效');
+  if(!Number.isSafeInteger(index)||index<0||!['open','show','preview'].includes(action))throw Error('位置無效');
   const link=entry.detail.links[index];
   const ref=link&&linkRef(link);
   if(ref){
@@ -321,7 +339,7 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
   ['close',entry=>remove(entry.id)],
   ['visit',openTitle],
   ['open-item',entry=>openLocation(entry)],
-  ['locate',entry=>openLocation(entry,true)],
+  ['locate',entry=>openLocation(entry,'show')],
   ['open-link',openLink]
  ])ipcMain.handle('log-sticker-'+action,(event,...args)=>invokeOwned(action,()=>{
   const entry=manager.owner(event);
