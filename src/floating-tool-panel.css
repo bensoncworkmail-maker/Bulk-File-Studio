@@ -1,0 +1,5 @@
+:root{color-scheme:dark;--bg:#0c1221;--panel:#172238;--text:#e8edf9;--muted:#a2b1cc;--line:#31405d;--accent:#b7a7ff;--mini-list-height:32px;--mini-icons-height:32px;--mini-tags-height:32px;--mini-icon-font:14px;font:13px/1.5 'Segoe UI','Microsoft JhengHei',sans-serif;}
+:root[data-theme="light"]{color-scheme:light;--bg:#f7f9fe;--panel:#e9edfa;--text:#24314b;--muted:#566987;--line:#cbd5e9;--accent:#6545c2;}
+*{box-sizing:border-box;}[hidden]{display:none!important;}html,body{height:100%;margin:0;}body{display:flex;flex-direction:column;background:var(--bg);color:var(--text);overflow:hidden;border:1px solid var(--line);}
+button,input{font:inherit;color:inherit;}button{cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 9px;}button:hover,button:focus-visible{border-color:var(--accent);outline:1px solid var(--accent);}button:disabled{opacity:.6;cursor:default;}
+input{min-width:0;flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px;}

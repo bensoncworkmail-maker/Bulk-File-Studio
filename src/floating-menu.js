@@ -1,7 +1,7 @@
 'use strict';
 class FloatingMenu{
- constructor({Menu,getWindow,showWindow,settings,onSettled=()=>{},onError=()=>{},defer=setTimeout}){
-  Object.assign(this,{Menu,getWindow,showWindow,settings,onSettled,onError,defer});this.current=null;this.bound=new WeakSet();this.owners=new WeakMap();
+ constructor({Menu,getWindow,showWindow,onSettled=()=>{},onError=()=>{},defer=setTimeout}){
+  Object.assign(this,{Menu,getWindow,showWindow,onSettled,onError,defer});this.current=null;this.bound=new WeakSet();this.owners=new WeakMap();
  }
  bind(owner){
   if(this.bound.has(owner))return;this.bound.add(owner);
@@ -36,9 +36,9 @@ class FloatingMenu{
    if(!entry.nativeClosed)this.defer(()=>this.release(entry),500)?.unref?.();
   }catch(error){this.release(entry);this.onError(error);}
  }
- popup(template,{allowCollapsed=false,anchor}={}){
+ popup(template,{anchor}={}){
   let owner=this.getWindow();if(!owner||owner.isDestroyed()||!owner.isVisible()){this.showWindow();owner=this.getWindow();}
-  if(!owner||owner.isDestroyed()||!allowCollapsed&&this.settings().floatingCollapsed)throw new Error('請先展開浮動工具');
+  if(!owner||owner.isDestroyed())throw new Error('浮動工具未顯示');
   this.close();this.bind(owner);
   // A global accelerator can arrive while another application owns foreground focus.
   // Native menus dismiss correctly only when their owner participates in activation.

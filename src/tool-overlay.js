@@ -17,9 +17,9 @@ class ToolOverlay{
   try{
    this.secureWindow(window);this.remember(key,window);window.setOpacity?.((state?.opacity||100)/100);window.pinController=new FloatingPin(window,()=>({floatingOnTop:this.desiredTopmost(entry)}),{onError:this.error});
    const record=()=>{if(!entry.state.collapsed&&!window.isDestroyed()){const b=window.getNormalBounds();this.save(entry,{bounds:b,displayId:this.screen.getAllDisplays().find(d=>b.x>=d.workArea.x&&b.x<d.workArea.x+d.workArea.width&&b.y>=d.workArea.y&&b.y<d.workArea.y+d.workArea.height)?.id??null});}};
-   for(const event of ['move','resize','moved','resized'])window.on(event,record);window.on('focus',()=>this.refresh(entry));window.on('blur',()=>{this.onBlur?.();clearTimeout(entry.blurTimer);if(key==='logs'||entry.pinned||!this.settings().floatingAutoCollapse)return;entry.blurTimer=setTimeout(()=>{if(!entry.pinned&&!window.isDestroyed()&&!window.isFocused?.()&&!window.nativeMenuOpen&&!this.blocked?.(key))this.control(entry,'collapse',true);},250);entry.blurTimer.unref?.();});
+   for(const event of ['move','resize','moved','resized'])window.on(event,record);window.on('focus',()=>this.refresh(entry));window.on('blur',()=>this.onBlur?.());
    window.on('close',event=>{if(this.quitting)return;if(this.blocked?.(key)){event.preventDefault();return;}record();this.save(entry,{visible:false});});
-   window.on('closed',()=>{clearTimeout(entry.blurTimer);if(this.windows.get(key)?.window===window)this.windows.delete(key);});
+   window.on('closed',()=>{if(this.windows.get(key)?.window===window)this.windows.delete(key);});
    window.on('ready-to-show',()=>{if(this.windows.get(key)!==entry||window.isDestroyed())return;this.save(entry,{visible:true});window.show();if(key!=='logs'&&state?.collapsed)this.control(entry,'collapse',true);});
    Promise.resolve(window.loadFile(path.join(__dirname,extras.has(key)?'floating-tool-panel.html':'tool-overlay.html'))).catch(error=>{this.error(error);if(!window.isDestroyed())window.destroy();});
   }catch(error){this.windows.delete(key);if(!window.isDestroyed())window.destroy();throw error;}

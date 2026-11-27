@@ -188,7 +188,7 @@
     target.focus();feedback.textContent='已插入文字片段';
    }catch(error){feedback.textContent=error.message;}finally{insert.disabled=!list.value;}
   });
-  const copy=button('開啟浮動片段',()=>window.desktopAPI.openFloatingPanel('snippets').catch(error=>feedback.textContent=error.message));
+  const copy=button('開啟浮動片段',()=>window.desktopAPI.openFloatingTool('snippets').catch(error=>feedback.textContent=error.message));
   insert.disabled=true;
   details.append(list,insert,copy,feedback);
   list.addEventListener('change',()=>insert.disabled=!list.value);
@@ -239,7 +239,7 @@
   $('tab-planning')?.addEventListener('click',()=>window.favoritesUI.show('planning'));
   $('tab-logs')?.addEventListener('click',()=>window.favoritesUI.show('logs'));
   for(const [id,kind] of [['planning-overlay','planning'],['snippets-overlay','snippets']]){
-   $(id)?.addEventListener('click',()=>window.desktopAPI.openFloatingPanel(kind).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
+   $(id)?.addEventListener('click',()=>window.desktopAPI.openFloatingTool(kind).catch(error=>callbacks.showFailure('無法開啟浮動工具',error)));
   }
   api.onToolOpen?.(config=>{
    if(config.kind==='snippets'){if(!openSection('snippets'))callbacks.showFailure('請先完成目前操作','原有輸入已保留');return;}

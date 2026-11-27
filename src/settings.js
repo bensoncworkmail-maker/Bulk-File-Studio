@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const {KEY,DEFAULTS,normalize,applyRoot}=window.studioSettingsModel;
-  const catalog=window.studioSettingsCatalog,{controls,nativeControls,buttonLabels,numericKeys,sharedNativeKeys}=catalog;
+  const catalog=window.studioSettingsCatalog,{controls,nativeControls,numericKeys,sharedNativeKeys}=catalog;
   let settings={...window.studioInitialSettings},callbacks;
   const $=id=>document.getElementById(id);
   const tabs=catalog.groups.map(group=>group.id);let workbench,navigationSettings,resetScope='all';
@@ -122,18 +122,26 @@
       else window.favoritesUI.show(target);
     });syncControls();$('settings-home-customize').addEventListener('click',()=>window.homeUI.openCustomize());$('settings-notes-card-config').addEventListener('click',()=>window.notesUI.openCardSettings());window.studioShortcuts.init();window.shortcutOverviewUI?.init();
     let nativeValues={},availableTags=[];
-    const makeCheck=(parent,text,checked,onChange)=>{const label=document.createElement('label'),input=document.createElement('input'),span=document.createElement('span');label.className='check-row';input.type='checkbox';input.checked=checked;input.addEventListener('change',()=>onChange(input.checked));span.textContent=text;label.append(input,span);parent.appendChild(label);return input;};
-    const buttonChecks=new Map();
     const saveNative=async patch=>{nativeValues={...nativeValues,...patch};try{const result=await window.desktopAPI.configure(patch);syncNative(result.settings);$('desktop-settings-status').textContent=result.warning||'設定已儲存';}catch(e){$('desktop-settings-status').textContent=String(e.message||e);window.desktopAPI.get().then(syncNative).catch(()=>{});}};
     for(const [id,patch] of [['layout-main-compact',{density:'compact',notesCompact:true,notesPanelWidth:190,notesDetailWidth:320,notesRowHeight:30,notesCardHeight:140,homeColumns:3}],['layout-main-standard',{density:'comfortable',notesCompact:false,notesPanelWidth:240,notesDetailWidth:400,notesRowHeight:38,notesCardHeight:0,homeColumns:2}],['layout-main-readable',{fontSize:'17',density:'comfortable',notesCompact:false,notesPanelWidth:280,notesDetailWidth:440,notesRowHeight:44,homeColumns:1}]])$(id).addEventListener('click',()=>update(patch));
-    $('settings-layout-reset').addEventListener('click',()=>update({layoutEditing:false,filePanelSide:'source-left',homeWidgetHeights:{},homeWidgetSpans:{},homeWidgets:[...window.studioSettingsModel.HOME_WIDGETS]}));$('settings-floating-layout-reset').addEventListener('click',()=>saveNative({floatingControlOrder:['search','tools','tags'],floatingLayoutEditing:false}));
-    $('layout-floating-minimal').addEventListener('click',()=>saveNative({floatingDefaultWidth:260,floatingDefaultHeight:320,floatingShowSearch:false,floatingShowTools:false,floatingShowStatus:false,floatingQuickPlacement:'top',floatingQuickColumns:0}));$('layout-floating-balanced').addEventListener('click',()=>saveNative({floatingDefaultWidth:420,floatingDefaultHeight:520,floatingShowSearch:true,floatingShowTools:true,floatingQuickPlacement:'top',floatingQuickColumns:2}));
+    $('settings-layout-reset').addEventListener('click',()=>update({layoutEditing:false,filePanelSide:'source-left',homeWidgetHeights:{},homeWidgetSpans:{},homeWidgets:[...window.studioSettingsModel.HOME_WIDGETS]}));
     $('settings-main-size-apply').addEventListener('click',async()=>{try{const value=await window.desktopAPI.resizeMain(Number($('settings-main-width').value),Number($('settings-main-height').value));$('settings-main-size-status').textContent='已調整為 '+value.width+' × '+value.height+'；是否記住依視窗記憶設定。';}catch(error){callbacks.showFailure('無法調整視窗',error);}});
-    const renderTags=()=>{const parent=$('settings-floating-tag-options');parent.replaceChildren();$('settings-floating-tag-choices').disabled=nativeValues.floatingTagScope!=='selected';const selected=nativeValues.floatingSelectedTags||[],tags=[...availableTags];for(const key of selected)if(!tags.some(tag=>tag.key===key))tags.push({key,name:key+'（目前不存在）'});for(const tag of tags)makeCheck(parent,tag.name,selected.includes(tag.key),checked=>saveNative({floatingSelectedTags:checked?[...new Set([...(nativeValues.floatingSelectedTags||[]),tag.key])]:(nativeValues.floatingSelectedTags||[]).filter(key=>key!==tag.key)}));if(!tags.length)parent.textContent='尚未建立自訂標籤';};
-    for(const [key,label] of Object.entries(buttonLabels)){const input=makeCheck($('settings-floating-buttons'),label,true,visible=>saveNative({floatingHiddenButtons:visible?(nativeValues.floatingHiddenButtons||[]).filter(value=>value!==key):[...new Set([...(nativeValues.floatingHiddenButtons||[]),key])]}));input.id='settings-floating-button-'+key;buttonChecks.set(key,input);}
-    function renderCollapsedSettings(){const items=$('settings-collapsed-items');items.replaceChildren();for(const [key,label] of Object.entries({pin:'置頂按鈕',focus:'專注模式狀態／切換',close:'隱藏按鈕',search:'搜尋按鈕',main:'主視窗按鈕',caption:'工具標題',draft:'草稿筆記按鈕',"quick-actions":'指定快捷動作'}))makeCheck(items,label,(nativeValues.floatingCollapsedItems||['pin','close']).includes(key),checked=>saveNative({floatingCollapsedItems:checked?[...new Set([...(nativeValues.floatingCollapsedItems||[]),key])]:(nativeValues.floatingCollapsedItems||[]).filter(value=>value!==key)}));const root=$('settings-collapsed-actions');root.replaceChildren();for(const item of (nativeValues.floatingQuickActions||[]).filter(item=>item.enabled))makeCheck(root,item.label,(nativeValues.floatingCollapsedQuickActionIds||[]).includes(item.id),checked=>saveNative({floatingCollapsedQuickActionIds:checked?[...new Set([...(nativeValues.floatingCollapsedQuickActionIds||[]),item.id])]:(nativeValues.floatingCollapsedQuickActionIds||[]).filter(id=>id!==item.id)}));if(!root.children.length)root.textContent='先在浮動快捷動作新增並啟用動作。';}
+    const renderTags=()=>{
+      const select=$('settings-floating-drop-tag'),selected=nativeValues.floatingDropTag||'';
+      const entries=[{key:'',name:'不指定標籤'},...availableTags.filter(tag=>tag.key)];
+      if(selected&&!entries.some(tag=>tag.key===selected))entries.push({key:selected,name:selected+'（已移除）'});
+      select.replaceChildren(...entries.map(tag=>{
+        const option=document.createElement('option');option.value=tag.key;option.textContent=tag.name;return option;
+      }));
+      select.value=selected;
+    };
+    const toolbarItems=new Map(['caption','pin','focus','main','close'].map(key=>[key,$('settings-toolbar-item-'+key)]));
+    for(const [key,input] of toolbarItems)input.addEventListener('change',()=>{
+      const shown=nativeValues.floatingCollapsedItems;
+      saveNative({floatingCollapsedItems:input.checked?[...shown,key]:shown.filter(item=>item!==key)});
+    });
     $('settings-floating-search-forget').addEventListener('click',()=>saveNative({floatingSearchLastState:null}));
-    const syncNative=values=>{nativeValues=values;renderCollapsedSettings();$('settings-floating-default-size').textContent=values.floatingDefaultWidth+' × '+values.floatingDefaultHeight+' px';for(const [key,input] of buttonChecks)input.checked=!(values.floatingHiddenButtons||[]).includes(key);renderTags();$('settings-floating-header-action').disabled=!values.floatingHeaderDoubleClick;$('settings-floating-tag-height').disabled=values.floatingTagFollowListHeight!==false;$('settings-floating-opacity-value').textContent=values.floatingOpacity+'%';for(const [key,id] of Object.entries(nativeControls)){if(typeof values[key]==='boolean')$(id).checked=values[key];else $(id).value=window.globalShortcutModel.KEYS.includes(key)?window.globalShortcutModel.display(values[key]):values[key];}if(values.shortcutWarning){$('desktop-settings-status').textContent=values.shortcutWarning;$('desktop-shell-status').textContent=values.shortcutWarning;}};
+    const syncNative=values=>{nativeValues=values;for(const [key,input] of toolbarItems)input.checked=values.floatingCollapsedItems.includes(key);renderTags();$('settings-floating-opacity-value').textContent=values.floatingOpacity+'%';for(const [key,id] of Object.entries(nativeControls)){if(typeof values[key]==='boolean')$(id).checked=values[key];else $(id).value=window.globalShortcutModel.KEYS.includes(key)?window.globalShortcutModel.display(values[key]):values[key];}if(values.shortcutWarning){$('desktop-settings-status').textContent=values.shortcutWarning;$('desktop-shell-status').textContent=values.shortcutWarning;}};
     window.desktopAPI.get().then(syncNative).catch(e=>{$('desktop-settings-status').textContent=String(e.message||e);});
     const refreshTagOptions=()=>window.desktopAPI.floatingTagOptions().then(tags=>{availableTags=tags;renderTags();}).catch(e=>{$('desktop-settings-status').textContent=String(e.message||e);});refreshTagOptions();window.favoritesAPI.onChanged(refreshTagOptions);
     window.desktopAPI.onChanged(result=>{if(result.settings)syncNative(result.settings);$('desktop-settings-status').textContent=result.error||result.warning||'視窗與浮動工具設定已儲存';$('desktop-shell-status').textContent=result.error||result.warning||'設定已儲存';});
@@ -149,13 +157,15 @@
       $('btn-'+kind+'-shortcut-default').addEventListener('click',()=>save(kind==='main'?'CommandOrControl+Alt+S':kind==='floating'?'CommandOrControl+Alt+B':kind==='draft'?'CommandOrControl+Alt+D':kind==='focus'?'CommandOrControl+Alt+Shift+F':''));
     }
     $('settings-floating-opacity').addEventListener('input',event=>{$('settings-floating-opacity-value').textContent=event.target.value+'%';});
-    $('btn-floating-small').addEventListener('click',()=>window.desktopAPI.compactFloatingSize().catch(e=>callbacks.showFailure('無法調整浮動大小',e)));
     let loginBusy=false,loginState=null;
     const loginMessage=error=>String(error.message||error).replace(/^Error invoking remote method '[^']+': (?:Error: )?/i,'');
     const syncLogin=result=>{loginState=result;$('settings-login-startup').disabled=loginBusy||!result.supported;$('settings-login-startup').checked=result.enabled;$('btn-startup-windows').disabled=!result.supported;$('settings-login-status').textContent=result.reason||(result.disabledBySystem?'啟動項已登記，但 Windows 已停用它；請在 Windows 啟動設定檢查，或重新勾選啟用。':result.enabled?'已設定登入 Windows 後啟動':'開機啟動已關閉');};
-    const readLogin=()=>window.desktopAPI.startup().then(syncLogin).catch(error=>{$('settings-login-status').textContent=loginMessage(error);});readLogin();
+    const readLogin=()=>window.desktopAPI.startup().then(result=>{syncLogin(result);$('btn-tray-windows').hidden=!result.traySettingsSupported;}).catch(error=>{$('settings-login-status').textContent=loginMessage(error);});readLogin();
     $('btn-startup-refresh').addEventListener('click',readLogin);$('btn-startup-windows').addEventListener('click',()=>window.desktopAPI.openStartupSettings().catch(error=>{$('settings-login-status').textContent=loginMessage(error);}));
     $('settings-login-startup').addEventListener('change',async()=>{const el=$('settings-login-startup');if(loginBusy)return;loginBusy=true;el.disabled=true;try{syncLogin(await window.desktopAPI.setStartup(el.checked));}catch(error){await readLogin();$('settings-login-status').textContent=loginMessage(error);}finally{loginBusy=false;el.disabled=!loginState?.supported;}});
+    $('btn-tray-windows').addEventListener('click',()=>window.desktopAPI.openTraySettings().catch(error=>{
+      $('desktop-shell-status').textContent=loginMessage(error);
+    }));
     $('btn-settings-hide').addEventListener('click',()=>window.desktopAPI.hideToTray().catch(e=>callbacks.showFailure('無法隱藏至系統匣',e)));
     workbench=window.studioSettingsWorkbench.create({get:()=>settings,select:group=>update({settingsTab:group}),isBusy:()=>callbacks.isBusy()});
     for(const [index,tab] of tabs.entries()){const button=$('settings-tab-'+tab);button.addEventListener('click',()=>{workbench.beforeTab();update({settingsTab:tab});});button.addEventListener('keydown',event=>{let next;if((event.key==='ArrowRight'||event.key==='ArrowDown'))next=(index+1)%tabs.length;else if((event.key==='ArrowLeft'||event.key==='ArrowUp'))next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();workbench.beforeTab();update({settingsTab:tabs[next]});$('settings-tab-'+tabs[next]).focus();});}
