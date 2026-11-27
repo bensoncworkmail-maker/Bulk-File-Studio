@@ -116,6 +116,7 @@ contextBridge.exposeInMainWorld('workspaceAPI',Object.freeze({
 
 contextBridge.exposeInMainWorld('homeAPI',Object.freeze({snapshot:()=>invoke('studio-home')}));
 contextBridge.exposeInMainWorld('productivityAPI',Object.freeze({
+ setupBrowserSnippets:()=>invoke('snippet-browser-setup'),
  get:()=>invoke('productivity-get'),save:(kind,input)=>invoke('productivity-save',kind,input),remove:(kind,id)=>invoke('productivity-remove',kind,id),folder:filepath=>invoke('productivity-folder',filepath),
  repairPreview:(from,to)=>invoke('productivity-repair-preview',from,to),repairApply:(token,keys,ui)=>invoke('productivity-repair-apply',token,keys,ui),
  backupTrial:(name,token)=>invoke('productivity-backup-trial',name,token),backupOpenFolder:()=>invoke('productivity-backup-folder'),backupTick:ui=>invoke('productivity-backup-tick',ui),backupDelete:names=>invoke('productivity-backup-delete',names),backupExportMany:names=>invoke('productivity-backup-export-many',names),backupCreate:(ui,options)=>invoke('productivity-backup-create',ui,options),backupExport:name=>invoke('productivity-backup-export',name),backupPreview:(name,filepath)=>invoke('productivity-backup-preview',name,filepath),backupRestore:(token,ui)=>invoke('productivity-backup-restore',token,ui),restoredUI:()=>invoke('productivity-restored-ui'),ackRestored:()=>invoke('productivity-restored-ack'),

@@ -36,7 +36,7 @@
   const route=T.get(value);if(!route||!canSwitch(value))return false;const wasWorkflow=Boolean(T.get(section)?.workflow);section=value;const parent=T.parent(value);
   for(const item of $('productivity-nav').querySelectorAll('[data-productivity]')){const active=item.dataset.productivity===parent;item.setAttribute('aria-pressed',String(active));if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
   for(const panel of $('productivity-page').querySelectorAll('.productivity-panel'))panel.hidden=panel.id!=='productivity-'+value;
-  const sub=$('toolbox-subnav');sub.replaceChildren();const ids=parent==='parameters'?['parameters','snippets']:parent==='rules'?['rules','conditions']:[];sub.hidden=!ids.length;
+  const sub=$('toolbox-subnav');sub.replaceChildren();const ids=parent==='rules'?['rules','conditions']:[];sub.hidden=!ids.length;
   for(const id of ids){const entry=T.get(id),control=button(entry.title,()=>show(id));control.setAttribute('aria-pressed',String(value===id));sub.append(control);}
   if(route.workflow)void window.workflowHub?.mount?.(route.workflow,source);else{window.workflowHub?.deactivate?.();if(wasWorkflow&&loaded)void run(load).then(()=>{if(value==='rules'){const rule=state.data.rules.find(row=>row.id===selectedTools.rules);if(rule)editRule(rule);}});}return true;
  }
@@ -311,6 +311,12 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
    if(!$('logs-page')?.classList.contains('hidden'))logView?.refresh();
    if(!busy&&$('planning-page')&&!$('planning-page').classList.contains('hidden'))run(load);
   };window.favoritesAPI.onChanged(changed);window.workspaceAPI.onChanged(changed);window.remindersAPI.onChanged(changed);api.restoredUI().then(value=>{if(value)return applyRestored(value);}).catch(error=>{status('資料已還原，但介面設定待套用：'+error.message,true);});
+  api.onShortcutSources?.(()=>{
+   dirty=true;
+   if(section==='snippets'&&!$('productivity-page').classList.contains('hidden'))void run(load);
+  });
+  const install=$('snippet-browser-setup');
+  install?.addEventListener('click',()=>void run(()=>api.setupBrowserSnippets(),()=> '擴充功能資料夾已開啟，請在瀏覽器載入。'));
  }
  window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();

@@ -19,7 +19,7 @@
   {group:'搜尋與規劃',title:'查看紀錄',description:'指定表格、按主紀錄分組、日期與狀態篩選、浮動視窗、桌面便條',page:'logs'},
   {group:'搜尋與規劃',title:'提醒排程',description:'紀錄提醒、到期通知、延後、提醒清單',reminders:true},
   {group:'快捷與工具',title:'草稿筆記',description:'隨手記錄、自動儲存、附件、PNG 預覽、轉工作區紀錄',draft:true},
-  {group:'快捷與工具',title:'常用文字片段',description:'分類、複製、匯入、立即貼上、外部分類選擇窗',tool:'snippets'},
+  {group:'快捷與工具',title:'常用文字片段',description:'右鍵儲存選取文字、分類、匯入、複製與立即貼上',tool:'snippets'},
   {group:'快捷與工具',title:'工作集',description:'集中開啟檔案／資料夾及連結紀錄、外部選單',tool:'worksets'},
   {group:'快捷與工具',title:'批次修復路徑',description:'前綴替換、磁碟／UNC、收藏、紀錄連結與路徑欄位、修復預覽',tool:'repair'},
   {group:'快捷與工具',title:'檔案整理規則',description:'依條件分類、整理預覽、檔案搬移',tool:'rules'},

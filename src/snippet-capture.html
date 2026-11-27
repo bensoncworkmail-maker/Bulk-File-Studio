@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+ <title>新增常用文字片段</title>
+ <link rel="stylesheet" href="snippet-capture.css">
+ <script defer src="snippet-capture-ui.js"></script>
+</head>
+<body>
+ <form>
+  <h1>新增常用文字片段</h1>
+  <fieldset disabled>
+   <div class="fields">
+    <label>名稱<input id="name" maxlength="100" required autofocus></label>
+    <label>分類<input id="category" maxlength="60" list="categories" placeholder="選填"><datalist id="categories"></datalist></label>
+   </div>
+   <label class="body">文字內容<textarea id="body" maxlength="20000" required spellcheck="false"></textarea></label>
+   <div class="footer">
+    <p id="status" role="alert"></p>
+    <button id="cancel" type="button">取消</button>
+    <button class="primary" type="submit">儲存</button>
+   </div>
+  </fieldset>
+ </form>
+</body>
+</html>
