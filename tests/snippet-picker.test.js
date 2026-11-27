@@ -11,40 +11,6 @@ test('picker reads custom geometry, clamps it to the display and only persists e
  assert.throws(()=>picker.setGroups([['forged',true]]),/狀態無效/);assert.equal(picker.setGroups([['Work',true]]).saved,true);remember=false;assert.equal(picker.setGroups([['Work',false]]).saved,false);assert.equal(saved.length,1);picker.close();
 });
 
-test('an outside click in the same foreground app closes the nonactivating picker and releases its watcher',async()=>{
- class Window extends EventEmitter{
-  constructor(){super();this.webContents={};}
-  loadFile(){}
-  showInactive(){}
-  isDestroyed(){return Boolean(this.dead);}
-  destroy(){this.dead=true;this.emit('closed');}
- }
- let outside=false,stopped=0;
- const picker=new SnippetPicker({
-  BrowserWindow:Window,screen:{getAllDisplays:()=>[{workArea:{x:0,y:0,width:800,height:600}}]},
-  globalShortcut:{register:()=>false},secureWindow(){},settings:()=>({}),
-  watchPicker:()=>({handle:'992',ready:Promise.resolve(true),stop:()=>{stopped++;}}),
-  isCurrentTarget:async(target,handle)=>target.handle==='500'&&handle==='992'&&!outside
- });
- picker.open([{id:'one'}],{handle:'500'},()=>assert.fail('dismissed picker must not paste'));
- const win=picker.window;
- win.emit('ready-to-show');
- await new Promise(resolve=>setTimeout(resolve,80));
- assert.equal(win.isDestroyed(),false);
- outside=true;
- await new Promise(resolve=>setTimeout(resolve,100));
- assert.equal(win.isDestroyed(),true);
- assert.equal(stopped,1);
- outside=false;
- picker.open([{id:'one'}],{handle:'500'},()=>assert.fail('dismissed picker must not paste'));
- const reopened=picker.window;
- reopened.emit('ready-to-show');
- outside=true;
- await assert.rejects(picker.select('one'),/已取消貼上/);
- assert.equal(reopened.isDestroyed(),true);
- assert.equal(stopped,2);
-});
-
 test('keyboard navigation skips closed categories and activates the highlighted snippet',async()=>{
  const fs=require('node:fs'),vm=require('node:vm'),{documentFromHTML}=require('./helpers/dom');
  const doc=documentFromHTML(fs.readFileSync(require.resolve('../src/snippet-picker.html'),'utf8'));
