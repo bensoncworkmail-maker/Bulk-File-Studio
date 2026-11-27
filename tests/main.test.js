@@ -1878,23 +1878,81 @@ test('legacy inline shortcut choices launch standalone windows and retain their 
  for(const name of ['floating-panel-open','floating-panel-action','floating-collapse'])assert.equal(h.rawHandlers.has(name),false);
 });
 
-test('the floating menu lists only enabled custom actions and opens the selected independent tool', async t => {
- const h=harness(t);
- const H=h.handlers,raw=h.rawHandlers;
+test('the floating context menu shows toolbar controls and keeps custom actions on their buttons', async t => {
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers;
  H.get('floating-show')();
- const strip=h.windows[1],event={sender:strip.webContents,senderFrame:{url:strip.url}};
- const menu=()=>raw.get('floating-header-menu')(event);
- assert.equal(menu().menu,false);
- const actions=[
-  {type:'open-floating-tool',label:'剪貼簿',tool:'clipboard'},
-  {type:'open-drafts',label:'停用草稿',enabled:false},
-  {type:'sticker-controls',label:'便條控制'}
- ].map(action=>({id:require('node:crypto').randomUUID(),...action}));
- H.get('desktop-settings-set')(null,{floatingQuickActions:actions});
+ const main=h.windows[0],strip=h.windows[1],event={sender:strip.webContents,senderFrame:{url:strip.url}};
+ const menu=()=>raw.get('floating-header-menu')(event,{x:40,y:20});
+ const labels=()=>Array.from(h.popup().template).flatMap(item=>item.label?[item.label]:[]);
+ const choose=async label=>{
+  const {template,options}=h.popup();
+  await template.find(item=>item.label===label).click();
+  options.callback();
+ };
  assert.equal(menu().menu,true);
- assert.deepEqual(Array.from(h.popup().template,item=>item.label),['剪貼簿','便條控制']);
- await h.popup().template[0].click();
+ assert.equal(h.popup().options.x,40);
+ assert.equal(h.popup().options.y,20);
+ const controls=labels();
+ assert.deepEqual(controls,['保持置頂','專注模式','顯示專注模式按鈕','顯示快捷按鈕','開啟主視窗','浮動工具設定…','隱藏浮動工具']);
+
+ const action={id:require('node:crypto').randomUUID(),type:'open-floating-tool',label:'剪貼簿',tool:'clipboard'};
+ H.get('desktop-settings-set')(null,{floatingQuickActions:[action]});
+ menu();
+ assert.deepEqual(labels(),controls);
+ assert.equal(h.popup().template.find(item=>item.label==='保持置頂').checked,true);
+ await choose('保持置頂');
+ assert.equal(H.get('desktop-settings-get')().floatingOnTop,false);
+
+ menu();await choose('專注模式');
+ assert.equal(H.get('desktop-settings-get')().focusMode,true);
+ menu();await choose('顯示專注模式按鈕');
+ assert.equal(H.get('desktop-settings-get')().floatingShowFocusButton,false);
+ assert.equal(H.get('desktop-settings-get')().focusMode,true);
+ menu();await choose('顯示快捷按鈕');
+ assert.equal(H.get('desktop-settings-get')().floatingShowQuickActions,false);
+ menu();assert.deepEqual(labels(),controls);
+ await choose('顯示快捷按鈕');
+
+ main.hide();
+ menu();await choose('浮動工具設定…');
+ assert.equal(main.isVisible(),true);
+ assert.equal(h.messages.at(-1)[0],'open-app-page');
+ assert.equal(h.messages.at(-1)[1].settingsTab,'floating');
+ main.hide();
+ menu();await choose('開啟主視窗');
+ assert.equal(main.isVisible(),true);
+ raw.get('floating-quick-action')(event,action.id);
  assert.match(h.windows.at(-1).url,/floating-tool-panel.html$/);
- H.get('desktop-settings-set')(null,{floatingShowQuickActions:false});
- assert.equal(menu().menu,false);
+ menu();await choose('隱藏浮動工具');
+ assert.equal(strip.isVisible(),false);
+});
+
+test('desktop stickers apply saved opacity on blur and stay opaque while focused during settings changes', async t => {
+ const h=harness(t),H=h.handlers;
+ const files=['first.txt','second.txt'].map(name=>path.join(h.dir,name));
+ for(const file of files)fs.writeFileSync(file,'keep');
+ const {ids}=H.get('favorites-add')(null,files,[]);
+ H.get('desktop-settings-set')(null,{desktopStickers:{opacity:65}});
+ for(const id of ids){
+  await H.get('desktop-stickers-pin')(null,'favorites',{id});
+  h.windows.at(-1).emit('ready-to-show');
+ }
+ const [first,second]=h.windows.slice(-2);
+ assert.equal(first.opacity,0.65);
+ assert.equal(second.opacity,0.65);
+ let focused=true;
+ first.isFocused=()=>focused;
+ first.emit('focus');
+ assert.equal(first.opacity,1);
+ assert.equal(second.opacity,0.65);
+
+ H.get('desktop-settings-set')(null,{desktopStickers:{opacity:50}});
+ assert.equal(first.opacity,1);
+ assert.equal(second.opacity,0.5);
+ focused=false;
+ first.emit('blur');
+ assert.equal(first.opacity,0.5);
+ focused=true;
+ first.emit('focus');
+ assert.equal(first.opacity,1);
 });

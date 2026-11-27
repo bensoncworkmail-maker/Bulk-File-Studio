@@ -105,6 +105,7 @@
   }
   function init(options) {
     callbacks=options;navigationSettings=window.navigationSettings?.mount($('settings-navigation'),{get:()=>settings,update:patch=>update(patch)});window.studioLayoutEditor?.main();window.desktopAPI.onOpenPage?.(target=>{
+      if(tabs.includes(target?.settingsTab))return window.settingsUI.openCategory(target.settingsTab);
       const routes=window.quickActionsModel;
       const page=typeof target==='string'&&Object.hasOwn(routes.PAGES,target);
       const tool=target&&typeof target==='object'&&Object.hasOwn(routes.TOOLS,target.tool);

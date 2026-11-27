@@ -3,10 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {documentFromHTML}=require('./helpers/dom'),Catalog=require('../src/settings-catalog'),Settings=require('../src/settings-model'),Desktop=require('../src/desktop-state');
 const html=fs.readFileSync(path.join(__dirname,'../src/index.html'),'utf8'),flush=async()=>{for(let i=0;i<5;i++)await new Promise(setImmediate);},plain=value=>JSON.parse(JSON.stringify(value));
 function setup(prefs={},native={},history=[]){
- const document=documentFromHTML(html),saved={},patches=[],changes=[],errors=[],opened=[],defaultNative=Desktop.normalize(native);let values=defaultNative,busy=false,rejectConfigure=false;
- const desktopAPI={get:async()=>plain(values),defaults:async()=>plain(Desktop.DEFAULTS),configure:async patch=>{if(rejectConfigure)throw new Error('Shortcut unavailable');patches.push(plain(patch));values=Desktop.normalize({...values,...patch});return {settings:plain(values)};},floatingTagOptions:async()=>[],onChanged(){},startup:async()=>({supported:false,enabled:false}),resetWindow:async()=>{},showFloating:async()=>{},compactFloatingSize:async()=>{},hideToTray:async()=>{}};
+ const document=documentFromHTML(html),saved={},patches=[],changes=[],errors=[],opened=[],defaultNative=Desktop.normalize(native);let values=defaultNative,busy=false,rejectConfigure=false,openPage;
+ const desktopAPI={onOpenPage:callback=>{openPage=callback;},get:async()=>plain(values),defaults:async()=>plain(Desktop.DEFAULTS),configure:async patch=>{if(rejectConfigure)throw new Error('Shortcut unavailable');patches.push(plain(patch));values=Desktop.normalize({...values,...patch});return {settings:plain(values)};},floatingTagOptions:async()=>[],onChanged(){},startup:async()=>({supported:false,enabled:false}),resetWindow:async()=>{},showFloating:async()=>{},compactFloatingSize:async()=>{},hideToTray:async()=>{}};
  const window={studioSettingsModel:Settings,studioSettingsCatalog:Catalog,studioInitialSettings:Settings.normalize(prefs),desktopAPI,studioShortcuts:{init(){},reset(){},getBindings:()=>({})},globalShortcutModel:require('../src/global-shortcuts'),favoritesAPI:{onChanged(){}},renameAPI:{dataLocation:async()=>'/local',appInfo:async()=>({version:history[0]?.version||'1.31.0',history})},notesUI:{canLeave:()=>true,openCardSettings(){}},favoritesUI:{show:view=>{opened.push(view);return true;}}};
- const context=vm.createContext({window,document,localStorage:{setItem:(key,value)=>saved[key]=value,removeItem:key=>delete saved[key]},setTimeout:()=>0});for(const file of ['settings-workbench.js','settings.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+file),'utf8'),context,{filename:file});window.settingsUI.init({isBusy:()=>busy,onChange:(settings,keys)=>changes.push({settings:plain(settings),keys:plain(keys)}),showFailure:(title,error)=>errors.push(String(error.message||error)),getConfiguration:()=>({rules:{},presets:[]})});return {document,window,ui:window.settingsUI,patches,changes,errors,saved,opened,values:()=>values,setBusy:v=>busy=v,reject:v=>rejectConfigure=v,$:id=>document.getElementById(id)};
+ const context=vm.createContext({window,document,localStorage:{setItem:(key,value)=>saved[key]=value,removeItem:key=>delete saved[key]},setTimeout:()=>0});for(const file of ['settings-workbench.js','settings.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/'+file),'utf8'),context,{filename:file});window.settingsUI.init({isBusy:()=>busy,onChange:(settings,keys)=>changes.push({settings:plain(settings),keys:plain(keys)}),showFailure:(title,error)=>errors.push(String(error.message||error)),getConfiguration:()=>({rules:{},presets:[]})});return {document,window,ui:window.settingsUI,patches,changes,errors,saved,opened,openPage,values:()=>values,setBusy:v=>busy=v,reject:v=>rejectConfigure=v,$:id=>document.getElementById(id)};
 }
 test('catalog bindings belong to their actual category and every native default is included in full reset',()=>{const d=documentFromHTML(html);for(const [key,id] of Object.entries({...Catalog.controls,...Catalog.nativeControls})){const el=d.getElementById(id);assert.ok(el,id);let panel=el;while(panel&&!panel.id.startsWith('settings-panel-'))panel=panel.parentElement;assert.equal(panel?.id,'settings-panel-'+Catalog.groupsByKey[key],key);}assert.deepEqual(Catalog.resetPatch('native','all',Desktop.DEFAULTS),plain(Desktop.DEFAULTS));const defaults=Catalog.resetPatch('renderer','notes',Settings.DEFAULTS);assert.ok(Object.hasOwn(defaults,'notesCardFields'));assert.equal(defaults.favoriteColumns,undefined);defaults.notesCardFields.x=[];assert.equal(Settings.DEFAULTS.notesCardFields.x,undefined);});
 test('changing a settings category neither writes native preferences nor reports card fields changed',async()=>{const h=setup();await flush();const initial=h.patches.length;await h.$('settings-tab-floating').dispatch('click');await flush();assert.equal(h.ui.get().settingsTab,'floating');assert.equal(h.patches.length,initial);assert.deepEqual(h.changes.at(-1).keys,['settingsTab']);assert.equal(h.$('settings-panel-floating').hidden,false);assert.equal(h.$('settings-panel-appearance').hidden,true);await h.$('settings-tab-floating').dispatch('keydown',{key:'ArrowDown'});assert.equal(h.ui.get().settingsTab,'stickers');await h.$('settings-tab-stickers').dispatch('keydown',{key:'ArrowDown'});assert.equal(h.ui.get().settingsTab,'shortcuts');assert.equal(h.document.activeElement.id,'settings-tab-shortcuts');assert.deepEqual(h.errors,[]);});
@@ -182,4 +182,17 @@ test('floating focus button visibility saves and resets independently of focus m
  await h.$('btn-settings-reset-confirm').dispatch('click');
  assert.equal(control.checked,true);
  assert.equal(h.values().focusMode,true);
+});
+
+test('the native floating settings destination opens its category and respects an active workspace form',async()=>{
+ const h=setup({settingsTab:'appearance'});
+ await flush();
+ h.window.notesUI.canLeave=()=>false;
+ assert.equal(h.openPage({settingsTab:'floating'}),false);
+ assert.equal(h.ui.get().settingsTab,'appearance');
+ h.window.notesUI.canLeave=()=>true;
+ h.openPage({settingsTab:'floating'});
+ assert.equal(h.ui.get().settingsTab,'floating');
+ assert.deepEqual(h.opened,['settings']);
+ assert.equal(h.$('settings-panel-floating').hidden,false);
 });
