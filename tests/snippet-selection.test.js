@@ -85,10 +85,12 @@ test('the browser host acknowledges only a shown editor and removes the handoff 
  assert.throws(()=>inbox.receiveSelection(dir,'../invalid'),/無效/);
 });
 
-test('parameter templates and snippet management are top-level toolbox destinations',()=>{
- const toolbox=require('../src/toolbox-model');
+test('parameter templates stay in the toolbox and saved snippet shortcuts open the dedicated page',()=>{
+ const toolbox=require('../src/toolbox-model'),quick=require('../src/quick-actions-model');
  assert.equal(toolbox.fromWorkflow('snippets'),'parameters');
  assert.equal(toolbox.get('parameters').workflow,'snippets');
- assert.equal(toolbox.parent('snippets'),'snippets');
- assert.ok(toolbox.primary.some(route=>route.id==='snippets'&&route.panel==='snippets'));
+ assert.equal(toolbox.get('snippets'),null);
+ const id='db5c5df0-24e4-4b1c-94ea-e23595709c9f',label='管理片段';
+ assert.deepEqual(quick.normalize([{id,label,type:'open-tool',tool:'snippets',enabled:false,shortcut:'F7'}],true),
+  [{id,label,type:'open-page',page:'snippets',enabled:false,shortcut:'F7'}]);
 });

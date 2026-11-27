@@ -14,11 +14,29 @@ function harness(){
  for(const file of ['resizable-split.js','shortcut-controls.js','calendar-scope.js','planning-view.js','productivity.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'),context);window.productivityUI.init({configuration:()=>({rules:{},presets:[]}),isBusy:()=>false,showFailure:(_,error)=>failure=error,rename:async(...args)=>calls.push(['rename-ui',...args])});
  return {context,document,$,state,api,window,calls,listeners,storage,localStorage,record,sheet,load:()=>{ $('productivity-page').classList.remove('hidden');return window.productivityUI.activate();},failure:()=>failure,reloaded:()=>reloaded,setRestore:value=>restoreUI=value,click:async id=>{$(id).dispatch('click');await tick();},submit:async id=>{$(id).dispatch('submit');await tick();}};
 }
-test('legacy tools remain available inside the unified toolbox without duplicate primary entries',async()=>{const h=harness();await h.load();for(const name of ['repair','backup','rules','preview','worksets','snippets']){h.window.productivityUI.openSection(name);await tick();assert.equal(h.$('productivity-'+name).hidden,false);const parent=require('../src/toolbox-model').parent(name),tab=h.$('productivity-nav').querySelector('[data-productivity='+parent+']');assert.equal(tab.getAttribute('aria-pressed'),'true');}assert.equal(h.$('workflow-open'),null);assert.equal(h.failure(),null);assert.equal(h.$('workset-records').querySelectorAll('script').length,0);assert.match(h.$('workset-records').textContent,/<script>客戶 A<\/script>/);});
+test('legacy tools remain available inside the unified toolbox without duplicate primary entries',async()=>{const h=harness();await h.load();for(const name of ['repair','backup','rules','preview','worksets']){h.window.productivityUI.openSection(name);await tick();assert.equal(h.$('productivity-'+name).hidden,false);const parent=require('../src/toolbox-model').parent(name),tab=h.$('productivity-nav').querySelector('[data-productivity='+parent+']');assert.equal(tab.getAttribute('aria-pressed'),'true');}assert.equal(h.$('workflow-open'),null);assert.equal(h.failure(),null);assert.equal(h.$('workset-records').querySelectorAll('script').length,0);assert.match(h.$('workset-records').textContent,/<script>客戶 A<\/script>/);});
 test('repair UI sends only checked valid rows and invalidates preview when roots change',async()=>{const h=harness();await h.load();h.$('repair-from').value='/old';h.$('repair-to').value='/new';await h.submit('repair-form');const checks=h.$('repair-list').querySelectorAll('input');assert.equal(checks[0].checked,true);assert.equal(checks[1].disabled,true);await h.click('repair-apply');assert.deepEqual(Array.from(h.calls.find(value=>value[0]==='repair')[2]),['a']);await h.submit('repair-form');h.$('repair-to').value='/other';await h.$('repair-to').dispatch('input');assert.equal(h.$('repair-apply').disabled,true);});
 test('backup UI shows restore counts and restores persisted interface settings before reload',async()=>{const h=harness();await h.load();await h.click('backup-create');assert.match(h.$('backup-list').textContent,/new.bfsbackup/);await h.click('backup-import');assert.equal(h.$('backup-preview').hidden,false);assert.match(h.$('backup-counts').textContent,/1 → 3/);h.setRestore({settings:{theme:'light'},shortcuts:{x:'F1'},naming:{presets:[],activeRules:{prefix:'R_'}}});await h.click('backup-restore');assert.equal(JSON.parse(h.storage.get('brs-settings-v1')).theme,'light');assert.equal(JSON.parse(h.storage.get('brs-rules-v1')).prefix,'R_');assert.equal(h.reloaded(),1);assert.equal(h.failure(),null);});
 test('rule editor uses its own prefix field and forwards move target and rename prefix',async()=>{const h=harness();await h.load();h.$('rule-name').value='文件';h.$('rule-extensions').value='txt';h.$('organize-prefix').value='P_';h.$('rule-tags').value='文件';await h.submit('rule-form');assert.equal(h.state.data.rules[0].prefix,'P_');assert.equal(h.$('rule-prefix').value,'');h.$('rule-select').value=h.state.data.rules[0].id;await h.click('rule-preview');await h.click('rule-move');const move=h.calls.find(value=>value[0]==='move-ui');assert.equal(move[2].targetFolder,'/new');await h.click('rule-rename');assert.equal(h.calls.find(value=>value[0]==='rename-ui')[2],'P_');assert.equal(h.failure(),null);});
-test('snippets preserve literal markup and copy the selected customer substitution',async()=>{const h=harness();await h.load();h.$('snippet-name').value='問候';h.$('snippet-body').value='  {{customer}} <script>hello</script>\n';h.$('snippet-category').value='工作';await h.submit('snippet-form');h.$('snippet-customer').value='客戶 B';await h.$('snippet-customer').dispatch('input');assert.match(h.$('snippet-list').textContent,/客戶 B <script>hello<\/script>/);assert.equal(h.$('snippet-list').querySelectorAll('script').length,0);const copy=h.$('snippet-detail').querySelectorAll('button').find(value=>value.textContent==='複製已儲存內容');await copy.dispatch('click');await tick();assert.equal(h.calls.find(value=>value[0]==='copy')[2],'客戶 B');});
+test('snippet search combines category and text while preview and copy expand the saved text safely',async()=>{
+ const h=harness();attachWorkflow(h);
+ h.state.data.snippets=[
+  P.entry('snippets',{id:crypto.randomUUID(),name:'問候',body:'  {{customer}} <script>hello</script>\n',category:'工作'}),
+  P.entry('snippets',{id:crypto.randomUUID(),name:'其他',body:'hello',category:''})
+ ];
+ await h.click('tab-snippets');
+ h.$('snippet-query').value='hello';await h.$('snippet-query').dispatch('input');
+ assert.equal(h.$('snippet-count').textContent,'2 個片段');
+ h.$('snippet-filter-category').value='category:工作';await h.$('snippet-filter-category').dispatch('change');
+ assert.match(h.$('snippet-count').textContent,/1／2/);
+ const row=h.$('snippet-list').querySelector('.tool-master-item');
+ await row.dispatch('click');
+ h.$('snippet-customer').value='客戶 B';await h.$('snippet-customer').dispatch('input');
+ assert.match(h.$('snippet-preview-text').textContent,/客戶 B <script>hello<\/script>/);
+ assert.equal(h.$('snippet-preview-text').querySelectorAll('script').length,0);
+ await h.click('snippet-copy');
+ assert.deepEqual(h.calls.find(value=>value[0]==='copy'),['copy',h.state.data.snippets[0].id,'客戶 B']);
+});
 test('worksets persist selected resources and open the returned record after operation unlocks',async()=>{const h=harness();await h.load();h.$('workset-name').value='客戶資料';const check=h.$('workset-records').querySelector('input');check.checked=true;await check.dispatch('change');await h.submit('workset-form');assert.equal(h.state.data.worksets[0].recordIds[0],h.record.id);const open=h.$('workset-detail').querySelectorAll('button').find(value=>value.textContent==='開啟工作集');await open.dispatch('click');await tick();assert.ok(h.calls.some(value=>value[0]==='record'&&value[2]===h.record.id));});
 test('calendar renders existing dates and board offers accessible status moves with revision',async()=>{const h=harness();await h.load();assert.ok(h.$('planning-content').querySelectorAll('.productivity-event').length>0);h.$('planning-sheet').value=h.sheet.id;await h.$('planning-sheet').dispatch('change');await h.click('planning-board-mode');const select=h.$('planning-content').querySelector('select');assert.ok(select.getAttribute('aria-label'));const field=h.sheet.fields.find(value=>value.type==='select');select.value=field.options[0];await select.dispatch('change');await tick();const call=h.calls.find(value=>value[0]==='board');assert.equal(call[1],h.record.id);assert.equal(call[3],field.options[0]);assert.equal(call[4],1);});
 test('document preview renders plain text safely and clears document data on close',async()=>{const h=harness();await h.load();await h.click('document-choose');assert.equal(h.$('document-preview-dialog').open,true);assert.match(h.$('document-preview-content').textContent,/<img src=x/);assert.equal(h.$('document-preview-content').querySelectorAll('img').length,0);await h.click('document-preview-close');assert.equal(h.$('document-preview-content').children.length,0);});
@@ -97,17 +115,16 @@ function attachWorkflow(h,beforeMount=()=>{}){
  h.window.workflowModel=require('../src/workflow-model');h.window.notesModel=M;h.window.workflowGuideModel=require('../src/workflow-guide-model');
  h.window.workflowAPI={state:async()=>({data:{revision:0,contexts:[],formulas:[],automations:[],inbox:[],runs:[],recentFolders:[]},workspace:h.state.workspace,productivity:h.state.data,tools:{views:[]},favorites:[],tracking:{queries:[]},trackingChanges:{snapshots:{},monitors:[]},operations:[],drafts:[],platform:'linux'}),onProgress:()=>{},select:async source=>{h.calls.push(['source',source]);return {token:'selection',rows:[{path:'/tmp/selected.pdf',type:'file'}]};}};
  h.window.notesUI.context=()=>({sheetId:h.sheet.id,recordId:h.record.id});
- h.window.favoritesUI.show=page=>{if(!h.window.productivityUI.canLeave())return false;h.calls.push(['page',page]);h.$('productivity-page').classList.toggle('hidden',page!=='productivity');if(page==='productivity')void h.window.productivityUI.activate();return true;};
+ h.window.favoritesUI.show=page=>{if(!h.window.productivityUI.canLeave())return false;h.calls.push(['page',page]);for(const view of ['productivity','snippets'])h.$(view+'-page').classList.toggle('hidden',page!==view);if(['productivity','snippets'].includes(page))void h.window.productivityUI.activate();return true;};
  beforeMount(h);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/workflow-hub.js'),'utf8'),h.context);
  return h.$('workflow-content');
 }
-test('existing external snippet shortcut opens the independent management page during first toolbox activation',async()=>{
+test('existing external snippet shortcut opens the independent management page on initial activation',async()=>{
  const h=harness();attachWorkflow(h);h.listeners.toolOpen({kind:'snippets'});await tick();
- assert.equal(h.window.productivityUI.currentSection(),'snippets');
- assert.equal(h.$('productivity-snippets').hidden,false);
- assert.equal(h.$('productivity-parameters').hidden,true);
- assert.equal(h.$('toolbox-subnav').hidden,true);
- assert.equal(h.$('productivity-nav').querySelector('[data-productivity=snippets]').getAttribute('aria-current'),'page');
+ assert.equal(h.$('snippets-page').classList.contains('hidden'),false);
+ assert.equal(h.$('productivity-page').classList.contains('hidden'),true);
+ assert.equal(h.$('productivity-nav').querySelector('[data-productivity=snippets]'),null);
+ assert.deepEqual(h.calls.at(-1),['page','snippets']);
  assert.equal(h.failure(),null);
 });

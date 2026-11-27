@@ -1214,6 +1214,7 @@ app.whenReady().then(() => {
     readLayout:()=>desktop.stickerLayout(),saveLayout:value=>desktop.saveStickerLayout(value),
     onClosed:()=>{desktopShell.refreshTrayMenu();send(win,'desktop-stickers-changed');},
     favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,
+    showImage:(data,owner)=>productivity.showImage(data,owner,recoverFloatingPins),
     visitTag:(scope,tag)=>openInMainWindow('open-app-page',{stickerTag:{scope,tag}}),
     visitDraft:id=>{openDrafts();sendDraftSelection(id);},
     onDraftBodySaved:value=>{
@@ -1266,7 +1267,7 @@ app.whenReady().then(() => {
   try{journal().recover();}catch(error){diagnostics.record('main','operation-journal-recovery',error);}
   workflow=require('./workflow-ipc').registerWorkflow({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,reminders:()=>recordReminders,productivity,tracking:everythingTracking,journal,move:performMovePlan,fileOperation,dialog,parent:()=>win,clipboard,changed:notesChanged,notifyFavorites,trash:filepath=>shell.trashItem(filepath),trackingChanged,progress:value=>send(win,'workflow-analysis-progress',value),blocked:()=>Boolean(fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),onError:error=>diagnostics.record('main','workflow-monitor',error)});
   function checkTool(event,kind){if(!toolKinds.includes(kind))throw Error('工具類型無效');const owner=toolOverlay.owner(event);if(owner&&owner.config.kind!==kind)throw Error('工具來源不符');}
-  function openMainTool(kind){if(!toolKinds.includes(kind))throw Error('工具類型無效');focusMain();if(kind==='drafts'||kind==='clipboard'){send(win,'floating-main-tool-open',kind);return {opened:true,main:true};}if(kind==='snippets')send(win,'open-app-page',{tool:kind});else send(win,'open-app-page',kind==='files'?'favorites':'planning');return {opened:true,main:true};}
+  function openMainTool(kind){if(!toolKinds.includes(kind))throw Error('工具類型無效');focusMain();if(kind==='drafts'||kind==='clipboard'){send(win,'floating-main-tool-open',kind);return {opened:true,main:true};}send(win,'open-app-page',kind==='files'?'favorites':kind);return {opened:true,main:true};}
   handle('floating-tool-data',(event,kind,filters)=>{checkTool(event,kind);if(kind==='drafts')return {rows:notesStore().draftList()};if(kind==='files')return {rows:favorites.list()};if(kind==='clipboard')return workspaceService('list');return productivity.viewData(require('./tool-views-model').configuration({kind}),filters);});
   handle('floating-tool-action',async(event,kind,action,value)=>{
    checkTool(event,kind);

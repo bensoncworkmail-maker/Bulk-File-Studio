@@ -3,7 +3,6 @@
  const primary=Object.freeze([
   {id:'worksets',title:'工作集',hint:'一次開啟同一工作的資源',panel:'worksets'},
   {id:'parameters',title:'參數範本',hint:'填寫、預覽與複製文字',workflow:'snippets',steps:['選文字範本','填寫參數','預覽後複製']},
-  {id:'snippets',title:'常用文字片段',hint:'分類、搜尋與管理常用文字',panel:'snippets'},
   {id:'tracking',title:'追蹤變更',hint:'查看文件清單的變化',workflow:'tracking',steps:['選追蹤搜尋','檢查變更','核對後標示已讀']},
   {id:'ocr',title:'離線 OCR',hint:'圖片文字轉成草稿',workflow:'ocr',steps:['選一張圖片','辨識並校正','存成草稿']},
   {id:'backup',title:'備份',hint:'保存與還原資料',panel:'backup',steps:['建立備份','試還原核對','需要時預覽並還原']}

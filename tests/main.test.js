@@ -1756,6 +1756,51 @@ test('desktop sticker menu hides and restores existing windows and preserves nat
  raw.get('log-sticker-close')(eventFor(restored));assert.equal(get().files,0);
 });
 
+test('closing a sticker image preview leaves other windows pinned and can open the next sticker',async t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers;
+ const files=['preview.png','peer.txt','next.txt'].map(name=>path.join(h.dir,name));
+ fs.writeFileSync(files[0],Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jkjwAAAAASUVORK5CYII=','base64'));
+ for(const file of files.slice(1))fs.writeFileSync(file,'keep');
+ const {ids}=H.get('favorites-add')(null,files,[]);
+ H.get('desktop-settings-set')(null,{floatingOnTop:true});
+ H.get('floating-show')();
+ const floating=h.windows.at(-1);
+ const pin=async id=>{
+  await H.get('desktop-stickers-pin')(null,'favorites',{id});
+  const window=h.windows.at(-1);window.emit('ready-to-show');return window;
+ };
+ const sticker=await pin(ids[0]),peer=await pin(ids[1]);
+ const count=()=>H.get('desktop-stickers-get')().counts;
+ const event={sender:sticker.webContents,senderFrame:{url:sticker.url}};
+ const {links:[link]}=raw.get('log-sticker-get')(event);
+ const bounds={...sticker.bounds};
+ const open=(action,ref=link.ref)=>raw.get('log-sticker-open-link')(event,0,ref,action,link.location);
+ await assert.rejects(open('enlarge','invalid'),/附件清單已更新/);
+ assert.equal(h.windows.at(-1),peer);
+ await open('enlarge');
+ const viewer=h.windows.at(-1);
+ assert.equal(viewer.options.parent,sticker);
+ assert.match(viewer.url,/document-preview-cache\/[^/]+\/preview.html$/);
+ assert.deepEqual(h.opened,[]);
+ assert.equal(count().files,2);
+ // Windows can disturb native topmost state during a window transition.
+ for(const window of [floating,sticker,peer])window.onTop=false;
+ viewer.close();
+ await new Promise(setImmediate);
+ for(const window of [floating,sticker,peer]){
+  assert.equal(window.isDestroyed(),false);
+  assert.equal(window.isVisible(),true);
+  assert.equal(window.onTop,true);
+ }
+ assert.deepEqual(sticker.bounds,bounds);
+ assert.equal(count().files,2);
+ const next=await pin(ids[2]);
+ assert.equal(next.onTop,true);
+ assert.equal(count().files,3);
+ await open('open');
+ assert.deepEqual(h.opened,[files[0]]);
+});
+
 test('logs keep pin when closed and isolated layout updates preserve other tools',async t=>{
  const h=harness(t),H=h.handlers,raw=h.rawHandlers,settings=()=>H.get('desktop-settings-get')();
  H.get('desktop-settings-set')(null,{floatingOnTop:false});

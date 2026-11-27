@@ -26,7 +26,7 @@
  ];
  const ICONS=new Set(ICON_GROUPS.flatMap(([,icons])=>icons.map(([icon])=>icon)));
  const MENU_ITEMS=Object.freeze({main:'在主視窗顯示此分類',copy:'複製此篩選結果全部路徑',batchOpen:'批次開啟檔案／資料夾',batchLocations:'批次開啟所在資料夾'});
- const PAGES=Object.freeze({zip:'ZIP 更新助手',home:'首頁',notes:'資料工作區',tracking:'Everything 追蹤',favorites:'我的收藏',search:'全域搜尋',rename:'檔案工具',settings:'設定',productivity:'工具箱',planning:'日曆／看板',logs:'查看紀錄',info:'資訊與更新紀錄'});
+ const PAGES=Object.freeze({zip:'ZIP 更新助手',home:'首頁',notes:'資料工作區',tracking:'Everything 追蹤',favorites:'我的收藏',search:'全域搜尋',rename:'檔案工具',settings:'設定',productivity:'工具箱',snippets:'常用文字片段',planning:'日曆／看板',logs:'查看紀錄',info:'資訊與更新紀錄'});
  const TOOLS=(typeof module!=='undefined'&&module.exports?require('./toolbox-model'):window.toolboxModel).tools;
  const FLOATING_TOOLS=(typeof module!=='undefined'&&module.exports?require('./floating-tool-layout'):window.floatingToolLayout).TOOLS;
  const TYPE_GROUPS=[
@@ -45,6 +45,8 @@
  function entry(input){
   if(!input||typeof input!=='object'||!ID.test(input.id)||!Object.hasOwn(TYPES,input.type)||typeof input.label!=='string'||!input.label.trim()||input.label.trim().length>30||/[\x00-\x1f\x7f]/.test(input.label))throw new Error('快捷動作名稱或類型無效');
   if(input.enabled!==undefined&&typeof input.enabled!=='boolean'||input.useClipboard!==undefined&&typeof input.useClipboard!=='boolean')throw new Error('快捷動作開關無效');
+  // Redirect the toolbox shortcut saved by earlier versions.
+  if(input.type==='open-tool'&&input.tool==='snippets')return entry({...input,type:'open-page',page:'snippets'});
   // Keep the saved key for compatibility. It controls toolbar visibility.
   const result={id:input.id,type:input.type,label:input.label.trim(),enabled:input.enabled!==false};
   if(input.type==='open-tag-menu'&&input.menuItems!==undefined){if(!input.menuItems||typeof input.menuItems!=='object'||Array.isArray(input.menuItems)||Object.entries(input.menuItems).some(([key,value])=>!Object.hasOwn(MENU_ITEMS,key)||typeof value!=='boolean'))throw new Error('外部選單項目設定無效');result.menuItems=Object.fromEntries(Object.keys(MENU_ITEMS).map(key=>[key,input.menuItems[key]!==false]));}

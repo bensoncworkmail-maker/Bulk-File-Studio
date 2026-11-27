@@ -174,7 +174,7 @@ test('draft sticker saves inline after typing, flushes on blur, and preserves te
  assert.equal($('notes').textContent,'清單項目');
 });
 
-test('images load above the attachment list and clicking a thumbnail opens the original',async()=>{
+test('images load above the attachment list and clicking a thumbnail enlarges the image inside the app',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  const $=id=>document.getElementById(id),calls=[];
  const data={heading:'圖片',title:'圖片',fields:[],notes:'',
@@ -196,7 +196,7 @@ test('images load above the attachment list and clicking a thumbnail opens the o
  assert.equal($('attachment-hint').hidden,false);
  assert.equal(preview.querySelector('button'),thumbnail);
  await thumbnail.dispatch('click');
- assert.deepEqual(calls,[[0,1,'preview','C:/圖'],[0,2,'open','C:/圖']]);
+ assert.deepEqual(calls,[[0,1,'preview','C:/圖'],[0,2,'enlarge','C:/圖']]);
  update({...data,collapsed:true});
  assert.equal(preview.hidden,true);
 });

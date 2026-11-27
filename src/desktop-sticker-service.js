@@ -11,7 +11,7 @@ const {LogStickers}=require('./log-stickers');
 const {FloatingMenu}=require('./floating-menu');
 const {readSelectedPreview}=require('./document-preview');
 
-function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,onDraftBodySaved,visitFavorite,visitTracking,openFavorite,shell,clipboard,...windowOptions}){
+function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,onDraftBodySaved,visitFavorite,visitTracking,openFavorite,showImage,shell,clipboard,...windowOptions}){
  const document=()=>notes().get().document;
  const config=()=>preferences().desktopStickers;
  const filePinByKey=(list,key)=>list.find(pin=>model.fileKey(pin.kind,pin.id)===key);
@@ -217,8 +217,7 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  }
  async function previewImage(filepath,type){
   if(type!=='file')throw Error('只支援預覽圖片檔案');
-  const {data}=await readSelectedPreview(filepath,{imageOnly:true});
-  return data;
+  return readSelectedPreview(filepath,{imageOnly:true});
  }
  async function previewFavorite(id,expectedPath){
   return network.withIntranetPaths([expectedPath],()=>{
@@ -283,6 +282,14 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
   return openRecordLink({document:doc,recordId:id,index:link.index,action,favorites,shell,clipboard});
  }
  async function openLink(entry,index,version,action='open',displayedLocation){
+  if(!['preview','enlarge'].includes(action))return resolveLink(entry,index,version,action,displayedLocation);
+  const image=await resolveLink(entry,index,version,'preview',displayedLocation);
+  if(action==='preview')return image.data;
+  const {window}=entry;
+  if(manager.windows.get(entry.id)!==entry||window.isDestroyed()||manager.hidden||!window.isVisible())return;
+  await showImage(image,window);
+ }
+ async function resolveLink(entry,index,version,action,displayedLocation){
   if(!Number.isSafeInteger(index)||index<0||!['open','show','preview'].includes(action))throw Error('位置無效');
   const link=entry.detail.links[index];
   const ref=link&&linkRef(link);
