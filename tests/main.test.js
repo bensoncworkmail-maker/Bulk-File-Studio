@@ -84,10 +84,16 @@ test('selected text opens an owned snippet editor and is only persisted on save'
 
 test('browser capture opens independently of the main window and cancel keeps the snippet list unchanged', t=>{
  const h=harness(t),main=h.windows[0];
+ const inbox=require('../src/snippet-selection-inbox'),folder=path.join(h.dir,inbox.INBOX_DIR);
+ const receipt=inbox.stageSelection(folder,'瀏覽器的選取文字');
+ const snippetSelection=inbox.receiveSelection(folder,receipt);
  main.hide();
- h.events.get('second-instance')({},[],h.dir,{snippetSelection:'瀏覽器的選取文字'});
+ h.events.get('second-instance')({},[],h.dir,{snippetSelection,snippetReceipt:receipt});
  const editor=h.windows[1],event={sender:editor.webContents,senderFrame:{url:editor.url}};
  assert.equal(main.isVisible(),false);
+ assert.equal(inbox.isShown(folder,receipt),false);
+ editor.emit('ready-to-show');
+ assert.equal(inbox.isShown(folder,receipt),true);
  assert.equal(h.rawHandlers.get('snippet-capture-get')(event).body,'瀏覽器的選取文字');
  h.rawHandlers.get('snippet-capture-close')(event);
  assert.equal(editor.isDestroyed(),true);

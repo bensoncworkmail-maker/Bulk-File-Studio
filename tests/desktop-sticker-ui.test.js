@@ -16,7 +16,7 @@ test('sticker title toggles repeatedly at the same point, drags from the header 
   onChanged:callback=>updates=callback,onError:()=>{},visit:async()=>actions.push(['visit']),locate:async()=>{},close:async()=>{},
   openLink:async(...input)=>actions.push(input)
  }};
- vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document,setTimeout,clearTimeout});
  await Promise.resolve();
  const heading=document.getElementById('heading'),body=document.getElementById('record');
  assert.equal(heading.textContent,'客戶 · 案件');
@@ -114,7 +114,7 @@ test('sticker attachment gestures are independent and a double click does not op
  const data={heading:'草稿',title:'草稿',links:[{kind:'file',label:'圖.png',location:'資料夾'}],
   version:1,fields:[],notes:'',openClick:'single',locationClick:'double'};
  const window={logSticker:{get:async()=>data,onChanged(){},onError(){},openLink:async(...args)=>actions.push(args)}};
- vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document,setTimeout,clearTimeout});
  await Promise.resolve();
  const [name,location]=$('attachment-rows').querySelectorAll('td');
  await name.dispatch('click',{detail:1});await name.dispatch('click',{detail:2});await name.dispatch('dblclick');
@@ -125,41 +125,56 @@ test('sticker attachment gestures are independent and a double click does not op
 });
 
 
-test('draft sticker editor loads full text, keeps typing during refresh and saves only after submit',async()=>{
+test('draft sticker saves inline after typing, flushes on blur, and preserves text when another window made changes',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  const $=id=>document.getElementById(id),full='完整正文'.repeat(3500),calls=[];
- let update,version=3,latest={kind:'draft',heading:'草稿',title:'草稿',notes:'清單項目',fields:[],links:[],draft:{body:full,version,maxLength:null}};
- const window={logSticker:{
-  get:async()=>latest,onChanged:callback=>update=callback,onError(){},
+ const idle=()=>new Promise(setImmediate);
+ let update,runTimer,version=3;
+ let latest={kind:'draft',heading:'草稿',title:'草稿',notes:'清單項目',fields:[],links:[],draft:{body:full,version,maxLength:null}};
+ const window={confirm:()=>true,logSticker:{
+  get:async()=>latest,readDraft:async()=>latest.draft,onChanged:callback=>update=callback,onError(){},
   saveDraft:async(expected,body)=>{
    calls.push({expected,body});
    if(expected!==version)throw Error('草稿已變更，請重新開啟');
    return latest={...latest,draft:{...latest.draft,body,version:++version}};
   }
  }};
- vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
- await Promise.resolve();
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{
+  window,document,setTimeout:task=>{runTimer=task;return 1;},clearTimeout:()=>{runTimer=null;}
+ });
+ await idle();
  assert.equal($('edit-draft'),null);
  assert.equal($('draft-editor').hidden,false);
- assert.equal($('save-draft').disabled,true);
- assert.equal($('draft-body').value,full);
- $('draft-body').value='尚未儲存';version++;
- latest={...latest,draft:{...latest.draft,body:'其他視窗更新',version}};update(latest);
- assert.equal($('draft-body').value,'尚未儲存');assert.equal(calls.length,0);
- await $('draft-editor').dispatch('submit');
- assert.equal($('draft-editor').hidden,false);
- assert.equal($('draft-body').value,'尚未儲存');
- assert.match($('status').textContent,/已有其他修改/);
- await $('cancel-draft').dispatch('click');
- assert.equal($('draft-editor').hidden,false);assert.equal($('draft-body').value,'其他視窗更新');
- $('draft-body').value='新內容';
- await $('draft-editor').dispatch('submit');
+ assert.equal($('save-draft'),null);
+ const body=$('draft-body');
+ assert.equal(body.value,full);
+ body.value='尚未儲存';
+ await body.dispatch('input');
+ assert.deepEqual(calls,[]);
+ version++;
+ latest={...latest,draft:{...latest.draft,body:'其他視窗更新',version}};
+ update(latest);
+ assert.equal(body.value,'尚未儲存');
+ runTimer();await idle();
+ assert.equal(body.value,'尚未儲存');
+ assert.match($('draft-status').textContent,/另一個視窗更新/);
+ await $('recover-draft').dispatch('click');
+ assert.equal(body.value,'其他視窗更新');
+ await body.dispatch('compositionstart');
+ body.value='新內容';
+ await body.dispatch('input');
+ assert.equal(runTimer,null);
+ await body.dispatch('compositionend');
+ assert.equal(typeof runTimer,'function');
+ await body.dispatch('blur');await idle();
  assert.deepEqual(calls,[{expected:3,body:'尚未儲存'},{expected:4,body:'新內容'}]);
- assert.equal($('draft-editor').hidden,false);assert.equal($('draft-body').value,'新內容');
- assert.equal($('save-draft').disabled,true);assert.equal($('notes').textContent,'清單項目');
+ assert.equal(runTimer,null);
+ assert.equal(body.value,'新內容');
+ assert.equal($('draft-status').textContent,'已自動儲存');
+ assert.equal($('notes').textContent,'清單項目');
 });
 
-test('image preview opens in the sticker and has its own action and visibility',async()=>{
+test('images load above the attachment list and clicking a thumbnail opens the original',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  const $=id=>document.getElementById(id),calls=[];
  const data={heading:'圖片',title:'圖片',fields:[],notes:'',
@@ -168,16 +183,20 @@ test('image preview opens in the sticker and has its own action and visibility',
  const window={logSticker:{get:async()=>data,onChanged:callback=>update=callback,onError(){},
   openLink:async(...args)=>{calls.push(args);return 'data:image/png;base64,AA==';}
  }};
- vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document});
- await Promise.resolve();
+ vm.runInNewContext(fs.readFileSync(require.resolve('../src/log-sticker-ui'),'utf8'),{window,document,setTimeout,clearTimeout});
+ await new Promise(setImmediate);
+ const preview=$('image-previews'),sections=$('record').children;
  assert.equal($('attachment-hint').hidden,true);
- const preview=$('attachment-rows').querySelector('.image-preview-button');
- await preview.dispatch('click',{detail:1});
+ assert.ok(sections.indexOf(preview)<sections.indexOf($('attachments')));
+ assert.equal(preview.hidden,false);
+ assert.equal(preview.querySelector('img').src,'data:image/png;base64,AA==');
  assert.deepEqual(calls,[[0,1,'preview','C:/圖']]);
- assert.equal($('image-preview').hidden,false);
- assert.equal(preview.getAttribute('aria-expanded'),'true');
- await preview.dispatch('click',{detail:1});
- assert.equal($('image-preview').hidden,true);
- update({...data,showAttachmentHint:true});
+ const thumbnail=preview.querySelector('button');
+ update({...data,version:2,showAttachmentHint:true});
  assert.equal($('attachment-hint').hidden,false);
+ assert.equal(preview.querySelector('button'),thumbnail);
+ await thumbnail.dispatch('click');
+ assert.deepEqual(calls,[[0,1,'preview','C:/圖'],[0,2,'open','C:/圖']]);
+ update({...data,collapsed:true});
+ assert.equal(preview.hidden,true);
 });
