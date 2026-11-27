@@ -9,18 +9,39 @@ class SnippetCapture{
  open(value,onShown){
   const body=selectionText(value);
   if(!body)throw Error('選取文字為空白或超過 20,000 字元');
+  this.openEditor(body,{onShown,foreground:Boolean(onShown)});
+ }
+ openBlank(){
+  const editor=this.blankEditor;
+  if(editor&&!editor.window.isDestroyed()){
+   if(editor.ready){
+    if(editor.window.isMinimized())editor.window.restore();
+    editor.window.show();
+    editor.window.focus();
+   }
+   return;
+  }
+  this.openEditor('',{foreground:true,blank:true});
+ }
+ openEditor(body,{onShown,foreground,blank}){
   const window=new this.BrowserWindow({
    title:'新增常用文字片段',width:560,height:460,minWidth:340,minHeight:370,
-   show:false,alwaysOnTop:Boolean(onShown),autoHideMenuBar:true,backgroundColor:'#f3f5fb',
+   show:false,alwaysOnTop:foreground,autoHideMenuBar:true,backgroundColor:'#f3f5fb',
    webPreferences:{preload:path.join(__dirname,'snippet-capture-preload.js'),contextIsolation:true,sandbox:true,nodeIntegration:false}
   });
   this.secureWindow(window);
-  this.editors.set(window.webContents,{window,body});
+  const editor={window,body,ready:false};
   const contents=window.webContents;
-  window.on('closed',()=>this.editors.delete(contents));
-  if(onShown)window.once('blur',()=>{if(!window.isDestroyed())window.setAlwaysOnTop(false);});
+  this.editors.set(contents,editor);
+  if(blank)this.blankEditor=editor;
+  window.on('closed',()=>{
+   this.editors.delete(contents);
+   if(this.blankEditor===editor)this.blankEditor=null;
+  });
+  if(foreground)window.once('blur',()=>{if(!window.isDestroyed())window.setAlwaysOnTop(false);});
   window.once('ready-to-show',()=>{
    if(window.isDestroyed())return;
+   editor.ready=true;
    window.show();window.focus();
    if(window.isVisible())onShown?.();
   });

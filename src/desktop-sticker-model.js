@@ -11,7 +11,7 @@ const TAG_SCOPES=['favorites','workspace','tracking'];
 const DIMENSIONS={width:[180,1200,280],height:[130,1000,245],collapsedWidth:[180,1200,280],collapsedHeight:[32,96,36]};
 const FILE_HEADERS={favorite:{prefix:['none','folder','tag'],title:['label','name','path']},tracking:{prefix:['none','folder','query'],title:['name','path']}};
 const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'single',locationClick:'single',showGrip:false,showAttachmentHint:false,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
- favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'}};
+ favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'},startupVisibility:'previous'};
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const fieldKey=value=>typeof value==='string'&&(value==='title'||M.ID.test(value));
 
@@ -23,6 +23,7 @@ function settings(input,strict=false){
  if(Object.hasOwn(value,'opacity')&&requireValid(Number.isInteger(value.opacity)&&value.opacity>=40&&value.opacity<=100))result.opacity=value.opacity;
  for(const key of ['openClick','locationClick'])if(Object.hasOwn(value,key)&&requireValid(['single','double'].includes(value[key])))result[key]=value[key];
  for(const key of ['showGrip','showAttachmentHint'])if(Object.hasOwn(value,key)&&requireValid(typeof value[key]==='boolean'))result[key]=value[key];
+ if(Object.hasOwn(value,'startupVisibility')&&requireValid(['previous','hide','show','visible'].includes(value.startupVisibility)))result.startupVisibility=value.startupVisibility;
  if(Object.hasOwn(value,'size')&&requireValid(object(value.size)))for(const [key,[min,max]] of Object.entries(DIMENSIONS)){
   const size=value.size[key];
   if(Object.hasOwn(value.size,key)&&requireValid(Number.isInteger(size)&&size>=min&&size<=max))result.size[key]=size;
@@ -59,7 +60,8 @@ function desktopLayout(value){
   const expanded=Number.isInteger(size?.width)&&size.width>0&&size.width<=1200&&Number.isInteger(size.height)&&size.height>0&&size.height<=1000?
    {width:size.width,height:size.height}:null;
   const collapsedWidth=Number.isInteger(layout.collapsedWidth)&&layout.collapsedWidth>0&&layout.collapsedWidth<=1200?layout.collapsedWidth:null;
-  layouts[key]={bounds:{x,y,width,height},expanded,collapsedWidth,collapsed:layout.collapsed===true,headerAtBottom:layout.collapsed!==true&&layout.headerAtBottom===true};
+  layouts[key]={bounds:{x,y,width,height},expanded,collapsedWidth,collapsed:layout.collapsed===true,headerAtBottom:layout.collapsed!==true&&layout.headerAtBottom===true,
+   ...(layout.hidden===true?{hidden:true}:{})};
  }
  return {hidden:value?.hidden===true,layouts};
 }

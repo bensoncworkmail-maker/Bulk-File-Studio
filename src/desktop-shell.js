@@ -49,7 +49,7 @@ class DesktopShell {
   const localKeys=new Set(shortcutInventory.rows(settings,[],settings.favoriteShortcuts||favoriteShortcutDefaults)
    .filter(row=>row.scope!=='global'&&row.enabled&&row.shortcut)
    .map(row=>shortcutInventory.canonical(row.shortcut)));
-  for(const [key,label,callback,actionId=key] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','浮動工具替代快捷鍵',()=>this.showFloating(true)],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],['focusShortcut','專注模式切換',()=>this.toggleFocusMode?.()],...(this.extraShortcuts?.(settings)||[]) ]){
+  for(const [key,label,callback,actionId=key] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','浮動工具替代快捷鍵',()=>this.showFloating(true)],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['snippetNewShortcut','新增常用文字片段',()=>this.newSnippet?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],['focusShortcut','專注模式切換',()=>this.toggleFocusMode?.()],...(this.extraShortcuts?.(settings)||[]) ]){
    if(key!=='focusShortcut'&&settings.focusMode===true&&!settings.focusShortcutIds?.includes(actionId))continue;
    const accelerator=key.startsWith('accelerator:')?key.slice(12):settings[key];if(!accelerator)continue;
    const chord=shortcutInventory.canonical(accelerator);

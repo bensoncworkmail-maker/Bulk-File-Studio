@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const DEFAULTS=Object.freeze({snippetsShortcut:'',calendarShortcut:'',draftReminders:true,draftLocalShortcuts:true,draftBodyLimit:100000,draftListWidth:170,draftBodyHeight:280,draftPreviewMode:'inline',draftDropMode:'link',draftAfterTransfer:'ask',draftImageHeight:96,focusMode:false,focusShortcutIds:[],floatingSearchCloseOnVisit:true,workspacePreviewMode:'inline',toolSplitWidths:{rules:250,worksets:250,snippets:250},calendarShowCount:true,calendarWeekStart:0,calendarDayHeight:88,calendarEventLimit:2,calendarFontSize:13,calendarShowAgenda:true,backupIntervalHours:0});
+ const DEFAULTS=Object.freeze({snippetsShortcut:'',snippetNewShortcut:'',calendarShortcut:'',draftReminders:true,draftLocalShortcuts:true,draftBodyLimit:100000,draftListWidth:170,draftBodyHeight:280,draftPreviewMode:'inline',draftDropMode:'link',draftAfterTransfer:'ask',draftImageHeight:96,focusMode:false,focusShortcutIds:[],floatingSearchCloseOnVisit:true,workspacePreviewMode:'inline',toolSplitWidths:{rules:250,worksets:250,snippets:250},calendarShowCount:true,calendarWeekStart:0,calendarDayHeight:88,calendarEventLimit:2,calendarFontSize:13,calendarShowAgenda:true,backupIntervalHours:0});
  const ranges={draftImageHeight:[48,360],draftBodyLimit:[0,10000000],draftListWidth:[110,600],draftBodyHeight:[140,2000],calendarDayHeight:[56,240],calendarEventLimit:[0,10],calendarFontSize:[11,22]};
  function value(key,input){
   if(key==='focusShortcutIds'){

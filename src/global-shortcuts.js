@@ -14,7 +14,7 @@
   const key=/^Key[A-Z]$/.test(e.code||'')?e.code.slice(3):/^Digit[0-9]$/.test(e.code||'')?e.code.slice(5):e.key===' '?'Space':e.key?.replace(/^Arrow/,'');
   return normalize([e.ctrlKey||e.metaKey?'CommandOrControl':'',e.altKey?'Alt':'',e.shiftKey?'Shift':'',key?.length===1?key.toUpperCase():key].filter(Boolean).join('+'));
  }
- const KEYS=Object.freeze(['mainShortcut','floatingShortcut','collapseShortcut','searchShortcut','draftShortcut','snippetsShortcut','calendarShortcut','focusShortcut']);
+ const KEYS=Object.freeze(['mainShortcut','floatingShortcut','collapseShortcut','searchShortcut','draftShortcut','snippetsShortcut','snippetNewShortcut','calendarShortcut','focusShortcut']);
  function validatePair(settings,snippets=[]){
   const native=typeof module!=='undefined'&&module.exports,local=native?require('./shortcuts'):globalThis.studioShortcutModel;
   const model=native?require('./shortcut-inventory-model'):globalThis.shortcutInventoryModel;

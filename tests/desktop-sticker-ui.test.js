@@ -95,11 +95,13 @@ test('sticker settings save both sizes and grip while retaining header fields ac
  $('table').value='logs';await $('table').dispatch('change');
  assert.equal($('item').value,'date');assert.equal($('master').value,'code');
  $('header-color').value='#20304a';$('opacity').value='70';$('open-click').value='single';$('location-click').value='double';
+ $('startup').value='visible';
  $('color').value='#fafafa';$('tracking').checked=false;$('grip').checked=false;$('attachment-hint').checked=true;
  $('width').value='420';$('height').value='350';$('collapsedWidth').value='220';$('collapsedHeight').value='44';
  await $('form').dispatch('submit');
  assert.equal(JSON.stringify(saved.headers.logs),JSON.stringify({master:'code',item:'date'}));
  assert.equal(saved.headerBackground,'#20304a');assert.equal(saved.opacity,70);
+ assert.equal(saved.startupVisibility,'visible');
  assert.equal(saved.openClick,'single');assert.equal(saved.locationClick,'double');
  assert.equal(saved.showAttachmentHint,true);
  assert.equal(saved.background,'#fafafa');assert.equal(saved.showGrip,false);

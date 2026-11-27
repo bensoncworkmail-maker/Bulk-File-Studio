@@ -1,8 +1,8 @@
 # 應用程式功能與模組盤點
 
-版本：v1.150.2。以 `npm run audit:functions` 重新產生。
+版本：v1.151.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 249 個 JS／HTML／CSS 檔案；核對 13 個頁面、9 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
+讀取 src 全部 249 個 JS／HTML／CSS 檔案；核對 13 個頁面、9 個工具入口、30 項功能導覽與 235 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -78,7 +78,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`actionBinding`、`actionBindings`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`completeShellHandoff`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`hideFloating`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`launchWithShell`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openBrowserSnippet`、`openDrafts`、`openFavorite`、`openInMainWindow`、`openMainTool`、`openQuickSearch`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`shellHandoffActive`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showTagMenu`、`showToolRows`、`snippetInboxFolder`、`startApp`、`stickerMenuItems`、`syncFavoriteMoves`、`toggle`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
+| [main.js](../src/main.js) | `actOnTool`、`actionBinding`、`actionBindings`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`completeShellHandoff`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`hideFloating`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`launchWithShell`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openBrowserSnippet`、`openDrafts`、`openFavorite`、`openInMainWindow`、`openMainTool`、`openQuickSearch`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`restoreDesktopStickers`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`shellHandoffActive`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showTagMenu`、`showToolRows`、`snippetInboxFolder`、`startApp`、`stickerMenuItems`、`syncFavoriteMoves`、`toggle`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [navigation-model.js](../src/navigation-model.js) | `normalize` |
 | [navigation-settings.js](../src/navigation-settings.js) | `mount`、`render` |
@@ -173,7 +173,7 @@
 | [snippet-capture-ui.js](../src/snippet-capture-ui.js) | `close`、`showError` |
 | [snippet-capture.css](../src/snippet-capture.css) | 版面、主題與互動狀態樣式 |
 | [snippet-capture.html](../src/snippet-capture.html) | 視窗／頁面結構及本機資源引用 |
-| [snippet-capture.js](../src/snippet-capture.js) | `close`、`commit`、`constructor`、`data`、`open`、`owner`、`snippetContextMenu` |
+| [snippet-capture.js](../src/snippet-capture.js) | `close`、`commit`、`constructor`、`data`、`open`、`openBlank`、`owner`、`snippetContextMenu` |
 | [snippet-import.js](../src/snippet-import.js) | `csv`、`key`、`preview` |
 | [snippet-paste-worker.js](../src/snippet-paste-worker.js) | `fail`、`start`、`stop` |
 | [snippet-paste.js](../src/snippet-paste.js) | `capture`、`close`、`isCurrentTarget`、`paste`、`warm`、`worker` |
@@ -226,7 +226,7 @@
 | [log-sticker-ui.js](../src/log-sticker-ui.js) | `adoptDraft`、`draftDirty`、`draftStatus`、`error`、`fileCell`、`finishClose`、`finishDrag`、`flushDraft`、`imageArgs`、`isClose`、`linkButton`、`locate`、`moveDrag`、`normalizeLines`、`open`、`openHeaderMenu`、`queueDraft`、`render`、`renderImages`、`report`、`text`、`toggle`、`toggleAt` |
 | [log-sticker.css](../src/log-sticker.css) | 版面、主題與互動狀態樣式 |
 | [log-sticker.html](../src/log-sticker.html) | 視窗／頁面結構及本機資源引用 |
-| [log-stickers.js](../src/log-stickers.js) | `applyOpacity`、`bounds`、`checkpoint`、`clear`、`close`、`constructor`、`currentBounds`、`drag`、`loadLayout`、`open`、`owner`、`payload`、`persist`、`recover`、`refresh`、`remember`、`resize`、`restore`、`scheduleOpacity`、`setAllCollapsed`、`setCollapsed`、`setHidden`、`show`、`syncOpacity`、`syncTopmost`、`toggle`、`visibleCount` |
+| [log-stickers.js](../src/log-stickers.js) | `applyOpacity`、`bounds`、`checkpoint`、`clear`、`close`、`constructor`、`currentBounds`、`drag`、`loadLayout`、`open`、`owner`、`payload`、`persist`、`recover`、`refresh`、`remember`、`resize`、`restoreOnStartup`、`reveal`、`scheduleOpacity`、`setAllCollapsed`、`setCollapsed`、`setHidden`、`show`、`showAll`、`syncOpacity`、`syncTopmost`、`toggle`、`visibleCount` |
 | [log-view-settings-model.js](../src/log-view-settings-model.js) | `allowedSheet`、`logFilterKey`、`normalize`、`normalizeFilters`、`normalizeHistory` |
 | [log-view-settings.js](../src/log-view-settings.js) | `$`、`init`、`refreshTables`、`renderTables`、`sync` |
 | [resizable-split.js](../src/resizable-split.js) | `attach`、`bounds`、`end`、`persist`、`set` |

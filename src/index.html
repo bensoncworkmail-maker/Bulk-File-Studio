@@ -1308,6 +1308,12 @@
                 </section>
                 <form id="sticker-settings-form" class="settings-card">
                   <h2>外觀與釘選來源</h2>
+                  <label class="field"><span>程式啟動時的便條顯示方式</span><select id="sticker-settings-startup">
+                    <option value="previous">依上次顯示狀態</option>
+                    <option value="hide">隱藏全部</option>
+                    <option value="show">顯示全部</option>
+                    <option value="visible">只顯示未個別隱藏的便條</option>
+                  </select><small>「依上次顯示狀態」會沿用浮動工具的啟動恢復設定。其餘選項可獨立控制便條。</small></label>
                   <label class="field"><span>內容背景色</span><input id="sticker-settings-color" type="color" value="#ffffff"></label>
                   <label class="field"><span>標題列顏色</span><input id="sticker-settings-header-color" type="color" value="#d5eaf8"></label>
                   <label class="field"><span>失去焦點時的不透明度（%）</span><input id="sticker-settings-opacity" type="number" min="40" max="100" value="100" required></label>
@@ -1380,7 +1386,7 @@
                       <button type="button" id="btn-draft-shortcut-clear" class="btn btn-ghost">停用</button>
                       <button type="button" id="btn-draft-shortcut-default" class="btn btn-ghost">還原預設</button>
                     </span>
-                  </label><label class="field"><span>開啟常用文字分類面板（全域快捷鍵）</span><input id="settings-snippets-shortcut" type="text" readonly><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-snippets-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-snippets-shortcut-default">還原預設</button></span></label><label class="field"><span>開啟小月曆（全域快捷鍵）</span><input id="settings-calendar-shortcut" type="text" readonly><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-calendar-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-calendar-shortcut-default">還原預設</button></span></label><label class="field"><span>啟用／關閉專注模式（全域快捷鍵）</span><input id="settings-focus-shortcut" type="text" readonly autocomplete="off" aria-label="專注模式切換快捷鍵"><span class="shortcut-buttons"><button id="btn-focus-shortcut-clear" type="button" class="btn btn-ghost">停用</button><button id="btn-focus-shortcut-default" type="button" class="btn btn-ghost">還原預設</button></span><small>預設 Ctrl+Alt+Shift+F；專注模式中仍保留此切換鍵。</small></label><p id="shortcut-global-status" role="status"></p></section><section class="settings-card">
+                  </label><label class="field"><span>開啟常用文字分類面板（全域快捷鍵）</span><input id="settings-snippets-shortcut" type="text" readonly><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-snippets-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-snippets-shortcut-default">還原預設</button></span></label><label class="field"><span>新增常用文字片段（全域快捷鍵）</span><input id="settings-snippetNew-shortcut" type="text" readonly autocomplete="off"><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-snippetNew-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-snippetNew-shortcut-default">還原預設</button></span><small>預設未設定。按快捷鍵開啟獨立表單，可輸入名稱、分類及文字內容。</small></label><label class="field"><span>開啟小月曆（全域快捷鍵）</span><input id="settings-calendar-shortcut" type="text" readonly><span class="shortcut-buttons"><button type="button" class="btn btn-ghost" id="btn-calendar-shortcut-clear">停用</button><button type="button" class="btn btn-ghost" id="btn-calendar-shortcut-default">還原預設</button></span></label><label class="field"><span>啟用／關閉專注模式（全域快捷鍵）</span><input id="settings-focus-shortcut" type="text" readonly autocomplete="off" aria-label="專注模式切換快捷鍵"><span class="shortcut-buttons"><button id="btn-focus-shortcut-clear" type="button" class="btn btn-ghost">停用</button><button id="btn-focus-shortcut-default" type="button" class="btn btn-ghost">還原預設</button></span><small>預設 Ctrl+Alt+Shift+F；專注模式中仍保留此切換鍵。</small></label><p id="shortcut-global-status" role="status"></p></section><section class="settings-card">
                   <h2>收藏快捷鍵</h2>
                   <p>點選欄位後按新組合；Backspace 清除。只在收藏頁生效，輸入文字及開啟對話框時不攔截。</p>
                   <div id="shortcut-settings"></div>

@@ -111,7 +111,7 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  }
  function changeRecord(doc,id,pinned){
   tools().setLogPin(doc,id,pinned);
-  if(pinned)manager.open(id);else manager.remove(id,{forget:true});
+  if(pinned)manager.reveal(id);else manager.remove(id,{forget:true});
   changedPins();
  }
  function remove(key){
@@ -125,7 +125,7 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  function pinFile(pin){
   const valid=model.filePins([pin])[0];
   tools().setFileStickerPin(valid,true);
-  manager.open(model.fileKey(valid.kind,valid.id));
+  manager.reveal(model.fileKey(valid.kind,valid.id));
   return changedPins();
  }
 
@@ -147,7 +147,7 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
   if(ids.length)manager.refresh(ids);
  }
  function control(action){
-  if(action==='show'){manager.restore();manager.setHidden(false);}
+  if(action==='show')manager.showAll();
   else if(action==='hide')manager.setHidden(true);
   else if(action==='expand'||action==='collapse'){manager.restore();manager.setAllCollapsed(action==='collapse');}
   else if(action==='clear'){tools().clearStickerPins();manager.clear();}
