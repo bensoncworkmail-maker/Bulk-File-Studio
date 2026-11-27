@@ -35,11 +35,27 @@ class LogStickers {
   try{this.checkpoint();}catch(error){this.onError(error);}
  }
  visibleCount(){return this.hidden?0:this.windows.size;}
- applyOpacity(entry,focused=entry.window.isFocused()){
-  entry.window.setOpacity(focused?1:entry.appearance.opacity/100);
+ applyOpacity(entry,focused){
+  clearTimeout(entry.opacityTimer);
+  const {window}=entry;
+  if(window.isDestroyed()||this.deferOpacity?.())return;
+  const opacity=(focused??window.isFocused())?1:entry.appearance.opacity/100;
+  if(opacity===(entry.opacity??1))return;
+  try{
+   window.setOpacity(opacity);
+   entry.opacity=opacity;
+  }catch(error){this.onError(error);}
  }
+ scheduleOpacity(entry){
+  clearTimeout(entry.opacityTimer);
+  // Native foreground changes can deliver several focus events during one shell handoff.
+  entry.opacityTimer=setTimeout(()=>this.applyOpacity(entry),100);
+  entry.opacityTimer.unref?.();
+ }
+ syncOpacity(){for(const entry of this.windows.values())this.applyOpacity(entry);}
  show(entry){
   if(!entry.ready||this.hidden||entry.window.isDestroyed())return;
+  entry.window.pinController.reloadCrashedRenderer();
   entry.window.showInactive();
   entry.window.pinController.sync({force:true,raise:false});
  }
@@ -89,8 +105,8 @@ class LogStickers {
   this.windows.set(id,entry);
   this.secureWindow(window);
   this.applyOpacity(entry,false);
-  window.on('focus',()=>this.applyOpacity(entry,true));
-  window.on('blur',()=>this.applyOpacity(entry,false));
+  window.on('focus',()=>this.scheduleOpacity(entry));
+  window.on('blur',()=>this.scheduleOpacity(entry));
   window.pinController=new FloatingPin(window,()=>({floatingOnTop:true}),{onError:this.onError});
   window.on('ready-to-show',()=>{
    if(this.windows.get(id)!==entry)return;
@@ -100,6 +116,7 @@ class LogStickers {
   // Only the named unpin action removes the saved pin. Native close may also come from Windows.
   window.on('close',()=>this.persist());
   window.on('closed',()=>{
+   clearTimeout(entry.opacityTimer);
    if(this.windows.get(id)===entry){this.windows.delete(id);this.onClosed?.();}
   });
   Promise.resolve(window.loadFile(page)).catch(error=>{
@@ -202,14 +219,14 @@ class LogStickers {
    const headerChanged=oldSize.collapsedHeight!==newSize.collapsedHeight;
    if(JSON.stringify(appearance)===JSON.stringify(entry.appearance)&&JSON.stringify(detail)===JSON.stringify(entry.detail))continue;
    entry.detail=detail;
-   const previousOpacity=entry.appearance.opacity;
+   const previousAppearance=entry.appearance;
    entry.appearance=appearance;
    if(expandedChanged)entry.expanded=null;
    if(collapsedWidthChanged)entry.collapsedWidth=null;
    if(headerChanged||(entry.collapsed?collapsedWidthChanged:expandedChanged))this.resize(entry,undefined,oldSize.collapsedHeight);
    entry.window.setTitle(detail.heading);
-   entry.window.setBackgroundColor?.(appearance.background);
-   if(appearance.opacity!==previousOpacity)this.applyOpacity(entry);
+   if(appearance.background!==previousAppearance.background)entry.window.setBackgroundColor?.(appearance.background);
+   if(appearance.opacity!==previousAppearance.opacity)this.applyOpacity(entry);
    entry.window.webContents.send('log-sticker-changed',this.payload(entry));
   }
  }
