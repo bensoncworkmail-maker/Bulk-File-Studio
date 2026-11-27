@@ -2,7 +2,7 @@
 
 版本：v1.147.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 240 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
+讀取 src 全部 248 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 234 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -78,7 +78,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`actionBinding`、`actionBindings`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`hideFloating`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInMainWindow`、`openMainTool`、`openQuickSearch`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showTagMenu`、`showToolRows`、`stickerMenuItems`、`syncFavoriteMoves`、`toggle`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
+| [main.js](../src/main.js) | `actOnTool`、`actionBinding`、`actionBindings`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`hideFloating`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openInMainWindow`、`openMainTool`、`openQuickSearch`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showTagMenu`、`showToolRows`、`startApp`、`stickerMenuItems`、`syncFavoriteMoves`、`toggle`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [navigation-model.js](../src/navigation-model.js) | `normalize` |
 | [navigation-settings.js](../src/navigation-settings.js) | `mount`、`render` |
@@ -167,6 +167,13 @@
 | [draft-notes.css](../src/draft-notes.css) | 版面、主題與互動狀態樣式 |
 | [draft-notes.html](../src/draft-notes.html) | 視窗／頁面結構及本機資源引用 |
 | [draft-notes.js](../src/draft-notes.js) | `attach`、`cancelClose`、`close`、`commit`、`configure`、`constructor`、`data`、`destroy`、`draftText`、`export`、`extraField`、`fileKey`、`image`、`masters`、`open`、`owns`、`paste`、`pngBytes`、`preview`、`remind`、`removeAttachment`、`requestClose`、`save`、`textField`、`updateSettings` |
+| [snippet-browser-host.js](../src/snippet-browser-host.js) | `deliverToApp` |
+| [snippet-browser-setup.js](../src/snippet-browser-setup.js) | `installBrowserSnippetExtension` |
+| [snippet-capture-preload.js](../src/snippet-capture-preload.js) | 宣告、設定或共用模型 |
+| [snippet-capture-ui.js](../src/snippet-capture-ui.js) | `close`、`showError` |
+| [snippet-capture.css](../src/snippet-capture.css) | 版面、主題與互動狀態樣式 |
+| [snippet-capture.html](../src/snippet-capture.html) | 視窗／頁面結構及本機資源引用 |
+| [snippet-capture.js](../src/snippet-capture.js) | `close`、`commit`、`constructor`、`data`、`open`、`owner`、`snippetContextMenu` |
 | [snippet-import.js](../src/snippet-import.js) | `csv`、`key`、`preview` |
 | [snippet-paste-worker.js](../src/snippet-paste-worker.js) | `fail`、`start`、`stop` |
 | [snippet-paste.js](../src/snippet-paste.js) | `capture`、`close`、`isCurrentTarget`、`paste`、`warm`、`worker` |
@@ -177,6 +184,7 @@
 | [snippet-picker.css](../src/snippet-picker.css) | 版面、主題與互動狀態樣式 |
 | [snippet-picker.html](../src/snippet-picker.html) | 視窗／頁面結構及本機資源引用 |
 | [snippet-picker.js](../src/snippet-picker.js) | `bind`、`close`、`constructor`、`data`、`open`、`owns`、`select`、`setGroups` |
+| [snippet-selection-message.js](../src/snippet-selection-message.js) | `encodeMessage`、`readMessage`、`selectionFromMessage`、`selectionText` |
 ### 設定與桌面整合
 
 | 原始檔 | 函式索引／用途 |
@@ -283,7 +291,7 @@
 | [path-import.js](../src/path-import.js) | `$`、`attempt`、`check`、`commit`、`init`、`invalidate`、`lock`、`open`、`queue`、`showPreview`、`tags` |
 | [path-repair.js](../src/path-repair.js) | `add`、`apply`、`constructor`、`flavor`、`key`、`planRepair`、`preview`、`roots`、`translate`、`windows` |
 | [presets.js](../src/presets.js) | `presetRules`、`sanitizeSavedPresets`、`todayISO` |
-| [productivity-ipc.js](../src/productivity-ipc.js) | `backupNames`、`copySnippet`、`ensure`、`openWorkset`、`pasteSnippet`、`previewFile`、`recent`、`registerProductivity`、`remember`、`snippetText`、`state`、`viewData` |
+| [productivity-ipc.js](../src/productivity-ipc.js) | `backupNames`、`copySnippet`、`ensure`、`openWorkset`、`pasteSnippet`、`previewFile`、`recent`、`registerProductivity`、`remember`、`saveSnippet`、`snippetText`、`state`、`viewData` |
 | [productivity-model.js](../src/productivity-model.js) | `agenda`、`board`、`entry`、`expandSnippet`、`ids`、`masterLabels`、`matches`、`normalize`、`text` |
 | [productivity-store.js](../src/productivity-store.js) | `constructor`、`get`、`reload`、`remove`、`replace`、`save`、`writeJSON` |
 | [productivity.css](../src/productivity.css) | 版面、主題與互動狀態樣式 |

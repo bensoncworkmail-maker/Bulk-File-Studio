@@ -52,6 +52,47 @@ test('productivity IPC is restricted to the main renderer and supports persisten
  h.handlers.get('productivity-snippet-copy')(null,snippet.id,'陳先生');assert.equal(h.getCopied(),'你好 陳先生');
  h.handlers.get('productivity-remove')(null,'snippets',snippet.id);assert.equal(h.handlers.get('productivity-get')().data.snippets.length,0);
 });
+
+test('selected text opens an owned snippet editor and is only persisted on save', t=>{
+ const h=harness(t),main=h.windows[0],body='  寄給陳小姐 📝\r\n第二行  ';
+ const read=event=>h.rawHandlers.get('snippet-capture-get')(event);
+ const snippets=()=>h.handlers.get('productivity-get')().data.snippets;
+ h.handlers.get('productivity-save')(null,'snippets',{name:'範例',body:'舊片段',category:'工作'});
+ h.network['context-menu']({}, {selectionText:'密碼',formControlType:'input-password'});
+ assert.equal(h.popup(),undefined);
+ h.network['context-menu']({}, {pageURL:main.url,selectionText:body,isEditable:true,editFlags:{canCut:true,canPaste:true},x:12,y:26});
+ const popup=h.popup();
+ assert.equal(popup.options.window,main);
+ assert.deepEqual(popup.template.map(item=>item.role).filter(Boolean),['cut','copy','paste']);
+ popup.template.find(item=>item.label==='加入常用文字片段…').click();
+ const editor=h.windows[1],event={sender:editor.webContents,senderFrame:{url:editor.url}};
+ assert.match(editor.url,/snippet-capture\.html$/);
+ assert.equal(read(event).body,body);
+ assert.deepEqual(Array.from(read(event).categories),['工作']);
+ assert.throws(()=>read({sender:main.webContents,senderFrame:{url:main.url}}),/不受信任/);
+ assert.throws(()=>read({...event,senderFrame:{url:'file:///other.html'}}),/不受信任/);
+ assert.equal(snippets().length,1);
+ const commit=h.rawHandlers.get('snippet-capture-save');
+ assert.throws(()=>commit(event,{name:'',body}),/名稱無效/);
+ assert.equal(editor.isDestroyed(),false);
+ assert.equal(commit(event,{name:'新片段',category:'工作',body}).saved,true);
+ assert.equal(snippets()[1].body,body);
+ assert.equal(h.messages.at(-1)[0],'shortcut-sources-changed');
+ assert.equal(editor.isDestroyed(),true);
+ assert.throws(()=>commit(event,{name:'重複',body}),/不受信任/);
+});
+
+test('browser capture opens independently of the main window and cancel keeps the snippet list unchanged', t=>{
+ const h=harness(t),main=h.windows[0];
+ main.hide();
+ h.events.get('second-instance')({},[],h.dir,{snippetSelection:'瀏覽器的選取文字'});
+ const editor=h.windows[1],event={sender:editor.webContents,senderFrame:{url:editor.url}};
+ assert.equal(main.isVisible(),false);
+ assert.equal(h.rawHandlers.get('snippet-capture-get')(event).body,'瀏覽器的選取文字');
+ h.rawHandlers.get('snippet-capture-close')(event);
+ assert.equal(editor.isDestroyed(),true);
+ assert.equal(h.handlers.get('productivity-get')().data.snippets.length,0);
+});
 test('an unfinished profile journal blocks further renderer writes until restart recovery',t=>{const h=harness(t);fs.writeFileSync(path.join(h.dir,'profile-transaction.json'),'{}');assert.throws(()=>h.handlers.get('productivity-save')(null,'snippets',{name:'x',body:'x',category:''}),/重新啟動/);assert.throws(()=>h.handlers.get('notes-template')(),/重新啟動/);assert.equal(fs.existsSync(path.join(h.dir,'productivity.json')),false);});
 test('backup export requires its own extension and cannot replace a selected profile JSON',async t=>{const h=harness(t),file=path.join(h.dir,'a.txt');fs.writeFileSync(file,'a');h.handlers.get('favorites-add')(null,[file],[]);const backup=h.handlers.get('productivity-backup-create')(null,{}),target=path.join(h.dir,'favorites.json'),before=fs.readFileSync(target,'utf8');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:target});await assert.rejects(h.handlers.get('productivity-backup-export')(null,backup.name),/副檔名/);assert.equal(fs.readFileSync(target,'utf8'),before);const exported=path.join(h.dir,'export.bfsbackup');h.dialog.showSaveDialog=async()=>({canceled:false,filePath:exported});await h.handlers.get('productivity-backup-export')(null,backup.name);assert.equal(JSON.parse(fs.readFileSync(exported,'utf8')).format,'BulkFileStudio.Profile');});
 test('productivity repairs only the confirmed captured rows and blocks other file jobs during confirmation',async t=>{

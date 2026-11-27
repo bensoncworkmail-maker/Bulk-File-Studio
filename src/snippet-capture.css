@@ -1,0 +1,44 @@
+:root {
+ color-scheme: light;
+ --paper: #f3f5fb;
+ --field: #fff;
+ --ink: #172641;
+ --border: #c5d0e5;
+ --accent: #6042b0;
+ --error: #ab2439;
+ font: 14px/1.45 "Segoe UI", "Microsoft JhengHei", sans-serif;
+}
+:root[data-theme="dark"] {
+ color-scheme: dark;
+ --paper: #252c3b;
+ --field: #303b50;
+ --ink: #f0f3fb;
+ --border: #66748f;
+ --accent: #6749bb;
+ --error: #ff9ba9;
+}
+:root[data-theme="graphite"] {
+ color-scheme: dark;
+ --paper: #303030;
+ --field: #414141;
+ --ink: #f0f3fb;
+ --border: #707070;
+ --accent: #6749bb;
+ --error: #ff9ba9;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+form { height: 100vh; min-height: 300px; display: flex; flex-direction: column; padding: 18px; gap: 16px; }
+h1 { font-size: 18px; margin: 0; }
+fieldset { flex: 1; display: flex; flex-direction: column; gap: 12px; margin: 0; border: 0; padding: 0; min-width: 0; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.body { flex: 1; }
+input, textarea, button { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; }
+textarea { flex: 1; min-height: 100px; resize: none; }
+.footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+#status { flex: 1; margin: 0; color: var(--error); overflow-wrap: anywhere; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .65; }
+.primary { background: var(--accent); border-color: var(--accent); color: white; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

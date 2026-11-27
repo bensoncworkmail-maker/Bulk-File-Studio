@@ -102,6 +102,12 @@ function attachWorkflow(h,beforeMount=()=>{}){
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/workflow-hub.js'),'utf8'),h.context);
  return h.$('workflow-content');
 }
-test('existing external snippet shortcut opens its management subpage during first toolbox activation',async()=>{
- const h=harness();attachWorkflow(h);h.listeners.toolOpen({kind:'snippets'});await tick();assert.equal(h.window.productivityUI.currentSection(),'snippets');assert.equal(h.$('productivity-snippets').hidden,false);assert.equal(h.$('productivity-nav').querySelector('[data-productivity=parameters]').getAttribute('aria-current'),'page');assert.equal(h.failure(),null);
+test('existing external snippet shortcut opens the independent management page during first toolbox activation',async()=>{
+ const h=harness();attachWorkflow(h);h.listeners.toolOpen({kind:'snippets'});await tick();
+ assert.equal(h.window.productivityUI.currentSection(),'snippets');
+ assert.equal(h.$('productivity-snippets').hidden,false);
+ assert.equal(h.$('productivity-parameters').hidden,true);
+ assert.equal(h.$('toolbox-subnav').hidden,true);
+ assert.equal(h.$('productivity-nav').querySelector('[data-productivity=snippets]').getAttribute('aria-current'),'page');
+ assert.equal(h.failure(),null);
 });

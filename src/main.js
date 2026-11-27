@@ -36,6 +36,8 @@ const {writeHistory}=require('./rename-history');
 const { FavoritesStore,inspectPath } = require('./favorites-store');
 const {EverythingBridge}=require('./everything-bridge');
 const { WindowsContextMenu, favoriteArguments, validFavoritePaths } = require('./windows-context-menu');
+const {SnippetCapture,snippetContextMenu}=require('./snippet-capture');
+const snippetSelection=require('./snippet-selection-message');
 
 // Keep the historical packaged profile path after the display-name change.
 if(app.isPackaged){const profile=path.join(app.getPath('appData'),'Bulk Rename Studio');fs.mkdirSync(profile,{recursive:true});app.setPath('userData',profile);}
@@ -282,6 +284,11 @@ function secureWindow(window){
   window.webContents.on('will-navigate',event=>event.preventDefault());
   window.webContents.on('will-attach-webview',event=>event.preventDefault());
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+  window.webContents.on('context-menu',(_,params)=>{
+    if(!snippetCapture||params.pageURL?.endsWith('/snippet-capture.html'))return;
+    const template=snippetContextMenu(params,body=>snippetCapture.open(body));
+    if(template.length)Menu.buildFromTemplate(template).popup({window,x:params.x,y:params.y,callback:recoverFloatingPins});
+  });
   window.on('closed',()=>{if(window!==win)recoverFloatingPins();});
 }
 function showFloating(toggle=false){
@@ -300,8 +307,16 @@ function registerShortcut(){snippetPicker?.close();preparePasteWorker();if(short
 function endShortcutRecording(){if(!shortcutRecording)return;shortcutRecording=false;shortcutWarning=registerShortcut();send(win,'desktop-settings-changed',{settings:desktop.settings,warning:shortcutWarning});}
 
 
-if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites})) {
-app.on('second-instance', (_, argv, workingDirectory, additionalData) => receiveFavorites(argv,additionalData?.favoritePaths));
+let snippetCapture;
+function startApp(initialSelection){
+const selections=initialSelection?[initialSelection]:[];
+if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites,snippetSelection:initialSelection||null})) {
+app.on('second-instance', (_, argv, workingDirectory, additionalData) => {
+  const selected=snippetSelection.selectionText(additionalData?.snippetSelection);
+  if(!selected){receiveFavorites(argv,additionalData?.favoritePaths);return;}
+  if(snippetCapture)snippetCapture.open(selected);
+  else selections.push(selected);
+});
 app.whenReady().then(() => {
   if(process.platform==='win32')app.setAppUserModelId?.(app.isPackaged?'app.bulkrenamestudio.desktop':process.execPath);
   const handle=(channel,handler)=>ipcMain.handle(channel,(event,...args)=>{
@@ -1211,6 +1226,26 @@ app.whenReady().then(() => {
     return stickerService.control(action);
   }));
   productivity=require('./productivity-ipc').registerProductivity({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,desktop:()=>desktop,reminders:()=>recordReminders,dialog,parent:()=>win,clipboard,BrowserWindow,fileOperation,changed:notesChanged,validateShortcuts:snippets=>globalShortcuts.validatePair(desktop.settings,snippets),shortcutsChanged:()=>{const warning=registerShortcut();if(warning)throw new Error(warning);},overlayChanged:()=>{send(win,'shortcut-sources-changed',{});toolOverlay.invalidate('snippets');},previewSize:()=>desktop.settings.toolWindowSizes.pdf,rememberPreview:window=>rememberAuxSize('pdf',window),screen,notifyFavorites,navigate:navigateWorkspace,openPath:filepath=>shell.openPath(filepath),onIncomplete:()=>{notesShare.close();recordReminders.close();capture?.destroy();},blocked:ignoreFile=>Boolean(!ignoreFile&&fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),pauseSharing:()=>{for(const [id,channel] of notesShare.channels)if(channel.config.enabled)notesShare.configure({enabled:false,autoPublish:false,receiveMode:'remind'},id);invalidateNotesImport();capture?.destroy();},reload:()=>{notesTools=null;desktop.data=new DesktopState(desktop.filename).data;logStickers.close();logStickers.loadLayout();if(desktop.settings.floatingRestorePanels)logStickers.restore();desktopShell.syncTray();desktopShell.refreshTrayMenu();recordReminders.reload();floatingSearch?.invalidate();if(floating&&!floating.isDestroyed())floatingWindow.apply();send(floating,'desktop-settings-changed',{settings:desktop.settings});shortcutWarning=registerShortcut();nativeTheme.themeSource=desktop.settings.theme==='light'?'light':'dark';send(win,'desktop-settings-changed',{settings:desktop.settings});toolsChanged();toolOverlay.invalidate('logs');logStickers.refresh();send(win,'record-reminders-changed',recordReminders.list());}});
+  snippetCapture=new SnippetCapture({
+    BrowserWindow,secureWindow,theme:()=>desktop.settings.theme,
+    categories:()=>[...new Set(productivity.store.get().snippets.map(item=>item.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant')),
+    save:input=>{
+      if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))throw Error('請先完成資料復原');
+      return productivity.saveSnippet(input);
+    }
+  });
+  ipcMain.handle('snippet-capture-get',event=>snippetCapture.data(event));
+  ipcMain.handle('snippet-capture-save',(event,input)=>snippetCapture.commit(event,input));
+  ipcMain.handle('snippet-capture-close',event=>snippetCapture.close(event));
+  handle('snippet-browser-setup',async()=>{
+    if(process.platform!=='win32'||!app.isPackaged||process.env.PORTABLE_EXECUTABLE_FILE)throw Error('請使用 Windows 安裝版設定瀏覽器右鍵選單');
+    const folder=require('./snippet-browser-setup').installBrowserSnippetExtension({
+      root:app.getPath('userData'),executable:process.execPath,systemRoot:process.env.SystemRoot||'C:\\Windows'
+    });
+    const error=await shell.openPath(folder);
+    if(error)throw Error(error);
+    return {folder};
+  });
   try{journal().recover();}catch(error){diagnostics.record('main','operation-journal-recovery',error);}
   workflow=require('./workflow-ipc').registerWorkflow({handle,root:app.getPath('userData'),notes:notesStore,favorites,tools:toolsStore,reminders:()=>recordReminders,productivity,tracking:everythingTracking,journal,move:performMovePlan,fileOperation,dialog,parent:()=>win,clipboard,changed:notesChanged,notifyFavorites,trash:filepath=>shell.trashItem(filepath),trackingChanged,progress:value=>send(win,'workflow-analysis-progress',value),blocked:()=>Boolean(fileOperationBusy||trashing||capture?.window&&!capture.window.isDestroyed()||[...notesShare.channels.values()].some(channel=>channel.active||channel.checking)),onError:error=>diagnostics.record('main','workflow-monitor',error)});
   function checkTool(event,kind){if(!toolKinds.includes(kind))throw Error('工具類型無效');const owner=toolOverlay.owner(event);if(owner&&owner.config.kind!==kind)throw Error('工具來源不符');}
@@ -1230,10 +1265,12 @@ app.whenReady().then(() => {
    return actOnTool(require('./tool-views-model').configuration({kind}),action,value,'');
   });
   function sendDraftSelection(id){const target=drafts.window,select=()=>send(target,'draft-select',id);if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',select);else select();}
-  const initiallyHidden=desktop.settings.startHidden&&!queuedFavorites.length&&desktopShell.ensureTray();
+  const captureToTray=selections.length>0&&(desktop.settings.trayAlwaysVisible||desktop.settings.closeToTray);
+  const initiallyHidden=(desktop.settings.startHidden||captureToTray)&&!queuedFavorites.length&&desktopShell.ensureTray();
   desktopShell.syncTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));
   if(queuedFavorites.length)receiveFavorites([]);
+  for(const body of selections.splice(0))snippetCapture.open(body);
   shortcutWarning=registerShortcut();if(shortcutWarning)send(win,'desktop-settings-changed',{warning:shortcutWarning});
   if(desktop.settings.floatingStartup)showFloating();
   toolOverlay.restore();if(desktop.settings.floatingRestorePanels)logStickers.restore();desktopShell.refreshTrayMenu();
@@ -1248,3 +1285,10 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 } else {
   app.quit();
 }
+}
+if(process.argv.includes(snippetSelection.FLAG)){
+ snippetSelection.readMessage(process.stdin).then(value=>{
+  const selected=snippetSelection.selectionFromMessage(value);
+  if(selected)startApp(selected);else app.quit();
+ },()=>app.quit());
+}else startApp();
