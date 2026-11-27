@@ -19,8 +19,6 @@ class FloatingWindow {
     this.drag = null;
     window.setResizable(false);
     desktop.attach('floating', window);
-    window.on('focus', () => this.opacity(true));
-    window.on('blur', () => this.opacity(false));
     window.on('hide', () => {
       if (this.drag) this.place(this.drag.bounds);
       this.drag = null;
@@ -32,10 +30,6 @@ class FloatingWindow {
     const { x, y, width, height } = fitBounds(bounds, this.screen.getAllDisplays(), windowDefaults(this.desktop.settings));
     this.window.setContentBounds({ x, y, width, height });
     return width;
-  }
-  opacity(focused = this.window.isFocused()) {
-    const settings = this.desktop.settings;
-    this.window.setOpacity(settings.floatingOpaqueOnFocus && focused ? 1 : settings.floatingOpacity / 100);
   }
   record() { this.desktop.record('floating', this.window); }
   ensureVisible() {
@@ -51,7 +45,6 @@ class FloatingWindow {
       this.ensureVisible();
       this.appliedWidth = width;
     }
-    this.opacity();
   }
   startDrag(mode = 'move') {
     if (!['move', 'resize-left', 'resize-right'].includes(mode)) throw Error('不支援的拖曳操作');

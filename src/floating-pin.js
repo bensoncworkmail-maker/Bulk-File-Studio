@@ -2,12 +2,27 @@
 // Desired state belongs to preferences; native state is observed independently.
 // Maintenance never raises a healthy window, and repeated failures exhaust a budget.
 class FloatingPin{
- constructor(window,settings,{setIntervalFn=setInterval,clearIntervalFn=clearInterval,onError=()=>{},maxAttempts=3}={}){
-  Object.assign(this,{window,settings,clearIntervalFn,onError,maxAttempts});this.syncing=false;this.failures=0;
+ constructor(window,settings,{setIntervalFn=setInterval,clearIntervalFn=clearInterval,onError=()=>{},maxAttempts=3,
+  canRecover=()=>settings().floatingOnTop===true}={}){
+  Object.assign(this,{window,settings,clearIntervalFn,onError,maxAttempts,canRecover});this.syncing=false;this.failures=0;
   const refresh=()=>this.sync(),recover=()=>this.sync({force:true});
   for(const event of ['show','restore'])window.on(event,recover);
   for(const event of ['focus','blur','always-on-top-changed'])window.on(event,refresh);
   this.timer=setIntervalFn(refresh,2000);this.timer?.unref?.();window.on('closed',()=>clearIntervalFn(this.timer));this.sync();
+ }
+ rendererGone(reason){
+  if(!['crashed','killed','oom','abnormal-exit'].includes(reason)||this.recoveredRenderer||!this.canRecover())return;
+  this.recoveredRenderer=true;
+  setImmediate(()=>{
+   const {window}=this;
+   if(!window.isDestroyed()&&window.isVisible()&&this.canRecover())this.reloadCrashedRenderer();
+  });
+ }
+ reloadCrashedRenderer(){
+  if(this.window.isDestroyed())return;
+  const contents=this.window.webContents;
+  if(!contents?.isCrashed?.())return;
+  try{contents.reload();}catch(error){this.onError(error);}
  }
  sync({force=false,raise=true}={}){
   const win=this.window;if(this.syncing||win.isDestroyed()||win.nativeMenuOpen)return;

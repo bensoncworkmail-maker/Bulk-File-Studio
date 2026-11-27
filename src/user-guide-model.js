@@ -1,6 +1,6 @@
 'use strict';
 (() => {
- const version='1.150.0';
+ const version='1.150.1';
  const checklist=[
   ['appearance','調整字級與顯示密度','外觀與版面'],['favorite','收藏一個常用資料夾','檔案／資料夾收藏'],
   ['record','建立一筆工作區紀錄','主表、明細與紀錄'],['logs','從查看紀錄展開詳情','查看紀錄'],

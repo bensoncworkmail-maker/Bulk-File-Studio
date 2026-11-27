@@ -8,14 +8,18 @@ class ToolOverlay{
  save(entry,patch){if(this.layout(entry.config.kind))this.saveLayout?.(entry.config.kind,patch);entry.state={...entry.state,...patch};}
  open(config){
   const key=config.kind;if(!extras.has(key))config=configuration(config);
-  const existing=this.windows.get(key);if(existing&&!existing.window.isDestroyed()){existing.config=config;this.save(existing,{visible:true});this.recover(existing);this.refresh(existing);if(existing.window.isMinimized?.())existing.window.restore();existing.window.show();existing.window.focus();return {opened:true,popup:true};}
+  const existing=this.windows.get(key);if(existing&&!existing.window.isDestroyed()){existing.config=config;this.save(existing,{visible:true});this.recover(existing);this.refresh(existing);if(existing.window.isMinimized?.())existing.window.restore();existing.window.pinController.reloadCrashedRenderer();existing.window.show();existing.window.focus();return {opened:true,popup:true};}
   const state=this.layout(key),pinned=key==='logs'?this.settings().floatingLogsPinned===true:state?.pinned===true,parent=pinned||key==='logs'?undefined:this.parent(),displays=this.screen.getAllDisplays(),size=state?.panelSize||this.size(key)||(key==='logs'?{width:430,height:580}:{width:420,height:540});
   const anchor=[...this.windows.values()].find(entry=>!entry.window.isDestroyed())?.window||this.parent();
   const bounds=state?.bounds?fitBounds({...state.bounds,...(state.panelSize||{})},displays,{...size,minWidth:320,minHeight:280}):anchor?captureBounds(anchor.getNormalBounds(),displays,size):fitBounds(null,displays,{...size,minWidth:320,minHeight:280});
   const window=new this.BrowserWindow({...bounds,parent,frame:key==='logs',show:false,skipTaskbar:true,alwaysOnTop:key==='logs'&&pinned||(state?.topmost??this.settings().floatingOnTop),autoHideMenuBar:true,title:'Bulk File Studio',webPreferences:{preload:path.join(__dirname,'tool-overlay-preload.js'),sandbox:true,contextIsolation:true,nodeIntegration:false,devTools:false}});
   const entry={window,config,parent,pinned,state:{...state,bounds,collapsed:false}};this.windows.set(key,entry);
   try{
-   this.secureWindow(window);this.remember(key,window);window.setOpacity?.((state?.opacity||100)/100);window.pinController=new FloatingPin(window,()=>({floatingOnTop:this.desiredTopmost(entry)}),{onError:this.error});
+   this.secureWindow(window);this.remember(key,window);
+   if(state?.opacity<100)window.setOpacity?.(state.opacity/100);
+   window.pinController=new FloatingPin(window,()=>({floatingOnTop:this.desiredTopmost(entry)}),{
+    onError:this.error,canRecover:()=>entry.pinned||this.desiredTopmost(entry)
+   });
    const record=()=>{if(!entry.state.collapsed&&!window.isDestroyed()){const b=window.getNormalBounds();this.save(entry,{bounds:b,displayId:this.screen.getAllDisplays().find(d=>b.x>=d.workArea.x&&b.x<d.workArea.x+d.workArea.width&&b.y>=d.workArea.y&&b.y<d.workArea.y+d.workArea.height)?.id??null});}};
    for(const event of ['move','resize','moved','resized'])window.on(event,record);window.on('focus',()=>this.refresh(entry));window.on('blur',()=>this.onBlur?.());
    window.on('close',event=>{if(this.quitting)return;if(this.blocked?.(key)){event.preventDefault();return;}record();this.save(entry,{visible:false});});
@@ -36,7 +40,8 @@ class ToolOverlay{
   if(entry.parent!==parent)entry.window.setParentWindow(parent||null);
   if(logs)this.saveLogsPinned?.(pinned);else this.save(entry,{pinned});
   entry.parent=parent;entry.pinned=pinned;
-  entry.window.pinController?.sync();this.refresh(entry);return pinned;
+  if(pinned)entry.window.pinController?.reloadCrashedRenderer();
+  entry.window.pinController?.sync({force:true,raise:false});this.refresh(entry);return pinned;
  }
  control(entry,action,value){
   if(action==='pin')return this.setPinned(entry,value);
@@ -49,7 +54,7 @@ class ToolOverlay{
  recover(entry){if(entry.window.isDestroyed())return;const current=entry.window.getNormalBounds(),height=entry.state.collapsed?80:280;entry.window.setBounds(fitBounds(current,this.screen.getAllDisplays(),{width:420,height:540,minWidth:320,minHeight:height}));entry.window.pinController?.sync({force:true});}
  refresh(entry){if(!entry.window.isDestroyed())entry.window.webContents.send('tool-overlay-refresh',this.payload(entry));}
  invalidate(kind){for(const entry of this.windows.values())if(!kind||entry.config.kind===kind)this.refresh(entry);}
- updateSettings(previous){const settings=this.settings();for(const entry of this.windows.values()){if(entry.window.isDestroyed())continue;const next=this.layout(entry.config.kind);if(next){entry.state={...entry.state,...next};if(entry.pinned!==next.pinned)this.setPinned(entry,next.pinned);entry.window.setOpacity?.(next.opacity/100);if(next.panelSize&&JSON.stringify(next.panelSize)!==JSON.stringify(previous?.floatingToolLayout?.[entry.config.kind]?.panelSize)){const desired={...entry.window.getNormalBounds(),...next.panelSize};this.save(entry,{bounds:desired});entry.window.setBounds(fitBounds({...desired,...(entry.state.collapsed?{height:80}:{})},this.screen.getAllDisplays(),{...next.panelSize,minWidth:320,minHeight:entry.state.collapsed?80:280}));}if((next.placement==='main'||next.placement==='quick'&&previous?.floatingToolLayout?.[entry.config.kind]?.placement==='pinned')&&entry.window.isVisible?.()&&!this.blocked?.(entry.config.kind)){entry.window.close();this.save(entry,{visible:false});}}entry.window.pinController?.sync();this.refresh(entry);}if(previous)for(const [kind,next]of Object.entries(settings.floatingToolLayout||{})){const old=previous.floatingToolLayout?.[kind];if(next.placement==='pinned'&&next.visible&&JSON.stringify(next)!==JSON.stringify(old))this.open({kind});}}
+ updateSettings(previous){const settings=this.settings();for(const entry of this.windows.values()){if(entry.window.isDestroyed())continue;const next=this.layout(entry.config.kind);if(next){entry.state={...entry.state,...next};if(entry.pinned!==next.pinned)this.setPinned(entry,next.pinned);if(next.opacity!==(previous?.floatingToolLayout?.[entry.config.kind]?.opacity??100))entry.window.setOpacity?.(next.opacity/100);if(next.panelSize&&JSON.stringify(next.panelSize)!==JSON.stringify(previous?.floatingToolLayout?.[entry.config.kind]?.panelSize)){const desired={...entry.window.getNormalBounds(),...next.panelSize};this.save(entry,{bounds:desired});entry.window.setBounds(fitBounds({...desired,...(entry.state.collapsed?{height:80}:{})},this.screen.getAllDisplays(),{...next.panelSize,minWidth:320,minHeight:entry.state.collapsed?80:280}));}if((next.placement==='main'||next.placement==='quick'&&previous?.floatingToolLayout?.[entry.config.kind]?.placement==='pinned')&&entry.window.isVisible?.()&&!this.blocked?.(entry.config.kind)){entry.window.close();this.save(entry,{visible:false});}}entry.window.pinController?.sync();this.refresh(entry);}if(previous)for(const [kind,next]of Object.entries(settings.floatingToolLayout||{})){const old=previous.floatingToolLayout?.[kind];if(next.placement==='pinned'&&next.visible&&JSON.stringify(next)!==JSON.stringify(old))this.open({kind});}}
  restore(){if(this.restored)return;this.restored=true;if(this.settings().floatingRestorePanels)for(const [kind,value]of Object.entries(this.settings().floatingToolLayout||{}))if(value.visible&&value.placement!=='main')this.open({kind});}
  closeForParent(parent){for(const entry of this.windows.values())if(entry.parent===parent&&!entry.pinned&&!entry.window.isDestroyed()){this.save(entry,{visible:false});entry.window.destroy();}}
  closeLogs(){

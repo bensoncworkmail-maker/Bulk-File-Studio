@@ -10,6 +10,35 @@ test('display changes coalesce and release every screen subscription',()=>{const
 test('paste target capture rejects stale asynchronous results, expires targets and never survives quit',async()=>{const pending=[];let now=100;const session=new PasteTargetSession({capture:()=>new Promise(resolve=>pending.push(resolve)),now:()=>now});const a=session.observe(),b=session.observe();pending[1]({handle:'2',pid:2,at:100});await b;pending[0]({handle:'1',pid:1,at:100});await a;assert.equal(session.get().handle,'2');now=60101;assert.equal(session.get(),null);const c=session.observe();session.close();pending[2]({handle:'3',pid:3,at:now});await c;assert.equal(session.get(),null);});
 test('pin repair has a finite failure budget and explicit show recovery renews it without focus theft',()=>{const {FloatingPin}=require('../src/floating-pin'),events=new Map(),errors=[];let calls=0,poll;const window={on:(event,task)=>events.set(event,task),isDestroyed:()=>false,isVisible:()=>true,isAlwaysOnTop:()=>false,setAlwaysOnTop:()=>calls++,moveTop(){},focus:()=>assert.fail('must not focus')};new FloatingPin(window,()=>({floatingOnTop:true}),{setIntervalFn:task=>(poll=task,0),clearIntervalFn(){},onError:error=>errors.push(error)});for(let i=0;i<100;i++)poll();assert.equal(calls,6);assert.equal(errors.length,1);events.get('focus')();assert.equal(calls,6);events.get('show')();assert.equal(calls,8);});
 
+test('a pinned panel reloads a crashed renderer once and can be manually reopened after another failure',async()=>{
+ const {FloatingPin}=require('../src/floating-pin');
+ let crashed=true,reloads=0,visible=true,pinned=true;
+ const window=Object.assign(new EventEmitter(),{
+  isDestroyed:()=>false,isVisible:()=>visible,isAlwaysOnTop:()=>false,
+  webContents:{isCrashed:()=>crashed,reload(){reloads++;crashed=false;}}
+ });
+ const pin=new FloatingPin(window,()=>({floatingOnTop:false}),{
+  setIntervalFn:()=>0,clearIntervalFn(){},canRecover:()=>pinned
+ });
+ pin.rendererGone('crashed');
+ await new Promise(setImmediate);
+ assert.equal(reloads,1);
+ crashed=true;
+ pin.rendererGone('crashed');
+ await new Promise(setImmediate);
+ assert.equal(reloads,1);
+ pin.reloadCrashedRenderer();
+ assert.equal(reloads,2);
+ const other=new FloatingPin(window,()=>({floatingOnTop:false}),{
+  setIntervalFn:()=>0,clearIntervalFn(){},canRecover:()=>pinned
+ });
+ crashed=true;
+ other.rendererGone('killed');
+ visible=false;pinned=false;
+ await new Promise(setImmediate);
+ assert.equal(reloads,2);
+});
+
 test('independent panel sizes validate, survive normalization and update only the selected live tool',t=>{
  for(const panelSize of [{width:379,height:500},{width:500,height:0},{width:NaN,height:500},{width:500.5,height:500},{width:500,height:500,unknown:true}])assert.throws(()=>L.normalize({files:{panelSize}},true),/配置/);
  const h=registry();t.after(()=>h.overlay.close());h.settings.floatingToolLayout.files.panelSize={width:600,height:650};h.overlay.open({kind:'files'});h.overlay.open({kind:'clipboard'});const file=h.overlay.windows.get('files'),peer=h.overlay.windows.get('clipboard'),before={...peer.window.bounds};assert.equal(file.window.bounds.width,600);assert.equal(file.window.bounds.height,650);

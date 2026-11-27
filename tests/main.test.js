@@ -282,7 +282,10 @@ test('compact toolbar applies window preferences and only its own window can mov
  const invoke=(channel,...args)=>h.rawHandlers.get(channel)(event,...args);
  const set=patch=>h.handlers.get('desktop-settings-set')(null,patch);
  assert.equal(strip.bounds.height,40);
- set({floatingOnTop:false,floatingOpacity:65});assert.equal(strip.onTop,false);assert.equal(strip.opacity,.65);
+ set({floatingOnTop:false,floatingOpacity:65});
+ assert.equal(strip.onTop,false);
+ assert.equal(strip.opacity,undefined);
+ assert.equal(h.messages.at(-1)[1].settings.floatingOpacity,65);
  const before=strip.bounds.x,move=invoke('floating-drag-start');
  invoke('floating-drag-move',move.token,100,50);invoke('floating-drag-end',move.token);
  assert.equal(strip.bounds.x,before+100);
@@ -2037,6 +2040,8 @@ test('desktop stickers apply saved opacity on blur and stay opaque while focused
  let focused=true;
  first.isFocused=()=>focused;
  first.emit('focus');
+ const settle=()=>new Promise(resolve=>setTimeout(resolve,120));
+ await settle();
  assert.equal(first.opacity,1);
  assert.equal(second.opacity,0.65);
 
@@ -2045,10 +2050,81 @@ test('desktop stickers apply saved opacity on blur and stay opaque while focused
  assert.equal(second.opacity,0.5);
  focused=false;
  first.emit('blur');
+ assert.equal(first.opacity,1);
+ focused=true;
+ first.emit('focus');
+ await settle();
+ assert.equal(first.opacity,1);
+ focused=false;
+ first.emit('blur');
+ await settle();
  assert.equal(first.opacity,0.5);
  focused=true;
  first.emit('focus');
+ await settle();
  assert.equal(first.opacity,1);
+});
+
+test('opening a sticker attachment and locating a folder repair topmost state without reclaiming focus',async t=>{
+ const h=harness(t),H=h.handlers,raw=h.rawHandlers;
+ const [image,folder,next]=['picture.png','folder','next.txt'].map(name=>path.join(h.dir,name));
+ fs.writeFileSync(image,'image');fs.mkdirSync(folder);fs.writeFileSync(next,'next');
+ const {ids}=H.get('favorites-add')(null,[image,folder,next],[]);
+ H.get('desktop-settings-set')(null,{floatingOpacity:55,desktopStickers:{opacity:65}});
+ H.get('floating-show')();
+ const strip=h.windows.at(-1);
+ const pin=async index=>{
+  await H.get('desktop-stickers-pin')(null,'favorites',{id:ids[index]});
+  const window=h.windows.at(-1);window.emit('ready-to-show');return window;
+ };
+ const imageSticker=await pin(0),folderSticker=await pin(1);
+ H.get('desktop-tool-layout-patch')(null,'files',{placement:'pinned',pinned:true,topmost:true,visible:true});
+ const panel=h.windows.at(-1);panel.emit('ready-to-show');
+ const windows=[strip,imageSticker,folderSticker,panel];
+ for(const window of windows){
+  window.isAlwaysOnTop=()=>window.onTop;
+  window.focus=()=>assert.fail('External file actions must leave focus with the destination');
+  window.moveTop=()=>assert.fail('Pin recovery must not raise a window');
+ }
+ const displace=()=>{
+  for(const window of windows){window.onTop=false;window.emit('blur');}
+ };
+ let imageFocused=true,finishLaunch,launched;
+ imageSticker.isFocused=()=>imageFocused;
+ const launchStarted=new Promise(resolve=>{launched=resolve;});
+ h.shell.openPath=filepath=>{
+  h.opened.push(filepath);imageFocused=false;displace();
+  return new Promise(resolve=>{finishLaunch=resolve;launched();});
+ };
+ h.shell.showItemInFolder=filepath=>{h.shown.push(filepath);displace();};
+ const act=(window,action)=>raw.get('log-sticker-'+action)({sender:window.webContents,senderFrame:{url:window.url}});
+ const settled=async()=>{
+  await new Promise(resolve=>setTimeout(resolve,275));
+  await new Promise(setImmediate);
+ };
+ imageSticker.emit('focus');
+ await new Promise(resolve=>setTimeout(resolve,120));
+ assert.equal(imageSticker.opacity,1);
+ const opening=act(imageSticker,'open-item');
+ await launchStarted;
+ await new Promise(resolve=>setTimeout(resolve,120));
+ assert.equal(imageSticker.opacity,1);
+ finishLaunch('');
+ await opening;
+ await settled();
+ assert.equal(imageSticker.opacity,0.65);
+ assert.deepEqual(h.opened,[image]);
+ assert.ok(windows.every(window=>window.onTop===true&&window.isVisible()&&!window.isDestroyed()));
+ strip.hide();
+ await act(folderSticker,'locate');
+ await settled();
+ assert.deepEqual(h.shown,[folder]);
+ assert.equal(strip.isVisible(),false);
+ assert.ok(windows.slice(1).every(window=>window.onTop===true&&window.isVisible()&&!window.isDestroyed()));
+ assert.equal(H.get('desktop-settings-get')().floatingToolLayout.files.pinned,true);
+ assert.equal(H.get('desktop-stickers-get')().counts.files,2);
+ assert.equal((await pin(2)).onTop,true);
+ assert.equal(H.get('desktop-stickers-get')().counts.files,3);
 });
 
 test('hiding the Tags button retains its global shortcut and clearing the key unregisters it', async t => {

@@ -7,6 +7,13 @@
   const focus = $('mini-focus');
   const status = $('mini-status');
   let statusTimer,quickSignature;
+  let opacity = 1, opaqueOnFocus = true;
+
+  function renderOpacity() {
+    header.style.opacity = opaqueOnFocus && document.hasFocus() ? '1' : String(opacity);
+  }
+  window.addEventListener('focus', renderOpacity);
+  window.addEventListener('blur', renderOpacity);
 
   function notify(message, timeout = 2500) {
     clearTimeout(statusTimer);
@@ -38,6 +45,9 @@
 
   function render(next) {
     document.documentElement.dataset.theme = next.theme;
+    opacity = (next.floatingOpacity ?? 100) / 100;
+    opaqueOnFocus = next.floatingOpaqueOnFocus;
+    renderOpacity();
     focus.hidden = next.floatingShowFocusButton === false;
     focus.setAttribute('aria-pressed', String(next.focusMode));
     focus.textContent = next.focusMode ? '專注：開' : '專注：關';
