@@ -27,7 +27,7 @@ test('queued link capture prefills tags and text without creating bookmarks befo
 });
 
 test('floating capture and drop preferences normalize, persist only configured targets and reset to safe defaults',()=>{
- const target=id(),input={floatingQuickMode:'main',floatingKeepAfterQuick:false,floatingDropMode:'records',floatingDropActionId:target},normalized=desktop.normalize(input);for(const [key,value] of Object.entries(input))assert.equal(normalized[key],value);const invalid=desktop.normalize({floatingQuickMode:'script',floatingDropMode:'delete',floatingDropActionId:'/private/file'});assert.equal(invalid.floatingQuickMode,'popup');assert.equal(invalid.floatingDropMode,'favorites');assert.equal(invalid.floatingDropActionId,'');assert.equal(invalid.floatingKeepAfterQuick,true);assert.equal(desktop.normalize({}).floatingShowNewMaster,true);assert.equal(desktop.normalize({floatingShowNewMaster:false}).floatingShowNewMaster,false);const reset=require('../src/settings-catalog').resetPatch('native','floating',desktop.DEFAULTS);assert.equal(reset.floatingShowNewMaster,true);
+ const target=id(),input={floatingQuickMode:'main',floatingKeepAfterQuick:false,floatingDropMode:'records',floatingDropActionId:target},normalized=desktop.normalize(input);for(const [key,value] of Object.entries(input))assert.equal(normalized[key],value);const invalid=desktop.normalize({floatingQuickMode:'script',floatingDropMode:'delete',floatingDropActionId:'/private/file'});assert.equal(invalid.floatingQuickMode,'popup');assert.equal(invalid.floatingDropMode,'favorites');assert.equal(invalid.floatingDropActionId,'');assert.equal(invalid.floatingKeepAfterQuick,true);assert.equal(desktop.normalize({floatingShowNewMaster:true}).floatingShowNewMaster,undefined);const reset=require('../src/settings-catalog').resetPatch('native','floating',desktop.DEFAULTS);assert.equal(reset.floatingDropMode,'favorites');
  const exported=require('../src/settings-export').createSettingsExport({settings:{},rules:{}},input,'1.39.0');assert.equal(exported.desktop.floatingDropActionId,target);assert.equal(exported.desktop.floatingQuickMode,'main');assert.equal(exported.desktop.floatingDropMode,'records');assert.equal(JSON.stringify(exported).includes('/private/file'),false);
 });
 
@@ -73,13 +73,14 @@ test('calendar and snippet shortcuts persist the external menu while log shortcu
 test('grouped quick actions list every supported type and persist toolbox targets',async()=>{
  const h=await settingsHarness(),types=h.$('quick-action-type').querySelectorAll('option');
  assert.deepEqual(types.map(option=>option.value).sort(),Object.keys(M.TYPES).sort());
- assert.deepEqual(h.$('quick-action-tool').querySelectorAll('option').map(option=>option.value),Object.keys(M.TOOLS));
  assert.ok(h.$('quick-action-page').querySelectorAll('option').some(option=>option.value==='info'));
  await h.$('quick-action-add').dispatch('click');
  h.$('quick-action-label').value='預覽文件';
  h.$('quick-action-type').value='open-tool';
  await h.$('quick-action-type').dispatch('change');
  assert.equal(h.$('quick-action-tool-field').hidden,false);
+ assert.deepEqual(h.$('quick-action-tool').querySelectorAll('option').map(option=>option.value),Object.keys(M.TOOLS));
+
  assert.equal(h.$('quick-action-table-fields').hidden,true);
  h.$('quick-action-tool').value='preview';
  await h.$('quick-action-save').dispatch('click');
@@ -87,6 +88,15 @@ test('grouped quick actions list every supported type and persist toolbox target
  assert.equal(action.tool,'preview');
  assert.equal(action.sheetId,undefined);
  assert.throws(()=>M.normalize([{...action,tool:'https://example.com'}],true),/工具箱功能/);
+ await h.$('quick-action-add').dispatch('click');
+ h.$('quick-action-type').value='open-floating-tool';
+ await h.$('quick-action-type').dispatch('change');
+ assert.deepEqual(h.$('quick-action-tool').querySelectorAll('option').map(option=>option.value),Object.keys(M.FLOATING_TOOLS));
+ h.$('quick-action-label').value='剪貼簿';
+ h.$('quick-action-tool').value='clipboard';
+ await h.$('quick-action-save').dispatch('click');
+ assert.equal(h.settings().floatingQuickActions[1].tool,'clipboard');
+ assert.throws(()=>M.normalize([{...h.settings().floatingQuickActions[1],tool:'backup'}],true),/獨立工具/);
  assert.deepEqual(h.failures,[]);
 });
 test('per-button menu items survive normalization and export and reject invalid values',()=>{

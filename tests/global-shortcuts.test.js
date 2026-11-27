@@ -12,5 +12,4 @@ test('focus shortcut has an editable default, can be disabled and participates i
  assert.equal(normalize({focusShortcut:'Ctrl+Alt+Q'}).focusShortcut,'CommandOrControl+Alt+Q');assert.ok(model.KEYS.includes('focusShortcut'));
  assert.throws(()=>model.validatePair({focusShortcut:'Alt+K',mainShortcut:'Alt+K'}),/相同/);
  assert.throws(()=>model.validatePair({focusShortcut:'Ctrl+A'}),/相同/);
- assert.ok(normalize({floatingCollapsedItems:['focus','close']}).floatingCollapsedItems.includes('focus'));
 });

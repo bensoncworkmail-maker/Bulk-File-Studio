@@ -135,13 +135,8 @@
       }));
       select.value=selected;
     };
-    const toolbarItems=new Map(['caption','pin','focus','main','close'].map(key=>[key,$('settings-toolbar-item-'+key)]));
-    for(const [key,input] of toolbarItems)input.addEventListener('change',()=>{
-      const shown=nativeValues.floatingCollapsedItems;
-      saveNative({floatingCollapsedItems:input.checked?[...shown,key]:shown.filter(item=>item!==key)});
-    });
     $('settings-floating-search-forget').addEventListener('click',()=>saveNative({floatingSearchLastState:null}));
-    const syncNative=values=>{nativeValues=values;for(const [key,input] of toolbarItems)input.checked=values.floatingCollapsedItems.includes(key);renderTags();$('settings-floating-opacity-value').textContent=values.floatingOpacity+'%';for(const [key,id] of Object.entries(nativeControls)){if(typeof values[key]==='boolean')$(id).checked=values[key];else $(id).value=window.globalShortcutModel.KEYS.includes(key)?window.globalShortcutModel.display(values[key]):values[key];}if(values.shortcutWarning){$('desktop-settings-status').textContent=values.shortcutWarning;$('desktop-shell-status').textContent=values.shortcutWarning;}};
+    const syncNative=values=>{nativeValues=values;renderTags();$('settings-floating-opacity-value').textContent=values.floatingOpacity+'%';for(const [key,id] of Object.entries(nativeControls)){if(typeof values[key]==='boolean')$(id).checked=values[key];else $(id).value=window.globalShortcutModel.KEYS.includes(key)?window.globalShortcutModel.display(values[key]):values[key];}if(values.shortcutWarning){$('desktop-settings-status').textContent=values.shortcutWarning;$('desktop-shell-status').textContent=values.shortcutWarning;}};
     window.desktopAPI.get().then(syncNative).catch(e=>{$('desktop-settings-status').textContent=String(e.message||e);});
     const refreshTagOptions=()=>window.desktopAPI.floatingTagOptions().then(tags=>{availableTags=tags;renderTags();}).catch(e=>{$('desktop-settings-status').textContent=String(e.message||e);});refreshTagOptions();window.favoritesAPI.onChanged(refreshTagOptions);
     window.desktopAPI.onChanged(result=>{if(result.settings)syncNative(result.settings);$('desktop-settings-status').textContent=result.error||result.warning||'視窗與浮動工具設定已儲存';$('desktop-shell-status').textContent=result.error||result.warning||'設定已儲存';});

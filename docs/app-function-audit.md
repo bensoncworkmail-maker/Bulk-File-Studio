@@ -2,7 +2,7 @@
 
 版本：v1.145.0。以 `npm run audit:functions` 重新產生。
 
-讀取 src 全部 240 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 237 個介面／桌面偏好。
+讀取 src 全部 240 個 JS／HTML／CSS 檔案；核對 12 個頁面、10 個工具入口、30 項功能導覽與 233 個介面／桌面偏好。
 
 ## 盤點與整合結果
 
@@ -78,7 +78,7 @@
 | [index.html](../src/index.html) | 視窗／頁面結構及本機資源引用 |
 | [intranet-path.js](../src/intranet-path.js) | `assertIntranetPath`、`hostKey`、`isUNC`、`isValidated`、`privateAddress`、`run`、`uncServer`、`withIntranetPaths` |
 | [list-pagination.js](../src/list-pagination.js) | `paginate` |
-| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`command`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openMainTool`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showStickerSource`、`showTagMenu`、`showToolRows`、`stickerMenuItems`、`syncFavoriteMoves`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
+| [main.js](../src/main.js) | `actOnTool`、`applyMainBounds`、`bounded`、`bytes`、`captureController`、`checkTool`、`closeFloatingMenu`、`configureDesktop`、`configuredQuick`、`confirmBatch`、`confirmTrackedBatch`、`confirmTrackedTrash`、`confirmTrash`、`createWindow`、`dropCapture`、`endShortcutRecording`、`fileOperation`、`finishRenameJob`、`floatingAction`、`floatingSearchController`、`floatingTags`、`focusMain`、`go`、`handle`、`historyFile`、`invalidateNotesImport`、`invalidateSharedImport`、`item`、`journal`、`keepFloatingAfterQuick`、`loggedInvocation`、`menuLabel`、`monitorException`、`move`、`navigateWorkspace`、`newWorkspaceMaster`、`notesChanged`、`notesStore`、`notifyFavorites`、`openDrafts`、`openFavorite`、`openMainTool`、`openQuickSearch`、`openQuickToolMenu`、`openToolOverlay`、`outputDialog`、`overlayAction`、`performMovePlan`、`popupFloatingMenu`、`preparePasteWorker`、`quote`、`readHistory`、`receiveFavorites`、`recoverFloatingPins`、`registerShortcut`、`rememberAuxSize`、`renameProgress`、`reportFloatingBatch`、`reportSnippetPasteFailure`、`resolve`、`runShortcutQuickAction`、`saveHistory`、`saveToolLayout`、`saveWorkspaceRecord`、`searchLocalData`、`secureWindow`、`send`、`sendDraftSelection`、`shareIdle`、`showCategories`、`showFloating`、`showMonth`、`showStickerMenu`、`showStickerSource`、`showTagMenu`、`showToolRows`、`stickerMenuItems`、`syncFavoriteMoves`、`toolsChanged`、`toolsStore`、`trackingChanged`、`undoJournalOperation`、`updateSharedNotification`、`validatedLinkPaths`、`workspaceAttachmentSheet`、`workspaceImages` |
 | [menu-dismiss.js](../src/menu-dismiss.js) | `closeOutside` |
 | [navigation-model.js](../src/navigation-model.js) | `normalize` |
 | [navigation-settings.js](../src/navigation-settings.js) | `mount`、`render` |
@@ -182,7 +182,7 @@
 | 原始檔 | 函式索引／用途 |
 | --- | --- |
 | [desktop-shell.js](../src/desktop-shell.js) | `constructor`、`destroy`、`ensureTray`、`hideFloatingForTray`、`hideToTray`、`loginOptions`、`loginStatus`、`loginSupported`、`matches`、`onClose`、`openLoginSettings`、`openTraySettings`、`refreshTrayMenu`、`registerShortcuts`、`setLogin`、`syncTray` |
-| [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`normalizeFloatingTitle`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`saveStickerLayout`、`snippetPickerGroups`、`stickerLayout`、`update`、`validBounds`、`write` |
+| [desktop-state.js](../src/desktop-state.js) | `bounds`、`constructor`、`fitBounds`、`logFilters`、`normalize`、`overlap`、`record`、`remembers`、`replaceSnippetPickerGroups`、`save`、`saveLogFilters`、`saveSnippetPickerGroups`、`saveStickerLayout`、`snippetPickerGroups`、`stickerLayout`、`update`、`validBounds`、`write` |
 | [desktop-sticker-model.js](../src/desktop-sticker-model.js) | `appendUrls`、`attachmentRow`、`colorText`、`desktopLayout`、`draftDetail`、`fieldKey`、`fileKey`、`filePins`、`headingFields`、`headingValue`、`headline`、`locationDetail`、`object`、`pathName`、`recordDetail`、`requireValid`、`settings`、`tableOptions`、`tagDetail`、`tagName` |
 | [desktop-sticker-service.js](../src/desktop-sticker-service.js) | `changeDraft`、`changeRecord`、`changedPins`、`command`、`config`、`control`、`counts`、`document`、`draftChanged`、`draftPins`、`editableDraft`、`filePinByKey`、`linkRef`、`matchingTag`、`openAttachment`、`openLink`、`openLocation`、`openPathAction`、`openRecordAttachment`、`openTitle`、`pinFile`、`pinTag`、`read`、`readDraftBody`、`recordFor`、`register`、`remove`、`saveDraftBody`、`showHeaderMenu`、`sourceEnabled`、`tagItems`、`tagPreview`、`trackingRefreshed` |
 | [dialog-sizes.js](../src/dialog-sizes.js) | `$`、`apply`、`bounded`、`finish`、`init`、`labelOf`、`read`、`refresh`、`save` |
@@ -210,7 +210,7 @@
 | [floating-workspace.js](../src/floating-workspace.js) | `createClipboardHistory` |
 | [floating.css](../src/floating.css) | 版面、主題與互動狀態樣式 |
 | [floating.html](../src/floating.html) | 視窗／頁面結構及本機資源引用 |
-| [floating.js](../src/floating.js) | `$`、`anchor`、`click`、`isFileDrag`、`notify`、`render`、`report`、`run`、`updateOverflow` |
+| [floating.js](../src/floating.js) | `$`、`anchor`、`isFileDrag`、`notify`、`render`、`report`、`run` |
 | [global-shortcuts.js](../src/global-shortcuts.js) | `fromEvent`、`normalize`、`validatePair` |
 | [layout-editor.js](../src/layout-editor.js) | `bind`、`main` |
 | [log-sticker-preload.js](../src/log-sticker-preload.js) | 宣告、設定或共用模型 |
