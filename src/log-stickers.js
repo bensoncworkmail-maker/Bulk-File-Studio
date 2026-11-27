@@ -57,7 +57,7 @@ class LogStickers {
   if(!entry.ready||this.hidden||entry.window.isDestroyed())return;
   entry.window.pinController.reloadCrashedRenderer();
   entry.window.showInactive();
-  entry.window.pinController.sync({force:true,raise:false});
+  entry.window.pinController.sync({force:true});
  }
  setHidden(hidden){
   this.checkpoint(hidden);

@@ -15,8 +15,31 @@ test('new global shortcuts default to disabled and collide with both quick actio
 test('topmost maintenance does not reorder healthy windows and recovery reasserts the band without lowering or taking focus',()=>{
  const handlers={},calls=[];let settings={floatingOnTop:true},destroyed=false,visible=true,topmost=true,poll,cleared=false,moves=0;
  const window={on:(name,callback)=>handlers[name]=callback,isDestroyed:()=>destroyed,isVisible:()=>visible,isAlwaysOnTop:()=>topmost,setAlwaysOnTop:(flag,...args)=>{calls.push([flag,...args]);topmost=flag;handlers['always-on-top-changed']?.();},moveTop:()=>moves++,focus:()=>assert.fail('must not steal focus')};
- const pin=new FloatingPin(window,()=>settings,{setIntervalFn:callback=>(poll=callback,1),clearIntervalFn:()=>cleared=true});handlers.blur();poll();assert.deepEqual(calls,[]);topmost=false;poll();assert.deepEqual(calls,[[true,'floating']]);pin.sync({force:true});assert.deepEqual(calls,[[true,'floating'],[true,'floating']]);assert.equal(moves,1);const before=calls.length;poll();assert.equal(calls.length,before);settings={floatingOnTop:false};pin.sync();assert.deepEqual(calls.at(-1),[false]);visible=false;settings={floatingOnTop:true};const count=calls.length;poll();assert.equal(calls.length,count);destroyed=true;handlers.closed();poll();assert.equal(cleared,true);
+ const pin=new FloatingPin(window,()=>settings,{setIntervalFn:callback=>(poll=callback,1),clearIntervalFn:()=>cleared=true,platform:'linux'});handlers.blur();poll();assert.deepEqual(calls,[]);topmost=false;poll();assert.deepEqual(calls,[[true,'floating']]);pin.sync({force:true});assert.deepEqual(calls,[[true,'floating'],[true,'floating']]);assert.equal(moves,1);const before=calls.length;poll();assert.equal(calls.length,before);settings={floatingOnTop:false};pin.sync();assert.deepEqual(calls.at(-1),[false]);visible=false;settings={floatingOnTop:true};const count=calls.length;poll();assert.equal(calls.length,count);destroyed=true;handlers.closed();poll();assert.equal(cleared,true);
 });
+test('Windows pin repair stays in the topmost band when the taskbar is at the bottom',()=>{
+ const {EventEmitter}=require('node:events');
+ let topmost=true,stacking='bottom';
+ const calls=[];
+ const window=Object.assign(new EventEmitter(),{
+  isDestroyed:()=>false,isVisible:()=>true,isMinimized:()=>false,isAlwaysOnTop:()=>topmost,
+  setAlwaysOnTop(enabled,level){
+   calls.push([enabled,level]);
+   // The legacy floating level stacks after the taskbar, which can be a normal window.
+   topmost=enabled&&level==='pop-up-menu';
+  },
+  moveTop(){stacking=topmost?'topmost':'normal';},
+  focus(){assert.fail('must not take focus');}
+ });
+ const pin=new FloatingPin(window,()=>({floatingOnTop:true}),{platform:'win32',setIntervalFn:()=>0});
+ window.emit('blur');
+ assert.deepEqual(calls,[]);
+ pin.sync({force:true});
+ assert.deepEqual(calls,[[true,'pop-up-menu']]);
+ assert.equal(stacking,'topmost');
+ assert.equal(topmost,true);
+});
+
 test('scheduled backups coalesce missed intervals, survive restart and retry failed writes',async t=>{
  const {root}=workspace(t),filename=path.join(root,'schedule.json');let clock=20*3600000,count=0,fail=false,settings={backupIntervalHours:6};
  const options={filename,settings:()=>settings,now:()=>clock,backup:async()=>{if(fail)throw new Error('full disk');count++;return {name:'backup'};}};

@@ -60,20 +60,20 @@ function updateSharedNotification(value){
   notice.on('click',()=>{focusMain();send(win,'notes-share-open-request',{});});notice.on('failed',(_,error)=>diagnostics.record('main','share-notification',String(error||'桌面通知未能顯示')));notice.show();sharedNotification=notice;lastSharedNotification=value.notice.name;
  }catch(error){diagnostics.record('main','share-notification',error);}
 }
-let pinRecoveryQueued=false;
-function recoverFloatingPins(){
- if(pinRecoveryQueued)return;
- pinRecoveryQueued=true;
+let pendingPinRecovery;
+function recoverFloatingPins({raise=false}={}){
+ if(pendingPinRecovery){pendingPinRecovery.raise||=raise;return;}
+ pendingPinRecovery={force:true,raise};
  setImmediate(()=>{
-  pinRecoveryQueued=false;
+  const options=pendingPinRecovery;
+  pendingPinRecovery=null;
   if(desktopShell?.quitting)return;
-  const options={force:true,raise:false};
   floating?.pinController?.sync(options);
   toolOverlay?.syncTopmost(options);
   logStickers?.syncTopmost(options);
  });
 }
-let shellRecoveryTimer,pendingShellLaunches=0;
+let shellRecoveryTimer,shellFollowUpTimer,pendingShellLaunches=0;
 function shellHandoffActive(){return pendingShellLaunches>0||Boolean(shellRecoveryTimer);}
 function completeShellHandoff(){
  pendingShellLaunches--;
@@ -83,12 +83,16 @@ function completeShellHandoff(){
   shellRecoveryTimer=null;
   if(desktopShell?.quitting)return;
   logStickers?.syncOpacity();
-  recoverFloatingPins();
+  recoverFloatingPins({raise:true});
  },250);
  shellRecoveryTimer.unref?.();
+ // A cold start can reorder the desktop after the first placement.
+ shellFollowUpTimer=setTimeout(()=>recoverFloatingPins({raise:true}),1000);
+ shellFollowUpTimer.unref?.();
 }
 function launchWithShell(task){
  clearTimeout(shellRecoveryTimer);
+ clearTimeout(shellFollowUpTimer);
  shellRecoveryTimer=null;
  pendingShellLaunches++;
  let result;
@@ -547,7 +551,7 @@ app.whenReady().then(() => {
       })
     });
     return [
-      item('顯示全部便條', 'show', total > visible),
+      item('顯示全部便條', 'show'),
       item('隱藏全部便條', 'hide', visible > 0),
       { type: 'separator' },
       item('展開全部便條', 'expand'),
@@ -1334,7 +1338,7 @@ app.whenReady().then(() => {
   app.on('activate',focusMain);
 });
 app.on('before-quit',event=>{if(fileOperationBusy||trashing){event?.preventDefault();send(win,'desktop-settings-changed',{error:'檔案操作仍在執行，請完成後再結束程式'});return;}if(drafts?.requestClose(true)){event?.preventDefault();return;}recordReminders?.close();recordAttention?.close();logStickers?.persist();logStickers?.close();if(desktopShell)desktopShell.quitting=true;});
-app.on('will-quit',()=>{clearTimeout(shellRecoveryTimer);displayRecovery?.close();pasteTargetSession?.close();workflow?.close();nativeFileIcons?.close();snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();logStickers?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
+app.on('will-quit',()=>{clearTimeout(shellRecoveryTimer);clearTimeout(shellFollowUpTimer);displayRecovery?.close();pasteTargetSession?.close();workflow?.close();nativeFileIcons?.close();snippetPicker?.close();require('./snippet-paste').close();toolOverlay?.close();logStickers?.close();productivity?.close();recordReminders?.close();recordAttention?.close();recordNotification?.close?.();process.removeListener('uncaughtExceptionMonitor',monitorException);sharedNotification?.close();for(const reply of shareIdleRequests.values())reply(false);capture?.destroy();drafts?.destroy();floatingSearch?.destroy();everything?.cancel();notesShare?.close();notes?.close();desktopShell?.destroy();});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 } else {
   app.quit();
