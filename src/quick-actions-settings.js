@@ -9,6 +9,12 @@
   }
   window.shortcutControls.bind($('quick-action-shortcut'));
   const menuChecks={};for(const [key,label] of Object.entries(M.MENU_ITEMS)){const wrap=node('label'),input=node('input');wrap.className='check-row';input.type='checkbox';input.checked=true;input.id='quick-menu-'+key;menuChecks[key]=input;wrap.append(input,node('span',label));$('quick-action-menu-checks').append(wrap);}
+  const iconSelect=$('quick-action-icon');
+  for(const [label,icons] of M.ICON_GROUPS){
+   const group=node('optgroup');group.label=label;
+   appendOptions(group,icons.map(([icon,name])=>[icon,icon+' '+name]));
+   iconSelect.append(group);
+  }
   const typeSelect=$('quick-action-type');
   for(const [label,types] of M.TYPE_GROUPS){
    const group=node('optgroup');group.label=label;

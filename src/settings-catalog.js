@@ -173,6 +173,7 @@ const config={
     "floatingDropMode": "settings-floating-drop-mode",
     "floatingDropTag": "settings-floating-drop-tag",
     "floatingShowQuickActions": "settings-floating-quick-enabled",
+    "floatingShowFocusButton": "settings-floating-show-focus-button",
 
     "floatingCollapsedWidth": "settings-floating-collapsed-width",
 
@@ -213,6 +214,7 @@ const config={
     "floatingDropTag": "floating",
     "floatingDropActionId": "floating",
     "floatingShowQuickActions": "floating",
+    "floatingShowFocusButton": "floating",
     "floatingQuickActions": "floating",
     "notesExpandFilters": "notes",
     "notesDetailToolsExpanded": "notes",

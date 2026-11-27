@@ -118,3 +118,26 @@ test('Everything shortcut editor saves operation and query target and validates 
  for(const patch of [{trackingAction:'delete'},{trackingId:'C:\\fake'},{trackingAction:'refresh',trackingId:null}])assert.throws(()=>M.normalize([{...action,...patch}],true),/追蹤/);
  assert.equal(M.normalize([{...action,trackingAction:'menu',trackingId:null}],true)[0].trackingId,null);
 });
+
+test('the grouped icon chooser saves new icons and accepts every legacy icon',async()=>{
+ const legacy=['＋','↥','▤','▦','⌕','▣','☷','✎','⌚','★','⚙','↗','⧉','☰'];
+ const action={id:id(),type:'open-drafts',label:'草稿筆記'};
+ for(const icon of legacy)assert.equal(M.normalize([{...action,icon}],true)[0].icon,icon);
+ assert.throws(()=>M.normalize([{...action,icon:'<img>'}],true),/內建圖示/);
+ const h=await settingsHarness(),picker=h.$('quick-action-icon');
+ assert.equal(picker.querySelectorAll('optgroup').length,M.ICON_GROUPS.length);
+ assert.ok(picker.querySelectorAll('option').some(option=>option.value==='📁'&&option.textContent==='📁 資料夾'));
+ await h.$('quick-action-add').dispatch('click');
+ h.$('quick-action-type').value='open-drafts';
+ await h.$('quick-action-type').dispatch('change');
+ h.$('quick-action-label').value=action.label;
+ picker.value='📁';
+ h.$('quick-action-button-display').value='icon';
+ await h.$('quick-action-save').dispatch('click');
+ const saved=h.settings().floatingQuickActions[0];
+ assert.equal(saved.icon,'📁');
+ assert.equal(desktop.normalize({floatingQuickActions:[saved]}).floatingQuickActions[0].icon,'📁');
+ await h.$('quick-action-list').children[0].children[2].dispatch('click');
+ assert.equal(picker.value,'📁');
+ assert.deepEqual(h.failures,[]);
+});
