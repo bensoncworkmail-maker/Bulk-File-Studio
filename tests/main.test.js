@@ -327,7 +327,6 @@ test('floating quick capture validates stored targets, queues forms without savi
  const target=h.handlers.get('notes-navigation')();assert.equal(target.newRecordSheetId,detail.id);assert.equal(target.masterId,master);assert.equal(h.handlers.get('notes-navigation')(),null);
  h.handlers.get('notes-trash')(null,'record',master,created.document.records[0].version,false);assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/主紀錄/);
  h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,type:'open-sheet',masterId:undefined}]});h.rawHandlers.get('floating-quick-action')(event,action.id);assert.equal(h.handlers.get('notes-navigation')().openSheetId,detail.id);
- h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,enabled:false}]});assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/停用/);
  assert.throws(()=>h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,type:'command'}]}),/無效/);
  h.handlers.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,sheetId:require('node:crypto').randomUUID(),masterId:undefined}]});assert.throws(()=>h.rawHandlers.get('floating-quick-action')(event,action.id),/表格已移除/);
 });
@@ -1955,4 +1954,45 @@ test('desktop stickers apply saved opacity on blur and stay opaque while focused
  focused=true;
  first.emit('focus');
  assert.equal(first.opacity,1);
+});
+
+test('hiding the Tags button retains its global shortcut and clearing the key unregisters it', async t => {
+ const h=harness(t,{'./shortcut-menu-trigger':{ShortcutMenuTrigger:class {
+  run(task){return task();}
+ }}});
+ const H=h.handlers,id=require('node:crypto').randomUUID(),key='Alt+F9';
+ const file=path.join(h.dir,'catalog.txt');fs.writeFileSync(file,'keep');
+ H.get('favorites-add')(null,[file],['Work']);
+ const action={id,label:'Tags',type:'open-tag-menu',tag:'work',shortcut:key};
+ const save=patch=>H.get('desktop-settings-set')(null,{floatingQuickActions:[{...action,...patch}]});
+ save({});
+ const invoke=h.registered.get(key);
+ assert.equal(typeof invoke,'function');
+ save({enabled:false});
+ assert.equal(H.get('desktop-settings-get')().floatingQuickActions[0].enabled,false);
+ assert.equal(h.registered.get(key),invoke);
+ await invoke();
+ assert.ok(h.popup().template.some(item=>item.toolTip===file));
+ save({enabled:false,shortcut:''});
+ assert.equal(h.registered.has(key),false);
+});
+
+test('a legacy hidden binding leaves the previously active shortcut in control when keys conflict', async t => {
+ const state=require('../src/desktop-state'),uuid=require('node:crypto').randomUUID,key='Alt+F9';
+ const h=harness(t,{'./desktop-state':{...state,DesktopState:class extends state.DesktopState{
+  constructor(filename){
+   super(filename);
+   this.update({floatingQuickActions:[
+    {id:uuid(),type:'open-page',page:'settings',label:'Hidden',enabled:false,shortcut:key},
+    {id:uuid(),type:'open-page',page:'home',label:'Previously active',shortcut:key},
+    {id:uuid(),type:'open-page',page:'settings',label:'Reserved',enabled:false,shortcut:'Ctrl+C'}
+   ]});
+  }
+ }}});
+ await h.registered.get(key)();
+ assert.ok(h.messages.some(([name,page])=>name==='open-app-page'&&page==='home'));
+ assert.equal(h.registered.has('CommandOrControl+C'),false);
+ const {shortcutWarning}=h.handlers.get('desktop-settings-get')();
+ assert.match(shortcutWarning,/Hidden快捷鍵與本程式的其他快捷鍵相同/);
+ assert.match(shortcutWarning,/Reserved快捷鍵與本程式的其他快捷鍵相同/);
 });

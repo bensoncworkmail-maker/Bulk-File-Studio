@@ -57,3 +57,18 @@ test('the toolbar fits a replacement display and recovers its width on a larger 
   h.toolbar.ensureVisible();
   assert.equal(h.window.bounds.width, 760);
 });
+
+test('the toolbar can resize below 220 px and remembers 92 px without resetting', () => {
+  const h = createToolbar({ floatingCollapsedWidth: 220 }, {
+    bounds: { x: 260, y: 90, width: 220, height: 40 }
+  });
+  const right = h.toolbar.startDrag('resize-right');
+  h.toolbar.moveDrag(right.token, -128, 0);
+  assert.equal(h.toolbar.endDrag(right.token).settings.floatingCollapsedWidth, 92);
+  const reopened = createToolbar(h.desktop.settings, h.desktop.data.windows.floating);
+  assert.equal(reopened.window.bounds.width, 92);
+  const left = reopened.toolbar.startDrag('resize-left');
+  reopened.toolbar.moveDrag(left.token, 40, 0);
+  assert.deepEqual(reopened.window.bounds, { x: 272, y: 90, width: 80, height: 40 });
+  assert.equal(reopened.toolbar.endDrag(left.token).settings.floatingCollapsedWidth, 80);
+});

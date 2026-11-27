@@ -8,7 +8,7 @@ test('new global shortcuts default to disabled and collide with both quick actio
  const settings=D.normalize();assert.equal(settings.calendarShortcut,'');assert.equal(settings.snippetsShortcut,'');
  assert.throws(()=>S.validatePair({...settings,calendarShortcut:'Alt+C',floatingQuickActions:[{enabled:true,shortcut:'Alt+C'}]}),/相同/);
  assert.throws(()=>S.validatePair(settings,[{shortcut:settings.draftShortcut}]),/相同/);
- S.validatePair({...settings,floatingQuickActions:[{enabled:false,shortcut:settings.draftShortcut}]});
+ assert.throws(()=>S.validatePair({...settings,floatingQuickActions:[{enabled:false,shortcut:settings.draftShortcut}]}),/相同/);
  assert.equal(D.normalize({draftBodyLimit:0,draftListWidth:300,calendarWeekStart:1}).draftBodyLimit,0);
  assert.equal(D.normalize({draftBodyLimit:-1,calendarWeekStart:4}).calendarWeekStart,0);
 });

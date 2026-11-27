@@ -1,5 +1,7 @@
 'use strict';
 const path=require('node:path');
+const shortcutInventory=require('./shortcut-inventory-model');
+const {DEFAULTS:favoriteShortcutDefaults}=require('./shortcuts');
 // Native lifecycle only. No file operations or renderer-provided launch commands.
 class DesktopShell {
  constructor(options){Object.assign(this,options);this.tray=null;this.quitting=false;}
@@ -42,11 +44,20 @@ class DesktopShell {
  hideToTray(){if(!this.ensureTray())return false;this.hideMain();this.hideFloatingForTray();return true;}
  onClose(event){if(this.quitting||!this.getSettings().closeToTray)return false;if(!this.ensureTray())return false;event.preventDefault();this.hideMain();this.hideFloatingForTray();return true;}
  registerShortcuts(settings=this.getSettings()){
-  this.globalShortcut.unregisterAll();const warnings=[];
+  this.globalShortcut.unregisterAll();const warnings=[],registered=new Set();
+  // Older profiles could save hidden actions with keys reserved by the app.
+  const localKeys=new Set(shortcutInventory.rows(settings,[],settings.favoriteShortcuts||favoriteShortcutDefaults)
+   .filter(row=>row.scope!=='global'&&row.enabled&&row.shortcut)
+   .map(row=>shortcutInventory.canonical(row.shortcut)));
   for(const [key,label,callback,actionId=key] of [['mainShortcut','主視窗',()=>this.showMain()],['floatingShortcut','浮動工具',()=>this.showFloating(true)],['collapseShortcut','浮動工具替代快捷鍵',()=>this.showFloating(true)],['searchShortcut','浮動搜尋面板',()=>this.showSearch?.()],['draftShortcut','草稿筆記',()=>this.showDrafts?.()],['snippetsShortcut','常用文字片段',()=>this.showSnippets?.()],['calendarShortcut','小月曆',()=>this.showCalendar?.()],['focusShortcut','專注模式切換',()=>this.toggleFocusMode?.()],...(this.extraShortcuts?.(settings)||[]) ]){
    if(key!=='focusShortcut'&&settings.focusMode===true&&!settings.focusShortcutIds?.includes(actionId))continue;
    const accelerator=key.startsWith('accelerator:')?key.slice(12):settings[key];if(!accelerator)continue;
-   try{if(!this.globalShortcut.register(accelerator,callback))warnings.push(label+'快捷鍵已被其他程式使用，請在設定選擇另一組。');}
+   const chord=shortcutInventory.canonical(accelerator);
+   if(registered.has(chord)||actionId.startsWith('action:')&&localKeys.has(chord)){warnings.push(label+'快捷鍵與本程式的其他快捷鍵相同。');continue;}
+   try{
+    if(this.globalShortcut.register(accelerator,callback))registered.add(chord);
+    else warnings.push(label+'快捷鍵已被其他程式使用，請在設定選擇另一組。');
+   }
    catch(e){warnings.push('無法註冊'+label+'快捷鍵：'+e.message);}
   }return warnings.join('\n');
  }

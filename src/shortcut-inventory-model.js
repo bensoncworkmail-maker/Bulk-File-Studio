@@ -25,7 +25,7 @@
  }
  function rows(settings={},snippets=[],favorites={},labels={}){
   const list=Object.entries(GLOBALS).map(([key,label])=>({id:key,key,label,shortcut:settings[key]||'',scope:'global',source:'全域功能',kind:'global',enabled:true}));
-  for(const item of settings.floatingQuickActions||[])list.push({id:'action:'+item.id,target:item.id,label:item.label,shortcut:item.shortcut||'',scope:'global',source:'浮動快捷動作',kind:'action',enabled:item.enabled!==false});
+  for(const item of settings.floatingQuickActions||[])list.push({id:'action:'+item.id,target:item.id,label:item.label,shortcut:item.shortcut||'',scope:'global',source:'浮動快捷動作',kind:'action',enabled:true});
   for(const item of snippets)list.push({id:'snippet:'+item.id,target:item.id,label:item.name,shortcut:item.shortcut||'',scope:'global',source:'常用文字'+(item.category?'／'+item.category:''),kind:'snippet',enabled:true});
   for(const [key,value] of Object.entries(favorites))list.push({id:'favorite:'+key,key,label:labels[key]||key,shortcut:value||'',scope:'favorites',source:'收藏頁操作',kind:'favorite',enabled:true});
   for(const [id,label,shortcut,scope] of FIXED)list.push({id,label,shortcut,scope,source:'內建情境快捷鍵',kind:'fixed',enabled:scope!=='draft'||settings.draftLocalShortcuts!==false||['draft-save','draft-close'].includes(id)});

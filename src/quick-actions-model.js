@@ -45,6 +45,7 @@
  function entry(input){
   if(!input||typeof input!=='object'||!ID.test(input.id)||!Object.hasOwn(TYPES,input.type)||typeof input.label!=='string'||!input.label.trim()||input.label.trim().length>30||/[\x00-\x1f\x7f]/.test(input.label))throw new Error('快捷動作名稱或類型無效');
   if(input.enabled!==undefined&&typeof input.enabled!=='boolean'||input.useClipboard!==undefined&&typeof input.useClipboard!=='boolean')throw new Error('快捷動作開關無效');
+  // Keep the saved key for compatibility. It controls toolbar visibility.
   const result={id:input.id,type:input.type,label:input.label.trim(),enabled:input.enabled!==false};
   if(input.type==='open-tag-menu'&&input.menuItems!==undefined){if(!input.menuItems||typeof input.menuItems!=='object'||Array.isArray(input.menuItems)||Object.entries(input.menuItems).some(([key,value])=>!Object.hasOwn(MENU_ITEMS,key)||typeof value!=='boolean'))throw new Error('外部選單項目設定無效');result.menuItems=Object.fromEntries(Object.keys(MENU_ITEMS).map(key=>[key,input.menuItems[key]!==false]));}
   if(input.shortcut){const shortcuts=typeof module!=='undefined'&&module.exports?require('./global-shortcuts'):globalThis.globalShortcutModel;const key=shortcuts.normalize(input.shortcut);if(!key)throw new Error('快捷鍵格式無效');result.shortcut=key;}
