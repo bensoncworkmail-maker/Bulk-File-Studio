@@ -826,19 +826,28 @@ app.whenReady().then(() => {
   handle('desktop-reset-window',()=>applyMainBounds(null));
   workspaceService=require('./floating-workspace').createClipboardHistory(clipboard);
   handle('floating-show',()=>showFloating());
-  handle('floating-hide',()=>{floatingSearch?.destroy();floating?.hide();});
+  const hideFloating=()=>{floatingSearch?.destroy();floating?.hide();};
+  handle('floating-hide',hideFloating);
   handle('floating-drag-start',(_,mode='move')=>{closeFloatingMenu();if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.startDrag(mode);});
   handle('floating-drag-move',(_,token,dx,dy)=>{if(!floatingWindow)throw new Error('浮動工具未顯示');return floatingWindow.moveDrag(token,dx,dy);});
   handle('floating-drag-end',(_,token)=>{const result=floatingWindow?.endDrag(token);if(result){send(win,'desktop-settings-changed',result);send(floating,'desktop-settings-changed',result);}return result;});
   handle('floating-header-menu', (_, anchor) => {
-    const settings = desktop.settings;
-    const actions = settings.floatingShowQuickActions ? settings.floatingQuickActions.filter(item => item.enabled) : [];
-    if (!actions.length) return { menu: false };
-    popupFloatingMenu(actions.map(item => ({
-      label: menuLabel(item.label),
-      click: floatingAction(() => runQuickAction(null, item.id))
-    })), { anchor });
-    return { menu: true };
+    const settings=desktop.settings;
+    const toggle=(label,key)=>({
+      label,type:'checkbox',checked:settings[key],
+      click:floatingAction(()=>configureDesktop({[key]:!desktop.settings[key]}))
+    });
+    popupFloatingMenu([
+      toggle('保持置頂','floatingOnTop'),
+      toggle('專注模式','focusMode'),
+      toggle('顯示專注模式按鈕','floatingShowFocusButton'),
+      toggle('顯示快捷按鈕','floatingShowQuickActions'),
+      {type:'separator'},
+      {label:'開啟主視窗',click:floatingAction(focusMain)},
+      {label:'浮動工具設定…',click:floatingAction(()=>openInMainWindow('open-app-page',{settingsTab:'floating'}))},
+      {label:'隱藏浮動工具',click:floatingAction(hideFloating)}
+    ],{anchor});
+    return {menu:true};
   });
   const floatingTags=tag=>{
     if(!tag)return [];
@@ -1152,7 +1161,7 @@ app.whenReady().then(() => {
   ipcMain.handle('tool-overlay-control',(event,action,value)=>overlayAction(event,entry=>toolOverlay.control(entry,action,value)));
   ipcMain.handle('tool-overlay-close',event=>overlayAction(event,({window})=>window.close()));
   handle('tool-view-open',(_,input)=>toolOverlay.open(require('./tool-views-model').configuration(input)));
-  function showStickerSource(channel,payload){
+  function openInMainWindow(channel,payload){
     focusMain();
     const target=win,open=()=>send(target,channel,payload);
     if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',open);else open();
@@ -1162,14 +1171,14 @@ app.whenReady().then(() => {
     readLayout:()=>desktop.stickerLayout(),saveLayout:value=>desktop.saveStickerLayout(value),
     onClosed:()=>{desktopShell.refreshTrayMenu();send(win,'desktop-stickers-changed');},
     favorites,tracking:()=>everythingTracking,preferences:()=>desktop.settings,visitRecord:navigateWorkspace,openFavorite,shell,clipboard,
-    visitTag:(scope,tag)=>showStickerSource('open-app-page',{stickerTag:{scope,tag}}),
+    visitTag:(scope,tag)=>openInMainWindow('open-app-page',{stickerTag:{scope,tag}}),
     visitDraft:id=>{openDrafts();sendDraftSelection(id);},
     onDraftBodySaved:value=>{
       if(drafts?.active)send(drafts.window,'draft-sticker-body-saved',value);
       toolOverlay.invalidate('drafts');
     },
-    visitFavorite:id=>showStickerSource('studio-search-target',{kind:'favorite',id}),
-    visitTracking:id=>showStickerSource('open-app-page',{everything:id}),
+    visitFavorite:id=>openInMainWindow('studio-search-target',{kind:'favorite',id}),
+    visitTracking:id=>openInMainWindow('open-app-page',{everything:id}),
     changed:()=>{
       desktopShell.refreshTrayMenu();toolsChanged();toolOverlay.invalidate('logs');send(win,'desktop-stickers-changed');
       if(drafts?.active)send(drafts.window,'draft-stickers-changed',stickerService.draftPins());

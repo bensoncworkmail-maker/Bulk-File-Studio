@@ -33,6 +33,9 @@ class LogStickers {
   try{this.checkpoint();}catch(error){this.onError(error);}
  }
  visibleCount(){return this.hidden?0:this.windows.size;}
+ applyOpacity(entry,focused=entry.window.isFocused()){
+  entry.window.setOpacity(focused?1:entry.appearance.opacity/100);
+ }
  show(entry){
   if(!entry.ready||this.hidden||entry.window.isDestroyed())return;
   entry.window.showInactive();
@@ -82,7 +85,9 @@ class LogStickers {
    collapsed,headerAtBottom:layout?.headerAtBottom===true,ready:false};
   this.windows.set(id,entry);
   this.secureWindow(window);
-  window.setOpacity?.(appearance.opacity/100);
+  this.applyOpacity(entry,false);
+  window.on('focus',()=>this.applyOpacity(entry,true));
+  window.on('blur',()=>this.applyOpacity(entry,false));
   window.pinController=new FloatingPin(window,()=>({floatingOnTop:true}),{onError:this.onError});
   window.on('ready-to-show',()=>{
    if(this.windows.get(id)!==entry)return;
@@ -195,7 +200,7 @@ class LogStickers {
    if(headerChanged||(entry.collapsed?collapsedWidthChanged:expandedChanged))this.resize(entry,undefined,oldSize.collapsedHeight);
    entry.window.setTitle(detail.heading);
    entry.window.setBackgroundColor?.(appearance.background);
-   if(appearance.opacity!==previousOpacity)entry.window.setOpacity?.(appearance.opacity/100);
+   if(appearance.opacity!==previousOpacity)this.applyOpacity(entry);
    entry.window.webContents.send('log-sticker-changed',this.payload(entry));
   }
  }
