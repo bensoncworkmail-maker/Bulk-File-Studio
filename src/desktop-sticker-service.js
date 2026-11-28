@@ -9,7 +9,7 @@ const {assertOpenableLocation,inspectLocation,openRecordLink}=require('./notes-l
 const {workspaceBookmarks}=require('./workspace-bookmark-model');
 const {LogStickers}=require('./log-stickers');
 const {FloatingMenu}=require('./floating-menu');
-const {readSelectedPreview}=require('./document-preview');
+const {readSelectedPreview,isPreviewImage}=require('./document-preview');
 
 function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,favorites,tracking,preferences,changed,visitRecord,visitTag,visitDraft,onDraftBodySaved,visitFavorite,visitTracking,openFavorite,showImage,shell,clipboard,...windowOptions}){
  const document=()=>notes().get().document;
@@ -17,8 +17,8 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  const filePinByKey=(list,key)=>list.find(pin=>model.fileKey(pin.kind,pin.id)===key);
  const sourceEnabled=source=>{if(config().sources[source]!==true)throw Error('此來源的桌面便條已在設定停用');};
  const manager=new LogStickers({...windowOptions,linkRef,appearance:()=>{
-  const {background,headerBackground,opacity,showGrip,size,openClick,locationClick,showAttachmentHint}=config();
-  return {background,foreground:model.colorText(background),headerBackground,headerForeground:model.colorText(headerBackground),opacity,showGrip,size,openClick,locationClick,showAttachmentHint};
+  const {background,headerBackground,opacity,showGrip,size,openClick,locationClick,showAttachmentHint,imageOpen}=config();
+  return {background,foreground:model.colorText(background),headerBackground,headerForeground:model.colorText(headerBackground),opacity,showGrip,size,openClick,locationClick,showAttachmentHint,imageOpen};
  },read,pinnedIds:()=>{
   const {logPins=[],fileStickerPins=[]}=tools().get();
   return new Set([...logPins,...fileStickerPins.map(pin=>model.fileKey(pin.kind,pin.id))]);
@@ -30,17 +30,17 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  function* tagAttachments(scope,items,records,favoritesById){
   for(const item of items){
    if(scope==='favorites'){
-    yield {...model.attachmentRow('tag-favorite',item.path),id:item.id};
+    yield {...model.attachmentRow('tag-favorite',item.path),type:item.type,id:item.id};
    }else if(scope==='workspace'){
     const record=item.kind==='record'&&item.available?records.get(item.id):null;
     for(const [index,link] of (record?.fileLinks||[]).entries()){
-     const filepath=favoritesById.get(link.favoriteId)?.path||link.path;
-     yield {...model.attachmentRow('tag-record',filepath),id:record.id,version:record.version,index};
+     const favorite=favoritesById.get(link.favoriteId),filepath=favorite?.path||link.path;
+     yield {...model.attachmentRow('tag-record',filepath),type:favorite?.type||link.type,id:record.id,version:record.version,index};
     }
    }else{
     const snapshot=tracking().snapshot(item);
     for(const [index,row] of (snapshot?.rows||[]).entries()){
-     yield {...model.attachmentRow('tag-tracking',row.path),id:item.id,token:snapshot.token,index};
+     yield {...model.attachmentRow('tag-tracking',row.path),type:row.type,id:item.id,token:snapshot.token,index};
     }
    }
   }
@@ -283,6 +283,12 @@ function register({handle,ipcMain,Menu,onMenuSettled,invokeOwned,notes,tools,fav
  }
  async function openLink(entry,index,version,action='open',displayedLocation){
   if(!['preview','enlarge'].includes(action))return resolveLink(entry,index,version,action,displayedLocation);
+  if(action==='enlarge'&&entry.appearance.imageOpen==='external'){
+   const link=entry.detail.links[index];
+   if(!link?.path||link.type==='folder'||!isPreviewImage(link.path))throw Error('只支援開啟圖片預覽');
+   // Use the same Shell launch and topmost recovery as opening an attachment by name.
+   return resolveLink(entry,index,version,'open',displayedLocation);
+  }
   const image=await resolveLink(entry,index,version,'preview',displayedLocation);
   if(action==='preview')return image.data;
   const {window}=entry;

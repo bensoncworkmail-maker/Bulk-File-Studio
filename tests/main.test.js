@@ -1853,15 +1853,16 @@ test('sticker startup modes restore saved visibility without clearing individual
  const savedLayout=dir=>new DesktopState(path.join(dir,savedName)).stickerLayout();
  assert.equal(savedLayout(h.dir).layouts[layoutKey].hidden,true);
  H.get('desktop-stickers-control')(null,'hide');
- for(const [mode,restore,expected] of [
-  ['hide',true,[]],['visible',false,['visible.txt']],['show',false,['hidden.txt','visible.txt']],
-  ['previous',true,[]],['previous',false,[]]
+ for(const [mode,restore,hiddenAll,expected] of [
+  ['hide',true,true,[]],['visible',false,true,['visible.txt']],['show',false,true,['hidden.txt','visible.txt']],
+  ['previous',true,true,[]],['previous',false,true,[]],['previous',false,false,['visible.txt']]
  ]){
-  await t.test(mode+' / '+restore,async t=>{
+  await t.test(mode+' / '+restore+' / all hidden '+hiddenAll,async t=>{
    const next=harness(t,{prepareProfile:dir=>{
     for(const file of [savedName,'favorites.json','workspace-tools.json'])fs.copyFileSync(path.join(h.dir,file),path.join(dir,file));
     const state=new DesktopState(path.join(dir,savedName));
     state.update({floatingRestorePanels:restore,desktopStickers:{...state.settings.desktopStickers,startupVisibility:mode}});
+    if(!hiddenAll)state.saveStickerLayout({...state.stickerLayout(),hidden:false});
    }});
    const active=()=>next.windows.filter(w=>w.url?.endsWith('/log-sticker.html')&&!w.isDestroyed());
    const actual=()=>active().filter(w=>w.isVisible()).map(w=>w.options.title).sort();
@@ -1879,7 +1880,7 @@ test('sticker startup modes restore saved visibility without clearing individual
     assert.equal(savedLayout(next.dir).layouts[layoutKey].hidden,undefined);
    }else{
     next.events.get('before-quit')({preventDefault(){assert.fail('quit should proceed');}});
-    assert.equal(savedLayout(next.dir).hidden,true);
+    assert.equal(savedLayout(next.dir).hidden,hiddenAll);
     assert.equal(savedLayout(next.dir).layouts[layoutKey].hidden,true);
     assert.deepEqual(savedLayout(next.dir).layouts[layoutKey].bounds,bounds);
    }
@@ -1894,6 +1895,7 @@ test('closing a sticker image preview leaves other windows pinned and can open t
  for(const file of files.slice(1))fs.writeFileSync(file,'keep');
  const {ids}=H.get('favorites-add')(null,files,[]);
  H.get('desktop-settings-set')(null,{floatingOnTop:true});
+ H.get('desktop-settings-set')(null,{desktopStickers:{imageOpen:'internal'}});
  H.get('floating-show')();
  const floating=h.windows.at(-1);
  const pin=async id=>{
@@ -2193,7 +2195,7 @@ test('desktop stickers apply saved opacity on blur and stay opaque while focused
  assert.equal(first.opacity,1);
 });
 
-test('opening a sticker attachment and locating a folder restore the native stacking order without reclaiming focus',async t=>{
+test('opening a sticker thumbnail externally and locating a folder restore the native stacking order without reclaiming focus',async t=>{
  const timers=new Set();
  const h=harness(t,{
   setTimeoutFn:(callback,ms)=>{const timer={callback,ms};timers.add(timer);return timer;},
@@ -2237,11 +2239,14 @@ test('opening a sticker attachment and locating a folder restore the native stac
   return new Promise(resolve=>{finishLaunch=resolve;launched();});
  };
  h.shell.showItemInFolder=filepath=>{h.shown.push(filepath);displace();};
- const act=(window,action)=>raw.get('log-sticker-'+action)({sender:window.webContents,senderFrame:{url:window.url}});
+ const act=(window,action,...args)=>raw.get('log-sticker-'+action)({sender:window.webContents,senderFrame:{url:window.url}},...args);
  imageSticker.emit('focus');
  await new Promise(resolve=>setTimeout(resolve,120));
  assert.equal(imageSticker.opacity,1);
- const opening=act(imageSticker,'open-item');
+ const {imageOpen,links:[thumbnail]}=act(imageSticker,'get');
+ assert.equal(imageOpen,'external');
+ assert.equal(thumbnail.image,true);
+ const opening=act(imageSticker,'open-link',0,thumbnail.ref,'enlarge',thumbnail.location);
  await launchStarted;
  await new Promise(resolve=>setTimeout(resolve,120));
  assert.equal(imageSticker.opacity,1);
@@ -2251,6 +2256,7 @@ test('opening a sticker attachment and locating a folder restore the native stac
  await fireTimer(250);
  assert.equal(imageSticker.opacity,0.65);
  assert.deepEqual(h.opened,[image]);
+ assert.equal(h.windows.at(-1),normal);
  assert.ok(windows.every(window=>window.onTop===true&&window.front&&window.isVisible()&&!window.isDestroyed()));
  assert.equal(normal.front,false);
  displace();

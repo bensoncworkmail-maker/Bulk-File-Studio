@@ -1,6 +1,6 @@
 # 應用程式功能與模組盤點
 
-版本：v1.152.0。以 `npm run audit:functions` 重新產生。
+版本：v1.153.0。以 `npm run audit:functions` 重新產生。
 
 讀取 src 全部 250 個 JS／HTML／CSS 檔案；核對 13 個頁面、9 個工具入口、30 項功能導覽與 235 個介面／桌面偏好。
 
@@ -297,7 +297,7 @@
 | [productivity-model.js](../src/productivity-model.js) | `agenda`、`board`、`entry`、`expandSnippet`、`ids`、`masterLabels`、`matches`、`normalize`、`text` |
 | [productivity-store.js](../src/productivity-store.js) | `constructor`、`get`、`reload`、`remove`、`replace`、`save`、`writeJSON` |
 | [productivity.css](../src/productivity.css) | 版面、主題與互動狀態樣式 |
-| [productivity.js](../src/productivity.js) | `$`、`addWorksetPaths`、`applyRestored`、`attachSplit`、`button`、`canSwitch`、`changed`、`clearRule`、`clearWorkset`、`configuration`、`discard`、`editRule`、`empty`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`moveCard`、`node`、`openLogs`、`openRecord`、`openSection`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectWorkset`、`setFolder`、`setSnippet`、`setupToolSplits`、`show`、`showPreview`、`snippetBulk`、`snippetCategory`、`snippetPicker`、`snippetQuery`、`snippetResults`、`snippetsOpen`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetActions`、`updateSnippetCategories`、`updateSnippetPreview`、`updateWorkCounts`、`worksetPaths` |
+| [productivity.js](../src/productivity.js) | `$`、`addWorksetPaths`、`applyRestored`、`applyToolSplitWidths`、`attachSplit`、`button`、`canSwitch`、`changed`、`clearRule`、`clearWorkset`、`configuration`、`copySnippet`、`discard`、`editRule`、`empty`、`filtersChanged`、`hasSnippetFilter`、`importFile`、`init`、`invalidateImport`、`liveRecords`、`load`、`makeSnippetGroup`、`moveCard`、`node`、`openLogs`、`openRecord`、`openSection`、`options`、`previewBackup`、`previewRules`、`remove`、`render`、`renderBackups`、`renderRepair`、`renderRules`、`renderSnippets`、`renderSuggestions`、`renderWorkChoices`、`renderWorksets`、`repairKeys`、`ruleAction`、`rulePaths`、`run`、`selectWorkset`、`setFolder`、`setSnippet`、`setSnippetGroupExpanded`、`setSnippetGroupsExpanded`、`setupToolSplits`、`show`、`showPreview`、`snippetBulk`、`snippetCategory`、`snippetFolds`、`snippetPicker`、`snippetQuery`、`snippetResults`、`snippetsOpen`、`status`、`updateActions`、`updateBackupSelection`、`updateSnippetActions`、`updateSnippetCategories`、`updateSnippetPreview`、`updateWorkCounts`、`worksetPaths` |
 | [profile-extra.js](../src/profile-extra.js) | `exportAuxiliary`、`normalize`、`normalizeAssets`、`packAssets`、`replaceAuxiliary`、`sha`、`unpackAssets` |
 | [profile-service.js](../src/profile-service.js) | `captureFiles`、`cleanUI`、`deleteHistory`、`hash`、`history`、`historyPath`、`normalizeBundle`、`preview`、`readJSON`、`recoverProfile`、`restore`、`restoreFiles`、`signature`、`take`、`trial` |
 | [rename-core.js](../src/rename-core.js) | `assertFingerprint`、`createPreview`、`emit`、`executeMoves`、`fileIdentity`、`filenameProblem`、`fingerprintFile`、`formatDate`、`hashReporter`、`key`、`listPaths`、`localDate`、`normalizeOptions`、`pathExists`、`prepareUndo`、`renameOne`、`reportProgress`、`safe`、`sameIdentity`、`snapshotMoves`、`splitName`、`validateMoves`、`visit` |

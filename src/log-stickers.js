@@ -82,15 +82,9 @@ class LogStickers {
   if(this.layouts.get(id)?.hidden)this.checkpoint(this.savedHidden,key=>key===id);
   this.open(id);
  }
- restoreOnStartup(mode,restorePanels){
-  if(mode==='previous'){
-   if(restorePanels)this.restore();
-  }else if(mode==='hide'){
-   this.hidden=true;
-  }else{
-   this.hidden=false;
-   this.restore({includeHidden:mode==='show'});
-  }
+ restoreOnStartup(mode){
+  this.hidden=mode==='hide'||(mode==='previous'&&this.savedHidden);
+  if(!this.hidden)this.restore({includeHidden:mode==='show'});
  }
  clear(){
   this.close();
@@ -159,8 +153,8 @@ class LogStickers {
  payload(entry){
   const {links,...detail}=entry.detail;
   return {...detail,links:links.map(link=>{
-   const image=Boolean(link.path&&isPreviewImage(link.path));
-   return {kind:link.kind,label:link.label,location:link.location,ref:this.linkRef(link),image,
+   const image=Boolean(link.path&&link.type!=='folder'&&isPreviewImage(link.path));
+   return {kind:link.kind,label:link.label,location:link.location,type:link.type,ref:this.linkRef(link),image,
     ...(image?{imageKey:createHash('sha256').update(link.path).digest('hex')}:{})};
   }),...entry.appearance,collapsed:entry.collapsed,headerAtBottom:entry.headerAtBottom};
  }

@@ -1278,8 +1278,7 @@ app.whenReady().then(() => {
   });
   logStickers=stickerService.manager;
   function restoreDesktopStickers(){
-    const {desktopStickers,floatingRestorePanels}=desktop.settings;
-    logStickers.restoreOnStartup(desktopStickers.startupVisibility,floatingRestorePanels);
+    logStickers.restoreOnStartup(desktop.settings.desktopStickers.startupVisibility);
   }
   ipcMain.handle('tool-overlay-sticker-control',(event,action)=>overlayAction(event,({config})=>{
     if(config.kind!=='logs')throw Error('此視窗沒有便條管理功能');

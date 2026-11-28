@@ -73,6 +73,7 @@ test('sticker settings save both sizes and grip while retaining header fields ac
  const {settings}=require('../src/desktop-sticker-model'),preferences=settings();
  assert.equal(preferences.showGrip,false);
  assert.equal(preferences.showAttachmentHint,false);
+ assert.equal(preferences.startupVisibility,'visible');assert.equal(preferences.imageOpen,'external');
  assert.equal(preferences.openClick,'single');assert.equal(preferences.locationClick,'single');
  assert.equal(settings({showGrip:true}).showGrip,true);
  const options=[
@@ -96,12 +97,14 @@ test('sticker settings save both sizes and grip while retaining header fields ac
  assert.equal($('item').value,'date');assert.equal($('master').value,'code');
  $('header-color').value='#20304a';$('opacity').value='70';$('open-click').value='single';$('location-click').value='double';
  $('startup').value='visible';
+ $('image-open').value='internal';
  $('color').value='#fafafa';$('tracking').checked=false;$('grip').checked=false;$('attachment-hint').checked=true;
  $('width').value='420';$('height').value='350';$('collapsedWidth').value='220';$('collapsedHeight').value='44';
  await $('form').dispatch('submit');
  assert.equal(JSON.stringify(saved.headers.logs),JSON.stringify({master:'code',item:'date'}));
  assert.equal(saved.headerBackground,'#20304a');assert.equal(saved.opacity,70);
  assert.equal(saved.startupVisibility,'visible');
+ assert.equal(saved.imageOpen,'internal');
  assert.equal(saved.openClick,'single');assert.equal(saved.locationClick,'double');
  assert.equal(saved.showAttachmentHint,true);
  assert.equal(saved.background,'#fafafa');assert.equal(saved.showGrip,false);
@@ -176,11 +179,11 @@ test('draft sticker saves inline after typing, flushes on blur, and preserves te
  assert.equal($('notes').textContent,'清單項目');
 });
 
-test('images load above the attachment list and clicking a thumbnail enlarges the image inside the app',async()=>{
+test('sticker thumbnails reflect the configured opening mode and attachments expose both actions',async()=>{
  const document=documentFromHTML(fs.readFileSync(require.resolve('../src/log-sticker.html'),'utf8'));
  const $=id=>document.getElementById(id),calls=[];
  const data={heading:'圖片',title:'圖片',fields:[],notes:'',
-  links:[{kind:'file',label:'圖.png',location:'C:/圖',image:true}],version:1,openClick:'single',locationClick:'single'};
+  links:[{kind:'file',label:'圖.png',location:'C:/圖',image:true}],version:1,openClick:'single',locationClick:'single',imageOpen:'external'};
  let update;
  const window={logSticker:{get:async()=>data,onChanged:callback=>update=callback,onError(){},
   openLink:async(...args)=>{calls.push(args);return 'data:image/png;base64,AA==';}
@@ -194,11 +197,18 @@ test('images load above the attachment list and clicking a thumbnail enlarges th
  assert.equal(preview.querySelector('img').src,'data:image/png;base64,AA==');
  assert.deepEqual(calls,[[0,1,'preview','C:/圖']]);
  const thumbnail=preview.querySelector('button');
+ assert.equal(thumbnail.title,'以系統預設應用程式開啟');
+ const [name,location]=$('attachment-rows').querySelectorAll('button');
+ assert.equal(name.getAttribute('aria-label'),'開啟圖片 圖.png');
+ assert.equal(location.getAttribute('aria-label'),'在檔案總管定位 C:/圖');
+ assert.equal($('attachment-count').textContent,'1');
  update({...data,version:2,showAttachmentHint:true});
  assert.equal($('attachment-hint').hidden,false);
  assert.equal(preview.querySelector('button'),thumbnail);
  await thumbnail.dispatch('click');
  assert.deepEqual(calls,[[0,1,'preview','C:/圖'],[0,2,'enlarge','C:/圖']]);
+ update({...data,imageOpen:'internal'});
+ assert.equal(preview.querySelector('button').title,'在程式內放大');
  update({...data,collapsed:true});
  assert.equal(preview.hidden,true);
 });

@@ -11,7 +11,7 @@ const TAG_SCOPES=['favorites','workspace','tracking'];
 const DIMENSIONS={width:[180,1200,280],height:[130,1000,245],collapsedWidth:[180,1200,280],collapsedHeight:[32,96,36]};
 const FILE_HEADERS={favorite:{prefix:['none','folder','tag'],title:['label','name','path']},tracking:{prefix:['none','folder','query'],title:['name','path']}};
 const DEFAULTS={background:'#ffffff',headerBackground:'#d5eaf8',opacity:100,openClick:'single',locationClick:'single',showGrip:false,showAttachmentHint:false,size:Object.fromEntries(Object.entries(DIMENSIONS).map(([key,[,,fallback]])=>[key,fallback])),sources:Object.fromEntries(SOURCES.map(key=>[key,true])),headers:{},
- favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'},startupVisibility:'previous'};
+ favorite:{prefix:'none',title:'label'},tracking:{prefix:'none',title:'name'},startupVisibility:'visible',imageOpen:'external'};
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 const fieldKey=value=>typeof value==='string'&&(value==='title'||M.ID.test(value));
 
@@ -24,6 +24,7 @@ function settings(input,strict=false){
  for(const key of ['openClick','locationClick'])if(Object.hasOwn(value,key)&&requireValid(['single','double'].includes(value[key])))result[key]=value[key];
  for(const key of ['showGrip','showAttachmentHint'])if(Object.hasOwn(value,key)&&requireValid(typeof value[key]==='boolean'))result[key]=value[key];
  if(Object.hasOwn(value,'startupVisibility')&&requireValid(['previous','hide','show','visible'].includes(value.startupVisibility)))result.startupVisibility=value.startupVisibility;
+ if(Object.hasOwn(value,'imageOpen')&&requireValid(['external','internal'].includes(value.imageOpen)))result.imageOpen=value.imageOpen;
  if(Object.hasOwn(value,'size')&&requireValid(object(value.size)))for(const [key,[min,max]] of Object.entries(DIMENSIONS)){
   const size=value.size[key];
   if(Object.hasOwn(value.size,key)&&requireValid(Number.isInteger(size)&&size>=min&&size<=max))result.size[key]=size;
@@ -130,7 +131,7 @@ function recordDetail(doc,record,prefs,records,sheets,favorites){
   .map(master=>headingValue(doc,sheets.get(master.sheetId),master,rule.master)):[];
  const links=record.fileLinks.map((link,index)=>{
   const favorite=favorites.get(link.favoriteId),filepath=favorite?.path||link.path;
-  return {...attachmentRow('file',filepath,link.label||favorite?.label||pathName(filepath)),index};
+  return {...attachmentRow('file',filepath,link.label||favorite?.label||pathName(filepath)),type:favorite?.type||link.type,index};
  });
  const seen=new Set();
  const appendUrls=(value,whole=false)=>{
@@ -158,7 +159,7 @@ function locationDetail(pin,item,prefs){
  const prefixValue=prefix==='folder'&&filepath?pathName((/^(?:[a-z]:|\\\\)/i.test(filepath)?path.win32:path).dirname(filepath)):
   prefix==='tag'?item?.tags?.[0]:prefix==='query'?pin.queryName:'';
  const itemTitle=titleMode==='path'?filepath:titleMode==='name'&&filepath?pathName(filepath):title;
- return {kind:pin.kind,title,heading:headline(prefixValue,itemTitle||title),fields,links:filepath?[attachmentRow('item',filepath)]:[],notes:item?item.status==='missing'?'位置暫時無法使用。':'':'收藏已移除。',
+ return {kind:pin.kind,title,heading:headline(prefixValue,itemTitle||title),fields,links:filepath?[{...attachmentRow('item',filepath),type:item.type}]:[],notes:item?item.status==='missing'?'位置暫時無法使用。':'':'收藏已移除。',
   visit:item?(pin.kind==='favorite'?'在我的收藏開啟':'開啟追蹤搜尋'):''};
 }
 
@@ -173,7 +174,7 @@ function tagDetail(pin,items,links,overflow){
 function draftDetail(draft,limit){
  const title=draft.title.trim()||draft.body.split(/\r?\n/).find(line=>line.trim())?.trim().slice(0,160)||draft.items[0]?.label||'未命名草稿';
  const items=M.structured.isType(draft.type)?M.structured.format(draft.type,draft.items):'';
- const links=draft.attachments.map((item,index)=>({...attachmentRow('draft-file',item.path),index,version:draft.version}));
+ const links=draft.attachments.map((item,index)=>({...attachmentRow('draft-file',item.path),type:item.type,index,version:draft.version}));
  return {kind:'draft',title,heading:headline('草稿筆記',title),fields:[],notes:items.slice(0,12000),links,visit:'在草稿筆記開啟',
   draft:{body:draft.body,version:draft.version,maxLength:limit?Math.max(limit,draft.body.length):null}};
 }

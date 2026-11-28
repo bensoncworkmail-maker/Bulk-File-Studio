@@ -216,7 +216,14 @@
               <div class="snippet-filters">
                 <input id="snippet-query" type="search" maxlength="200" aria-label="搜尋片段" placeholder="搜尋名稱、分類或內容">
                 <label class="field"><span>分類</span><select id="snippet-filter-category"></select></label>
-                <p id="snippet-count" class="notes-hint" aria-live="polite"></p>
+                <div class="snippet-list-status">
+                  <p id="snippet-count" class="notes-hint" aria-live="polite"></p>
+                  <button id="snippet-clear-filters" type="button" class="btn btn-ghost" disabled>清除篩選</button>
+                </div>
+                <div class="snippet-group-actions">
+                  <button id="snippet-expand-all" type="button" class="btn btn-ghost" aria-controls="snippet-list" disabled>展開全部</button>
+                  <button id="snippet-collapse-all" type="button" class="btn btn-ghost" aria-controls="snippet-list" disabled>收合全部</button>
+                </div>
                 <details id="snippet-bulk">
                   <summary>批次管理 <span id="snippet-selected-count" class="notes-hint"></span></summary>
                   <div class="snippet-bulk-actions">
@@ -232,6 +239,7 @@
             </aside>
             <div class="tool-detail snippet-editor">
               <h2 id="snippet-editor-title">新增片段</h2>
+              <p id="snippets-status" class="productivity-status" role="status"></p>
               <form id="snippet-form">
                 <input id="snippet-id" type="hidden">
                 <div class="productivity-fields">
@@ -239,7 +247,7 @@
                   <label class="field"><span>分類</span><input id="snippet-category" maxlength="60" list="snippet-categories" placeholder="未分類"></label>
                   <datalist id="snippet-categories"></datalist>
                 </div>
-                <label class="field"><span>文字內容</span><textarea id="snippet-body" required maxlength="20000" rows="10" aria-describedby="snippet-variables"></textarea></label>
+                <label class="field"><span class="snippet-body-label">文字內容 <span id="snippet-body-count" class="notes-hint" aria-hidden="true"></span></span><textarea id="snippet-body" required maxlength="20000" rows="10" aria-describedby="snippet-variables"></textarea></label>
                 <p id="snippet-variables" class="notes-hint">可用變數 <code>{{today}}</code>（今天）、<code>{{customer}}</code>（客戶／稱呼）。</p>
                 <details>
                   <summary>複製全域快捷鍵 <span id="snippet-shortcut-label" class="notes-hint"></span></summary>
@@ -257,7 +265,6 @@
                 <label class="field"><span>客戶／稱呼變數</span><input id="snippet-customer" maxlength="200"></label>
                 <pre id="snippet-preview-text"></pre>
               </details>
-              <p id="snippets-status" class="productivity-status" role="status"></p>
             </div>
           </div>
           <div class="snippet-page-options">
@@ -1265,7 +1272,7 @@
                 </section>
                 <section class="settings-card">
                   <h2>獨立工具視窗</h2>
-                  <label class="check-row"><input id="settings-floating-restore-panels" type="checkbox">重新啟動時恢復已釘選的獨立視窗與桌面便條</label>
+                  <label class="check-row"><input id="settings-floating-restore-panels" type="checkbox">重新啟動時恢復已釘選的獨立工具視窗</label>
                   <div id="settings-floating-tool-layout"></div>
                 </section>
                 <section class="settings-card">
@@ -1309,11 +1316,15 @@
                 <form id="sticker-settings-form" class="settings-card">
                   <h2>外觀與釘選來源</h2>
                   <label class="field"><span>程式啟動時的便條顯示方式</span><select id="sticker-settings-startup">
+                    <option value="visible" selected>只顯示未個別隱藏的便條</option>
                     <option value="previous">依上次顯示狀態</option>
                     <option value="hide">隱藏全部</option>
                     <option value="show">顯示全部</option>
-                    <option value="visible">只顯示未個別隱藏的便條</option>
-                  </select><small>「依上次顯示狀態」會沿用浮動工具的啟動恢復設定。其餘選項可獨立控制便條。</small></label>
+                  </select><small>「依上次顯示狀態」會恢復上次手動設定的整體及個別顯示狀態。</small></label>
+                  <label class="field"><span>點選圖片縮圖時</span><select id="sticker-settings-image-open">
+                    <option value="external" selected>以系統預設應用程式開啟原圖</option>
+                    <option value="internal">在 Bulk File Studio 內放大</option>
+                  </select></label>
                   <label class="field"><span>內容背景色</span><input id="sticker-settings-color" type="color" value="#ffffff"></label>
                   <label class="field"><span>標題列顏色</span><input id="sticker-settings-header-color" type="color" value="#d5eaf8"></label>
                   <label class="field"><span>失去焦點時的不透明度（%）</span><input id="sticker-settings-opacity" type="number" min="40" max="100" value="100" required></label>
