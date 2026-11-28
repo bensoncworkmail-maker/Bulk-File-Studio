@@ -231,6 +231,7 @@
       {label:`批次開啟所選的所在資料夾（去重）`,run:()=>batchFromMenu(ids,'locations')},
       {label:`搬移所選項目（${ids.length} 項）`,run:()=>{selected=new Set(ids);moveSelected();}},
       {label:'複製完整路徑',run:()=>run(async()=>{await api.copy(item.id);callbacks.showToast('已複製路徑');})},
+      {label:'複製啟動參數',run:()=>run(async()=>{await window.desktopAPI.copyLaunchItem('favorite',item.id);callbacks.showToast('已複製啟動參數');})},
       {label:ids.length===1?'編輯標籤／重新連結':`編輯 ${ids.length} 項的標籤`,run:()=>edit(ids)},
       {label:`快速加入標籤（${ids.length} 項）`,run:()=>quickTag(ids)},
       {label:'只重新連結此項目',run:()=>edit([item.id])},
@@ -269,7 +270,26 @@
   async function init(options) {
     callbacks=options;
     window.workspaceFavoritesUI?.init(options);
-    navigation=window.studioNavigation.create({document,canNavigate:()=>!window.zipUpdateUI?.isBusy()&&!callbacks.isBusy()&&window.productivityUI?.canLeave?.()!==false&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),onShow:view=>{window.everythingTrackingUI?.activate(view==='tracking');active=view==='favorites';if(active)window.workspaceFavoritesUI?.activate();settingsActive=!['rename','favorites'].includes(view);closeMenu();if(view==='zip')window.zipUpdateUI?.activate();else window.zipUpdateUI?.deactivate?.();if(view==='home')window.homeUI?.activate();if(view==='notes')window.notesUI?.activate();if(view==='search')window.appSearchUI?.activate();if(['productivity','planning','snippets'].includes(view))window.productivityUI?.activate();if(view==='logs')window.productivityUI?.openLogs();if(['settings','info'].includes(view))window.settingsUI.refreshInfo();$('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';}});
+    let activation;
+    navigation=window.studioNavigation.create({
+      document,
+      canNavigate:()=>!window.zipUpdateUI?.isBusy()&&!callbacks.isBusy()&&window.productivityUI?.canLeave?.()!==false&&(!window.notesUI||window.notesUI.canLeave())&&!document.querySelector('dialog[open]'),
+      onShow:view=>{
+        window.everythingTrackingUI?.activate(view==='tracking');
+        active=view==='favorites';
+        if(active)window.workspaceFavoritesUI?.activate();
+        settingsActive=!['rename','favorites'].includes(view);
+        closeMenu();
+        if(view==='zip')window.zipUpdateUI?.activate();else window.zipUpdateUI?.deactivate?.();
+        if(view==='home')window.homeUI?.activate();
+        if(view==='notes')activation=window.notesUI?.activate();
+        if(view==='search')window.appSearchUI?.activate();
+        if(['productivity','planning','snippets'].includes(view))activation=window.productivityUI?.activate();
+        if(view==='logs')window.productivityUI?.openLogs();
+        if(['settings','info'].includes(view))window.settingsUI.refreshInfo();
+        $('drop-overlay').querySelector('strong').textContent=active?'放開以收藏位置':'放開以加入檔案';
+      }
+    });
     navigation.configure(window.settingsUI.get().navigation);
     window.pathImportUI.init({isBusy:()=>busy||callbacks.isBusy(),showToast:callbacks.showToast,showFailure:callbacks.showFailure,onImported:refresh});
     window.sidebarResize.init({getWidth:()=>window.settingsUI.get().tagPanelWidth,save:value=>window.settingsUI.update({tagPanelWidth:value}),isBusy:()=>busy||callbacks.isBusy()});
@@ -361,7 +381,7 @@
     });
     window.addEventListener('focus',()=>{if(active)refresh();});
     api.onChanged(payload=>{if(payload.trashedPaths?.length)callbacks.onTrashed?.(payload.trashedPaths);if(payload.activate&&setView('favorites'))window.workspaceFavoritesUI?.showFiles();refresh();});
-    setView(window.settingsUI.get().startPage);await refresh();await updateContextStatus();
+    setView(window.settingsUI.get().startPage);await Promise.all([refresh(),activation]);await updateContextStatus();
   }
   window.favoritesUI=Object.freeze({configureNavigation:value=>navigation?.configure(value),init,isActive:()=>active,isSettings:()=>settingsActive,addPaths,refresh,render,resetPage:()=>{pageIndex=0;},
     hasOpenDialog:()=>$('everything-tag-dialog').open||$('everything-dialog').open||$('tag-manage-dialog').open||$('favorite-edit-dialog').open||$('favorite-remove-dialog').open||$('favorite-open-dialog').open||$('favorite-columns-dialog').open||$('quick-tag-dialog').open||window.pathImportUI.hasOpenDialog()||window.movingUI.hasOpenDialog(),

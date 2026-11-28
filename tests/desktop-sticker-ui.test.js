@@ -200,6 +200,8 @@ test('sticker thumbnails reflect the configured opening mode and attachments exp
  assert.equal(thumbnail.title,'以系統預設應用程式開啟');
  const [name,location]=$('attachment-rows').querySelectorAll('button');
  assert.equal(name.getAttribute('aria-label'),'開啟圖片 圖.png');
+ assert.equal(name.parentElement.className,'sticker-attachment-name');
+ assert.equal(name.parentElement.querySelector('.sticker-attachment-type').textContent,'圖片');
  assert.equal(location.getAttribute('aria-label'),'在檔案總管定位 C:/圖');
  assert.equal($('attachment-count').textContent,'1');
  update({...data,version:2,showAttachmentHint:true});

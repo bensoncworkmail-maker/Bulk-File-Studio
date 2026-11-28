@@ -40,11 +40,41 @@ function harness(t, overrides = {}) {
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
-    __dirname:path.dirname(main), process, setTimeout:overrides.setTimeoutFn??setTimeout,
+    __dirname:path.dirname(main), process:overrides.argv?Object.create(process,{argv:{value:overrides.argv}}):process, setTimeout:overrides.setTimeoutFn??setTimeout,
     clearTimeout:overrides.clearTimeoutFn??clearTimeout, setImmediate
   }, { filename:main });
   return {app:electron.app,clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
+
+test('startup navigation waits for the trusted renderer and forwarded commands reuse it',t=>{
+ const h=harness(t,{argv:['Studio.exe','--open-page','snippets']}),main=h.windows[0];
+ const targets=()=>h.messages.filter(message=>message[0]==='desktop-launch-target').map(message=>({...message[1]}));
+ assert.deepEqual(targets(),[]);
+ assert.throws(()=>h.rawHandlers.get('desktop-launch-ready')({sender:main.webContents,senderFrame:{url:'file:///other.html'}}),/不受信任/);
+ h.handlers.get('desktop-launch-ready')();
+ assert.deepEqual(targets(),[{page:'snippets'}]);
+ const id='11111111-2222-3333-4444-555555555555';
+ h.handlers.get('desktop-copy-launch-item')(null,'record',id);
+ assert.equal(h.getCopied(),'--open-item record '+id);
+ assert.throws(()=>h.handlers.get('desktop-copy-launch-item')(null,'record',id+' & whoami'),/UUID/);
+ main.hide();
+ h.events.get('second-instance')({},['reordered','argv'],h.dir,{launchArgs:['--open-item','record',id]});
+ assert.equal(main.isVisible(),true);assert.equal(h.windows.length,1);
+ assert.deepEqual(targets().at(-1),{kind:'record',id});
+ h.network['did-start-loading']();
+ h.events.get('second-instance')({},['Studio.exe','--open-page','favorites'],h.dir);
+ assert.equal(targets().length,2);
+ h.handlers.get('desktop-launch-ready')();
+ assert.deepEqual(targets().at(-1),{page:'favorites'});
+ h.events.get('second-instance')({},['Studio.exe','--open-item','tracking',id],h.dir);
+ assert.match(targets().at(-1).error,/追蹤/);
+ h.events.get('second-instance')({},['Studio.exe','--open-item','record',id,'extra'],h.dir);
+ assert.match(targets().at(-1).error,/--open-item/);
+ const count=targets().length;
+ h.events.get('second-instance')({},['Studio.exe','--favorite','--','--open-page','notes'],h.dir);
+ assert.equal(targets().length,count);
+ assert.deepEqual(h.opened,[]);
+});
 
 test('productivity IPC is restricted to the main renderer and supports persistent snippets',async t=>{
  const h=harness(t),floating=new h.windows[0].constructor({width:320,height:400});floating.loadFile(path.resolve(__dirname,'../src/floating.html'));

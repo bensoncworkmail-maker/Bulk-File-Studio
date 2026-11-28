@@ -31,9 +31,9 @@
   if(type){
    const badge=text('span',type);
    badge.className='sticker-attachment-type';badge.setAttribute('aria-hidden','true');
-   cell.append(badge);
-  }
-  cell.append(control);
+   const name=document.createElement('div');
+   name.className='sticker-attachment-name';name.append(badge,control);cell.append(name);
+  }else cell.append(control);
   if(mode==='single')cell.addEventListener('click',event=>{if(event.detail===1)return action();});
   else cell.addEventListener('dblclick',action);
   return cell;

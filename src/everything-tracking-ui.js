@@ -145,7 +145,17 @@
    const control=button('',()=>selectTag(item.key),'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.setAttribute('aria-haspopup','menu');control.title=item.count+' 個追蹤搜尋；右鍵開啟標籤選單';control.addEventListener('contextmenu',event=>tagMenu(event,item));control.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')tagMenu(event,item);});return control;
   }));
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
-   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);restoreSelection();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
+   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);restoreSelection();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));
+   const menu=event=>{
+    event.preventDefault();event.stopPropagation();if(blocked())return;
+    window.favoritesUI?.showMenu(event,[{label:'複製啟動參數',run:async()=>{
+     try{await window.desktopAPI.copyLaunchItem('tracking',query.id);callbacks.showToast('已複製啟動參數');}
+     catch(error){callbacks.showFailure('無法複製啟動參數',error);}
+    }}]);
+   };
+   control.setAttribute('aria-haspopup','menu');control.addEventListener('contextmenu',menu);
+   control.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')menu(event);});
+   return control;
   }));
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns(),entries=ordered();
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
@@ -407,5 +417,5 @@
   $('everything-tag-dialog').addEventListener('close',()=>{tagEditing=null;});
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,openTag,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
+ window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,openTag,canLeave:()=>!busy&&renaming?.mode!=='inline',settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
 })();

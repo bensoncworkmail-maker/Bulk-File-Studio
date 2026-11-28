@@ -203,10 +203,23 @@ async function undoJournalOperation(id,confirm){
 async function outputDialog(parent,options){let recent;try{recent=workflow?.store.read().recentFolders[0];}catch{}const value=await dialog.showSaveDialog(parent,{...options,...(recent&&options.defaultPath&&!path.isAbsolute(options.defaultPath)?{defaultPath:path.join(recent,options.defaultPath)}:{})});if(!value.canceled&&workflow)try{workflow.remember(path.dirname(value.filePath));}catch(error){diagnostics.record('main','recent-output-folder',error);}return value;}
 
 let contextMenu;
-let queuedFavorites = favoriteArguments(process.argv);
+const launchNavigation=require('./launch-navigation');
+const launchArgs=launchNavigation.launchArguments(process.argv);
+let pendingLaunch,launchReadyContents;
+let queuedFavorites = launchArgs?[]:favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
 let favoriteNotice = null;
 function send(window,channel,payload){if(window&&!window.isDestroyed())window.webContents.send(channel,payload);}
+function deliverLaunch(){
+ if(!pendingLaunch||!win||win.isDestroyed()||launchReadyContents!==win.webContents)return;
+ let target=pendingLaunch;
+ pendingLaunch=null;
+ if(target.kind==='tracking'){
+  try{everythingTracking.query(target.id);}catch(error){target={error:error.message};}
+ }
+ send(win,'desktop-launch-target',target);
+}
+function copyLaunchItem(kind,id){return clipboard.writeText(launchNavigation.itemArguments(kind,id).join(' '));}
 function notifyFavorites(payload = {}) {logStickers?.refresh();toolOverlay?.invalidate('files');closeFloatingMenu();send(win,'favorites-changed',payload);send(capture?.window,'floating-capture-choices-changed',{});floatingSearch?.invalidate();}
 function receiveFavorites(argv, transferredPaths) {
   queuedFavorites.push(...(transferredPaths===undefined?favoriteArguments(argv):validFavoritePaths(transferredPaths)));
@@ -305,6 +318,8 @@ function createWindow(hidden=false) {
     }
   });
   secureWindow(win);
+  const contents=win.webContents;
+  contents.on('did-start-loading',()=>{if(launchReadyContents===contents)launchReadyContents=null;});
   desktop.attach('main',win,error=>send(win,'desktop-settings-changed',{error:error.message}));
   pendingMaximize=Boolean(hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized);
   if(!hidden&&desktop.settings.rememberWindow&&desktop.data.windows.main?.maximized)win.maximize();
@@ -363,10 +378,16 @@ function openBrowserSnippet({body,receipt}){
 }
 function startApp(initialSelection,receipt){
 const selections=initialSelection?[{body:initialSelection,receipt}]:[];
-if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites,snippetSelection:initialSelection||null,snippetReceipt:receipt||null})) {
+pendingLaunch=launchNavigation.launchTarget(launchArgs);
+if (app.requestSingleInstanceLock({favoritePaths:queuedFavorites,snippetSelection:initialSelection||null,snippetReceipt:receipt||null,launchArgs})) {
 app.on('second-instance', (_, argv, workingDirectory, additionalData) => {
   const selected=snippetSelection.selectionText(additionalData?.snippetSelection);
-  if(!selected){receiveFavorites(argv,additionalData?.favoritePaths);return;}
+  if(!selected){
+   const args=Object.hasOwn(additionalData??{},'launchArgs')?additionalData.launchArgs:launchNavigation.launchArguments(argv);
+   const target=launchNavigation.launchTarget(args);
+   if(target){pendingLaunch=target;if(win){focusMain();deliverLaunch();}return;}
+   receiveFavorites(argv,additionalData?.favoritePaths);return;
+  }
   const request={body:selected,receipt:additionalData?.snippetReceipt};
   if(snippetCapture)openBrowserSnippet(request);
   else selections.push(request);
@@ -384,6 +405,8 @@ app.whenReady().then(() => {
       return handler(event,...args);
     });
   });
+  handle('desktop-launch-ready',event=>{launchReadyContents=event.sender;deliverLaunch();});
+  handle('desktop-copy-launch-item',(_,kind,id)=>copyLaunchItem(kind,id));
   if(fs.existsSync(path.join(app.getPath('userData'),'profile-transaction.json')))require('./profile-service').recoverProfile(app.getPath('userData'),notesStore());
   desktop=new DesktopState(path.join(app.getPath('userData'),'desktop-state.json'));
   require('./zip-update-ipc').register({handle,root:app.getPath('userData'),downloads:app.getPath('downloads'),dialog,parent:()=>win,fileOperation,
@@ -720,7 +743,7 @@ app.whenReady().then(() => {
   handle('notes-context-menu',(_,kind,id)=>{
     if(!['area','sheet'].includes(kind))throw new Error('選單類型無效');const document=notesStore().get().document,area=document.areas.find(area=>area.id===id),sheet=document.sheets.find(sheet=>sheet.id===id&&!sheet.deletedAt),action=(label,command,enabled=true)=>({label,enabled,click:()=>send(win,'notes-context-action',{command,kind,id})});let entries;
     if(kind==='area'){if(id&&!area)throw new Error('群組已移除');const root=document.sheets.find(sheet=>sheet.id===area?.masterSheetId&&!sheet.deletedAt);entries=area?[action('開啟主表','open-area'),action('新增主紀錄','new-master',Boolean(root)),action('新增明細表','new-detail',Boolean(root)),action('匯出主表及明細','export-area')]:[action('新增主表','new-sheet'),action('開啟範本庫','templates')];}
-    else{if(!sheet)throw new Error('表格已變更或刪除');entries=[action('開啟表格','open-sheet'),action('欄位與名稱','edit-sheet'),...(!require('./notes-model').parentField(document,sheet)?[action('新增明細表','new-detail')]:[]),action('匯出此表格','export-sheet'),{type:'separator'},action('移至回收筒','trash-sheet')];}
+    else{if(!sheet)throw new Error('表格已變更或刪除');entries=[action('開啟表格','open-sheet'),action('欄位與名稱','edit-sheet'),...(!require('./notes-model').parentField(document,sheet)?[action('新增明細表','new-detail')]:[]),action('匯出此表格','export-sheet'),{label:'複製啟動參數',click:floatingAction(()=>copyLaunchItem('sheet',id))},{type:'separator'},action('移至回收筒','trash-sheet')];}
     Menu.buildFromTemplate(entries).popup({window:win});return true;
   });
   handle('notes-client-details',(_,areaId,revision)=>notesChanged(notesStore().completeClientDetails(areaId,revision)));
@@ -1335,7 +1358,7 @@ app.whenReady().then(() => {
   });
   function sendDraftSelection(id){const target=drafts.window,select=()=>send(target,'draft-select',id);if(target.webContents.isLoadingMainFrame?.())target.webContents.once('did-finish-load',select);else select();}
   const captureToTray=selections.length>0&&(desktop.settings.trayAlwaysVisible||desktop.settings.closeToTray);
-  const initiallyHidden=(desktop.settings.startHidden||captureToTray)&&!queuedFavorites.length&&desktopShell.ensureTray();
+  const initiallyHidden=(desktop.settings.startHidden||captureToTray)&&!queuedFavorites.length&&!pendingLaunch&&desktopShell.ensureTray();
   desktopShell.syncTray();
   createWindow(initiallyHidden);Promise.resolve().then(()=>{recordReminders.tick();recordAttention.sync();}).catch(error=>diagnostics.record('main','record-reminders-startup',error));
   if(queuedFavorites.length)receiveFavorites([]);

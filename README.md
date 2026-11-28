@@ -103,6 +103,21 @@ GitHub 原始碼 ZIP 用於開發及建置。安裝、更新及資料位置請�
 - **新增浮動快捷動作**。到「設定 → 浮動工具 → 編輯快捷動作」選擇操作類型及開啟方式。快捷按鈕顯示於同一列；可拖放檔案及資料夾。Windows 系統匣的右鍵選單可管理全部桌面便條。[浮動工具說明](docs/floating-panels.md)
 - **共享一張主表**。到「資料工作區 → 共享更新」選擇主表與共享資料夾。接收時用「共享差異合併」保留本機獨立修改，先核對預覽，再確認匯入。[共享設定、版本與衝突處理](docs/sharing-scope-and-versions.md)
 
+## 從 `.cmd`、指令碼或 Windows 捷徑開啟
+
+將下列程式路徑換成實際的安裝版或可攜版 EXE。`start ""` 可從批次檔啟動並繼續執行下一行。
+
+```bat
+start "" "C:\Tools\Bulk File Studio.exe" --open-page tracking
+start "" "C:\Tools\Bulk File Studio.exe" --open-item record 11111111-2222-3333-4444-555555555555
+```
+
+- `--open-page <頁面代碼>` 可用 `home`（首頁）、`notes`（資料工作區）、`favorites`（我的收藏）、`tracking`（Everything 追蹤）、`snippets`（常用文字片段）、`zip`（ZIP 更新助手）、`rename`（檔案工具）、`search`（全域搜尋）、`planning`（日曆／看板）、`logs`（查看紀錄）、`productivity`（工具箱）、`settings`（設定）、`info`（資訊與更新紀錄）。
+- `--open-item <類型> <UUID>` 支援 `record`（工作區紀錄）、`sheet`（工作區資料表）、`favorite`（檔案／資料夾收藏）、`tracking`（已儲存的追蹤搜尋）、`snippet`（文字片段）。
+- 可在紀錄詳情、資料表右鍵選單、收藏右鍵選單、追蹤搜尋右鍵選單或已儲存的片段編輯區，按「複製啟動參數」，貼在 EXE 路徑後方。Windows 捷徑的目標可直接填入引號內的 EXE 路徑和參數。
+
+指令會啟動應用程式，執行中則使用原有視窗。項目會在目前使用者資料中以 UUID 定位。導覽會遵守現有的編輯及作業檢查。收藏指令開啟收藏頁的指定項目。
+
 ## 離線與資料保護
 
 - 工作區 SQLite、收藏與設定儲存在目前 Windows 使用者的本機資料位置。共享傳送資料包快照，可為各主表指定範圍。
