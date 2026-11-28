@@ -140,6 +140,24 @@ function showFailure(title, error) {
   $('error-details').textContent = withoutPrefix(error);
   if (!$('error-dialog').open) $('error-dialog').showModal();
 }
+async function openLaunchTarget(target) {
+  try {
+    if (target.error) throw new Error(target.error);
+    const blocked = busy || window.notesUI.isBusy() || window.notesUI.canLeave()===false ||
+      window.productivityUI?.canLeave?.()===false || window.everythingTrackingUI?.canLeave?.()===false ||
+      window.zipUpdateUI?.isBusy() || document.querySelector('dialog[open]');
+    if (blocked) throw new Error('請先完成目前操作，再執行開啟指令。');
+    let opened;
+    if (target.page) opened = window.favoritesUI.show(target.page);
+    else if (target.kind==='record'||target.kind==='sheet') opened = await window.notesUI.openSearchTarget(target.kind,target.id);
+    else if (target.kind==='favorite') opened = await window.favoritesUI.showItem(target.id);
+    else if (target.kind==='tracking') opened = window.everythingTrackingUI.open(target.id);
+    else if (target.kind==='tracking-tag') opened = window.everythingTrackingUI.openTag(target.tag);
+    else if (target.kind==='tracking-query') opened = window.everythingTrackingUI.openQuery(target.text);
+    else if (target.kind==='snippet') opened = await window.productivityUI.openSnippet(target.id);
+    if (opened===false) showToast('未切換至指定項目。請先完成目前操作。','error');
+  } catch (error) { showFailure('無法開啟指定頁面或項目',error); }
+}
 function applyTheme(theme) {
   const value = ['light','dark','graphite'].includes(theme) ? theme : 'dark';
   document.documentElement.dataset.theme = value;
@@ -716,5 +734,8 @@ async function init() {
   try { history = await api.history();render(); } catch(e) {showToast('無法讀取復原紀錄：'+withoutPrefix(e),'error');}
   await favoriteReady;
   window.everythingUI.init({isBusy:()=>busy,showToast,showFailure,onFavorite:async()=>{await window.favoritesUI.refresh();window.favoritesUI.show('favorites');},onRename:result=>{addFromResult(result);window.favoritesUI.show('rename');}});
+  let lastLaunch=Promise.resolve();
+  window.desktopAPI.onLaunchTarget?.(target=>{lastLaunch=lastLaunch.then(()=>openLaunchTarget(target));});
+  await window.desktopAPI.launchReady?.().catch(error=>showFailure('無法接收啟動參數',error));
 }
 init();

@@ -88,6 +88,8 @@ contextBridge.exposeInMainWorld('desktopAPI',Object.freeze({retryShortcuts:()=>i
  floatingTagOptions:()=>invoke('floating-tag-options'),
  openTraySettings:()=>invoke('tray-open-settings'),openStartupSettings:()=>invoke('startup-open-settings'),startup:()=>invoke('startup-get'),setStartup:enabled=>invoke('startup-set',enabled),hideToTray:()=>invoke('app-hide-to-tray'),
  openFloatingTool:kind=>invoke('floating-open-tool',kind),
+ copyLaunchItem:(kind,id)=>invoke('desktop-copy-launch-item',kind,id),
+ onLaunchTarget:callback=>ipcRenderer.on('desktop-launch-target',(_,target)=>callback(target)),launchReady:()=>invoke('desktop-launch-ready'),
  diagnosticsStatus:recent=>invoke('diagnostics-status',recent),openDiagnostics:()=>invoke('diagnostics-open'),exportDiagnostics:()=>invoke('diagnostics-export'),clearDiagnostics:()=>invoke('diagnostics-clear'),
  resizeMain:(width,height)=>invoke('desktop-main-size',width,height),onOpenPage:callback=>ipcRenderer.on('open-app-page',(_,page)=>callback(page)),get:()=>invoke('desktop-settings-get'),configure:patch=>invoke('desktop-settings-set',patch),resetSnippetPickerGroups:()=>invoke('snippet-picker-reset-groups'),
  resetWindow:()=>invoke('desktop-reset-window'),showFloating:()=>invoke('floating-show'),hideFloating:()=>invoke('floating-hide'),

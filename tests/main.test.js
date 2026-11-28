@@ -40,11 +40,63 @@ function harness(t, overrides = {}) {
   };
   vm.runInNewContext(fs.readFileSync(main, 'utf8'), {
     require:name=>name === 'electron' ? electron : (overrides[name] || realRequire(name)),
-    __dirname:path.dirname(main), process, setTimeout:overrides.setTimeoutFn??setTimeout,
+    __dirname:path.dirname(main), process:overrides.argv?Object.create(process,{argv:{value:overrides.argv}}):process, setTimeout:overrides.setTimeoutFn??setTimeout,
     clearTimeout:overrides.clearTimeoutFn??clearTimeout, setImmediate
   }, { filename:main });
   return {app:electron.app,clipboard:electron.clipboard,shell:electron.shell,messages,popup:()=>popup,popupClosed:()=>popupClosed,shortcuts:electron.globalShortcut, dir, dialog:electron.dialog, handlers, windows, registered, rawHandlers, network, opened, shown, getCopied:()=>copied, events, nativeTheme, historyPath:path.join(dir, 'last-rename.json') };
 }
+
+test('startup navigation waits for the trusted renderer and forwarded commands reuse it',t=>{
+ const h=harness(t,{argv:['Studio.exe','--open-page','snippets']}),main=h.windows[0];
+ const targets=()=>h.messages.filter(message=>message[0]==='desktop-launch-target').map(message=>({...message[1]}));
+ assert.deepEqual(targets(),[]);
+ assert.throws(()=>h.rawHandlers.get('desktop-launch-ready')({sender:main.webContents,senderFrame:{url:'file:///other.html'}}),/不受信任/);
+ h.handlers.get('desktop-launch-ready')();
+ assert.deepEqual(targets(),[{page:'snippets'}]);
+ const id='11111111-2222-3333-4444-555555555555';
+ h.handlers.get('desktop-copy-launch-item')(null,'record',id);
+ assert.equal(h.getCopied(),'--open-item record '+id);
+ assert.throws(()=>h.handlers.get('desktop-copy-launch-item')(null,'record',id+' & whoami'),/UUID/);
+ main.hide();
+ h.events.get('second-instance')({},['reordered','argv'],h.dir,{launchArgs:['--open-item','record',id]});
+ assert.equal(main.isVisible(),true);assert.equal(h.windows.length,1);
+ assert.deepEqual(targets().at(-1),{kind:'record',id});
+ h.network['did-start-loading']();
+ h.events.get('second-instance')({},['Studio.exe','--open-page','favorites'],h.dir);
+ assert.equal(targets().length,2);
+ h.handlers.get('desktop-launch-ready')();
+ assert.deepEqual(targets().at(-1),{page:'favorites'});
+ h.events.get('second-instance')({},['Studio.exe','--open-item','tracking',id],h.dir);
+ assert.match(targets().at(-1).error,/追蹤/);
+ h.events.get('second-instance')({},['Studio.exe','--open-item','record',id,'extra'],h.dir);
+ assert.match(targets().at(-1).error,/--open-item/);
+ const count=targets().length;
+ h.events.get('second-instance')({},['Studio.exe','--favorite','--','--open-page','notes'],h.dir);
+ assert.equal(targets().length,count);
+ assert.deepEqual(h.opened,[]);
+});
+
+test('tracking launch commands route a saved UUID, expression or tag and leave unmatched expressions unsaved',t=>{
+ const h=harness(t),H=h.handlers;
+ H.get('desktop-launch-ready')();
+ const text=String.raw`dm:last7days !C:\Users\Example\AppData\Local\Temp size:>200mb`;
+ const saved=H.get('everything-tracking-save')(null,{name:'大型檔案',text,mode:'syntax',type:'file',tags:['Work Files'],enabled:false});
+ const open=(...args)=>{
+  h.events.get('second-instance')({},['Studio.exe',...args],h.dir);
+  return {...h.messages.findLast(message=>message[0]==='desktop-launch-target')[1]};
+ };
+ assert.deepEqual(open('--open-item','tracking',saved.id),{kind:'tracking',id:saved.id});
+ assert.deepEqual(open('--open-tracking-tag','work files'),{kind:'tracking-tag',tag:'work files'});
+ assert.match(open('--open-tracking-tag','不存在').error,/找不到/);
+ const expression='file: <'+text+'>';
+ assert.deepEqual(open('--open-tracking-query',expression),{kind:'tracking',id:saved.id});
+ assert.deepEqual(open('--open-tracking-query',text),{kind:'tracking',id:saved.id});
+ assert.deepEqual(open('--open-tracking-query','regex:^Report_[0-9]+$'),{kind:'tracking-query',text:'regex:^Report_[0-9]+$'});
+ assert.match(open('--open-tracking-query','x'.repeat(4097)).error,/4096/);
+ assert.equal(H.get('everything-tracking-list')().queries.length,1);
+ H.get('everything-tracking-save')(null,{name:'另一筆搜尋',text:expression,mode:'syntax',type:'all',tags:[],enabled:false});
+ assert.match(open('--open-tracking-query',expression).error,/UUID/);
+});
 
 test('productivity IPC is restricted to the main renderer and supports persistent snippets',async t=>{
  const h=harness(t),floating=new h.windows[0].constructor({width:320,height:400});floating.loadFile(path.resolve(__dirname,'../src/floating.html'));

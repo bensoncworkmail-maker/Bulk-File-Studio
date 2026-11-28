@@ -29,22 +29,19 @@ button{cursor:pointer;font:inherit}
 #attachment-count{margin-inline-start:4px;font-size:.88em;color:color-mix(in srgb,currentColor 75%,transparent)}
 #attachments table{width:100%;table-layout:fixed;border-collapse:collapse}
 #attachments caption{text-align:left;font-size:11px;margin-bottom:6px}
-#attachments th,#attachments td{text-align:left;vertical-align:top;border-bottom:1px solid color-mix(in srgb,currentColor 18%,transparent);padding:6px 7px}
+#attachments th,#attachments td{text-align:left;vertical-align:baseline;border-bottom:1px solid color-mix(in srgb,currentColor 18%,transparent);padding:6px 7px}
 #attachments th{font-size:.88em;background:color-mix(in srgb,currentColor 6%,transparent)}
 #attachments th:first-child{width:48%}
 #attachments tbody tr:hover{background:color-mix(in srgb,currentColor 5%,transparent)}
 #attachments .sticker-link{display:block;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-underline-offset:2px}
 #attachments td:first-child .sticker-link{font-weight:600}
-#attachments td+td .sticker-link{font-size:.9em;color:color-mix(in srgb,currentColor 83%,transparent)}
-.sticker-attachment-type{display:block;font-size:.8em;color:color-mix(in srgb,currentColor 75%,transparent)}
-@container attachments (max-width:275px){
- #attachments table,#attachments tbody{display:block}
- #attachments thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
- #attachments tr{display:grid;border-bottom:1px solid color-mix(in srgb,currentColor 18%,transparent);padding:5px 0}
- #attachments td{display:block;min-width:0;padding:0 5px;border:0}
- #attachments td:first-child{display:flex;align-items:baseline;gap:6px}
- #attachments td:first-child .sticker-link{min-width:0}
- .sticker-attachment-type{flex:none}
+#attachments td+td .sticker-link{color:color-mix(in srgb,currentColor 83%,transparent)}
+.sticker-attachment-name{display:flex;align-items:baseline;gap:6px}
+.sticker-attachment-name .sticker-link{flex:1;min-width:0}
+.sticker-attachment-type{flex:none;white-space:nowrap;font-size:.8em;color:color-mix(in srgb,currentColor 75%,transparent)}
+@container attachments (max-width:235px){
+ #attachments th,#attachments td{padding-inline:4px}
+ .sticker-attachment-type{display:none}
 }
 #tag-items{padding-inline-start:20px}
 #image-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,112px),1fr));gap:8px}

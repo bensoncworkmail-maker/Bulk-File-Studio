@@ -26,6 +26,22 @@ test('both type selectors offer the supported categories and tracked edits retai
  await h.$('everything-tracking-edit').dispatch('click');assert.equal(h.$('everything-rule-type').value,'video');
 });
 
+test('opening an unmatched Everything expression fills a new tracking form without saving it',async t=>{
+ const h=fixture(t),tracking=h.window.everythingTrackingUI,text='regex:^Report_[0-9]+$ size:>200mb';
+ h.window.favoritesUI={show:page=>{assert.equal(page,'tracking');tracking.activate(true);return true;}};
+ await flush();
+ assert.equal(tracking.openQuery(text),true);
+ await flush();
+ assert.equal(h.$('everything-tracking-dialog').open,true);
+ assert.equal(h.$('everything-rule-text').value,text);
+ assert.equal(h.$('everything-rule-mode').value,'syntax');
+ assert.equal(h.$('everything-rule-type').value,'all');
+ assert.equal(h.service.list().queries.length,1);
+ assert.equal(h.calls.length,0);
+ assert.equal(tracking.openQuery('different'),false);
+ assert.equal(h.$('everything-rule-text').value,text);
+});
+
 test('tracking shortcuts select, invert, copy and clear only inside an active non-editing results view',async t=>{
  const h=fixture(t);await flush();h.window.everythingTrackingUI.activate(true);await flush();
  const panel=h.$('everything-tracking-panel'),results=h.$('everything-tracking-results');let prevented=0;

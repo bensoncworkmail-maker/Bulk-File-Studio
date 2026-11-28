@@ -223,6 +223,23 @@
  function copySnippet(id){
   if(id)void run(()=>api.snippetCopy(id,$('snippet-customer').value),'已複製文字片段。');
  }
+ function clearSnippetFilters(){
+  $('snippet-query').value=$('snippet-filter-category').value='';
+  foldedFilteredGroups.clear();
+ }
+ async function openSnippet(id){
+  if(!loaded||dirty)await run(load);
+  if(!loaded||dirty)return false;
+  const value=state.data.snippets.find(item=>item.id===id);
+  if(!value)throw Error('文字片段已移除');
+  if(window.favoritesUI.show('snippets')===false)return false;
+  if(selectedTools.snippets!==id){
+   if(!discard('snippets'))return false;
+   setSnippet(value);
+  }
+  clearSnippetFilters();foldedSnippetGroups.delete(value.category);renderSnippets(id);
+  return true;
+ }
  function renderSnippets(focusId){
   const root=$('snippet-list'),items=state?.data.snippets||[],ids=new Set(items.map(item=>item.id));
   for(const id of snippetSelection)if(!ids.has(id))snippetSelection.delete(id);
@@ -267,6 +284,7 @@
   }
   empty(root,items.length?'沒有符合的片段。':'尚無片段，請按「新增片段」。');
   root.scrollTop=scrollTop;
+  focusTarget?.scrollIntoView({block:'nearest'});
   focusTarget?.focus({preventScroll:true});
   updateSnippetActions(rows);
  }
@@ -277,6 +295,7 @@
   $('snippet-select-results').disabled=busy||!rows.length;
   for(const id of ['snippet-clear-selection','snippet-apply-category','snippet-delete-selected'])$(id).disabled=busy||!count;
   $('snippet-copy').disabled=busy||!selectedTools.snippets;
+  $('snippet-copy-launch').hidden=!selectedTools.snippets;
   $('snippet-clear-filters').disabled=busy||!hasSnippetFilter();
   const groups=[...snippetGroups.values()];
   $('snippet-expand-all').disabled=busy||!groups.some(group=>group.content.hidden);
@@ -473,6 +492,9 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
    if(selectedTools.snippets&&discard('snippets'))void remove('snippets',selectedTools.snippets);
   });
   $('snippet-copy').addEventListener('click',()=>copySnippet(selectedTools.snippets));
+  $('snippet-copy-launch').addEventListener('click',()=>{
+   if(selectedTools.snippets)void run(()=>window.desktopAPI.copyLaunchItem('snippet',selectedTools.snippets),'已複製啟動參數。');
+  });
   $('snippet-select-results').addEventListener('click',()=>{
    for(const item of snippetResults())snippetSelection.add(item.id);
    renderSnippets();
@@ -484,7 +506,7 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   $('snippet-query').addEventListener('input',filtersChanged);
   $('snippet-filter-category').addEventListener('change',filtersChanged);
   $('snippet-clear-filters').addEventListener('click',()=>{
-   $('snippet-query').value=$('snippet-filter-category').value='';filtersChanged();$('snippet-query').focus();
+   clearSnippetFilters();renderSnippets();$('snippet-list').scrollTop=0;$('snippet-query').focus();
   });
   $('snippet-expand-all').addEventListener('click',()=>setSnippetGroupsExpanded(true));
   $('snippet-collapse-all').addEventListener('click',()=>setSnippetGroupsExpanded(false));
@@ -517,5 +539,5 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   const install=$('snippet-browser-setup');
   install?.addEventListener('click',()=>void run(()=>api.setupBrowserSnippets(),()=> '擴充功能資料夾已開啟，請在瀏覽器載入。'));
  }
- window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(snippetsOpen())window.workflowHub?.deactivate?.();if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
+ window.productivityUI=Object.freeze({invalidate:()=>{dirty=true;},init,openLogs,snippetPicker,openSnippet,openSection,currentSection:()=>section,workflowReady:()=>{if(!$('productivity-page').classList.contains('hidden'))show(section);},canLeave:()=>!busy&&window.workflowHub?.canLeave?.()!==false,activate:()=>{if(snippetsOpen())window.workflowHub?.deactivate?.();if(!loaded||dirty)return run(load).then(()=>{if(!$('productivity-page').classList.contains('hidden')){const source=pendingSource;pendingSource=undefined;show(section,source);}});if(!$('productivity-page').classList.contains('hidden'))show(section);},previewLink:async(recordId,index)=>showPreview(await run(()=>api.previewLink(recordId,index)))});
 })();

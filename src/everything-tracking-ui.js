@@ -103,7 +103,7 @@
    if(!filtered().some(item=>item.id===currentId))currentId=filtered()[0]?.id||null;
    restoreSelection();rememberQuery(currentId);syncStartQuery();
    for(const key of resultFilters.keys())if(!data.queries.some(query=>query.id===key))resultFilters.delete(key);
-   loading=false;render();schedule();if(update&&visible()&&current()?.enabled&&ready())await refresh();
+   loading=false;render();schedule();if(update&&!editing&&visible()&&current()?.enabled&&ready())await refresh();
   }catch(error){if(id===request)$('everything-tracking-status').textContent=String(error.message||error);}
   finally{if(id===request){loading=false;renderControls();}}
  }
@@ -145,7 +145,17 @@
    const control=button('',()=>selectTag(item.key),'favorite-tag-filter'+(tag===item.key?' active':''));control.append(node('span',item.name),node('span',String(item.count),'count-pill'));control.setAttribute('aria-pressed',String(tag===item.key));control.setAttribute('aria-haspopup','menu');control.title=item.count+' 個追蹤搜尋；右鍵開啟標籤選單';control.addEventListener('contextmenu',event=>tagMenu(event,item));control.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')tagMenu(event,item);});return control;
   }));
   $('everything-tracking-rules').replaceChildren(...filtered().map(query=>{
-   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);restoreSelection();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));return control;
+   const control=button('',()=>{if(blocked())return;rememberQuery(query.id);restoreSelection();render();void refresh();},'everything-tracking-rule'+(currentId===query.id?' active':''));control.append(node('strong',query.name),node('small',query.enabled?query.tags.join(' · ')||'未加標籤':'已暫停'));control.setAttribute('aria-pressed',String(currentId===query.id));
+   const menu=event=>{
+    event.preventDefault();event.stopPropagation();if(blocked())return;
+    window.favoritesUI?.showMenu(event,[{label:'複製啟動參數',run:async()=>{
+     try{await window.desktopAPI.copyLaunchItem('tracking',query.id);callbacks.showToast('已複製啟動參數');}
+     catch(error){callbacks.showFailure('無法複製啟動參數',error);}
+    }}]);
+   };
+   control.setAttribute('aria-haspopup','menu');control.addEventListener('contextmenu',menu);
+   control.addEventListener('keydown',event=>{if(event.key==='ContextMenu'||event.shiftKey&&event.key==='F10')menu(event);});
+   return control;
   }));
   const query=current(),snapshot=query?.snapshot,rows=snapshot?.rows||[],visibleColumns=shownColumns(),entries=ordered();
   $('everything-tracking-filter-count').textContent=resultFilter().trim()?'顯示 '+entries.length+' / '+rows.length+' 項':'共 '+rows.length+' 項';
@@ -261,6 +271,10 @@
   cancelInlineRename(false,false);rememberTag(value.toLocaleLowerCase());currentId=null;
   selected.clear();void load(true);return true;
  }
+ function openQuery(text){
+  if(!window.favoritesUI?.show('tracking'))return false;
+  return editor(null,text);
+ }
  function selectResults(kind){
   if(blocked())return;
   selected=new Set(ordered().map(({index})=>index).filter(i=>kind==='all'||kind==='invert'&&!selected.has(i)));
@@ -334,11 +348,13 @@
   finally{busy=false;if(inline){input.disabled=false;if(failed&&renaming===target)input.focus();}else for(const id of ['everything-item-rename-name','everything-item-rename-save','everything-item-rename-cancel'])$(id).disabled=false;renderControls();}
  }
 
- function editor(query=null){
-  if(busy||editing||document.querySelector('dialog[open]'))return;
+ function editor(query=null,initialText=''){
+  if(busy||editing||document.querySelector('dialog[open]'))return false;
   editing={id:query?.id||null};$('everything-rule-title').textContent=query?'編輯追蹤搜尋':'追蹤 Everything 搜尋';
   for(const name of ['name','text','mode','type'])$('everything-rule-'+name).value=query?.[name]||(name==='mode'?'syntax':name==='type'?'all':'');
+  if(initialText)$('everything-rule-text').value=initialText;
   window.everythingWorkbench?.set('everything-rule',query);$('everything-rule-tags').value=query?.tags.join(', ')||'';$('everything-rule-enabled').checked=query?.enabled!==false;$('everything-rule-error').textContent='';$('everything-tracking-dialog').showModal();$('everything-rule-name').focus();
+  return true;
  }
  async function save(){
   if(!editing||busy)return;
@@ -407,5 +423,5 @@
   $('everything-tag-dialog').addEventListener('close',()=>{tagEditing=null;});
   renderControls();api.onTrackingChanged(()=>{void load(false);});void load(active);
  }
- window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,openTag,settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
+ window.everythingTrackingUI={selection:()=>({kind:'tracking',id:currentId,token:current()?.snapshot?.token,indices:[...selected]}),init,activate,open,openTag,openQuery,canLeave:()=>!busy&&renaming?.mode!=='inline',settingsChanged:()=>{if(updatingView)return;const value=window.settingsUI?.get().everythingSelectedTag??null;if(value!==tag){cancelInlineRename(false,false);tag=value;currentId=null;selected.clear();void load(active);}else if(renaming?.mode==='inline'){pendingLoad=true;renderControls();}else render();},select:id=>{cancelInlineRename(false,false);currentId=id;if(id)rememberQuery(id);rememberTag(null);restoreSelection();},render};
 })();
