@@ -118,6 +118,18 @@ start "" "C:\Tools\Bulk File Studio.exe" --open-item record 11111111-2222-3333-4
 
 指令會啟動應用程式，執行中則使用原有視窗。項目會在目前使用者資料中以 UUID 定位。導覽會遵守現有的編輯及作業檢查。收藏指令開啟收藏頁的指定項目。
 
+### 直接開啟 Everything 追蹤
+
+```bat
+start "" "C:\Tools\Bulk File Studio.exe" --open-item tracking 11111111-2222-3333-4444-555555555555
+start "" "C:\Tools\Bulk File Studio.exe" --open-tracking-query "dm:last7days size:>200mb"
+start "" "C:\Tools\Bulk File Studio.exe" --open-tracking-tag "工作"
+```
+
+- 已儲存的追蹤搜尋可用 UUID 定位。在追蹤搜尋名稱按右鍵，可選「複製啟動參數」。
+- 搜尋式須以單一引數傳入，支援 Everything 語法。可貼上表單內的搜尋條件，也可使用「複製搜尋條件」取得含類型篩選的完整搜尋式。系統優先比對完整搜尋式。只有一筆符合時就會開啟，找不到則預填新增追蹤表單，由你確認是否儲存。若有多筆符合，可用 UUID 指定。
+- 標籤依名稱篩選，英文字母大小寫均可。請使用 Everything 追蹤中已存在的標籤。
+
 ## 離線與資料保護
 
 - 工作區 SQLite、收藏與設定儲存在目前 Windows 使用者的本機資料位置。共享傳送資料包快照，可為各主表指定範圍。

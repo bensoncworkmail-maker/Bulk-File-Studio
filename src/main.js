@@ -210,13 +210,27 @@ let queuedFavorites = launchArgs?[]:favoriteArguments(process.argv);
 let favoriteActivation = queuedFavorites.length > 0;
 let favoriteNotice = null;
 function send(window,channel,payload){if(window&&!window.isDestroyed())window.webContents.send(channel,payload);}
+function resolveTrackingLaunch(target){
+ if(target.kind==='tracking')everythingTracking.query(target.id);
+ if(target.kind==='tracking-tag'){
+  const key=target.tag.toLocaleLowerCase();
+  if(!everythingTracking.read().queries.some(query=>query.tags.some(tag=>tag.toLocaleLowerCase()===key)))throw Error('找不到指定的 Everything 追蹤標籤');
+ }
+ if(target.kind==='tracking-query'){
+  const {searchExpression}=require('./everything-query');
+  const queries=everythingTracking.read().queries;
+  const fullMatches=queries.filter(query=>searchExpression(query)===target.text);
+  const matches=fullMatches.length?fullMatches:queries.filter(query=>query.mode==='syntax'&&query.text===target.text);
+  if(matches.length>1)throw Error('有多個追蹤搜尋符合此搜尋式，請使用該項目的 UUID 開啟');
+  if(matches.length===1)return {kind:'tracking',id:matches[0].id};
+ }
+ return target;
+}
 function deliverLaunch(){
  if(!pendingLaunch||!win||win.isDestroyed()||launchReadyContents!==win.webContents)return;
  let target=pendingLaunch;
  pendingLaunch=null;
- if(target.kind==='tracking'){
-  try{everythingTracking.query(target.id);}catch(error){target={error:error.message};}
- }
+ try{target=resolveTrackingLaunch(target);}catch(error){target={error:error.message};}
  send(win,'desktop-launch-target',target);
 }
 function copyLaunchItem(kind,id){return clipboard.writeText(launchNavigation.itemArguments(kind,id).join(' '));}

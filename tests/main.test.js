@@ -76,6 +76,28 @@ test('startup navigation waits for the trusted renderer and forwarded commands r
  assert.deepEqual(h.opened,[]);
 });
 
+test('tracking launch commands route a saved UUID, expression or tag and leave unmatched expressions unsaved',t=>{
+ const h=harness(t),H=h.handlers;
+ H.get('desktop-launch-ready')();
+ const text=String.raw`dm:last7days !C:\Users\Example\AppData\Local\Temp size:>200mb`;
+ const saved=H.get('everything-tracking-save')(null,{name:'大型檔案',text,mode:'syntax',type:'file',tags:['Work Files'],enabled:false});
+ const open=(...args)=>{
+  h.events.get('second-instance')({},['Studio.exe',...args],h.dir);
+  return {...h.messages.findLast(message=>message[0]==='desktop-launch-target')[1]};
+ };
+ assert.deepEqual(open('--open-item','tracking',saved.id),{kind:'tracking',id:saved.id});
+ assert.deepEqual(open('--open-tracking-tag','work files'),{kind:'tracking-tag',tag:'work files'});
+ assert.match(open('--open-tracking-tag','不存在').error,/找不到/);
+ const expression='file: <'+text+'>';
+ assert.deepEqual(open('--open-tracking-query',expression),{kind:'tracking',id:saved.id});
+ assert.deepEqual(open('--open-tracking-query',text),{kind:'tracking',id:saved.id});
+ assert.deepEqual(open('--open-tracking-query','regex:^Report_[0-9]+$'),{kind:'tracking-query',text:'regex:^Report_[0-9]+$'});
+ assert.match(open('--open-tracking-query','x'.repeat(4097)).error,/4096/);
+ assert.equal(H.get('everything-tracking-list')().queries.length,1);
+ H.get('everything-tracking-save')(null,{name:'另一筆搜尋',text:expression,mode:'syntax',type:'all',tags:[],enabled:false});
+ assert.match(open('--open-tracking-query',expression).error,/UUID/);
+});
+
 test('productivity IPC is restricted to the main renderer and supports persistent snippets',async t=>{
  const h=harness(t),floating=new h.windows[0].constructor({width:320,height:400});floating.loadFile(path.resolve(__dirname,'../src/floating.html'));
  assert.throws(()=>h.rawHandlers.get('productivity-get')({sender:floating.webContents,senderFrame:{url:floating.url}}),/不受信任/);
