@@ -37,6 +37,31 @@ test('snippet search combines category and text while preview and copy expand th
  await h.click('snippet-copy');
  assert.deepEqual(h.calls.find(value=>value[0]==='copy'),['copy',h.state.data.snippets[0].id,'客戶 B']);
 });
+test('snippet categories fold independently, show matches and copy from the list without disturbing a draft',async()=>{
+ const h=harness();attachWorkflow(h);
+ h.state.data.snippets=[
+  P.entry('snippets',{id:crypto.randomUUID(),name:'問候',body:'相符內容',category:'工作'}),
+  P.entry('snippets',{id:crypto.randomUUID(),name:'其他',body:'另一個片段',category:''})
+ ];
+ await h.click('tab-snippets');
+ const toggles=()=>h.$('snippet-list').querySelectorAll('.snippet-group-toggle');
+ const work=()=>toggles().find(item=>item.textContent.startsWith('工作'));
+ const expanded=item=>item.getAttribute('aria-expanded')==='true';
+ assert.equal(work().querySelector('.snippet-group-count').textContent,'1');
+ await work().dispatch('click');
+ assert.equal(expanded(work()),false);
+ assert.equal(toggles().filter(expanded).length,1);
+ h.$('snippet-query').value='相符內容';await h.$('snippet-query').dispatch('input');
+ assert.equal(toggles().length,1);assert.equal(expanded(work()),true);
+ h.$('snippet-body').value='未儲存文字';await h.$('snippet-form').dispatch('input');
+ await h.$('snippet-list').querySelector('.snippet-copy-item').dispatch('click');await tick();
+ assert.deepEqual(h.calls.find(value=>value[0]==='copy'),['copy',h.state.data.snippets[0].id,'']);
+ assert.equal(h.$('snippet-body').value,'未儲存文字');assert.match(h.$('snippet-body-count').textContent,/^5／/);
+ await h.click('snippet-clear-filters');
+ assert.equal(toggles().length,2);assert.equal(expanded(work()),false);
+ await h.click('snippet-collapse-all');assert.ok(toggles().every(item=>!expanded(item)));
+ await h.click('snippet-expand-all');assert.ok(toggles().every(expanded));
+});
 test('worksets persist selected resources and open the returned record after operation unlocks',async()=>{const h=harness();await h.load();h.$('workset-name').value='客戶資料';const check=h.$('workset-records').querySelector('input');check.checked=true;await check.dispatch('change');await h.submit('workset-form');assert.equal(h.state.data.worksets[0].recordIds[0],h.record.id);const open=h.$('workset-detail').querySelectorAll('button').find(value=>value.textContent==='開啟工作集');await open.dispatch('click');await tick();assert.ok(h.calls.some(value=>value[0]==='record'&&value[2]===h.record.id));});
 test('calendar renders existing dates and board offers accessible status moves with revision',async()=>{const h=harness();await h.load();assert.ok(h.$('planning-content').querySelectorAll('.productivity-event').length>0);h.$('planning-sheet').value=h.sheet.id;await h.$('planning-sheet').dispatch('change');await h.click('planning-board-mode');const select=h.$('planning-content').querySelector('select');assert.ok(select.getAttribute('aria-label'));const field=h.sheet.fields.find(value=>value.type==='select');select.value=field.options[0];await select.dispatch('change');await tick();const call=h.calls.find(value=>value[0]==='board');assert.equal(call[1],h.record.id);assert.equal(call[3],field.options[0]);assert.equal(call[4],1);});
 test('document preview renders plain text safely and clears document data on close',async()=>{const h=harness();await h.load();await h.click('document-choose');assert.equal(h.$('document-preview-dialog').open,true);assert.match(h.$('document-preview-content').textContent,/<img src=x/);assert.equal(h.$('document-preview-content').querySelectorAll('img').length,0);await h.click('document-preview-close');assert.equal(h.$('document-preview-content').children.length,0);});

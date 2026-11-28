@@ -37,6 +37,7 @@
   $('sticker-settings-header-color').value=prefs.headerBackground;
   $('sticker-settings-opacity').value=prefs.opacity;
   $('sticker-settings-startup').value=prefs.startupVisibility;
+  $('sticker-settings-image-open').value=prefs.imageOpen;
   $('sticker-settings-open-click').value=prefs.openClick;
   $('sticker-settings-location-click').value=prefs.locationClick;
   $('sticker-settings-grip').checked=prefs.showGrip;
@@ -80,6 +81,7 @@
     const preferences={...draft,background:$('sticker-settings-color').value,
      headerBackground:$('sticker-settings-header-color').value,opacity:Number($('sticker-settings-opacity').value),
      startupVisibility:$('sticker-settings-startup').value,
+     imageOpen:$('sticker-settings-image-open').value,
      openClick:$('sticker-settings-open-click').value,locationClick:$('sticker-settings-location-click').value,
      showGrip:$('sticker-settings-grip').checked,
      showAttachmentHint:$('sticker-settings-attachment-hint').checked,

@@ -21,9 +21,18 @@
   if(action)control.addEventListener('click',action);
   return control;
  }
- function fileCell(label,action,mode){
+ function fileCell(label,action,mode,type){
   const cell=document.createElement('td');
-  const control=linkButton(label,event=>{if(event.detail===0)return action();});
+  const parentName=!type&&label.length>48&&label.match(/[^\\/]+[\\/]*$/)?.[0];
+  const display=parentName&&parentName!==label?'…'+(label.includes('\\')?'\\':'/')+parentName:label;
+  const control=linkButton(display,event=>{if(event.detail===0)return action();});
+  control.title=label;
+  control.setAttribute('aria-label',(type?'開啟'+type+' ':'在檔案總管定位 ')+label);
+  if(type){
+   const badge=text('span',type);
+   badge.className='sticker-attachment-type';badge.setAttribute('aria-hidden','true');
+   cell.append(badge);
+  }
   cell.append(control);
   if(mode==='single')cell.addEventListener('click',event=>{if(event.detail===1)return action();});
   else cell.addEventListener('dblclick',action);
@@ -37,11 +46,12 @@
   const entries=data.collapsed?[]:data.links
    .map(({image,label,location,imageKey},index)=>({image,label,location,imageKey,index}))
    .filter(link=>link.image&&link.location!==undefined);
-  const signature=JSON.stringify(entries);
+  const signature=JSON.stringify([data.imageOpen,entries]);
   if(signature===imageSignature)return;
   imageSignature=signature;imageObserver?.disconnect();
   const root=$('image-previews'),loaders=new Map();
   root.replaceChildren();root.hidden=!entries.length;
+  const actionLabel=data.imageOpen==='internal'?'在程式內放大':'以系統預設應用程式開啟';
   for(const {index,label} of entries){
    const figure=document.createElement('figure'),image=document.createElement('img');
    const button=linkButton(label,()=>{
@@ -49,8 +59,8 @@
     return api.openLink(i,version,'enlarge',location).catch(report);
    });
    button.className='sticker-image-button';
-   button.setAttribute('aria-label','放大圖片 '+label);
-   button.title='放大圖片';
+   button.setAttribute('aria-label',actionLabel+' '+label);
+   button.title=actionLabel;
    image.alt='';image.decoding='async';image.addEventListener('error',()=>{figure.hidden=true;});
    button.replaceChildren(image);
    figure.append(button,text('figcaption',label));
@@ -110,18 +120,19 @@
   $('tag-items').replaceChildren(...items.map(label=>text('li',label)));
   $('tag-items').hidden=!items.length;
   const rows=[],links=[];
-  for(const [index,{kind,label,location,ref}] of data.links.entries()){
+  for(const [index,{kind,label,location,ref,type,image}] of data.links.entries()){
    if(location!==undefined){
     const open=()=>kind==='item'?api.openItem().catch(report):api.openLink(index,ref??data.version,'open',location).catch(report);
     const locate=()=>kind==='item'?api.locate().catch(report):api.openLink(index,ref??data.version,'show',location).catch(report);
     const row=document.createElement('tr');
-    row.append(fileCell(label,open,data.openClick),fileCell(location,locate,data.locationClick));rows.push(row);
+    row.append(fileCell(label,open,data.openClick,type==='folder'?'資料夾':image?'圖片':'檔案'),fileCell(location,locate,data.locationClick));rows.push(row);
    }else links.push(linkButton(label,()=>api.openLink(index,data.version).catch(report)));
   }
   const openGesture=data.openClick==='single'?'單擊':'雙擊',locateGesture=data.locationClick==='single'?'單擊':'雙擊';
   $('attachment-hint').textContent=openGesture+'名稱開啟，'+locateGesture+'位置在檔案總管定位。';
   $('attachment-hint').hidden=data.showAttachmentHint!==true;
   $('attachment-rows').replaceChildren(...rows);
+  $('attachment-count').textContent=String(rows.length);
   $('attachments').hidden=!rows.length;
   $('links').replaceChildren(...links);
   $('links').hidden=!links.length;

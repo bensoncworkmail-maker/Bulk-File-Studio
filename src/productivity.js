@@ -6,6 +6,7 @@
  let callbacks,busy=false,dirty=true,loaded=false,section='worksets',state=null,repair=null,restore=null,suggestions=null,workFavorites=new Set(),workRecords=new Set(),editingWorkset=true,refreshRequest=0,planning,pendingSource;
  let snippetRefreshPending=false;
  const selectedTools={rules:null,worksets:null,snippets:null},snippetSelection=new Set(),backupSelection=new Set();const splitControls=[];let advancedConditions;
+ const snippetGroups=new Map(),foldedSnippetGroups=new Set(),foldedFilteredGroups=new Set();
  const snippetsOpen=()=>!$('snippets-page').classList.contains('hidden');
  const liveRecords=()=>state?.workspace.document.records.filter(record=>!record.deletedAt&&state.workspace.document.sheets.some(sheet=>sheet.id===record.sheetId&&!sheet.deletedAt))||[];
  const configuration=()=>({settings:window.settingsUI.get(),shortcuts:window.studioShortcuts.getBindings(),...callbacks.configuration()});
@@ -159,6 +160,8 @@
 
  const snippetQuery=()=>$('snippet-query').value.trim().toLocaleLowerCase();
  const snippetCategory=value=>'category:'+value;
+ const hasSnippetFilter=()=>Boolean(snippetQuery()||$('snippet-filter-category').value);
+ const snippetFolds=()=>hasSnippetFilter()?foldedFilteredGroups:foldedSnippetGroups;
  function snippetResults(){
   const query=snippetQuery(),category=$('snippet-filter-category').value;
   return (state?.data.snippets||[]).filter(value=>
@@ -176,7 +179,9 @@
  }
  function updateSnippetPreview(){
   $('snippet-shortcut-label').textContent=$('snippet-shortcut').value;
-  $('snippet-preview-text').textContent=M.expandSnippet($('snippet-body').value,{customer:$('snippet-customer').value})||'輸入文字即可預覽。';
+  const body=$('snippet-body');
+  $('snippet-body-count').textContent=body.value.length.toLocaleString('zh-Hant')+'／'+Number(body.getAttribute('maxlength')).toLocaleString('zh-Hant');
+  $('snippet-preview-text').textContent=M.expandSnippet(body.value,{customer:$('snippet-customer').value})||'輸入文字即可預覽。';
  }
  function updateSnippetCategories(items){
   const categories=[...new Set(items.map(value=>value.category))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
@@ -189,6 +194,34 @@
   $('snippet-categories').replaceChildren(...categories.filter(Boolean).map(value=>{
    const item=node('option');item.value=value;return item;
   }));
+ }
+ function setSnippetGroupExpanded(category,{header,content},expanded){
+  content.hidden=!expanded;
+  header.setAttribute('aria-expanded',String(expanded));
+  if(expanded)snippetFolds().delete(category);else snippetFolds().add(category);
+ }
+ function setSnippetGroupsExpanded(expanded){
+  for(const [category,group] of snippetGroups)setSnippetGroupExpanded(category,group,expanded);
+  updateSnippetActions();
+  const [used,next]=expanded?['snippet-expand-all','snippet-collapse-all']:['snippet-collapse-all','snippet-expand-all'];
+  if(document.activeElement===$(used)&&!$(next).disabled)$(next).focus();
+ }
+ function makeSnippetGroup(root,category){
+  const section=node('section',undefined,'snippet-group'),heading=node('h3');
+  const content=node('div',undefined,'snippet-group-items'),count=node('span',undefined,'snippet-group-count');
+  content.id='snippet-category-'+snippetGroups.size;
+  const header=button(category||'未分類',()=>{
+   setSnippetGroupExpanded(category,group,content.hidden);updateSnippetActions();
+  },'snippet-group-toggle');
+  const group={header,content,count};
+  header.setAttribute('aria-controls',content.id);
+  header.append(count);heading.append(header);section.append(heading,content);root.append(section);
+  setSnippetGroupExpanded(category,group,!snippetFolds().has(category));
+  snippetGroups.set(category,group);
+  return group;
+ }
+ function copySnippet(id){
+  if(id)void run(()=>api.snippetCopy(id,$('snippet-customer').value),'已複製文字片段。');
  }
  function renderSnippets(focusId){
   const root=$('snippet-list'),items=state?.data.snippets||[],ids=new Set(items.map(item=>item.id));
@@ -203,11 +236,14 @@
   }
   const rows=snippetResults().sort((a,b)=>a.category.localeCompare(b.category,'zh-Hant')||a.name.localeCompare(b.name,'zh-Hant'));
   $('snippet-count').textContent=rows.length===items.length?items.length+' 個片段':rows.length+'／'+items.length+' 個片段';
-  let category=null;
+  const scrollTop=root.scrollTop;
+  let focusTarget;
+  snippetGroups.clear();
   root.replaceChildren();
   for(const value of rows){
-   if(category!==value.category){category=value.category;root.append(node('h3',category||'未分類','tool-category'));}
+   const group=snippetGroups.get(value.category)||makeSnippetGroup(root,value.category);
    const row=node('div',undefined,'tool-master-row'),check=node('input');
+   check.className='snippet-select-item';
    check.type='checkbox';check.checked=snippetSelection.has(value.id);
    check.setAttribute('aria-label','選取 '+value.name);
    check.addEventListener('change',()=>{
@@ -220,10 +256,18 @@
    },'tool-master-item');
    item.setAttribute('aria-current',String(selectedTools.snippets===value.id));
    item.append(node('small',value.body.trim().slice(0,100)));
-   row.append(check,item);root.append(row);
-   if(value.id===focusId)item.focus();
+   const copy=button('複製',()=>copySnippet(value.id),'btn btn-ghost snippet-copy-item');
+   copy.setAttribute('aria-label','複製 '+value.name);
+   row.append(check,item,copy);group.content.append(row);
+   if(value.id===focusId)focusTarget=item;
+  }
+  for(const {content,count} of snippetGroups.values()){
+   count.textContent=String(content.children.length);
+   count.setAttribute('aria-label',count.textContent+' 個片段');
   }
   empty(root,items.length?'沒有符合的片段。':'尚無片段，請按「新增片段」。');
+  root.scrollTop=scrollTop;
+  focusTarget?.focus({preventScroll:true});
   updateSnippetActions(rows);
  }
  function updateSnippetActions(rows=snippetResults()){
@@ -233,6 +277,10 @@
   $('snippet-select-results').disabled=busy||!rows.length;
   for(const id of ['snippet-clear-selection','snippet-apply-category','snippet-delete-selected'])$(id).disabled=busy||!count;
   $('snippet-copy').disabled=busy||!selectedTools.snippets;
+  $('snippet-clear-filters').disabled=busy||!hasSnippetFilter();
+  const groups=[...snippetGroups.values()];
+  $('snippet-expand-all').disabled=busy||!groups.some(group=>group.content.hidden);
+  $('snippet-collapse-all').disabled=busy||!groups.some(group=>!group.content.hidden);
  }
  async function snippetBulk(action){
   const ids=[...snippetSelection];
@@ -307,6 +355,9 @@
   }});
   splitControls.push([kind,split]);
  }
+ function applyToolSplitWidths(prefs){
+  for(const [kind,split] of splitControls)split.set(prefs.toolSplitWidths?.[kind]||(kind==='snippets'?300:250));
+ }
  function setupToolSplits(){
   for(const [kind,listId,formId] of [['rules','rule-list','rule-form'],['worksets','workset-list','workset-form']]){
    const panel=$('productivity-'+kind),list=$(listId),form=$(formId),layout=node('div',undefined,'tool-split'),master=node('aside',undefined,'tool-master'),detail=node('div',undefined,'tool-detail');
@@ -327,9 +378,7 @@
    attachSplit(kind,layout);
   }
   attachSplit('snippets',$('snippets-split'));
-  window.desktopAPI.get().then(prefs=>{
-   for(const [kind,split] of splitControls)split.set(prefs.toolSplitWidths?.[kind]||250);
-  }).catch(()=>{});
+  window.desktopAPI.get().then(applyToolSplitWidths).catch(()=>{});
  }
  function init(config){callbacks=config;setupToolSplits();window.shortcutControls.bind($('snippet-shortcut'));
   let importSheets=[],importToken=null,importRequest=0;
@@ -423,9 +472,7 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   $('snippet-delete-current').addEventListener('click',()=>{
    if(selectedTools.snippets&&discard('snippets'))void remove('snippets',selectedTools.snippets);
   });
-  $('snippet-copy').addEventListener('click',()=>{
-   if(selectedTools.snippets)void run(()=>api.snippetCopy(selectedTools.snippets,$('snippet-customer').value),'已複製文字片段。');
-  });
+  $('snippet-copy').addEventListener('click',()=>copySnippet(selectedTools.snippets));
   $('snippet-select-results').addEventListener('click',()=>{
    for(const item of snippetResults())snippetSelection.add(item.id);
    renderSnippets();
@@ -433,8 +480,14 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   $('snippet-clear-selection').addEventListener('click',()=>{snippetSelection.clear();renderSnippets();});
   $('snippet-apply-category').addEventListener('click',()=>void snippetBulk('category'));
   $('snippet-delete-selected').addEventListener('click',()=>void snippetBulk('delete'));
-  $('snippet-query').addEventListener('input',()=>renderSnippets());
-  $('snippet-filter-category').addEventListener('change',()=>renderSnippets());
+  const filtersChanged=()=>{foldedFilteredGroups.clear();renderSnippets();$('snippet-list').scrollTop=0;};
+  $('snippet-query').addEventListener('input',filtersChanged);
+  $('snippet-filter-category').addEventListener('change',filtersChanged);
+  $('snippet-clear-filters').addEventListener('click',()=>{
+   $('snippet-query').value=$('snippet-filter-category').value='';filtersChanged();$('snippet-query').focus();
+  });
+  $('snippet-expand-all').addEventListener('click',()=>setSnippetGroupsExpanded(true));
+  $('snippet-collapse-all').addEventListener('click',()=>setSnippetGroupsExpanded(false));
   $('snippet-customer').addEventListener('input',updateSnippetPreview);
   setSnippet();updateSnippetActions();
   planning=window.planningView.init({openRecord,moveCard,isBusy:()=>busy||callbacks.isBusy()});
@@ -444,7 +497,7 @@ $('tab-productivity').addEventListener('click',()=>openSection(section));$('prod
   setInterval(()=>void backupTick(),60000);void backupTick();
   window.desktopAPI.onChanged(({settings})=>{
    if(!settings)return;
-   for(const [kind,split] of splitControls)split.set(settings.toolSplitWidths?.[kind]||250);if(state){state.preferences=settings;planning?.update(state);}
+   applyToolSplitWidths(settings);if(state){state.preferences=settings;planning?.update(state);}
    const next=JSON.stringify(settings.logView);
    if(next!==logSettings)logView?.refresh();
    logSettings=next;
